@@ -82,6 +82,6 @@ class ReportExportRequest:
     """Request to export a report."""
 
     report_id: str
-    format: str = "markdown"  # markdown, html, pdf
+    format: str = "markdown"  # markdown, html, docx, pdf
     include_figures: bool = True
     for_paper_assistant: bool = False

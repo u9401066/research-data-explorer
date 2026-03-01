@@ -55,13 +55,19 @@ class CompareGroupsUseCase:
                 warnings.append(f"Variable '{var_name}' not found in dataset.")
                 continue
 
+            # Count actual groups in the data
+            import pandas as pd
+            df: pd.DataFrame = raw_data
+            actual_groups = df[group_variable].nunique()
+            group_sizes = df.groupby(group_variable)[var_name].count().tolist()
+
             # Get test recommendation from domain service
             recommendation = self._advisor.recommend_comparison_test(
                 outcome_type=var.variable_type,
-                group_count=2,  # TODO: count actual groups
+                group_count=actual_groups,
                 is_paired=is_paired,
                 is_normal=None,  # Will be checked by engine
-                sample_sizes=[dataset.row_count],
+                sample_sizes=group_sizes,
             )
 
             # Execute via port
