@@ -111,21 +111,63 @@ class ProjectRepositoryPort(ABC):
 
 
 class AutomlGatewayPort(ABC):
-    """Port for communicating with automl-stat-mcp (Anti-Corruption Layer)."""
+    """Port for communicating with automl-stat-mcp services (Anti-Corruption Layer).
+
+    Translates between RDE domain concepts and the two REST services:
+    - stats-service (port 8003): statistical analysis, propensity, survival, ROC, etc.
+    - automl-service (port 8001): AutoML training jobs
+    """
 
     @abstractmethod
-    def create_project(self, name: str, data_path: str) -> str:
-        """Create an automl project and return project ID."""
+    def is_available(self) -> bool:
+        """Check if the stats service is reachable."""
         ...
 
     @abstractmethod
-    def upload_data(self, project_id: str, data: Any) -> None:
-        """Upload data to automl engine."""
+    def direct_analyze(
+        self, csv_content: str, config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run direct statistical analysis (stats-service /direct/analyze)."""
         ...
 
     @abstractmethod
-    def run_analysis(self, project_id: str, config: dict[str, Any]) -> dict[str, Any]:
-        """Run analysis in automl engine."""
+    def run_propensity(
+        self, csv_content: str, config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run propensity score analysis (stats-service /propensity/*)."""
+        ...
+
+    @abstractmethod
+    def run_survival(
+        self, csv_content: str, config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run survival analysis (stats-service /survival/*)."""
+        ...
+
+    @abstractmethod
+    def run_roc(
+        self, csv_content: str, config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run ROC/AUC analysis (stats-service /roc/*)."""
+        ...
+
+    @abstractmethod
+    def run_power(
+        self, csv_content: str, config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run power analysis (stats-service /power/*)."""
+        ...
+
+    @abstractmethod
+    def submit_automl(
+        self, csv_content: str, config: dict[str, Any],
+    ) -> str:
+        """Submit AutoML training job (automl-service). Returns job_id."""
+        ...
+
+    @abstractmethod
+    def get_job_status(self, job_id: str) -> dict[str, Any]:
+        """Get job status (either service)."""
         ...
 
 
