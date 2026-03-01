@@ -17,7 +17,7 @@
 Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← Infrastructure (Adapters)
 ```
 
-- **28 MCP tools** across 7 tool files
+- **29 MCP tools** across 7 tool files
 - **11-Phase Pipeline** with Hard/Soft constraints
 - **automl-stat-mcp** delegation via AnalysisDelegator
 
@@ -85,10 +85,14 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 
 進階分析自動委派給 automl（如服務可用），否則降級為本地引擎：
 
-| 分析 | 引擎 |
-|------|------|
-| 描述統計、t-test、chi-square、Table 1 | 本地 ScipyEngine |
-| Propensity Score、Survival、ROC、AutoML | automl-stat-mcp（降級: 本地） |
+| 分析 | 引擎 | 端點 |
+|------|------|------|
+| 描述統計、t-test、chi-square、Table 1 | 本地 ScipyEngine | — |
+| Propensity Score | stats-service:8003 | /propensity/* |
+| Survival Analysis | stats-service:8003 | /survival/* |
+| ROC/AUC | stats-service:8003 | /roc/* |
+| Power Analysis | stats-service:8003 | /power/* |
+| AutoML Training | automl-service:8001 | /train/automl |
 
 使用 `run_advanced_analysis()` 自動選擇引擎。
 

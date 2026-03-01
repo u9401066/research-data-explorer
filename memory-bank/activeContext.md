@@ -2,25 +2,26 @@
 
 ## Current Goals
 
-- 完成 xhtml2pdf 安裝至 venv 並驗證 PDF export
-- 分段 git commit + push
-- 更新所有文件（memory-bank、AGENTS.md）
+- End-to-end smoke test for export pipeline
+- 清理與增強步驟驗證
 
 ## Recently Completed
 
 - P1-P4 refactoring (analyze_variable UseCase, CollinearityChecker, fmt_table)
 - DocxExporter adapter (python-docx + xhtml2pdf)
-- ExportReportUseCase
-- export_report MCP tool (#28)
+- ExportReportUseCase + export_report MCP tool
 - DocumentExporterPort domain port
-- 28 MCP tools 全數註冊通過
+- VariableClassifier 深度推論 (sample_values: datetime/numeric_string/ID by name)
+- build_schema Phase 2 重新分類 + 描述統計
+- AutomlGateway 重寫對齊實際 API (stats-service:8003 + automl-service:8001)
+- AutomlGatewayPort 擴展 (direct_analyze, propensity, survival, roc, power, automl)
+- xhtml2pdf 安裝至 .venv
+- 29 MCP tools 全數註冊通過
 
 ## Known Issues
 
-- xhtml2pdf 未安裝至 .venv（上次誤裝到 conda base）
-- AutomlGateway API endpoints 與 automl-stat-mcp 實際 API 不匹配（dead code）
-- build_schema 目前只複製 Phase 1 結果，需深度重構
-- VariableClassifier 未使用 sample_values 做推論
+- SessionRegistry 無持久化（服務重啟丟失狀態）
+- Export pipeline 尚未 end-to-end 測試
 
 ## Current Blockers
 
