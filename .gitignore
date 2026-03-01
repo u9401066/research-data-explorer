@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+!.vscode/mcp.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data (per git-workflow bylaw §4)
+data/rawdata/
+data/jobs/
+data/reports/
+
+# Project artifacts from testing (not source-controlled)
+data/projects/*/artifacts/
+data/projects/*/figures/
+data/projects/*/decision_log.jsonl
+data/projects/*/deviation_log.jsonl
+
+# Keep project configs (yaml/json) trackable
+!data/projects/*.json
+
+# Test artifacts
+test_*.py
+!tests/**
+
+# Temporary files
+*.tmp
+*.bak
+*.py.bak
+*.swp
+*~
+
+# xhtml2pdf / reportlab caches
+.cache/
