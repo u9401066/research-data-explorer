@@ -64,30 +64,33 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 | `load_dataset` | 載入資料集（通過 Phase 1 的檔案） |
 | `build_schema` | 型別推論+變數分類+基礎統計 → schema.json |
 | `profile_dataset` | ydata-profiling 完整報告 |
+| `assess_quality` | 資料品質評估（缺失、異常值等） |
 
 #### Phase 3: Concept Alignment
 | Tool | Purpose |
 |------|---------|
-| `align_concepts` | 研究問題 → schema 變數映射 → 用戶確認 |
+| `align_concept` | 研究問題 → schema 變數映射 → 用戶確認 |
 
 #### Phase 4: Plan Registration
 | Tool | Purpose |
 |------|---------|
-| `register_plan` | 建立分析計畫+automl 指令預排 → 用戶確認 → 鎖定 |
+| `register_analysis_plan` | 建立分析計畫+automl 指令預排 → 用戶確認 → 鎖定 |
 
 #### Phase 5: Pre-Exploration Check
 | Tool | Purpose |
 |------|---------|
-| `run_precheck` | 樣本量(H-003)+常態性(S-001)+共線性(S-007)+缺失模式(S-005) |
+| `check_readiness` | 樣本量(H-003)+常態性(S-001)+共線性(S-007)+缺失模式(S-005) |
 
 #### Phase 6: Execute Exploration
 | Tool | Purpose |
 |------|---------|
-| `execute_cleaning` | 執行清理（按計畫 missing_strategy） |
+| `suggest_cleaning` | 建議清理策略（缺失處理、異常值等） |
+| `apply_cleaning` | 執行清理（按 suggest_cleaning 建議或計畫 missing_strategy） |
 | `generate_table_one` | 生成 Table 1（基線特徵表） |
-| `analyze_variable` | 單變數分析 |
+| `analyze_variable` | 單變數分析（委派 AnalyzeVariableUseCase） |
 | `compare_groups` | 組間比較（自動選擇檢定方法） |
-| `correlation_matrix` | 相關性分析矩陣 |
+| `correlation_matrix` | 相關性分析矩陣（含 S-007 VIF 檢查） |
+| `run_advanced_analysis` | 進階分析（自動委派 automl-stat-mcp） |
 | `create_visualization` | 生成圖表 |
 | `log_deviation` | 記錄計畫偏離（偏離計畫時必須呼叫！） |
 
@@ -100,6 +103,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 | Tool | Purpose |
 |------|---------|
 | `assemble_report` | 組裝完整 EDA 報告（含 decision log、deviation log） |
+| `export_report` | 匯出報告為 Word (.docx) 和/或 PDF（含嵌入圖表） |
 
 #### Phase 9: Audit Review
 | Tool | Purpose |
@@ -111,6 +115,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 |------|---------|
 | `auto_improve` | 根據審計自動改善 |
 | `export_handoff` | 產出 handoff package → med-paper-assistant |
+| `verify_audit_trail` | 驗證審計鏈完整性 |
 
 #### Cross-Phase
 | Tool | Purpose |

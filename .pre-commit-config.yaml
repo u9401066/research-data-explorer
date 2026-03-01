@@ -1,0 +1,55 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  # ── Standard Quality ──────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff            # linter
+        args: [--fix]
+      - id: ruff-format     # formatter
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  # ── RDE Pipeline Guards (custom local hooks) ──────────────────────
+  - repo: local
+    hooks:
+      - id: rde-decision-log-integrity
+        name: "RDE: Decision log append-only check (H-010)"
+        language: python
+        entry: python scripts/hooks/check_log_integrity.py
+        files: 'decision_log\.jsonl|deviation_log\.jsonl'
+        pass_filenames: true
+
+      - id: rde-pii-scan
+        name: "RDE: PII scan on outputs (H-004/H-006)"
+        language: python
+        entry: python scripts/hooks/pii_scan.py
+        files: '\.(md|json|csv|html)$'
+        exclude: '^(vendor/|\.github/|node_modules/)'
+        pass_filenames: true
+
+      - id: rde-artifact-gate
+        name: "RDE: Pipeline artifact gate (H-008)"
+        language: python
+        entry: python scripts/hooks/artifact_gate.py
+        files: '^data/projects/'
+        pass_filenames: false
+        always_run: true
+
+      - id: rde-report-sanitize
+        name: "RDE: Report output sanitization (H-006)"
+        language: python
+        entry: python scripts/hooks/report_sanitize.py
+        files: '(eda_report|final_report|results_summary)\.(md|json)$'
+        pass_filenames: true
