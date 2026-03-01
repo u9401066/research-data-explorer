@@ -20,6 +20,13 @@ from rde.interface.mcp.tools.audit_tools import register_audit_tools
 
 def create_server():
     """Create and configure the MCP server with all tools."""
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    )
+
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError:
@@ -27,6 +34,12 @@ def create_server():
 
     server = FastMCP(
         "research-data-explorer",
+        instructions=(
+            "Research Data Explorer (RDE) — 11-Phase Auditable EDA Pipeline.\n"
+            "使用此工具進行結構化、可審計的探索性資料分析。\n"
+            "所有分析決策自動記錄 (H-009)，偏離計畫需明確記錄。\n"
+            "Pipeline: Phase 0 (Setup) → Phase 10 (Auto-Improve)。"
+        ),
     )
 
     # Register tool groups (organized by pipeline phases)
