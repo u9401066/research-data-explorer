@@ -15,6 +15,7 @@ from typing import Any
 class ReportFormat(Enum):
     MARKDOWN = "markdown"
     HTML = "html"
+    DOCX = "docx"
     PDF = "pdf"
 
 

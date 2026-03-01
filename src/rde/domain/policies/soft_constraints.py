@@ -109,6 +109,70 @@ class SoftConstraints:
         )
 
     @staticmethod
+    def s005_missing_pattern(
+        missing_pct: float, pattern_type: str | None = None
+    ) -> PolicyResult:
+        """S-005: Assess missing data pattern (MCAR / MAR / MNAR)."""
+        if missing_pct > 50:
+            return PolicyResult(
+                passed=False,
+                constraint_id="S-005",
+                level=ConstraintLevel.SOFT,
+                message=f"Missing rate {missing_pct:.1f}% — very high.",
+                suggestion="Consider dropping variable or using MI with caution.",
+            )
+        if pattern_type and pattern_type.upper() == "MNAR":
+            return PolicyResult(
+                passed=False,
+                constraint_id="S-005",
+                level=ConstraintLevel.SOFT,
+                message=f"Missing pattern appears MNAR ({missing_pct:.1f}% missing).",
+                suggestion=(
+                    "MNAR data needs domain-knowledge-based imputation or sensitivity analysis."
+                ),
+            )
+        if missing_pct > 5:
+            return PolicyResult(
+                passed=False,
+                constraint_id="S-005",
+                level=ConstraintLevel.SOFT,
+                message=f"Missing rate {missing_pct:.1f}% — moderate.",
+                suggestion="Run Little's MCAR test; consider multiple imputation.",
+            )
+        return PolicyResult(
+            passed=True,
+            constraint_id="S-005",
+            level=ConstraintLevel.SOFT,
+            message=f"Missing rate {missing_pct:.1f}% — acceptable.",
+        )
+
+    @staticmethod
+    def s006_outlier_strategy(
+        skewness: float, kurtosis: float
+    ) -> PolicyResult:
+        """S-006: Advise on outlier handling strategy."""
+        if abs(skewness) > 2.0 or kurtosis > 7.0:
+            return PolicyResult(
+                passed=False,
+                constraint_id="S-006",
+                level=ConstraintLevel.SOFT,
+                message=(
+                    f"Skewness={skewness:.2f}, Kurtosis={kurtosis:.2f} — "
+                    f"likely extreme values present."
+                ),
+                suggestion=(
+                    "Consider winsorization, robust statistics, "
+                    "or log-transformation before analysis."
+                ),
+            )
+        return PolicyResult(
+            passed=True,
+            constraint_id="S-006",
+            level=ConstraintLevel.SOFT,
+            message=f"Skewness={skewness:.2f}, Kurtosis={kurtosis:.2f} — within range.",
+        )
+
+    @staticmethod
     def s007_collinearity_warning(max_vif: float) -> PolicyResult:
         """S-007: Warn about multicollinearity."""
         if max_vif > 10:

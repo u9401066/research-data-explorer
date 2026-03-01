@@ -129,6 +129,28 @@ class AutomlGatewayPort(ABC):
         ...
 
 
+class DocumentExporterPort(ABC):
+    """Port for exporting reports to document formats (docx, pdf).
+
+    Mirrors medpaper's template-based export pattern:
+    EDAReport → structured document with embedded figures & tables.
+    """
+
+    @abstractmethod
+    def export_docx(
+        self, report: Any, output_path: Path, *, figures_dir: Path | None = None,
+    ) -> Path:
+        """Export report as Word docx with embedded figures and tables."""
+        ...
+
+    @abstractmethod
+    def export_pdf(
+        self, report: Any, output_path: Path, *, figures_dir: Path | None = None,
+    ) -> Path:
+        """Export report as PDF. May require optional dependencies."""
+        ...
+
+
 class ArtifactStorePort(ABC):
     """Port for storing and retrieving pipeline phase artifacts."""
 
