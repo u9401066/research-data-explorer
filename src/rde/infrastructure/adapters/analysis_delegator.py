@@ -56,7 +56,7 @@ class AnalysisDelegator:
         self._automl_available: bool | None = None
 
     def _check_automl(self) -> bool:
-        """Lazily check if automl-stat-mcp is available (cached)."""
+        """Lazily check if stats-service (port 8003) is available (cached)."""
         if self._automl_available is None:
             try:
                 from rde.infrastructure.adapters.automl_gateway import AutomlGateway
@@ -64,7 +64,7 @@ class AnalysisDelegator:
                 self._automl_available = gw.is_available()
                 gw.close()
                 if self._automl_available:
-                    logger.info("automl-stat-mcp service detected at localhost:8002")
+                    logger.info("automl-stat-mcp stats-service detected at localhost:8003")
                 else:
                     logger.info("automl-stat-mcp not available — using local engine")
             except Exception:
@@ -103,20 +103,12 @@ class AnalysisDelegator:
     def _run_automl(
         self, df: pd.DataFrame, analysis_type: str, config: dict[str, Any],
     ) -> dict[str, Any]:
-        """Delegate to automl-stat-mcp."""
+        """Delegate to automl-stat-mcp via the new REST API."""
         from rde.infrastructure.adapters.automl_gateway import AutomlGateway
 
         gw = AutomlGateway()
         try:
-            project_id = gw.create_project(
-                name=config.get("project_name", "rde_analysis"),
-                data_path="",
-            )
-            gw.upload_data(project_id, df)
-            result = gw.run_analysis(project_id, {
-                "analysis_type": analysis_type,
-                **config,
-            })
+            result = gw.analyze_df(df, analysis_type, config)
             return {"source": "automl-stat-mcp", "result": result}
         finally:
             gw.close()

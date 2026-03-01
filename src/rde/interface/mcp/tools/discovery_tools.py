@@ -316,6 +316,7 @@ def register_discovery_tools(server: Any) -> None:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
+            from rde.domain.services.variable_classifier import VariableClassifier
 
             ok, msg, entry = ensure_dataset(dataset_id)
             if not ok:
@@ -324,8 +325,36 @@ def register_discovery_tools(server: Any) -> None:
             ds = entry.dataset
             df = entry.dataframe
 
-            # Build schema from variables
-            schema = {
+            # ── Phase 2: Re-classify variables with sample_values ───
+            # Phase 1 classification was fast (dtype-only).
+            # Phase 2 does DEEP inference using actual sample values.
+            classifier = VariableClassifier()
+            reclassified: list[str] = []
+
+            for i, v in enumerate(ds.variables):
+                if v.name not in df.columns:
+                    continue
+                col = df[v.name]
+                samples = col.dropna().head(20).tolist()
+
+                new_var = classifier.classify(
+                    name=v.name,
+                    dtype=str(col.dtype),
+                    n_unique=int(col.nunique()),
+                    n_total=len(df),
+                    sample_values=samples,
+                )
+                new_var.n_missing = int(col.isna().sum())
+                new_var.role = v.role  # preserve user-set role
+
+                if new_var.variable_type != v.variable_type:
+                    reclassified.append(
+                        f"{v.name}: {v.variable_type.value} → {new_var.variable_type.value}"
+                    )
+                ds.variables[i] = new_var
+
+            # ── Build schema with basic descriptive stats ───────────
+            schema: dict = {
                 "dataset_id": ds.id,
                 "row_count": ds.row_count,
                 "column_count": len(ds.variables),
@@ -337,7 +366,7 @@ def register_discovery_tools(server: Any) -> None:
             rows = []
             for v in ds.variables:
                 missing_rate = round(v.n_missing / ds.row_count, 4) if ds.row_count > 0 else 0
-                schema["variables"].append({
+                var_info: dict = {
                     "name": v.name,
                     "dtype": v.dtype,
                     "variable_type": v.variable_type.value,
@@ -346,7 +375,20 @@ def register_discovery_tools(server: Any) -> None:
                     "missing_rate": missing_rate,
                     "n_unique": v.n_unique,
                     "is_pii_suspect": v.is_pii_suspect,
-                })
+                }
+
+                # Add descriptive stats for numeric variables
+                if v.name in df.columns and pd.api.types.is_numeric_dtype(df[v.name]):
+                    desc = df[v.name].describe()
+                    var_info["stats"] = {
+                        "mean": round(float(desc.get("mean", 0)), 4),
+                        "std": round(float(desc.get("std", 0)), 4),
+                        "min": float(desc.get("min", 0)),
+                        "max": float(desc.get("max", 0)),
+                        "median": float(desc.get("50%", 0)),
+                    }
+
+                schema["variables"].append(var_info)
                 pii_flag = "⚠️" if v.is_pii_suspect else ""
                 rows.append([
                     v.name, v.dtype, v.variable_type.value,
@@ -371,13 +413,23 @@ def register_discovery_tools(server: Any) -> None:
                     artifacts={"schema.json": ""},
                 ))
 
-            log_tool_result("build_schema", f"{len(ds.variables)} variables")
+            log_tool_result("build_schema", f"{len(ds.variables)} variables, {len(reclassified)} reclassified")
+
+            reclass_info = ""
+            if reclassified:
+                reclass_info = (
+                    "\n### 🔄 重新分類的變數\n"
+                    + "\n".join(f"- {r}" for r in reclassified)
+                    + "\n"
+                )
 
             return (
                 f"✅ Schema 建立完成 (Phase 2)\n\n"
                 f"- **資料集:** `{ds.id}`\n"
                 f"- **列數:** {ds.row_count:,}\n"
-                f"- **變數數:** {len(ds.variables)}\n\n"
+                f"- **變數數:** {len(ds.variables)}\n"
+                f"- **重新分類:** {len(reclassified)} 個\n"
+                f"{reclass_info}\n"
                 f"{table}\n\n"
                 f"**下一步:** 使用 `profile_dataset()` 產生完整 profiling，"
                 f"或 `align_concept()` 進行概念對齊 (Phase 3)。"
