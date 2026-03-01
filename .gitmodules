@@ -1,0 +1,3 @@
+[submodule "vendor/automl-stat-mcp"]
+	path = vendor/automl-stat-mcp
+	url = https://github.com/u9401066/automl-stat-mcp.git
