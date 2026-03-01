@@ -44,16 +44,22 @@ class PandasLoader(DataLoaderPort):
 
         df = reader(metadata.file_path, **kwargs)
 
+        from rde.domain.services.variable_classifier import VariableClassifier
+        classifier = VariableClassifier()
+
         variables = [
-            Variable(
+            classifier.classify(
                 name=col,
                 dtype=str(df[col].dtype),
-                n_missing=int(df[col].isna().sum()),
                 n_unique=int(df[col].nunique()),
-                extra={"total_count": len(df)},
+                n_total=len(df),
+                sample_values=df[col].dropna().head(10).tolist(),
             )
             for col in df.columns
         ]
+        # Carry over missing counts
+        for var, col in zip(variables, df.columns):
+            var.n_missing = int(df[col].isna().sum())
 
         return df, variables, len(df)
 
