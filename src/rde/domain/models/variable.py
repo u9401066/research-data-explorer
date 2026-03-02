@@ -21,6 +21,7 @@ class VariableType(Enum):
     DATETIME = "datetime"
     TEXT = "text"
     ID = "id"  # Identifier column, not for analysis
+    BIOMARKER = "biomarker"  # Biomarker measurement (e.g., NGAL, KIM-1)
     UNKNOWN = "unknown"
 
 
@@ -57,6 +58,9 @@ class Variable:
     n_unique: int = 0
     is_pii_suspect: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
+    # Repeated measure metadata (populated during concept alignment)
+    repeated_measure_group: str | None = None  # e.g. "NGAL" for ngal_0hr/ngal_4hr/ngal_24hr
+    repeated_measure_timepoint: str | None = None  # e.g. "4hr"
 
     @property
     def missing_rate(self) -> float:

@@ -38,9 +38,25 @@ class StatisticalAdvisor:
         is_paired: bool,
         is_normal: bool | None,
         sample_sizes: list[int],
+        is_repeated_measures: bool = False,
     ) -> TestRecommendation:
         """Choose the right comparison test."""
         min_n = min(sample_sizes) if sample_sizes else 0
+
+        # Repeated measures: 3+ timepoints of the same variable
+        if is_repeated_measures and group_count >= 3:
+            if is_normal and min_n >= 30:
+                return TestRecommendation(
+                    test_name="Repeated measures ANOVA",
+                    rationale=f"{group_count} repeated timepoints, normal distribution.",
+                    assumptions=["Normality", "Sphericity (Mauchly's test)"],
+                    alternative="Friedman test",
+                )
+            return TestRecommendation(
+                test_name="Friedman test",
+                rationale=f"{group_count} repeated timepoints, non-normal or small sample.",
+                assumptions=["Complete cases for all timepoints"],
+            )
 
         if outcome_type == VariableType.CONTINUOUS:
             if group_count == 2:

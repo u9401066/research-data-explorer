@@ -26,6 +26,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         "Wilcoxon signed-rank test": "_wilcoxon",
         "One-way ANOVA": "_anova",
         "Kruskal-Wallis test": "_kruskal",
+        "Friedman test": "_friedman",
         "Chi-squared test": "_chi_squared",
         "Fisher's exact test": "_fisher_exact",
         "Shapiro-Wilk": "_shapiro",
@@ -282,6 +283,98 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "group_labels": [str(k) for k in groups_series.index],
             "interpretation": self._interpret_comparison(p, eta_h, "η²"),
         }
+
+    def _friedman(
+        self, df: pd.DataFrame, variables: list[str], **kw: Any
+    ) -> dict[str, Any]:
+        """Friedman test — non-parametric repeated measures ANOVA.
+
+        Expects `variables` to be a list of ≥3 column names representing
+        repeated measurements of the same variable (e.g., ngal_0hr, ngal_4hr, ngal_24hr).
+        Only complete cases (no NaN in any column) are used.
+        """
+        from scipy import stats
+        from itertools import combinations
+
+        if len(variables) < 3:
+            return {"error": "Friedman test 需要 ≥3 個重複測量時間點。"}
+
+        cols = [v for v in variables if v in df.columns]
+        if len(cols) < 3:
+            return {"error": f"僅找到 {len(cols)} 個有效變數，需要 ≥3。"}
+
+        # Complete cases only
+        complete = df[cols].dropna()
+        n = len(complete)
+        if n < 5:
+            return {"error": f"完整配對個案 (n={n}) 不足，需要 ≥5。"}
+
+        arrays = [complete[c].values for c in cols]
+        stat, p = stats.friedmanchisquare(*arrays)
+
+        # Kendall's W = chi2 / (n * (k - 1))
+        k = len(cols)
+        w = float(stat) / (n * (k - 1)) if n > 0 and k > 1 else 0.0
+
+        result: dict[str, Any] = {
+            "test_name": "Friedman test",
+            "statistic": float(stat),
+            "p_value": float(p),
+            "effect_size": float(w),
+            "effect_size_name": "Kendall's W",
+            "n_complete": n,
+            "n_timepoints": k,
+            "variables": cols,
+            "significant": p < kw.get("alpha", 0.05),
+        }
+
+        # Descriptive stats per timepoint
+        descriptives = []
+        for c in cols:
+            vals = complete[c]
+            descriptives.append({
+                "variable": c,
+                "n": n,
+                "mean": float(vals.mean()),
+                "std": float(vals.std()),
+                "median": float(vals.median()),
+                "q25": float(vals.quantile(0.25)),
+                "q75": float(vals.quantile(0.75)),
+            })
+        result["descriptives"] = descriptives
+
+        # Post-hoc: pairwise Wilcoxon signed-rank with Bonferroni correction
+        if p < kw.get("alpha", 0.05):
+            n_pairs = len(list(combinations(range(k), 2)))
+            bonferroni_alpha = kw.get("alpha", 0.05) / n_pairs
+            posthoc = []
+            for i, j in combinations(range(k), 2):
+                w_stat, w_p = stats.wilcoxon(arrays[i], arrays[j])
+                r_eff = w_stat / (n * (n + 1) / 2) if n > 0 else 0
+                posthoc.append({
+                    "var_1": cols[i],
+                    "var_2": cols[j],
+                    "statistic": float(w_stat),
+                    "p_value": float(w_p),
+                    "p_adjusted": float(min(w_p * n_pairs, 1.0)),
+                    "significant": w_p < bonferroni_alpha,
+                    "effect_size": float(r_eff),
+                    "effect_size_name": "r",
+                })
+            result["posthoc"] = posthoc
+            result["posthoc_correction"] = "Bonferroni"
+            result["posthoc_alpha"] = bonferroni_alpha
+            n_sig = sum(1 for ph in posthoc if ph["significant"])
+            result["interpretation"] = (
+                f"重複測量有顯著差異 (Friedman χ²={stat:.3f}, p={p:.4f}, W={w:.3f})。"
+                f"Post-hoc: {n_sig}/{len(posthoc)} 對比較達顯著 (Bonferroni 校正)。"
+            )
+        else:
+            result["interpretation"] = (
+                f"重複測量無顯著差異 (Friedman χ²={stat:.3f}, p={p:.4f}, W={w:.3f})。"
+            )
+
+        return result
 
     def _chi_squared(
         self, df: pd.DataFrame, variables: list[str], **kw: Any

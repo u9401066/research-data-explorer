@@ -27,8 +27,24 @@ FORMAT_READERS = {
 }
 
 
+# Common sentinel values that should be treated as NaN
+_SENTINEL_VALUES = {
+    "X", "x", "N/A", "n/a", "NA", "na", "NaN", "nan",
+    "NULL", "null", "None", "none", ".", "-", "--", "---",
+    "missing", "MISSING", "未測", "未做", "缺失",
+}
+
+
 class PandasLoader(DataLoaderPort):
     """Loads data files using pandas."""
+
+    def list_sheets(self, file_path: Path) -> list[str]:
+        """List sheet names in an Excel file."""
+        ext = file_path.suffix.lstrip(".")
+        if ext not in ("xlsx", "xls"):
+            return []
+        xf = pd.ExcelFile(file_path)
+        return xf.sheet_names
 
     def load(self, metadata: DatasetMetadata) -> tuple[pd.DataFrame, list[Variable], int]:
         """Load data from file and return (DataFrame, Variables, row_count)."""
@@ -43,6 +59,9 @@ class PandasLoader(DataLoaderPort):
             kwargs["sheet_name"] = metadata.sheet_name
 
         df = reader(metadata.file_path, **kwargs)
+
+        # Coerce sentinel values to NaN in numeric-looking columns
+        df = self._coerce_sentinels(df)
 
         from rde.domain.services.variable_classifier import VariableClassifier
         classifier = VariableClassifier()
@@ -62,6 +81,27 @@ class PandasLoader(DataLoaderPort):
             var.n_missing = int(df[col].isna().sum())
 
         return df, variables, len(df)
+
+    @staticmethod
+    def _coerce_sentinels(df: pd.DataFrame) -> pd.DataFrame:
+        """Replace known sentinel strings with NaN and attempt numeric conversion."""
+        for col in df.columns:
+            if df[col].dtype == "object":
+                # Check if sentinel values are present
+                vals = df[col].dropna().unique()
+                sentinel_found = any(str(v).strip() in _SENTINEL_VALUES for v in vals)
+                if sentinel_found:
+                    df[col] = df[col].replace(
+                        {s: pd.NA for s in _SENTINEL_VALUES}
+                    )
+                # Try numeric conversion for object columns
+                converted = pd.to_numeric(df[col], errors="coerce")
+                # If ≥50% of non-null values convert successfully, keep numeric
+                non_null = df[col].notna().sum()
+                numeric_count = converted.notna().sum()
+                if non_null > 0 and numeric_count / non_null >= 0.5:
+                    df[col] = converted
+        return df
 
     def scan_directory(self, directory: Path) -> list[DatasetMetadata]:
         """Scan directory for data files."""

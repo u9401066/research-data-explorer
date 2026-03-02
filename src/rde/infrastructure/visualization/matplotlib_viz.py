@@ -26,6 +26,8 @@ class MatplotlibVisualizer(VisualizationPort):
         "bar": "_plot_bar",
         "violin": "_plot_violin",
         "heatmap": "_plot_heatmap",
+        "line": "_plot_line",
+        "paired": "_plot_paired",
     }
 
     def create_plot(
@@ -194,6 +196,99 @@ class MatplotlibVisualizer(VisualizationPort):
         fig, ax = plt.subplots(figsize=(max(6, len(numeric_vars)), max(5, len(numeric_vars) * 0.8)))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0, ax=ax)
         ax.set_title("Correlation Heatmap")
+        plt.tight_layout()
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+
+    def _plot_line(
+        self,
+        df: pd.DataFrame,
+        variables: list[str],
+        output_path: Path,
+        **kwargs: Any,
+    ) -> None:
+        """Line plot for repeated/time-course measurements.
+
+        `variables` should be ordered columns representing timepoints.
+        kwargs:
+            labels: list[str] — x-axis tick labels (e.g., ["0h", "4h", "24h"])
+            title: str — plot title
+            ylabel: str — y-axis label
+            show_individual: bool — draw individual subject lines (default False)
+        """
+        import seaborn as sns
+
+        cols = [v for v in variables if v in df.columns]
+        if not cols:
+            raise ValueError("No valid variables for line plot.")
+
+        complete = df[cols].dropna()
+        labels = kwargs.get("labels", cols)
+        title = kwargs.get("title", "Time-Course Plot")
+        ylabel = kwargs.get("ylabel", "Value")
+        show_individual = kwargs.get("show_individual", False)
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        if show_individual:
+            for _, row in complete.iterrows():
+                ax.plot(range(len(cols)), row[cols].values,
+                        color="steelblue", alpha=0.15, linewidth=0.8)
+
+        # Summary: median + IQR
+        medians = [complete[c].median() for c in cols]
+        q25 = [complete[c].quantile(0.25) for c in cols]
+        q75 = [complete[c].quantile(0.75) for c in cols]
+
+        ax.fill_between(range(len(cols)), q25, q75, alpha=0.3, color="steelblue", label="IQR")
+        ax.plot(range(len(cols)), medians, "o-", color="steelblue",
+                linewidth=2, markersize=8, label="Median")
+
+        ax.set_xticks(range(len(cols)))
+        ax.set_xticklabels(labels)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title, fontweight="bold")
+        ax.legend()
+        sns.despine()
+        plt.tight_layout()
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+
+    def _plot_paired(
+        self,
+        df: pd.DataFrame,
+        variables: list[str],
+        output_path: Path,
+        **kwargs: Any,
+    ) -> None:
+        """Paired comparison plot (pre vs post) with individual subject lines.
+
+        Expects exactly 2 variables.
+        """
+        if len(variables) < 2:
+            raise ValueError("Paired plot requires exactly 2 variables.")
+
+        x_var, y_var = variables[0], variables[1]
+        sub = df[[x_var, y_var]].dropna()
+
+        labels = kwargs.get("labels", [x_var, y_var])
+        title = kwargs.get("title", f"{x_var} vs {y_var}")
+        ylabel = kwargs.get("ylabel", "Value")
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+        for _, row in sub.iterrows():
+            ax.plot([0, 1], [row[x_var], row[y_var]],
+                    color="steelblue", alpha=0.3, linewidth=0.8)
+        ax.boxplot(
+            [sub[x_var], sub[y_var]],
+            positions=[0, 1], widths=0.3,
+            patch_artist=True,
+            boxprops=dict(facecolor="lightblue", alpha=0.7),
+        )
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(labels)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title, fontweight="bold")
         plt.tight_layout()
         fig.savefig(output_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
