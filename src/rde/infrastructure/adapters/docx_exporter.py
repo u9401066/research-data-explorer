@@ -5,17 +5,20 @@ Follows medpaper's template-based pattern:
   EDAReport → structured document with embedded figures & tables.
 
 Uses python-docx for .docx generation.
-PDF requires optional weasyprint; falls back to HTML if unavailable.
+PDF requires optional xhtml2pdf; falls back to HTML if unavailable.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from rde.domain.models.report import EDAReport, ReportSection
 from rde.domain.ports import DocumentExporterPort
+
+logger = logging.getLogger(__name__)
 
 
 class DocxExporter(DocumentExporterPort):
@@ -131,7 +134,7 @@ class DocxExporter(DocumentExporterPort):
         doc.add_heading(section.title, level=2)
 
         # ── Content (parse markdown-like text) ───────────────────────
-        self._add_markdown_content(doc, section.content)
+        self._add_markdown_content(doc, section.content, figures_dir)
 
         # ── Tables ───────────────────────────────────────────────────
         for tbl_data in section.tables:
@@ -149,38 +152,119 @@ class DocxExporter(DocumentExporterPort):
                 cap = doc.add_paragraph(f"Figure: {fig_path.stem}")
                 cap.style = doc.styles["Caption"] if "Caption" in doc.styles else None
 
-    def _add_markdown_content(self, doc: Any, content: str) -> None:
+    def _add_markdown_content(self, doc: Any, content: str, figures_dir: Path | None = None) -> None:
         """Parse markdown-like content and add to document.
 
         Handles: paragraphs, bold (**text**), bullet lists (- item),
-        markdown tables (| col | col |), subheadings (### text).
+        markdown tables (| col | col |), subheadings (# ## ### text),
+        blockquotes (> text), horizontal rules (---), figure references,
+        fenced code blocks (```).
         """
-        from docx.shared import Pt
-        from docx.oxml.ns import qn
+        from docx.shared import Pt, RGBColor, Inches
 
         lines = content.split("\n")
         i = 0
         while i < len(lines):
             line = lines[i]
+            stripped = line.strip()
 
-            # Sub-heading (###)
-            if line.startswith("### "):
-                doc.add_heading(line[4:].strip(), level=3)
+            # Empty line — skip
+            if not stripped:
+                i += 1
+                continue
+
+            # Fenced code block (```)
+            if stripped.startswith("```"):
+                i += 1
+                code_lines: list[str] = []
+                while i < len(lines):
+                    if lines[i].strip().startswith("```"):
+                        i += 1
+                        break
+                    code_lines.append(lines[i].rstrip())
+                    i += 1
+                if code_lines:
+                    p = doc.add_paragraph()
+                    p.paragraph_format.left_indent = Pt(18)
+                    run = p.add_run("\n".join(code_lines))
+                    run.font.name = "Courier New"
+                    run.font.size = Pt(9)
+                    run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+                continue
+
+            # Headings (# ## ### ####)
+            if stripped.startswith("#### "):
+                doc.add_heading(stripped[5:].strip(), level=4)
+                i += 1
+                continue
+            if stripped.startswith("### "):
+                doc.add_heading(stripped[4:].strip(), level=3)
+                i += 1
+                continue
+            if stripped.startswith("## "):
+                doc.add_heading(stripped[3:].strip(), level=2)
+                i += 1
+                continue
+            if stripped.startswith("# "):
+                doc.add_heading(stripped[2:].strip(), level=1)
+                i += 1
+                continue
+
+            # Horizontal rule
+            if re.match(r"^-{3,}$", stripped) or re.match(r"^\*{3,}$", stripped):
+                doc.add_paragraph("─" * 50)
+                i += 1
+                continue
+
+            # Figure reference — check BEFORE blockquote (figures are often inside > lines)
+            line_for_fig = stripped
+            if line_for_fig.startswith("> "):
+                line_for_fig = line_for_fig[2:].strip()
+            line_for_fig_clean = self._strip_md_formatting(line_for_fig)
+            fig_match = re.search(
+                r'\[.*?(?:Figure|Fig|圖)\s*\d*[:\s]+([^\]]+\.png)\]',
+                line_for_fig_clean,
+            )
+            if fig_match and figures_dir:
+                fig_name = fig_match.group(1).strip()
+                fig_path = figures_dir / fig_name
+                if fig_path.exists():
+                    doc.add_picture(str(fig_path), width=Inches(self.FIGURE_WIDTH_INCHES))
+                    cap = doc.add_paragraph(f"Figure: {fig_path.stem}")
+                    cap_fmt = cap.paragraph_format
+                    cap_fmt.alignment = 1  # CENTER
+                    for run in cap.runs:
+                        run.font.size = Pt(9)
+                        run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+                else:
+                    p = doc.add_paragraph()
+                    self._add_formatted_run(p, line_for_fig)
+                i += 1
+                continue
+
+            # Blockquote (> text) — preserve bold/italic formatting
+            if stripped.startswith("> "):
+                quote_text = stripped[2:].strip()
+                p = doc.add_paragraph()
+                p.paragraph_format.left_indent = Pt(36)
+                self._add_formatted_run(p, quote_text)
+                for run in p.runs:
+                    run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
                 i += 1
                 continue
 
             # Bullet list
-            if line.startswith("- ") or line.startswith("* "):
+            if stripped.startswith("- ") or stripped.startswith("* "):
                 doc.add_paragraph(
-                    self._strip_md_formatting(line[2:].strip()),
+                    self._strip_md_formatting(stripped[2:].strip()),
                     style="List Bullet",
                 )
                 i += 1
                 continue
 
             # Numbered list
-            if re.match(r"^\d+\.\s", line):
-                text = re.sub(r"^\d+\.\s", "", line).strip()
+            if re.match(r"^\d+\.\s", stripped):
+                text = re.sub(r"^\d+\.\s", "", stripped).strip()
                 doc.add_paragraph(
                     self._strip_md_formatting(text),
                     style="List Number",
@@ -189,7 +273,7 @@ class DocxExporter(DocumentExporterPort):
                 continue
 
             # Markdown table
-            if "|" in line and line.strip().startswith("|"):
+            if "|" in stripped and stripped.startswith("|"):
                 table_lines = []
                 while i < len(lines) and "|" in lines[i] and lines[i].strip().startswith("|"):
                     table_lines.append(lines[i])
@@ -198,10 +282,9 @@ class DocxExporter(DocumentExporterPort):
                 continue
 
             # Regular paragraph
-            text = line.strip()
-            if text:
+            if stripped:
                 p = doc.add_paragraph()
-                self._add_formatted_run(p, text)
+                self._add_formatted_run(p, stripped)
 
             i += 1
 
