@@ -5,6 +5,7 @@ Uses scipy.stats, statsmodels, and tableone for statistical analysis.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import Any
 
@@ -12,6 +13,8 @@ import numpy as np
 import pandas as pd
 
 from rde.domain.ports import StatisticalEnginePort
+
+logger = logging.getLogger(__name__)
 
 
 class ScipyStatisticalEngine(StatisticalEnginePort):
@@ -794,8 +797,8 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                             "r": float(stat),
                             "p_value": float(p),
                         })
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("MCAR correlation check skipped for %s vs %s: %s", target, predictor, exc)
 
         # Determine pattern type
         if not cols_with_missing:

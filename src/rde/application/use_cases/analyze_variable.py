@@ -6,11 +6,14 @@ applying soft constraints S-001, S-003, S-004, S-006.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from rde.domain.models.analysis import AnalysisResult, StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset

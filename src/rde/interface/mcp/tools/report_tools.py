@@ -309,7 +309,7 @@ def register_report_tools(server: Any) -> None:
             group_var: 分組變數 (可選)
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
+            log_tool_call, log_tool_error, log_tool_result,
             fmt_error, fmt_success, ensure_dataset,
         )
 
@@ -321,7 +321,7 @@ def register_report_tools(server: Any) -> None:
         if not ok:
             return fmt_error(msg)
 
-        valid_types = ["histogram", "boxplot", "scatter", "bar", "violin", "heatmap"]
+        valid_types = ["histogram", "boxplot", "scatter", "bar", "violin", "heatmap", "line", "paired"]
         if plot_type not in valid_types:
             return fmt_error(
                 f"不支援的圖表類型 '{plot_type}'。"
@@ -370,7 +370,7 @@ def register_report_tools(server: Any) -> None:
                     artifacts=[result_path],
                 )
             except KeyError:
-                pass
+                log_tool_result("create_visualization", "Decision log skipped: no active project", success=False)
 
             return fmt_success(
                 f"圖表已生成: {output_filename}",

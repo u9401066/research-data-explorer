@@ -6,9 +6,12 @@ Pure domain logic (scoring rules, threshold checks).
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from rde.domain.models.profile import DataProfile
+
+logger = logging.getLogger(__name__)
 from rde.domain.models.quality import (
     IssueCategory,
     QualityIssue,

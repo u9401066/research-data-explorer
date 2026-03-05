@@ -8,11 +8,14 @@ Enforces H-006 (Output Sanitization) on all exported content.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
-from rde.domain.models.report import EDAReport, ReportFormat
+from rde.domain.models.report import EDAReport, ReportFormat, ReportSection
 from rde.domain.ports import DocumentExporterPort
+
+logger = logging.getLogger(__name__)
 
 
 class ExportReportUseCase:

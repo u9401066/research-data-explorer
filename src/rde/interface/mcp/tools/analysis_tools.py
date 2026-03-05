@@ -33,7 +33,10 @@ def _auto_log_decision(
             artifacts=artifacts,
         )
     except KeyError:
-        pass  # No active project — skip logging
+        import logging as _logging
+        _logging.getLogger("rde.mcp.tools").debug(
+            "Decision log skipped for %s: no active project", tool_name,
+        )
 
 
 
@@ -663,3 +666,142 @@ def register_analysis_tools(server: Any) -> None:
         except Exception as e:
             log_tool_error("run_advanced_analysis", e)
             return fmt_error(f"進階分析失敗: {e}")
+
+    @server.tool()
+    def run_repeated_measures(
+        dataset_id: str,
+        variables: str,
+        alpha: float = 0.05,
+    ) -> str:
+        """對重複測量變數進行 Friedman 檢定（含 post-hoc Wilcoxon + Bonferroni 校正）。
+
+        適用於同一受試者在多個時間點的測量（如生物標記 0h/4h/24h）。
+        自動計算 Kendall's W 效果量和所有配對的 post-hoc 比較。
+
+        Args:
+            dataset_id: 已載入的資料集 ID
+            variables: 逗號分隔的重複測量欄位名稱（至少 3 個），例如 "ngal_0hr,ngal_4hr,ngal_24hr"
+            alpha: 顯著水準（預設 0.05）
+        """
+        from rde.interface.mcp.tools._shared import (
+            log_tool_call, log_tool_error,
+            fmt_error, fmt_success, fmt_table, ensure_dataset,
+        )
+
+        log_tool_call("run_repeated_measures", {
+            "dataset_id": dataset_id, "variables": variables, "alpha": alpha,
+        })
+
+        ok, msg, entry = ensure_dataset(dataset_id)
+        if not ok:
+            return fmt_error(msg)
+
+        var_list = [v.strip() for v in variables.split(",") if v.strip()]
+        if len(var_list) < 3:
+            return fmt_error("至少需要 3 個重複測量變數（如 0h, 4h, 24h）。")
+
+        # Validate columns exist
+        missing_cols = [v for v in var_list if v not in entry.dataframe.columns]
+        if missing_cols:
+            return fmt_error(f"找不到欄位: {', '.join(missing_cols)}")
+
+        try:
+            from rde.infrastructure.adapters import ScipyStatisticalEngine
+
+            engine = ScipyStatisticalEngine()
+            result = engine.run_test(
+                "Friedman test",
+                entry.dataframe,
+                {"columns": var_list},
+            )
+
+            lines = [f"# 📊 重複測量分析 — Friedman 檢定\n"]
+            lines.append(f"**變數:** {', '.join(var_list)}")
+            lines.append(f"**完整配對數:** {result.get('n_complete', '?')}\n")
+
+            # Main test result
+            p = result.get("p_value", 1.0)
+            w = result.get("effect_size", 0)
+            stat = result.get("statistic", 0)
+            sig = "✅ 顯著" if p < alpha else "— 不顯著"
+
+            lines.append("## 主檢定")
+            lines.append(fmt_table(
+                ["統計量", "值"],
+                [
+                    ["Friedman χ²", f"{stat:.3f}"],
+                    ["p-value", f"{p:.6f}"],
+                    ["Kendall's W", f"{w:.3f}"],
+                    ["判定", sig],
+                ],
+            ))
+
+            # Effect size interpretation
+            if w < 0.1:
+                w_interp = "微小"
+            elif w < 0.3:
+                w_interp = "小"
+            elif w < 0.5:
+                w_interp = "中"
+            else:
+                w_interp = "大"
+            lines.append(f"\n**效果量解讀:** Kendall's W = {w:.3f} ({w_interp}效果)")
+
+            # Per-timepoint descriptives
+            if "descriptives" in result:
+                lines.append("\n## 各時間點描述統計")
+                desc_rows = []
+                for tp in result["descriptives"]:
+                    desc_rows.append([
+                        tp["label"],
+                        f"{tp.get('n', '?')}",
+                        f"{tp.get('median', 0):.4f}",
+                        f"{tp.get('q1', 0):.4f}–{tp.get('q3', 0):.4f}",
+                        f"{tp.get('mean', 0):.4f} ± {tp.get('std', 0):.4f}",
+                    ])
+                lines.append(fmt_table(
+                    ["時間點", "n", "中位數", "IQR", "Mean ± SD"],
+                    desc_rows,
+                ))
+
+            # Post-hoc pairwise comparisons
+            if "post_hoc" in result and result["post_hoc"]:
+                lines.append("\n## Post-hoc 配對比較 (Bonferroni 校正)")
+                ph_rows = []
+                for ph in result["post_hoc"]:
+                    adj_p = ph.get("p_adjusted", ph.get("p_value", 1.0))
+                    r_eff = ph.get("effect_size", 0)
+                    pair_sig = "✅" if adj_p < alpha else "—"
+                    ph_rows.append([
+                        ph.get("pair", "?"),
+                        f"{ph.get('statistic', 0):.1f}",
+                        f"{ph.get('p_value', 1.0):.6f}",
+                        f"{adj_p:.6f}",
+                        f"{r_eff:.3f}",
+                        pair_sig,
+                    ])
+                lines.append(fmt_table(
+                    ["配對", "W", "p (raw)", "p (adj)", "r", "Sig"],
+                    ph_rows,
+                ))
+
+            lines.append(f"\n**[S-001]** 使用非參數 Friedman 檢定（適用於非常態重複測量資料）。")
+            if len(var_list) > 2 and p < alpha:
+                lines.append(
+                    f"**[S-002]** 已對 {len(result.get('post_hoc', []))} 個配對比較"
+                    f"進行 Bonferroni 校正 (α = {alpha/len(result.get('post_hoc', [1])):.4f})。"
+                )
+
+            # H-009
+            _auto_log_decision(
+                "run_repeated_measures",
+                {"variables": var_list, "alpha": alpha},
+                f"Friedman 檢定: {len(var_list)} 個重複測量時間點",
+                f"χ²={stat:.3f}, p={p:.6f}, W={w:.3f}",
+            )
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            log_tool_error("run_repeated_measures", e)
+            return fmt_error(f"重複測量分析失敗: {e}")

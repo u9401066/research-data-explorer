@@ -6,10 +6,13 @@ Used by both check_readiness (Phase 5) and correlation_matrix (Phase 6).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)

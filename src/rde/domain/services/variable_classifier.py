@@ -6,10 +6,13 @@ value distribution, **and sample values**. Pure domain logic.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from rde.domain.models.variable import Variable, VariableType
+
+logger = logging.getLogger(__name__)
 
 # Column name patterns that suggest PII (Hook H-004)
 PII_PATTERNS = [

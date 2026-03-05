@@ -9,9 +9,12 @@ This is pure domain logic — no external dependencies.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from rde.domain.models.variable import VariableType
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)

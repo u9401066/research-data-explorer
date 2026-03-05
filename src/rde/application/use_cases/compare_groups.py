@@ -6,8 +6,11 @@ applying soft constraints for statistical rigor.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from rde.domain.models.analysis import AnalysisResult, StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset

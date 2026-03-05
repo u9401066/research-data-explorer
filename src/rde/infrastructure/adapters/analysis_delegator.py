@@ -67,7 +67,8 @@ class AnalysisDelegator:
                     logger.info("automl-stat-mcp stats-service detected at localhost:8003")
                 else:
                     logger.info("automl-stat-mcp not available — using local engine")
-            except Exception:
+            except Exception as exc:
+                logger.warning("automl availability check failed: %s", exc)
                 self._automl_available = False
         return self._automl_available
 
