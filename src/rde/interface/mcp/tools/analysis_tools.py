@@ -17,26 +17,39 @@ def _auto_log_decision(
     result_summary: str,
     artifacts: list[str] | None = None,
 ) -> None:
-    """H-009: Auto-enforce decision logging for every Phase 6 operation."""
-    try:
-        from rde.application.session import get_session
-        session = get_session()
-        project = session.get_project()
-        logger = session.get_logger(project.id)
-        logger.log_decision(
-            phase="phase_06",
-            action=tool_name,
-            tool_used=tool_name,
-            parameters=parameters,
-            rationale=rationale,
-            result_summary=result_summary,
-            artifacts=artifacts,
-        )
-    except KeyError:
-        import logging as _logging
-        _logging.getLogger("rde.mcp.tools").debug(
-            "Decision log skipped for %s: no active project", tool_name,
-        )
+    """H-009: Auto-enforce decision logging for every Phase 6 operation.
+
+    Also checks plan adherence (H-007/S-011): if the operation is not
+    in the locked analysis plan, auto-logs a deviation entry.
+    """
+    from rde.application.session import get_session
+
+    session = get_session()
+    project = session.get_project()
+    logger = session.get_logger(project.id)
+    logger.log_decision(
+        phase="phase_06",
+        action=tool_name,
+        tool_used=tool_name,
+        parameters=parameters,
+        rationale=rationale,
+        result_summary=result_summary,
+        artifacts=artifacts,
+    )
+
+    # Auto-detect plan deviation (S-011)
+    pipeline = session.get_pipeline(project.id)
+    if pipeline.plan_locked:
+        from rde.interface.mcp.tools._shared import check_plan_adherence
+        in_plan, deviation_msg = check_plan_adherence(project, tool_name, parameters)
+        if not in_plan:
+            logger.log_deviation(
+                phase="phase_06",
+                planned_action="(按分析計畫執行)",
+                actual_action=f"{tool_name}({parameters})",
+                reason=f"[S-011 自動偵測] {deviation_msg}",
+                impact_assessment="需在審計時確認此偏離的合理性",
+            )
 
 
 
@@ -51,17 +64,25 @@ def register_analysis_tools(server: Any) -> None:
     def suggest_cleaning(dataset_id: str) -> str:
         """根據品質評估建議資料清理策略。
 
+        根據 assess_quality() 的結果，自動建議清理動作（如移除高缺失欄位、填補中位數、去重）。
+        建議需經用戶確認後，以 apply_cleaning() 執行。
+
         Args:
-            dataset_id: 已評估品質的資料集 ID
+            dataset_id: 已評估品質的資料集 ID（先執行 assess_quality）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, ensure_dataset,
+            fmt_error, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("suggest_cleaning", {"dataset_id": dataset_id})
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -129,20 +150,28 @@ def register_analysis_tools(server: Any) -> None:
     def apply_cleaning(dataset_id: str, approved_indices: list[int]) -> str:
         """執行用戶已確認的清理操作。
 
+        執行由 suggest_cleaning() 建議、用戶核准的清理動作。
+        支援 14 種清理動作（DROP/FILL/CLIP/ENCODE 等）。H-009 自動記錄。
+
         Args:
-            dataset_id: 資料集 ID
-            approved_indices: 核准的清理動作索引列表
+            dataset_id: 資料集 ID（已執行 suggest_cleaning）
+            approved_indices: 核准的清理動作索引列表，如 [0, 1, 3]（對應 suggest_cleaning 報告中的編號）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_dataset,
+            fmt_error, fmt_success, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("apply_cleaning", {
             "dataset_id": dataset_id, "approved_indices": approved_indices,
         })
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -190,17 +219,25 @@ def register_analysis_tools(server: Any) -> None:
         建議圖表類型 (S-003)。H-009 自動記錄。
 
         Args:
-            dataset_id: 資料集 ID
-            variable_name: 要分析的變數名稱
+            dataset_id: 資料集 ID（由 load_dataset 或 run_intake 回傳）
+            variable_name: 要分析的變數名稱，如 "age"、"sofa_score"、"treatment_group"
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_table, ensure_dataset,
+            fmt_error, fmt_table, ensure_minimum_sample_size, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("analyze_variable", {"variable_name": variable_name})
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
+        if not ok:
+            return fmt_error(msg)
+        ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
@@ -282,26 +319,32 @@ def register_analysis_tools(server: Any) -> None:
     ) -> str:
         """組間比較，自動選擇適當統計檢定。
 
-        自動應用: S-001 (常態性), S-002 (多重比較), S-008 (樣本平衡),
-        S-009 (effect size), S-010 (power). H-009 自動記錄。
+        自動應用: S-001 (常態性 → 有母數/無母數), S-002 (多重比較),
+        S-008 (樣本平衡), S-009 (effect size), S-010 (power)。H-009 自動記錄。
+        若操作不在已鎖定計畫中，自動偵測偏離並記錄 (S-011)。
 
         Args:
             dataset_id: 資料集 ID
-            outcome_variables: 要比較的結果變數
-            group_variable: 分組變數
-            is_paired: 是否為配對資料
+            outcome_variables: 要比較的結果變數列表，如 ["sofa_score", "mortality"]
+            group_variable: 分組變數，如 "treatment_group"、"gender"
+            is_paired: 是否為配對資料（如前後測），預設 false
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, ensure_dataset,
+            fmt_error, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("compare_groups", {
             "outcome_variables": outcome_variables,
             "group_variable": group_variable,
         })
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -410,19 +453,29 @@ def register_analysis_tools(server: Any) -> None:
     ) -> str:
         """計算相關性矩陣，自動檢查共線性 (S-007)。H-009 自動記錄。
 
+        若發現 VIF > 10 的變數對，會給出警告並建議移除。
+
         Args:
             dataset_id: 資料集 ID
-            variables: 要分析的變數（空則分析所有數值變數）
+            variables: 要分析的數值變數列表，如 ["age", "bmi", "creatinine"]（可選，空則分析所有數值變數）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_table, ensure_dataset,
+            fmt_error, fmt_table, ensure_minimum_sample_size, ensure_phase_ready,
         )
         import pandas as pd
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("correlation_matrix", {"variables": variables})
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
+        if not ok:
+            return fmt_error(msg)
+        ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
@@ -484,21 +537,32 @@ def register_analysis_tools(server: Any) -> None:
     ) -> str:
         """生成 Table 1（基線特徵表）。H-009 自動記錄。
 
+        使用 tableone 套件生成標準化的基線特徵表，
+        自動判斷類別/連續變數並選擇適當的檢定方法。
+
         Args:
             dataset_id: 資料集 ID
-            group_variable: 分組變數
-            variables: 要納入的變數（空則全部）
+            group_variable: 分組變數，如 "treatment_group"、"disease_severity"
+            variables: 要納入 Table 1 的變數列表（可選，空則納入分組變數以外的所有變數）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, ensure_dataset,
+            fmt_error, ensure_minimum_sample_size, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("generate_table_one", {
             "group_variable": group_variable, "variables": variables,
         })
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
+        if not ok:
+            return fmt_error(msg)
+        ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
@@ -576,19 +640,21 @@ def register_analysis_tools(server: Any) -> None:
 
         支援: propensity_score, survival_analysis, roc_auc,
         logistic_regression, multiple_regression, power_analysis_advanced。
-        automl 不可用時自動降級為本地引擎。H-009 自動記錄。
+        automl 不可用時自動降級為本地 ScipyStatisticalEngine。
+        H-009 自動記錄 + S-011 偏離自動偵測。
 
         Args:
             dataset_id: 資料集 ID
-            analysis_type: 分析類型
-            target_variable: 目標變數（如 outcome）
-            group_variable: 分組變數
-            covariates: 共變量列表
+            analysis_type: 分析類型，如 "propensity_score"、"survival_analysis"、"roc_auc"、"logistic_regression"
+            target_variable: 目標變數（如 outcome），如 "mortality"、"readmission"（可選）
+            group_variable: 分組變數，如 "treatment"（可選）
+            covariates: 共變量列表，如 ["age", "sex", "bmi"]（可選）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, ensure_dataset,
+            fmt_error, ensure_minimum_sample_size, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("run_advanced_analysis", {
             "analysis_type": analysis_type,
@@ -596,7 +662,14 @@ def register_analysis_tools(server: Any) -> None:
             "group_variable": group_variable,
         })
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
+        if not ok:
+            return fmt_error(msg)
+        ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
@@ -677,22 +750,31 @@ def register_analysis_tools(server: Any) -> None:
 
         適用於同一受試者在多個時間點的測量（如生物標記 0h/4h/24h）。
         自動計算 Kendall's W 效果量和所有配對的 post-hoc 比較。
+        H-009 自動記錄 + S-011 偏離自動偵測。
 
         Args:
             dataset_id: 已載入的資料集 ID
             variables: 逗號分隔的重複測量欄位名稱（至少 3 個），例如 "ngal_0hr,ngal_4hr,ngal_24hr"
-            alpha: 顯著水準（預設 0.05）
+            alpha: 顯著水準（預設 0.05），用於判定顯著性和 Bonferroni 校正
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, fmt_table, ensure_dataset,
+            fmt_error, fmt_success, fmt_table, ensure_minimum_sample_size, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("run_repeated_measures", {
             "dataset_id": dataset_id, "variables": variables, "alpha": alpha,
         })
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, _, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
+        if not ok:
+            return fmt_error(msg)
+        ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
@@ -710,9 +792,10 @@ def register_analysis_tools(server: Any) -> None:
 
             engine = ScipyStatisticalEngine()
             result = engine.run_test(
-                "Friedman test",
                 entry.dataframe,
-                {"columns": var_list},
+                "Friedman test",
+                var_list,
+                alpha=alpha,
             )
 
             lines = [f"# 📊 重複測量分析 — Friedman 檢定\n"]
@@ -753,10 +836,10 @@ def register_analysis_tools(server: Any) -> None:
                 desc_rows = []
                 for tp in result["descriptives"]:
                     desc_rows.append([
-                        tp["label"],
+                        tp.get("variable", "?"),
                         f"{tp.get('n', '?')}",
                         f"{tp.get('median', 0):.4f}",
-                        f"{tp.get('q1', 0):.4f}–{tp.get('q3', 0):.4f}",
+                        f"{tp.get('q25', 0):.4f}–{tp.get('q75', 0):.4f}",
                         f"{tp.get('mean', 0):.4f} ± {tp.get('std', 0):.4f}",
                     ])
                 lines.append(fmt_table(

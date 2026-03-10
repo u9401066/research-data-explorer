@@ -19,19 +19,20 @@ def register_audit_tools(server: Any) -> None:
 
         檢查: 計畫符合度、方法適當性、效果量完整性、
         偏離合理性、再現性、H-008/H-009/H-010 合規。
-        輸出 A-F 評分。
+        輸出 A-F 評分與改善建議。
 
         Args:
-            project_id: 專案 ID (預設使用當前專案)
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, ensure_project_context,
+            fmt_error, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("run_audit", {"project_id": project_id})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUDIT_REVIEW, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 
@@ -241,21 +242,21 @@ def register_audit_tools(server: Any) -> None:
         """根據審計結果自動改善可修正項目 (Phase 10)。
 
         讀取 audit_report.json，執行自動修正:
-        - 補缺效果量
-        - 補遺漏的圖表
-        - 修正報告格式
+        - 補缺效果量、補遺漏圖表、修正報告格式。
+        不能自動修復的項目會列為手動建議。
 
         Args:
-            project_id: 專案 ID (預設使用當前專案)
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            fmt_error, fmt_success, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("auto_improve", {"project_id": project_id})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUTO_IMPROVE, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 
@@ -391,19 +392,21 @@ def register_audit_tools(server: Any) -> None:
     def export_handoff(project_id: str | None = None) -> str:
         """匯出 handoff package 給下游工具 (e.g., med-paper-assistant)。
 
-        打包: 報告、統計結果、圖表、schema、decision log。
+        打包: 報告、統計結果、圖表、schema、decision/deviation log。
+        產出的 handoff_manifest.json 可直接提供給 med-paper-assistant。
 
         Args:
-            project_id: 專案 ID (預設使用當前專案)
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            fmt_error, fmt_success, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("export_handoff", {"project_id": project_id})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUTO_IMPROVE, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 
@@ -448,8 +451,15 @@ def register_audit_tools(server: Any) -> None:
                 shutil.copy2(decision_src, handoff_dir / "decision_log.jsonl")
                 included_files.append("decision_log.jsonl")
 
+            deviation_src = store.get_path(
+                PipelinePhase.EXECUTE_EXPLORATION, "deviation_log.jsonl"
+            )
+            if deviation_src.exists():
+                shutil.copy2(deviation_src, handoff_dir / "deviation_log.jsonl")
+                included_files.append("deviation_log.jsonl")
+
             # Copy figures if they exist
-            figures_dir = Path("data/reports/figures")
+            figures_dir = project.output_dir / "figures"
             if figures_dir.exists():
                 handoff_figs = handoff_dir / "figures"
                 handoff_figs.mkdir(exist_ok=True)
@@ -538,6 +548,7 @@ def register_audit_tools(server: Any) -> None:
             else:
                 lines.append("⚠️ 無決策紀錄")
                 all_ok = False
+            lines.append(f"- 偏離紀錄: {len(logger.read_deviations())} 筆")
 
             # H-010: Append-Only Logs
             lines.append("\n## [H-010] Append-Only Logs")

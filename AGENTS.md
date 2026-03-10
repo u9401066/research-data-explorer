@@ -3,6 +3,8 @@
 > 本文件指引 VS Code Copilot Agent 如何使用 RDE 的工具與工作流程。
 > Architecture: DDD (Domain-Driven Design) | Pipeline: 11-Phase Auditable EDA
 
+> 具體可執行控制契約以 [.github/agent-control.yaml](.github/agent-control.yaml) 為準；若本文件與程式行為不同，以 control manifest 與測試為準。
+
 ## Core Philosophy
 
 > **Agent 不是黑箱做探索，是用工具詳細記錄並經得起審視。**
@@ -18,11 +20,11 @@
 用戶: 「我有一個 CSV 檔案，想看看裡面有什麼」
 Agent:
   Phase 0 → init_project("exploratory_analysis")
-  Phase 1 → run_intake("rawdata/")        # 格式+大小+PII 檢查
+  Phase 1 → run_intake("rawdata/")        # 格式+大小+PII 檢查；H-004 預設阻擋
   Phase 2 → build_schema()                 # 完整 schema registry
-  Phase 3 → align_concepts()              # 研究問題 → 變數映射
-  Phase 4 → register_plan()               # 分析計畫（用戶確認後鎖定）
-  Phase 5 → run_precheck()                # 前提檢查
+  Phase 3 → align_concept(confirm=true)    # 研究問題 → 變數映射 → 用戶確認
+  Phase 4 → register_analysis_plan(confirm=true)  # 分析計畫（用戶確認後鎖定）
+  Phase 5 → check_readiness()              # 前提檢查
   Phase 6 → execute analysis tools         # 按計畫執行
   Phase 7 → collect_results()             # 結果彙整
   Phase 8 → assemble_report()             # 報告組裝
@@ -143,6 +145,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 - ⛔ **Artifact Gate**：前一 Phase 的 artifacts 必須存在才能進入下一 Phase
 - ⛔ **Decision Logging**：Phase 6 每個分析操作自動寫入 decision_log.jsonl
 - ⛔ **User Confirmation**：Phase 3 (概念對齊) 和 Phase 4 (計畫) 必須用戶確認
+- ⛔ **PII Default Block**：`load_dataset()` / `run_intake()` 遇到疑似 PII 時預設拒絕，僅可用 `allow_pii=true` 明確覆蓋
 
 ### Standard Flow（完整 11-Phase）
 
@@ -164,12 +167,12 @@ Phase 2: Schema Registry
   └─ → schema.json + full_profile.html
 
 Phase 3: Concept–Schema Alignment
-  └─ align_concepts()
+  └─ align_concept(confirm=true)
   └─ 研究問題 → 變數映射 → ⚠️ 用戶確認
   └─ → concept_alignment.md + variable_roles.json
 
 Phase 4: Analysis Plan Registration
-  └─ register_plan()
+  └─ register_analysis_plan(confirm=true)
   └─ 統計方法 + automl 指令 + α 值 + missing 策略
   └─ ⚠️ 用戶確認 → 🔒 計畫鎖定
   └─ → analysis_plan.yaml (LOCKED)
@@ -235,7 +238,7 @@ init_project → run_intake → build_schema → profile_dataset → assemble_re
 | H-001 | File Size Guard | 1 | 檔案 > 500MB → 拒絕 |
 | H-002 | Format Whitelist | 1 | 僅 CSV/Excel/Parquet/SAS/SPSS/Stata/TSV |
 | H-003 | Min Sample Size | 5, 6 | n < 10 → 拒絕統計分析 |
-| H-004 | PII Detection | 1, 2 | 偵測 PII → 警告用戶 |
+| H-004 | PII Detection | 1, 2 | 偵測 PII → 預設拒絕載入；僅可明確 override |
 | H-005 | Report Integrity | 8 | 報告必須含所有必要章節 |
 | H-006 | Output Sanitization | 8 | 清除敏感路徑 |
 | H-007 | Plan Lock | 6+ | 必須有已鎖定的 plan 才能執行分析 |
@@ -301,3 +304,9 @@ Agent 應該在回覆時引用具體的 artifact：
 - **引用 artifact 路徑**，讓用戶知道資訊來源
 - 偏離計畫時**主動說明理由**，不能默默換方法
 - 執行前確認用戶意圖，特別是 Phase 3 概念對齊和 Phase 4 計畫鎖定
+
+## Operational Notes
+
+- 測試命令以 `python3 -m pytest -q` 為準
+- decision/deviation log 的實體路徑在 `artifacts/phase_06_execute_exploration/`
+- 圖表匯出與 handoff 以專案自己的 `figures/` 目錄為準，不使用全域共享圖檔目錄

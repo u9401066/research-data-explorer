@@ -39,6 +39,8 @@ data/projects/*/deviation_log.jsonl
 # Test artifacts
 test_*.py
 !tests/**
+tests/**/__pycache__/
+tests/**/*.py[cod]
 
 # Temporary files
 *.tmp

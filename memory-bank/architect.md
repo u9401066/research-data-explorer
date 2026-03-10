@@ -29,4 +29,7 @@ Interface (MCP tools) → Application (Use Cases, Pipeline) → Domain (Pure Log
 6. **Plan Lock**: Phase 4 鎖定分析計畫，Phase 6+ 偏離需記錄 (H-007)
 7. **Artifact Gate**: 前一 Phase artifact 必須存在才能進入下一 Phase (H-008)
 8. **Export 雙格式**: python-docx (Word) + xhtml2pdf (PDF)，嵌入圖表與表格
+9. **Authoritative Control Manifest**: `.github/agent-control.yaml` 為 agent workflow 的實作契約，文件與測試都需對齊
+10. **Phase-ready helper**: MCP tools 透過 shared helper 進行 gate / artifact / sample-size 驗證，避免各 tool 各自散落實作
+11. **Plan-aware execution**: Phase 6 decision logging 延伸為 auto deviation detection，將 S-011 轉為可執行治理機制
 

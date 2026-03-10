@@ -6,6 +6,7 @@
 - **MCP Tool Registration**: `register_*_tools(server)` pattern — 每個 tool file 有一個 register 函數
 - **Artifact Store**: 按 Phase 分目錄 (`data/projects/{id}/artifacts/phase_NN_*/`)
 - **Pipeline FSM**: PipelineState dataclass 追蹤 current phase + completed phases
+- **Authoritative Manifest**: `.github/agent-control.yaml` 統一定義可執行控制規則，文件與測試向它對齊
 
 ## Design Patterns
 
@@ -23,6 +24,9 @@
 - **Session**: In-memory session (loaded datasets, pipeline state) 透過 `get_session()` 全局存取
 - **Soft Constraint Check**: `SoftConstraintChecker` 在 precheck/execution 時自動觸發
 - **Variable Classification**: `VariableClassifier` 推論 numeric/categorical/datetime/identifier/text types
+- **Phase Gate Wrapper**: tool 先呼叫 `ensure_phase_ready(...)`，同時檢查 pipeline gate 與 prerequisite artifacts
+- **Plan Adherence Auto-Log**: `_auto_log_decision()` 在 Phase 6 除 decision log 外，還會依 analysis plan 自動寫 deviation log
+- **PII Safety Default**: discovery/load flow 透過 `_pii_gate_message()` 對疑似 PII 預設阻擋，只有明確 override 才放行
 
 ## File Naming
 

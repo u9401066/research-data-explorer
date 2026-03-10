@@ -18,13 +18,19 @@
 - [x] AutomlGateway 重寫 (stats:8003, automl:8001, 取代舊 /api/projects)
 - [x] AutomlGatewayPort 擴展 (7 abstract methods)
 - [x] xhtml2pdf 安裝至 .venv
+- [x] Governance hardening 第 1 批: confirm gate、Phase 5 成功 gate、PII default-block、decision log 路徑校正
+- [x] Governance hardening 第 2 批: 文件與 report contract 對齊現況
+- [x] Governance hardening 第 3 批: smoke tests 遷移為 pytest integration/enforcement tests
+- [x] Governance hardening 第 4 批: `.github/agent-control.yaml` machine-readable manifest
+- [x] Governance hardening 第 5 批: MCP tool schema/docstring 補強、Phase 4 analyses 驗證、Phase 6 plan adherence auto-log、artifact gate hook 修正
+- [x] Governance regression tests: 24 passed (`python3 -m pytest -q`)
 
 ## Doing
 
-- [ ] 文件更新 + git commit + push
+- [ ] 文件 / memory / git / GitHub 交付收尾
 
 ## Next
 
-- [ ] End-to-end smoke test for export pipeline
+- [ ] 視需要補 pre-commit 實跑驗證
 - [ ] Multi-file/multi-sheet 支援
 - [ ] SessionRegistry 持久化

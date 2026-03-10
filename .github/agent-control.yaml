@@ -1,0 +1,165 @@
+version: 1
+locale: zh-TW
+authoritative_for:
+  - agent_workflow
+  - phase_gates
+  - override_flags
+  - audit_artifact_paths
+
+defaults:
+  response_language: zh-TW
+  test_command: python3 -m pytest -q
+  artifact_root: data/projects/{project_id}/artifacts
+  figures_dir: data/projects/{project_id}/figures
+
+phase_controls:
+  concept_alignment:
+    tool: align_concept
+    phase: phase_03_concept_alignment
+    requires_user_confirmation: true
+    confirmation_flag: confirm
+    next_phase_unblocked_only_when_confirmed: true
+  plan_registration:
+    tool: register_analysis_plan
+    phase: phase_04_plan_registration
+    requires_user_confirmation: true
+    confirmation_flag: confirm
+    locks_plan_when_confirmed: true
+  execute_exploration:
+    phase: phase_06_execute_exploration
+    requires_locked_plan: true
+    requires_successful_phase_05: true
+    requires_decision_logging: true
+
+override_controls:
+  pii_detection:
+    default_action: block_load
+    tools:
+      - load_dataset
+      - run_intake
+    explicit_override_flag: allow_pii
+    user_visible_warning_required_on_override: true
+
+audit_contract:
+  decision_log_path: artifacts/phase_06_execute_exploration/decision_log.jsonl
+  deviation_log_path: artifacts/phase_06_execute_exploration/deviation_log.jsonl
+  phase_06_required_artifacts:
+    - decision_log.jsonl
+  phase_10_required_artifacts:
+    - final_report.md
+
+tool_expectations:
+  analysis_tools_require_min_sample_size: true
+  create_visualization_uses_project_scoped_figures_dir: true
+  export_report_uses_project_scoped_figures_dir: true
+  export_handoff_includes_deviation_log: true
+
+# ── Plan-Aware Enforcement (S-011) ──────────────────────────────────
+plan_adherence:
+  auto_detection: true
+  mechanism: >-
+    Phase 6 tools (_auto_log_decision) auto-compare the current operation
+    against analysis_plan.yaml. If tool+variables don't match any planned
+    analysis, a deviation entry is auto-logged to deviation_log.jsonl.
+  deviation_log_auto_populated: true
+  manual_override: log_deviation  # still available for manual recording
+
+# ── Phase 4 Analysis Plan Schema ────────────────────────────────────
+analysis_plan_schema:
+  required_fields:
+    - type   # must be a valid analysis type
+  recommended_fields:
+    - variables   # enables auto-deviation detection
+    - rationale   # audit traceability
+  valid_types:
+    - compare_groups
+    - analyze_variable
+    - correlation_matrix
+    - generate_table_one
+    - run_advanced_analysis
+    - run_repeated_measures
+    - propensity_score
+    - survival_analysis
+    - roc_auc
+    - logistic_regression
+    - multiple_regression
+    - power_analysis_advanced
+    - descriptive
+    - univariate
+    - table_one
+    - visualization
+
+# ── Analysis Engine Delegation ──────────────────────────────────────
+delegation:
+  strategy: auto_fallback
+  description: >-
+    RDE routes analysis via AnalysisDelegator. Heavy analyses
+    (propensity, survival, ROC, logistic, automl) are sent to
+    automl-stat-mcp when available; otherwise fall back to local
+    ScipyStatisticalEngine. Basic analyses (t-test, chi-square,
+    correlation, table_one) always run locally.
+
+  local_engine:
+    name: ScipyStatisticalEngine
+    capabilities:
+      - t_test
+      - mann_whitney
+      - chi_square
+      - fisher_exact
+      - shapiro_wilk
+      - anova
+      - kruskal_wallis
+      - friedman
+      - correlation
+      - table_one
+      - descriptive
+      - dunn_post_hoc
+      - tukey_hsd
+      - wilcoxon
+      - point_biserial
+
+  automl_engine:
+    name: automl-stat-mcp
+    stats_service_url: http://localhost:8003
+    automl_service_url: http://localhost:8001
+    health_check: GET /health
+    capabilities:
+      - propensity_score
+      - survival_analysis
+      - kaplan_meier
+      - cox_regression
+      - roc_auc
+      - logistic_regression
+      - multiple_regression
+      - glm
+      - power_analysis_advanced
+      - automl
+    startup: cd vendor/automl-stat-mcp && docker compose up -d
+
+  fallback_behavior: >-
+    When automl is unavailable, run_advanced_analysis attempts
+    local ScipyEngine. If the local engine doesn't support the
+    analysis type, it returns a descriptive error and suggests
+    starting automl.
+
+# ── Pre-Commit Hooks ────────────────────────────────────────────────
+pre_commit_hooks:
+  - id: rde-decision-log-integrity
+    constraint: H-010
+    script: scripts/hooks/check_log_integrity.py
+    checks: decision_log.jsonl and deviation_log.jsonl are append-only
+
+  - id: rde-pii-scan
+    constraint: H-004, H-006
+    script: scripts/hooks/pii_scan.py
+    checks: output files for email, phone, national ID, sensitive paths
+
+  - id: rde-artifact-gate
+    constraint: H-008
+    script: scripts/hooks/artifact_gate.py
+    checks: no skipped phases in committed project artifacts
+
+  - id: rde-report-sanitize
+    constraint: H-006
+    script: scripts/hooks/report_sanitize.py
+    checks: report files for leaked paths, credentials, tokens

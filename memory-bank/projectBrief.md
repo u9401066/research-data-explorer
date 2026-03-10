@@ -30,5 +30,6 @@ rawdata/ → [RDE] → 完整 EDA 報告 → [Med-Paper-Assistant] → 論文
 ## Repository
 
 - Python >=3.11, FastMCP
-- 28 MCP tools across 7 tool files
+- 30 MCP tools across 7 tool files
 - automl-stat-mcp as vendor submodule (Docker 獨立服務)
+- `.github/agent-control.yaml` 作為 agent workflow / gate / override / audit path 的 authoritative manifest

@@ -11,16 +11,19 @@ import sys
 from pathlib import Path
 
 # Expected artifacts per phase (minimum required files)
+# Keys must match PipelinePhase enum values in src/rde/application/pipeline/__init__.py
 PHASE_ARTIFACTS = {
-    "phase_01_intake": ["intake_report.json"],
-    "phase_02_schema": ["schema.json"],
-    "phase_03_concept": ["concept_alignment.md"],
-    "phase_04_plan": ["analysis_plan.yaml"],
-    "phase_05_precheck": ["readiness_checklist.json"],
-    "phase_06_execution": [],  # Dynamic — checked by decision_log presence
-    "phase_07_results": ["results_summary.json"],
-    "phase_08_report": ["eda_report.md"],
-    "phase_09_audit": ["audit_report.json"],
+    "phase_00_project_setup": ["project.yaml"],
+    "phase_01_data_intake": ["intake_report.json"],
+    "phase_02_schema_registry": ["schema.json"],
+    "phase_03_concept_alignment": ["concept_alignment.md"],
+    "phase_04_plan_registration": ["analysis_plan.yaml"],
+    "phase_05_pre_explore_check": ["readiness_checklist.json"],
+    "phase_06_execute_exploration": ["decision_log.jsonl"],
+    "phase_07_collect_results": ["results_summary.json"],
+    "phase_08_report_assembly": ["eda_report.md"],
+    "phase_09_audit_review": ["audit_report.json"],
+    "phase_10_auto_improve": ["final_report.md"],
 }
 
 
@@ -55,12 +58,6 @@ def check_project(project_dir: Path) -> list[str]:
                 f"  ⛔ Phase {phase_idx} ({phase_name}) 被跳過但後續 Phase 已存在"
             )
 
-    # Check decision_log exists if Phase 6+ present
-    if highest_phase >= 5:
-        decision_log = project_dir / "decision_log.jsonl"
-        if not decision_log.exists():
-            issues.append("  ⛔ Phase 6+ 已執行但 decision_log.jsonl 不存在 (H-009)")
-
     return issues
 
 
@@ -71,7 +68,17 @@ def main() -> int:
 
     exit_code = 0
     for project_dir in projects_dir.iterdir():
-        if project_dir.is_dir() and (project_dir / "project.yaml").exists():
+        if not project_dir.is_dir():
+            continue
+        artifacts_dir = project_dir / "artifacts"
+        if not artifacts_dir.exists():
+            continue
+        # Detect project by presence of Phase 0 artifact or project.yaml at root
+        is_project = (
+            (artifacts_dir / "phase_00_project_setup" / "project.yaml").exists()
+            or (project_dir / "project.yaml").exists()
+        )
+        if is_project:
             issues = check_project(project_dir)
             if issues:
                 print(f"❌ [H-008] Artifact gate issues in {project_dir.name}:")

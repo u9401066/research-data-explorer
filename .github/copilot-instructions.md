@@ -3,6 +3,8 @@
 > 此檔案指引 Copilot Agent 在 RDE 專案中的行為規範。
 > Architecture: DDD | Pipeline: 11-Phase Auditable EDA
 
+> 若與實際程式行為或測試不一致，請以 [agent-control.yaml](agent-control.yaml) 與 `python3 -m pytest -q` 的測試結果為準。
+
 ## 回應風格
 
 - 使用**繁體中文**回應
@@ -56,7 +58,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 | H-001 | 檔案大小 < 500MB | 自動拒絕 |
 | H-002 | 格式白名單 | 自動拒絕 |
 | H-003 | 樣本量 ≥ 10 | 自動拒絕統計分析 |
-| H-004 | PII 偵測 | 警告用戶 |
+| H-004 | PII 偵測 | 預設拒絕載入；僅可明確 override |
 | H-005 | 報告完整性 | 檢查必備章節 |
 | H-006 | 輸出清除敏感路徑 | 自動清除 |
 | H-007 | Plan Lock | Phase 6+ 需鎖定計畫 |
@@ -105,6 +107,13 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 - `rde-report-sanitize` (H-006)
 
 安裝: `pip install pre-commit && pre-commit install`
+
+## Agent Control Notes
+
+- Phase 3 `align_concept()` 與 Phase 4 `register_analysis_plan()` 都需要 `confirm=true` 才算解除下一階段 gate
+- `load_dataset()` / `run_intake()` 偵測疑似 PII 時預設拒絕；只有 `allow_pii=true` 可覆蓋，而且回覆中必須明確警告
+- `decision_log.jsonl` 與 `deviation_log.jsonl` 位於 `artifacts/phase_06_execute_exploration/`
+- 測試與回歸驗證請使用 `python3 -m pytest -q`
 
 ## Quality Layers
 

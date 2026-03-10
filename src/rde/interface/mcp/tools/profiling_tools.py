@@ -15,8 +15,11 @@ def register_profiling_tools(server: Any) -> None:
     def profile_dataset(dataset_id: str) -> str:
         """生成資料集的完整 profiling 報告（ydata-profiling）。
 
+        產出每個變數的分佈、缺失模式、相關性矩陣，並偵測高缺失率變數。
+        若 ydata-profiling 未安裝，自動降級為 pandas 基礎 profiling。
+
         Args:
-            dataset_id: 已載入的資料集 ID
+            dataset_id: 已載入的資料集 ID（由 load_dataset 或 run_intake 回傳）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,

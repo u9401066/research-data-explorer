@@ -19,18 +19,20 @@ def register_report_tools(server: Any) -> None:
         """彙整 Phase 6 的所有分析結果，標記可發表內容 (Phase 7)。
 
         掃描已完成的分析，生成 results_summary.json。
+        標記統計顯著的結果為 PUBLISHABLE，並建議敏感度分析 (S-012)。
 
         Args:
-            project_id: 專案 ID (預設使用當前專案)
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            fmt_error, fmt_success, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("collect_results", {"project_id": project_id})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.COLLECT_RESULTS, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 
@@ -180,12 +182,13 @@ def register_report_tools(server: Any) -> None:
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            fmt_error, fmt_success, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("assemble_report", {"project_id": project_id, "title": title})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.REPORT_ASSEMBLY, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 
@@ -299,25 +302,34 @@ def register_report_tools(server: Any) -> None:
     ) -> str:
         """建立資料視覺化圖表。H-009 自動記錄。
 
-        支援類型: histogram, boxplot, scatter, bar, violin, heatmap
+        支援類型: histogram, boxplot, scatter, bar, violin, heatmap, line, paired。
+        圖表儲存在專案的 figures/ 目錄，報告和 handoff 時自動嵌入。
 
         Args:
             dataset_id: 資料集 ID
-            plot_type: 圖表類型
-            variables: 變數列表
-            output_filename: 輸出檔名 (預設自動生成)
-            group_var: 分組變數 (可選)
+            plot_type: 圖表類型，如 "histogram"、"boxplot"、"scatter"、"violin"、"heatmap"
+            variables: 變數列表，如 ["age"]（histogram）或 ["age", "bmi"]（scatter）
+            output_filename: 輸出檔名，如 "age_distribution.png"（可選，預設自動生成）
+            group_var: 分組變數，如 "treatment_group"（可選，用於組間比對圖）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error, log_tool_result,
-            fmt_error, fmt_success, ensure_dataset,
+            fmt_error, fmt_success, ensure_minimum_sample_size, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("create_visualization", {
             "plot_type": plot_type, "variables": variables,
         })
 
-        ok, msg, entry = ensure_dataset(dataset_id)
+        ok, msg, project, entry = ensure_phase_ready(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            dataset_id=dataset_id,
+            require_dataset=True,
+        )
+        if not ok:
+            return fmt_error(msg)
+        ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
@@ -330,14 +342,12 @@ def register_report_tools(server: Any) -> None:
 
         try:
             from rde.infrastructure.visualization.matplotlib_viz import MatplotlibVisualizer
-            from pathlib import Path
-
             # Determine output path
             if output_filename is None:
                 var_str = "_".join(variables[:2])
                 output_filename = f"{plot_type}_{var_str}.png"
 
-            output_dir = Path("data/reports/figures")
+            output_dir = project.output_dir / "figures"
             output_dir.mkdir(parents=True, exist_ok=True)
             output_path = str(output_dir / output_filename)
 
@@ -354,23 +364,15 @@ def register_report_tools(server: Any) -> None:
                 **kwargs,
             )
 
-            # H-009: Auto-log
-            try:
-                from rde.application.session import get_session
-                session = get_session()
-                project = session.get_project()
-                logger = session.get_logger(project.id)
-                logger.log_decision(
-                    phase="phase_06",
-                    action="create_visualization",
-                    tool_used="create_visualization",
-                    parameters={"plot_type": plot_type, "variables": variables},
-                    rationale="生成圖表",
-                    result_summary=f"{plot_type}: {result_path}",
-                    artifacts=[result_path],
-                )
-            except KeyError:
-                log_tool_result("create_visualization", "Decision log skipped: no active project", success=False)
+            from rde.interface.mcp.tools.analysis_tools import _auto_log_decision
+
+            _auto_log_decision(
+                "create_visualization",
+                {"plot_type": plot_type, "variables": variables, "group_var": group_var},
+                "生成視覺化圖表",
+                f"{plot_type}: {result_path}",
+                artifacts=[result_path],
+            )
 
             return fmt_success(
                 f"圖表已生成: {output_filename}",
@@ -391,24 +393,23 @@ def register_report_tools(server: Any) -> None:
     ) -> str:
         """匯出 EDA 報告為 Word (.docx) 或 PDF 格式。
 
-        參考 medpaper 的 template-based 匯出模式，
         自動嵌入圖表和統計表格到文件中。
-
         需先完成 assemble_report (Phase 8)。
 
         Args:
-            project_id: 專案 ID (預設使用當前專案)
-            formats: 匯出格式，以逗號分隔 (docx, pdf, 或 docx,pdf)
-            title: 報告標題
+            project_id: 專案 ID（可選，預設使用當前專案）
+            formats: 匯出格式，以逗號分隔，如 "docx"、"pdf"、"docx,pdf"（預設: docx）
+            title: 報告標題，如 "Sepsis EDA Report"（預設: EDA Report）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            fmt_error, fmt_success, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("export_report", {"formats": formats, "title": title})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.REPORT_ASSEMBLY, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 
@@ -473,7 +474,7 @@ def register_report_tools(server: Any) -> None:
                 )
 
             # Export
-            figures_dir = Path("data/reports/figures")
+            figures_dir = project.output_dir / "figures"
             output_dir = project.artifacts_dir / "exports"
             exporter = DocxExporter()
             export_uc = ExportReportUseCase(exporter)
@@ -514,10 +515,10 @@ def _format_data_overview(
     """Format data overview section from intake + schema artifacts."""
     lines = []
     if intake:
-        lines.append(f"**檔案:** {intake.get('filename', '?')}")
-        rows = intake.get('rows', '?')
+        lines.append(f"**檔案:** {intake.get('loaded_file', intake.get('filename', '?'))}")
+        rows = intake.get('row_count', intake.get('rows', '?'))
         lines.append(f"**列數:** {rows}")
-        lines.append(f"**欄數:** {intake.get('columns', '?')}")
+        lines.append(f"**欄數:** {intake.get('column_count', intake.get('columns', '?'))}")
         if intake.get("size_mb"):
             lines.append(f"**大小:** {intake['size_mb']:.1f} MB")
     if schema:
@@ -560,7 +561,7 @@ def _format_data_quality(
         if variables:
             type_counts: dict[str, int] = {}
             for v in variables:
-                vt = v.get("type", "unknown")
+                vt = v.get("variable_type", v.get("type", "unknown"))
                 type_counts[vt] = type_counts.get(vt, 0) + 1
             lines.append(f"\n**變數類型分佈:** " + ", ".join(
                 f"{t}: {n}" for t, n in sorted(type_counts.items())
@@ -578,8 +579,8 @@ def _format_variable_profiles(schema: dict | None) -> str:
     lines.append("| --- | --- | --- |")
     for v in variables[:50]:  # Cap at 50 rows
         name = v.get("name", "?")
-        vtype = v.get("type", "?")
-        missing = v.get("missing_pct", 0)
+        vtype = v.get("variable_type", v.get("type", "?"))
+        missing = v.get("missing_rate", v.get("missing_pct", 0))
         lines.append(f"| {name} | {vtype} | {missing:.1%} |")
     return "\n".join(lines)
 

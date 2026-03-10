@@ -95,7 +95,9 @@ class SessionRegistry:
     def get_logger(self, project_id: str) -> DecisionLogger:
         if project_id not in self._loggers:
             project = self.get_project(project_id)
-            self._loggers[project_id] = DecisionLogger(project.output_dir)
+            logger = DecisionLogger(project.artifacts_dir)
+            logger.snapshot_line_counts()
+            self._loggers[project_id] = logger
         return self._loggers[project_id]
 
 

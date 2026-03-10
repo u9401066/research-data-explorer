@@ -116,6 +116,19 @@ class PipelineState:
             names = ", ".join(p.value for p in missing)
             return False, f"Missing prerequisites: {names}"
 
+        for req_phase in required:
+            result = self.completed_phases.get(req_phase)
+            if result is not None and not result.success:
+                return False, f"Prerequisite phase '{req_phase.value}' did not complete successfully"
+
+        # Enforce explicit user confirmation for gated phases.
+        for req_phase in required:
+            if req_phase not in USER_CONFIRMATION_REQUIRED:
+                continue
+            result = self.completed_phases.get(req_phase)
+            if result is not None and not result.user_confirmed:
+                return False, f"Phase '{req_phase.value}' requires explicit user confirmation"
+
         # Phase 6+ requires locked plan (unless quick explore)
         if (
             phase == PipelinePhase.EXECUTE_EXPLORATION

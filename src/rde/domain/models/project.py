@@ -63,11 +63,11 @@ class Project:
 
     @property
     def decision_log_path(self) -> Path:
-        return self.output_dir / "decision_log.jsonl"
+        return self.artifacts_dir / ProjectStatus.EXECUTE_EXPLORATION.value / "decision_log.jsonl"
 
     @property
     def deviation_log_path(self) -> Path:
-        return self.output_dir / "deviation_log.jsonl"
+        return self.artifacts_dir / ProjectStatus.EXECUTE_EXPLORATION.value / "deviation_log.jsonl"
 
     def advance_to(self, phase: ProjectStatus) -> None:
         """Advance the project to a pipeline phase."""

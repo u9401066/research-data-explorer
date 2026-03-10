@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from rde.application.pipeline import PipelinePhase
+
 
 @dataclass(frozen=True)
 class DecisionEntry:
@@ -45,9 +47,10 @@ class DeviationEntry:
 class DecisionLogger:
     """Append-only logger for analysis decisions and plan deviations."""
 
-    def __init__(self, project_dir: Path) -> None:
-        self._decision_log = project_dir / "decision_log.jsonl"
-        self._deviation_log = project_dir / "deviation_log.jsonl"
+    def __init__(self, artifacts_dir: Path) -> None:
+        phase_dir = artifacts_dir / PipelinePhase.EXECUTE_EXPLORATION.value
+        self._decision_log = phase_dir / "decision_log.jsonl"
+        self._deviation_log = phase_dir / "deviation_log.jsonl"
         self._decision_line_count: int | None = None
         self._deviation_line_count: int | None = None
 

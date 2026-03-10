@@ -8,6 +8,9 @@ from rde.interface.mcp.tools._shared.tool_logging import (
 from rde.interface.mcp.tools._shared.project_context import (
     ensure_project_context,
     ensure_dataset,
+    ensure_phase_ready,
+    ensure_minimum_sample_size,
+    check_plan_adherence,
 )
 from rde.interface.mcp.tools._shared.formatting import (
     fmt_error,
@@ -22,6 +25,9 @@ __all__ = [
     "log_tool_result",
     "ensure_project_context",
     "ensure_dataset",
+    "ensure_phase_ready",
+    "ensure_minimum_sample_size",
+    "check_plan_adherence",
     "fmt_error",
     "fmt_success",
     "fmt_warning",

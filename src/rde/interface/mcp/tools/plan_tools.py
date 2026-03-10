@@ -16,30 +16,35 @@ def register_plan_tools(server: Any) -> None:
         project_id: str | None = None,
         research_question: str = "",
         variable_roles: dict[str, str | list[str]] | None = None,
+        confirm: bool = False,
     ) -> str:
         """對齊研究概念與資料 schema（Phase 3）。
 
         將研究問題對應到實際變數，確認 outcome/predictor/confounder 角色。
-        ⚠️ 需要用戶確認後才能進入 Phase 4。
+        ⚠️ 需要用戶確認 (confirm=true) 後才能解鎖 Phase 4。
 
         Args:
-            project_id: 專案 ID
-            research_question: 研究問題
-            variable_roles: 變數角色指定，例:
-                {"outcome": "mortality", "group": "treatment",
-                 "covariates": ["age", "sex"]}
+            project_id: 專案 ID（可選，預設使用當前專案）
+            research_question: 研究問題，如 "ICU sepsis 患者 28 天死亡率的影響因素"
+            variable_roles: 變數角色指定，格式: {"outcome": "mortality", "group": "treatment", "covariates": ["age", "sex"]}
+            confirm: 是否確認概念對齊，必須設為 true 才能解鎖 Phase 4（預設 false）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_table, ensure_project_context,
+            fmt_error, fmt_table, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("align_concept", {
             "research_question": research_question,
             "variable_roles": variable_roles,
         })
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.CONCEPT_ALIGNMENT,
+            project_id=project_id,
+            require_dataset=True,
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -108,7 +113,7 @@ def register_plan_tools(server: Any) -> None:
                 completed_at=datetime.now(),
                 success=True,
                 artifacts={"concept_alignment.md": "", "variable_roles.json": ""},
-                user_confirmed=False,
+                user_confirmed=confirm,
             ))
 
             # Build variable table
@@ -139,7 +144,11 @@ def register_plan_tools(server: Any) -> None:
                 f"- **可分析變數:** {analyzable} / {len(ds.variables)}\n"
                 f"{assigned_text}{unassigned_text}\n"
                 f"{table}\n\n"
-                f"⚠️ **請確認變數角色分配是否正確，再進入 Phase 4。**"
+                + (
+                    "✅ **已確認概念對齊，可進入 Phase 4。**"
+                    if confirm else
+                    "⚠️ **尚未確認概念對齊。請用 `confirm=true` 重新呼叫後再進入 Phase 4。**"
+                )
             )
 
         except Exception as e:
@@ -153,30 +162,37 @@ def register_plan_tools(server: Any) -> None:
         alpha: float = 0.05,
         missing_strategy: str = "listwise",
         multiple_comparison_method: str = "bonferroni",
+        confirm: bool = False,
     ) -> str:
         """註冊分析計畫（Phase 4 — Pre-registration）。
 
-        ⚠️ 完成後計畫將被鎖定 (H-007)，後續偏離必須使用 log_deviation() 記錄。
+        ⚠️ 確認後計畫將被鎖定 (H-007)，後續偏離會自動偵測並記錄。
+        每項分析需指定 type、variables、rationale。
 
         Args:
-            project_id: 專案 ID
-            analyses: 計畫清單，每項含 type/variables/rationale
-            alpha: 顯著水準（預設 0.05）
-            missing_strategy: 缺失值策略 (listwise/pairwise/impute_median)
-            multiple_comparison_method: 多重比較校正 (bonferroni/fdr)
+            project_id: 專案 ID（可選，預設使用當前專案）
+            analyses: 計畫分析項目清單，每項必須含 type 和 variables，如 [{"type": "compare_groups", "variables": ["sofa_score"], "rationale": "比較兩組 SOFA"}]
+            alpha: 顯著水準 α，如 0.05、0.01（預設 0.05）
+            missing_strategy: 缺失值處理策略: listwise（預設）、pairwise、impute_median
+            multiple_comparison_method: 多重比較校正方法: bonferroni（預設）、fdr
+            confirm: 是否確認並鎖定計畫，必須設為 true 才會鎖定（預設 false）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, ensure_project_context,
+            fmt_error, ensure_phase_ready,
         )
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("register_analysis_plan", {
             "alpha": alpha, "missing_strategy": missing_strategy,
         })
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.PLAN_REGISTRATION, project_id=project_id)
         if not ok:
             return fmt_error(msg)
+
+        if not confirm:
+            return fmt_error("Phase 4 需要明確用戶確認才能鎖定分析計畫。", suggestion="以 `confirm=true` 重新呼叫 register_analysis_plan()。")
 
         try:
             from datetime import datetime
@@ -195,6 +211,38 @@ def register_plan_tools(server: Any) -> None:
 
             if not analyses:
                 analyses = []
+
+            # Validate analysis entries schema
+            validation_errors: list[str] = []
+            VALID_ANALYSIS_TYPES = {
+                "compare_groups", "analyze_variable", "correlation_matrix",
+                "generate_table_one", "run_advanced_analysis", "run_repeated_measures",
+                "propensity_score", "survival_analysis", "roc_auc",
+                "logistic_regression", "multiple_regression", "power_analysis_advanced",
+                "descriptive", "univariate", "table_one", "visualization",
+            }
+            for i, entry in enumerate(analyses):
+                if not isinstance(entry, dict):
+                    validation_errors.append(f"  #{i}: 必須是字典，收到 {type(entry).__name__}")
+                    continue
+                if "type" not in entry:
+                    validation_errors.append(f"  #{i}: 缺少必填欄位 'type'")
+                else:
+                    entry_type = str(entry["type"]).lower().replace("-", "_").replace(" ", "_")
+                    if entry_type not in VALID_ANALYSIS_TYPES:
+                        validation_errors.append(
+                            f"  #{i}: 未知分析類型 '{entry['type']}'。"
+                            f"支援: {', '.join(sorted(VALID_ANALYSIS_TYPES))}"
+                        )
+                if "variables" not in entry and "type" in entry:
+                    validation_errors.append(f"  #{i} ({entry.get('type', '?')}): 建議指定 'variables' 以啟用自動偏離偵測")
+
+            if validation_errors:
+                return fmt_error(
+                    f"分析計畫驗證失敗 ({len(validation_errors)} 個問題):",
+                    "\n".join(validation_errors),
+                    "每項分析應含 type (必填)、variables (建議)、rationale (選填)。"
+                )
 
             plan = {
                 "project_id": project.id,
@@ -249,21 +297,23 @@ def register_plan_tools(server: Any) -> None:
     def check_readiness(project_id: str | None = None) -> str:
         """執行探索前準備度檢查（Phase 5）。
 
-        驗證 H-003 (樣本量), H-004 (PII), H-007 (計畫鎖定),
-        H-008 (artifact gate), S-001 (常態性提醒)。
+        驗證 H-003 (樣本量 ≥10), H-004 (PII), H-007 (計畫已鎖定),
+        H-008 (artifact gate), S-001 (常態性提醒), S-005 (缺失模式),
+        S-007 (共線性 VIF 預檢)。
 
         Args:
-            project_id: 專案 ID
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, ensure_project_context,
+            fmt_error, ensure_phase_ready,
         )
         from rde.interface.mcp.tools._shared.formatting import fmt_checks
+        from rde.application.pipeline import PipelinePhase
 
         log_tool_call("check_readiness", {"project_id": project_id})
 
-        ok, msg, project = ensure_project_context(project_id)
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.PRE_EXPLORE_CHECK, project_id=project_id)
         if not ok:
             return fmt_error(msg)
 

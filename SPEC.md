@@ -190,9 +190,11 @@ data/projects/{slug}/
 │   ├── phase_08_report/
 │   ├── phase_09_audit/
 │   └── phase_10_improve/
-├── decision_log.jsonl        # 決策日誌（append-only）
-├── deviation_log.jsonl       # 偏離紀錄（append-only）
 └── figures/                  # 圖表產出
+
+Phase 6 append-only logs 實體位置：
+- `artifacts/phase_06_execute_exploration/decision_log.jsonl`
+- `artifacts/phase_06_execute_exploration/deviation_log.jsonl`
 ```
 
 ---
@@ -210,6 +212,10 @@ data/projects/{slug}/
 | 1.5 試載入 | 嘗試讀取前 100 rows | — | success/error per file |
 | 1.6 PII 初篩 | 檢查欄位名稱是否疑似 PII | H-004 | `pii_suspects[]` |
 | 1.7 產出收件報告 | 彙整所有檢查結果 | — | `intake_report.json` |
+
+**H-004 現行行為**:
+- `load_dataset()` / `run_intake()` 偵測疑似 PII 時預設拒絕載入
+- 只有 `allow_pii=true` 可覆蓋，且 agent 必須在回覆中明確警告使用者
 
 **Decision Log 記錄**: 每個被拒絕的檔案 → 記錄原因
 

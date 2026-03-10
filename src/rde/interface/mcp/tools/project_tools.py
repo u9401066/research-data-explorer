@@ -19,12 +19,13 @@ def register_project_tools(server: Any) -> None:
     ) -> str:
         """建立新的 EDA 探索專案（Phase 0）。
 
-        建立專案目錄結構，初始化 project.yaml。
+        建立專案目錄結構，初始化 project.yaml，產生唯一 project_id。
+        這是 11-Phase Pipeline 的第一步。
 
         Args:
-            name: 專案名稱
-            data_dir: 原始資料目錄路徑（預設: data/rawdata）
-            research_question: 研究問題描述（可選，Phase 3 再填也行）
+            name: 專案名稱，用於識別此次探索性分析（如 "sepsis_eda"、"aki_analysis"）
+            data_dir: 原始資料目錄路徑，含 CSV/Excel/Parquet 等檔案（預設: data/rawdata）
+            research_question: 研究問題描述，如 "ICU sepsis 患者自主呼吸試驗的成功因素"（可選，Phase 3 再填）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
@@ -109,8 +110,10 @@ def register_project_tools(server: Any) -> None:
     def get_pipeline_status(project_id: str | None = None) -> str:
         """查看目前分析專案的 11-Phase Pipeline 進度。
 
+        顯示已完成階段、計畫鎖定狀態、已載入資料集數量。
+
         Args:
-            project_id: 專案 ID（可選，預設使用目前專案）
+            project_id: 專案 ID，如 "a1b2c3d4"（可選，預設使用最近建立的專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, fmt_error, ensure_project_context,
@@ -161,8 +164,10 @@ def register_project_tools(server: Any) -> None:
     def get_decision_log(project_id: str | None = None) -> str:
         """查詢分析決策紀錄（decision_log.jsonl）。
 
+        Phase 6 的每一步操作都會自動寫入 decision_log（H-009 強制）。
+
         Args:
-            project_id: 專案 ID
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, fmt_error, ensure_project_context,
@@ -199,8 +204,10 @@ def register_project_tools(server: Any) -> None:
     def get_deviation_log(project_id: str | None = None) -> str:
         """查詢計畫偏離紀錄（deviation_log.jsonl）。
 
+        Phase 6+ 偏離已鎖定計畫時，系統自動偵測並記錄；也可手動呼叫 log_deviation()。
+
         Args:
-            project_id: 專案 ID
+            project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, fmt_error, ensure_project_context,
@@ -238,14 +245,17 @@ def register_project_tools(server: Any) -> None:
         reason: str = "",
         impact_assessment: str = "",
     ) -> str:
-        """記錄計畫偏離（Phase 6+ 偏離已鎖定計畫時必須呼叫）。
+        """記錄計畫偏離（Phase 6+ 偏離已鎖定計畫時呼叫）。
+
+        Phase 6 的工具現在會自動偵測偏離並記錄（S-011），
+        但如需補充說明或主動記錄，仍可手動呼叫此工具。
 
         Args:
-            project_id: 專案 ID
-            planned_action: 原計畫的操作
-            actual_action: 實際執行的操作
-            reason: 偏離理由
-            impact_assessment: 影響評估
+            project_id: 專案 ID（可選，預設使用當前專案）
+            planned_action: 原計畫的操作，如 "比較 treatment 與 control 組的 mortality"
+            actual_action: 實際執行的操作，如 "改用 Kruskal-Wallis 檢定（因三組比較）"
+            reason: 偏離理由，如 "原計畫為兩組比較，但資料包含三個治療組"
+            impact_assessment: 影響評估，如 "不影響主要結論，已補充 Dunn post-hoc"
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_error,

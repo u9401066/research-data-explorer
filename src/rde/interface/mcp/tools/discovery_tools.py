@@ -9,6 +9,20 @@ from __future__ import annotations
 from typing import Any
 
 
+def _pii_gate_message(pii_vars: list[str], *, allow_pii: bool, context: str) -> tuple[bool, str, str, str]:
+    """Return a standardized H-004 decision for discovery/load flows."""
+    if not pii_vars:
+        return True, "", "", ""
+    if allow_pii:
+        return True, "", "", (
+            f"\n⚠️ **[H-004] 疑似 PII{context}: {', '.join(pii_vars)}\n"
+            f"已依 allow_pii=true 明確允許載入，請盡快遮蔽或移除。\n"
+        )
+    return False, "[H-004] 偵測到疑似 PII 欄位，已停止載入。", \
+        f"疑似欄位{context}: {', '.join(pii_vars)}", \
+        "先匿名化資料，或在明確知情下以 allow_pii=true 重新呼叫。"
+
+
 def register_discovery_tools(server: Any) -> None:
     """Register data discovery MCP tools."""
 
@@ -16,10 +30,11 @@ def register_discovery_tools(server: Any) -> None:
     def scan_data_folder(directory: str = "data/rawdata") -> str:
         """掃描指定目錄，列出所有可分析的資料檔案。
 
-        支援格式: CSV, Excel, Parquet, SAS, SPSS, Stata, TSV
+        支援格式: CSV, Excel (.xlsx/.xls), Parquet, SAS (.sas7bdat),
+        SPSS (.sav), Stata (.dta), TSV。自動檢查 H-001 (≤500MB) 和 H-002 (格式白名單)。
 
         Args:
-            directory: 要掃描的資料目錄路徑（預設: data/rawdata）
+            directory: 要掃描的資料目錄路徑，如 "data/rawdata" 或 "/mnt/data"（預設: data/rawdata）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
@@ -76,13 +91,18 @@ def register_discovery_tools(server: Any) -> None:
         file_path: str,
         encoding: str | None = None,
         sheet_name: str | None = None,
+        allow_pii: bool = False,
     ) -> str:
         """載入資料集到記憶體，執行格式與大小的安全檢查。
 
+        自動執行 H-001 (檔案大小 ≤500MB)、H-002 (格式白名單)、
+        H-004 (PII 偵測 — 預設阻擋) 檢查。
+
         Args:
-            file_path: 資料檔案路徑
-            encoding: 檔案編碼（可選，自動偵測）
-            sheet_name: Excel 工作表名稱（可選）
+            file_path: 資料檔案路徑，如 "data/rawdata/patient_data.csv"
+            encoding: 檔案編碼，如 "utf-8"、"big5"、"shift_jis"（可選，自動偵測）
+            sheet_name: Excel 工作表名稱，僅 .xlsx/.xls 檔案適用（可選，預設讀取第一個工作表）
+            allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
@@ -118,10 +138,15 @@ def register_discovery_tools(server: Any) -> None:
             df, variables, row_count = loader.load(metadata)
             dataset.mark_loaded(variables, row_count)
 
+            pii_vars = [v.name for v in variables if v.is_pii_suspect]
+            pii_allowed, pii_error, pii_detail, pii_warning = _pii_gate_message(
+                pii_vars, allow_pii=allow_pii, context=""
+            )
+            if not pii_allowed:
+                return fmt_error(pii_error, detail=pii_detail, suggestion="先匿名化資料，或在明確知情下以 allow_pii=true 重新呼叫。")
+
             session = get_session()
             session.register_dataset(dataset, df)
-
-            pii_vars = [v.name for v in variables if v.is_pii_suspect]
 
             headers = ["變數", "dtype", "類型", "缺失", "唯一值"]
             rows = [
@@ -129,13 +154,6 @@ def register_discovery_tools(server: Any) -> None:
                 for v in variables
             ]
             table = fmt_table(headers, rows)
-
-            pii_warning = ""
-            if pii_vars:
-                pii_warning = (
-                    f"\n⚠️ **[H-004] 疑似 PII 變數:** {', '.join(pii_vars)}\n"
-                    f"請確認是否需要遮蔽或移除。\n"
-                )
 
             log_tool_result("load_dataset", f"{row_count} rows, {len(variables)} vars")
 
@@ -159,6 +177,7 @@ def register_discovery_tools(server: Any) -> None:
     def run_intake(
         directory: str = "data/rawdata",
         project_id: str | None = None,
+        allow_pii: bool = False,
     ) -> str:
         """執行完整收件流程（Phase 1 orchestration）。
 
@@ -166,8 +185,9 @@ def register_discovery_tools(server: Any) -> None:
         → 載入第一個可用的資料集 → 儲存 intake_report.json artifact。
 
         Args:
-            directory: 原始資料目錄路徑
-            project_id: 專案 ID（如已建立）
+            directory: 原始資料目錄路徑，如 "data/rawdata"（預設: data/rawdata）
+            project_id: 專案 ID，用於關聯 intake artifact（可選，如已呼叫 init_project）
+            allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call, log_tool_result, log_tool_error,
@@ -219,11 +239,22 @@ def register_discovery_tools(server: Any) -> None:
             df, variables, row_count = loader.load(metadata)
             dataset.mark_loaded(variables, row_count)
 
-            session = get_session()
-            session.register_dataset(dataset, df)
-
             # Step 3: PII check (H-004)
             pii_vars = [v.name for v in variables if v.is_pii_suspect]
+            pii_allowed, pii_error, pii_detail, pii_warning = _pii_gate_message(
+                pii_vars,
+                allow_pii=allow_pii,
+                context=f" ({first_file.file_name})",
+            )
+            if not pii_allowed:
+                return fmt_error(
+                    pii_error,
+                    detail=pii_detail,
+                    suggestion="先匿名化原始資料，或在明確知情下以 allow_pii=true 重新呼叫 run_intake()。",
+                )
+
+            session = get_session()
+            session.register_dataset(dataset, df)
 
             # Step 4: Save intake artifact
             intake_report = {
@@ -245,7 +276,7 @@ def register_discovery_tools(server: Any) -> None:
 
             # Save artifact if project exists
             ok, _, project = ensure_project_context(project_id)
-            if ok:
+            if ok and project is not None:
                 store = ArtifactStore(project.artifacts_dir)
                 store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", intake_report)
 
@@ -257,12 +288,6 @@ def register_discovery_tools(server: Any) -> None:
                     success=True,
                     artifacts={"intake_report.json": ""},
                 ))
-
-            pii_warning = ""
-            if pii_vars:
-                pii_warning = (
-                    f"\n⚠️ **[H-004] 疑似 PII:** {', '.join(pii_vars)}\n"
-                )
 
             rejected_info = ""
             if rejected_files:
@@ -297,7 +322,8 @@ def register_discovery_tools(server: Any) -> None:
     ) -> str:
         """建立完整 schema — 型別推論 + 變數分類 + 基礎統計（Phase 2 orchestration）。
 
-        自動執行變數分類並儲存 schema.json artifact。
+        對已載入資料集進行自動型別推論、變數分類（連續/類別/二元/序數/日期/ID），
+        並計算基礎統計量。結果儲存為 schema.json artifact。
 
         Args:
             dataset_id: 資料集 ID（可選，預設使用第一個）
@@ -319,7 +345,7 @@ def register_discovery_tools(server: Any) -> None:
             from rde.domain.services.variable_classifier import VariableClassifier
 
             ok, msg, entry = ensure_dataset(dataset_id)
-            if not ok:
+            if not ok or entry is None:
                 return fmt_error(msg)
 
             ds = entry.dataset
@@ -399,7 +425,7 @@ def register_discovery_tools(server: Any) -> None:
 
             # Save artifact if project exists
             ok_p, _, project = ensure_project_context(project_id)
-            if ok_p:
+            if ok_p and project is not None:
                 session = get_session()
                 store = ArtifactStore(project.artifacts_dir)
                 store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", schema)
