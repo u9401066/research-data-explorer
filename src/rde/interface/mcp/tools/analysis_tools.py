@@ -7,7 +7,168 @@ All tools return markdown strings.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+
+def _normalize_analysis_type(analysis_type: str) -> str:
+    """Normalize analysis type names for filenames and routing summaries."""
+    return analysis_type.lower().replace("-", "_").replace(" ", "_")
+
+
+def _is_direct_analysis_contract(result: Any) -> bool:
+    """Identify stats-service /direct/analyze job submission responses."""
+    return isinstance(result, dict) and {
+        "job_id", "job_type", "status", "message", "data_preview",
+    }.issubset(result.keys())
+
+
+def _summarize_advanced_analysis_result(analysis_result: Any) -> str:
+    """Create a compact decision-log summary from a raw advanced-analysis payload."""
+    if _is_direct_analysis_contract(analysis_result):
+        preview = analysis_result.get("data_preview", {})
+        return (
+            f"job_id={analysis_result.get('job_id')}, "
+            f"status={analysis_result.get('status')}, "
+            f"rows={preview.get('rows', '?')}, columns={preview.get('columns', '?')}"
+        )
+
+    if isinstance(analysis_result, dict):
+        if analysis_result.get("error"):
+            return str(analysis_result["error"])
+        numeric_parts: list[str] = []
+        for key in ("calculation_type", "result", "status", "job_id"):
+            if key in analysis_result:
+                numeric_parts.append(f"{key}={analysis_result[key]}")
+        if numeric_parts:
+            return ", ".join(numeric_parts)
+        return ", ".join(sorted(analysis_result.keys())[:6])
+
+    return str(analysis_result)
+
+
+def _save_advanced_analysis_artifact(
+    project: Any,
+    *,
+    dataset_id: str,
+    analysis_type: str,
+    source: str,
+    config: dict[str, Any],
+    analysis_result: Any,
+) -> Path:
+    """Persist Phase 6 advanced analysis payload for audit and reporting."""
+    from rde.application.pipeline import PipelinePhase
+    from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+    normalized = _normalize_analysis_type(analysis_type)
+    job_id = analysis_result.get("job_id") if isinstance(analysis_result, dict) else None
+    job_suffix = f"_{str(job_id).replace('/', '_')}" if job_id else ""
+    filename = f"advanced_analysis_{normalized}{job_suffix}.json"
+
+    payload = {
+        "dataset_id": dataset_id,
+        "analysis_type": analysis_type,
+        "normalized_analysis_type": normalized,
+        "source": source,
+        "config": config,
+        "result": analysis_result,
+        "result_summary": _summarize_advanced_analysis_result(analysis_result),
+        "contract": "direct_analyze" if _is_direct_analysis_contract(analysis_result) else "structured_response",
+    }
+
+    store = ArtifactStore(project.artifacts_dir)
+    return store.save(PipelinePhase.EXECUTE_EXPLORATION, filename, payload)
+
+
+def _append_nested_markdown(lines: list[str], key: str, value: Any) -> None:
+    """Render nested dict/list payloads into readable markdown bullets."""
+    if isinstance(value, dict):
+        lines.append(f"\n### {key}")
+        for sub_key, sub_value in value.items():
+            if isinstance(sub_value, (dict, list)):
+                lines.append(f"- {sub_key}: {sub_value}")
+            elif isinstance(sub_value, float):
+                lines.append(f"- {sub_key}: {sub_value:.4f}")
+            else:
+                lines.append(f"- {sub_key}: {sub_value}")
+    elif isinstance(value, list):
+        lines.append(f"\n### {key}")
+        for item in value[:10]:
+            lines.append(f"- {item}")
+        if len(value) > 10:
+            lines.append(f"- ... 共 {len(value)} 筆")
+
+
+def _format_advanced_analysis_output(
+    *,
+    analysis_type: str,
+    source: str,
+    analysis_result: Any,
+    artifact_path: Path | None,
+    automl_available: bool,
+) -> str:
+    """Build user-facing markdown for advanced analysis execution."""
+    lines = [
+        f"# 📊 進階分析 — {analysis_type}\n",
+        f"**引擎:** {source}",
+    ]
+
+    if _is_direct_analysis_contract(analysis_result):
+        preview = analysis_result.get("data_preview", {})
+        column_names = preview.get("column_names", [])
+        sample_rows = preview.get("sample_rows", [])
+
+        lines.append("\n## 工作提交摘要")
+        lines.append(f"- **job_id:** {analysis_result.get('job_id')}")
+        lines.append(f"- **job_type:** {analysis_result.get('job_type')}")
+        lines.append(f"- **status:** {analysis_result.get('status')}")
+        lines.append(f"- **message:** {analysis_result.get('message')}")
+
+        lines.append("\n## 資料預覽")
+        lines.append(f"- **列數:** {preview.get('rows', '?')}")
+        lines.append(f"- **欄數:** {preview.get('columns', '?')}")
+        if column_names:
+            rendered_cols = ", ".join(column_names[:8])
+            if len(column_names) > 8:
+                rendered_cols += f" ... 共 {len(column_names)} 欄"
+            lines.append(f"- **欄位:** {rendered_cols}")
+        if sample_rows:
+            lines.append(f"- **sample_rows:** {sample_rows}")
+        dtypes = preview.get("dtypes")
+        if dtypes:
+            _append_nested_markdown(lines, "欄位型別", dtypes)
+        lines.append(
+            "\n這類 direct analyze 回應代表工作已送入 vendor stats-service 佇列；"
+            "若要追蹤完成狀態，請用 job_id 查詢 /jobs/{job_id}。"
+        )
+    elif isinstance(analysis_result, dict):
+        if analysis_result.get("error"):
+            lines.append(f"\n**error:** {analysis_result['error']}")
+        if analysis_result.get("suggestion"):
+            lines.append(f"- **suggestion:** {analysis_result['suggestion']}")
+        for key, value in analysis_result.items():
+            if key in {"error", "suggestion"}:
+                continue
+            if isinstance(value, float):
+                lines.append(f"- **{key}:** {value:.4f}")
+            elif isinstance(value, (int, str)):
+                lines.append(f"- **{key}:** {value}")
+            else:
+                _append_nested_markdown(lines, key, value)
+    else:
+        lines.append(str(analysis_result))
+
+    if artifact_path is not None:
+        lines.append(f"\n**Artifact:** {artifact_path}")
+
+    if not automl_available and source.startswith("local"):
+        lines.append(
+            "\n💡 **提示:** automl-stat-mcp 未啟動或不可用；"
+            "目前使用本地 fallback，引擎能力可能受限。"
+            "啟動方式: `cd vendor/automl-stat-mcp && docker compose --profile ml up -d`"
+        )
+
+    return "\n".join(lines)
 
 
 def _auto_log_decision(
@@ -78,13 +239,15 @@ def register_analysis_tools(server: Any) -> None:
 
         log_tool_call("suggest_cleaning", {"dataset_id": dataset_id})
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
 
         if entry.quality_report is None:
             return fmt_error("請先執行 `assess_quality()` 再建議清理策略。")
@@ -167,13 +330,15 @@ def register_analysis_tools(server: Any) -> None:
             "dataset_id": dataset_id, "approved_indices": approved_indices,
         })
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
 
         if entry.cleaning_plan is None:
             return fmt_error("請先執行 `suggest_cleaning()` 取得清理建議。")
@@ -230,13 +395,15 @@ def register_analysis_tools(server: Any) -> None:
 
         log_tool_call("analyze_variable", {"variable_name": variable_name})
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -340,13 +507,15 @@ def register_analysis_tools(server: Any) -> None:
             "group_variable": group_variable,
         })
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
 
         try:
             from rde.application.use_cases.compare_groups import CompareGroupsUseCase
@@ -468,13 +637,15 @@ def register_analysis_tools(server: Any) -> None:
 
         log_tool_call("correlation_matrix", {"variables": variables})
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -562,6 +733,7 @@ def register_analysis_tools(server: Any) -> None:
         )
         if not ok:
             return fmt_error(msg)
+        assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -662,13 +834,15 @@ def register_analysis_tools(server: Any) -> None:
             "group_variable": group_variable,
         })
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -698,43 +872,35 @@ def register_analysis_tools(server: Any) -> None:
             source = result["source"]
             analysis_result = result["result"]
 
-            lines = [
-                f"# 📊 進階分析 — {analysis_type}\n",
-                f"**引擎:** {source}\n",
-            ]
+            artifact_path = _save_advanced_analysis_artifact(
+                project,
+                dataset_id=dataset_id,
+                analysis_type=analysis_type,
+                source=source,
+                config=config,
+                analysis_result=analysis_result,
+            )
 
-            # Format result
-            if isinstance(analysis_result, dict):
-                for key, value in analysis_result.items():
-                    if key in ("error", "message"):
-                        lines.append(f"**{key}:** {value}")
-                    elif isinstance(value, (int, float)):
-                        lines.append(f"- **{key}:** {value:.4f}" if isinstance(value, float) else f"- **{key}:** {value}")
-                    elif isinstance(value, str):
-                        lines.append(f"- **{key}:** {value}")
-                    elif isinstance(value, dict):
-                        lines.append(f"\n### {key}")
-                        for k2, v2 in value.items():
-                            lines.append(f"- {k2}: {v2}")
-            else:
-                lines.append(str(analysis_result))
+            rendered_output = _format_advanced_analysis_output(
+                analysis_type=analysis_type,
+                source=source,
+                analysis_result=analysis_result,
+                artifact_path=artifact_path,
+                automl_available=delegator.automl_available,
+            )
 
-            if not delegator.automl_available:
-                lines.append(
-                    "\n💡 **提示:** automl-stat-mcp 未啟動。"
-                    "進階分析使用本地引擎（功能可能受限）。"
-                    "啟動方式: `cd vendor/automl-stat-mcp && docker compose up -d`"
-                )
+            decision_summary = _summarize_advanced_analysis_result(analysis_result)
 
             # H-009
             _auto_log_decision(
                 "run_advanced_analysis",
                 {"analysis_type": analysis_type, "source": source},
                 f"進階分析: {analysis_type}",
-                f"source={source}",
+                f"source={source}; {decision_summary}",
+                artifacts=[artifact_path.name],
             )
 
-            return "\n".join(lines)
+            return rendered_output
 
         except Exception as e:
             log_tool_error("run_advanced_analysis", e)
@@ -774,6 +940,7 @@ def register_analysis_tools(server: Any) -> None:
         )
         if not ok:
             return fmt_error(msg)
+        assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)

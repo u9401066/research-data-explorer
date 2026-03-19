@@ -48,6 +48,19 @@ LOCAL_ONLY = frozenset({
     "descriptive",
 })
 
+LOCAL_FALLBACK_UNSUPPORTED = frozenset({
+    "propensity_score",
+    "survival_analysis",
+    "kaplan_meier",
+    "cox_regression",
+    "roc_auc",
+    "logistic_regression",
+    "multiple_regression",
+    "glm",
+    "automl",
+    "power_analysis_advanced",
+})
+
 
 class AnalysisDelegator:
     """Routes analysis requests to the best available engine."""
@@ -128,6 +141,42 @@ class AnalysisDelegator:
                 config.get("group_var", ""),
                 config.get("variables", []),
             )
+        elif analysis_type == "descriptive":
+            variables = [v for v in config.get("variables", []) if v in df.columns]
+            if not variables:
+                result = {
+                    "error": "Descriptive analysis requires at least one valid variable.",
+                    "suggestion": "Provide config['variables'] with existing column names.",
+                }
+            else:
+                summary: dict[str, Any] = {}
+                for column in variables:
+                    series = df[column].dropna()
+                    if series.empty:
+                        summary[column] = {"n": 0, "missing": int(df[column].isna().sum())}
+                    elif pd.api.types.is_numeric_dtype(series):
+                        summary[column] = {
+                            "n": int(series.count()),
+                            "missing": int(df[column].isna().sum()),
+                            "mean": float(series.mean()),
+                            "std": float(series.std()),
+                            "median": float(series.median()),
+                            "min": float(series.min()),
+                            "max": float(series.max()),
+                        }
+                    else:
+                        summary[column] = {
+                            "n": int(series.count()),
+                            "missing": int(df[column].isna().sum()),
+                            "n_unique": int(series.nunique()),
+                            "top": str(series.mode().iloc[0]) if not series.mode().empty else None,
+                        }
+                result = {"analysis_type": "descriptive", "summary": summary}
+        elif analysis_type in LOCAL_FALLBACK_UNSUPPORTED:
+            result = {
+                "error": f"Local ScipyStatisticalEngine does not support '{analysis_type}'.",
+                "suggestion": "Start automl-stat-mcp via `cd vendor/automl-stat-mcp && docker compose up -d` to run this analysis.",
+            }
         else:
             result = engine.run_test(
                 df,

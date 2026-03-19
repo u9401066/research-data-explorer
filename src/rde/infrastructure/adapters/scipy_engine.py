@@ -41,6 +41,29 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         "Point-biserial correlation": "_point_biserial",
     }
 
+    _TEST_ALIASES: dict[str, str] = {
+        "t_test": "Independent t-test",
+        "independent_t_test": "Independent t-test",
+        "paired_t_test": "Paired t-test",
+        "mann_whitney": "Mann-Whitney U test",
+        "mann_whitney_u": "Mann-Whitney U test",
+        "wilcoxon": "Wilcoxon signed-rank test",
+        "anova": "One-way ANOVA",
+        "kruskal_wallis": "Kruskal-Wallis test",
+        "friedman": "Friedman test",
+        "chi_square": "Chi-squared test",
+        "chi_squared": "Chi-squared test",
+        "fisher_exact": "Fisher's exact test",
+        "shapiro_wilk": "Shapiro-Wilk",
+        "pearson": "Pearson correlation",
+        "spearman": "Spearman correlation",
+        "correlation": "Pearson correlation",
+        "levene": "Levene's test",
+        "tukey_hsd": "Tukey HSD",
+        "dunn": "Dunn's test",
+        "point_biserial": "Point-biserial correlation",
+    }
+
     # ── port interface ───────────────────────────────────────────────
 
     def run_test(
@@ -51,11 +74,13 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         **kwargs: Any,
     ) -> dict[str, Any]:
         df: pd.DataFrame = data
-        method_name = self._TEST_DISPATCH.get(test_name)
+        normalized_name = test_name.lower().replace("-", "_").replace(" ", "_")
+        resolved_name = self._TEST_ALIASES.get(normalized_name, test_name)
+        method_name = self._TEST_DISPATCH.get(resolved_name)
         if method_name is None:
             return {
                 "error": f"Unsupported test: {test_name}",
-                "supported": list(self._TEST_DISPATCH.keys()),
+                "supported": sorted(set(self._TEST_DISPATCH) | set(self._TEST_ALIASES)),
             }
         method = getattr(self, method_name)
         return method(df, variables, **kwargs)

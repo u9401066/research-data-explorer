@@ -40,3 +40,6 @@ line-length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "vendor_integration: starts vendor/automl-stat-mcp containers and verifies live endpoint contracts",
+]

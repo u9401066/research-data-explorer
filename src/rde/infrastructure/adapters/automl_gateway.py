@@ -34,6 +34,20 @@ def _df_to_csv(df: pd.DataFrame) -> str:
     return buf.getvalue()
 
 
+def _normalize_analysis_type(analysis_type: str) -> str:
+    """Normalize analysis type names to the internal routing format."""
+    return analysis_type.lower().replace("-", "_").replace(" ", "_")
+
+
+def _prepare_direct_analysis_config(config: dict[str, Any], analysis_type: str) -> dict[str, Any]:
+    """Map RDE config into stats-service /direct/analyze contract."""
+    payload = dict(config)
+    if "target" in payload and "target_column" not in payload:
+        payload["target_column"] = payload["target"]
+    payload["analysis_type"] = analysis_type
+    return payload
+
+
 class AutomlGateway(AutomlGatewayPort):
     """Gateway to automl-stat-mcp Docker services.
 
@@ -96,6 +110,7 @@ class AutomlGateway(AutomlGatewayPort):
         self, csv_content: str, config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /propensity/* — propensity score analysis."""
+        config = dict(config)
         endpoint = config.pop("endpoint", "full")
         payload = {"csv_content": csv_content, **config}
         r = self._stats.post(f"/propensity/{endpoint}", json=payload)
@@ -108,6 +123,7 @@ class AutomlGateway(AutomlGatewayPort):
         self, csv_content: str, config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /survival/* — survival analysis."""
+        config = dict(config)
         endpoint = config.pop("endpoint", "kaplan-meier")
         payload = {"csv_content": csv_content, **config}
         r = self._stats.post(f"/survival/{endpoint}", json=payload)
@@ -120,6 +136,7 @@ class AutomlGateway(AutomlGatewayPort):
         self, csv_content: str, config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /roc/* — ROC curve analysis."""
+        config = dict(config)
         endpoint = config.pop("endpoint", "compute")
         payload = {"csv_content": csv_content, **config}
         r = self._stats.post(f"/roc/{endpoint}", json=payload)
@@ -132,6 +149,7 @@ class AutomlGateway(AutomlGatewayPort):
         self, csv_content: str, config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /power/* — power analysis for various tests."""
+        config = dict(config)
         test_type = config.pop("test_type", "ttest")
         payload = {**config}
         r = self._stats.post(f"/power/{test_type}", json=payload)
@@ -176,16 +194,23 @@ class AutomlGateway(AutomlGatewayPort):
     ) -> dict[str, Any]:
         """High-level: route DataFrame-based analysis to the right endpoint."""
         csv = _df_to_csv(df)
+        normalized = _normalize_analysis_type(analysis_type)
         dispatch = {
             "propensity_score": self.run_propensity,
             "survival_analysis": self.run_survival,
             "kaplan_meier": lambda c, cfg: self.run_survival(c, {**cfg, "endpoint": "kaplan-meier"}),
             "cox_regression": lambda c, cfg: self.run_survival(c, {**cfg, "endpoint": "cox"}),
             "roc_auc": self.run_roc,
+            "logistic_regression": lambda c, cfg: self.direct_analyze(c, _prepare_direct_analysis_config(cfg, "logistic_regression")),
+            "multiple_regression": lambda c, cfg: self.direct_analyze(c, _prepare_direct_analysis_config(cfg, "multiple_regression")),
+            "glm": lambda c, cfg: self.direct_analyze(c, _prepare_direct_analysis_config(cfg, "glm")),
             "power_analysis": self.run_power,
+            "power_analysis_advanced": self.run_power,
             "automl": lambda c, cfg: {"job_id": self.submit_automl(c, cfg)},
         }
-        handler = dispatch.get(analysis_type, self.direct_analyze)
+        handler = dispatch.get(normalized)
+        if handler is None:
+            return self.direct_analyze(csv, _prepare_direct_analysis_config(config, normalized))
         return handler(csv, config)
 
     # ── Cleanup ─────────────────────────────────────────────────
