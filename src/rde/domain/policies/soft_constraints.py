@@ -16,9 +16,7 @@ class SoftConstraints:
     """Collection of soft constraint checks (S-001 through S-012)."""
 
     @staticmethod
-    def s001_normality_check(
-        is_normal: bool | None, p_value: float | None
-    ) -> PolicyResult:
+    def s001_normality_check(is_normal: bool | None, p_value: float | None) -> PolicyResult:
         """S-001: Check normality before parametric tests."""
         if is_normal is None:
             return PolicyResult(
@@ -63,9 +61,7 @@ class SoftConstraints:
         )
 
     @staticmethod
-    def s003_visualization_advisor(
-        var_type: VariableType, n_groups: int = 0
-    ) -> PolicyResult:
+    def s003_visualization_advisor(var_type: VariableType, n_groups: int = 0) -> PolicyResult:
         """S-003: Suggest appropriate visualization."""
         suggestions = {
             VariableType.CONTINUOUS: "Histogram + boxplot (or violin plot if comparing groups).",
@@ -109,9 +105,7 @@ class SoftConstraints:
         )
 
     @staticmethod
-    def s005_missing_pattern(
-        missing_pct: float, pattern_type: str | None = None
-    ) -> PolicyResult:
+    def s005_missing_pattern(missing_pct: float, pattern_type: str | None = None) -> PolicyResult:
         """S-005: Assess missing data pattern (MCAR / MAR / MNAR)."""
         if missing_pct > 50:
             return PolicyResult(
@@ -147,9 +141,7 @@ class SoftConstraints:
         )
 
     @staticmethod
-    def s006_outlier_strategy(
-        skewness: float, kurtosis: float
-    ) -> PolicyResult:
+    def s006_outlier_strategy(skewness: float, kurtosis: float) -> PolicyResult:
         """S-006: Advise on outlier handling strategy."""
         if abs(skewness) > 2.0 or kurtosis > 7.0:
             return PolicyResult(
@@ -217,9 +209,7 @@ class SoftConstraints:
         )
 
     @staticmethod
-    def s009_effect_size_reminder(
-        p_value: float, effect_size: float | None
-    ) -> PolicyResult:
+    def s009_effect_size_reminder(p_value: float, effect_size: float | None) -> PolicyResult:
         """S-009: Remind that statistical significance ≠ clinical importance."""
         if p_value < 0.05 and effect_size is not None and abs(effect_size) < 0.2:
             return PolicyResult(
@@ -227,9 +217,7 @@ class SoftConstraints:
                 constraint_id="S-009",
                 level=ConstraintLevel.SOFT,
                 message="Statistically significant but small effect size.",
-                suggestion=(
-                    "Effect size is small — consider clinical/practical significance."
-                ),
+                suggestion=("Effect size is small — consider clinical/practical significance."),
             )
         return PolicyResult(
             passed=True,
@@ -259,9 +247,7 @@ class SoftConstraints:
     # ── Audit Trail Advisories (11-Phase Pipeline) ───────────────────
 
     @staticmethod
-    def s011_plan_deviation_alert(
-        planned_action: str, actual_action: str
-    ) -> PolicyResult:
+    def s011_plan_deviation_alert(planned_action: str, actual_action: str) -> PolicyResult:
         """S-011: Alert when execution deviates from the registered plan."""
         if planned_action != actual_action:
             return PolicyResult(
@@ -269,8 +255,7 @@ class SoftConstraints:
                 constraint_id="S-011",
                 level=ConstraintLevel.SOFT,
                 message=(
-                    f"Deviation detected: planned '{planned_action}', "
-                    f"actual '{actual_action}'."
+                    f"Deviation detected: planned '{planned_action}', actual '{actual_action}'."
                 ),
                 suggestion=(
                     "Record this deviation in deviation_log.jsonl with justification. "

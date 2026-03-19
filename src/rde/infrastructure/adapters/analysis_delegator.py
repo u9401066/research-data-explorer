@@ -20,46 +20,52 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 # Analysis types that should be delegated to automl-stat-mcp
-AUTOML_PREFERRED = frozenset({
-    "propensity_score",
-    "survival_analysis",
-    "kaplan_meier",
-    "cox_regression",
-    "roc_auc",
-    "logistic_regression",
-    "multiple_regression",
-    "glm",
-    "automl",
-    "power_analysis_advanced",
-})
+AUTOML_PREFERRED = frozenset(
+    {
+        "propensity_score",
+        "survival_analysis",
+        "kaplan_meier",
+        "cox_regression",
+        "roc_auc",
+        "logistic_regression",
+        "multiple_regression",
+        "glm",
+        "automl",
+        "power_analysis_advanced",
+    }
+)
 
 # Analysis types handled locally
-LOCAL_ONLY = frozenset({
-    "t_test",
-    "mann_whitney",
-    "chi_square",
-    "fisher_exact",
-    "shapiro_wilk",
-    "kolmogorov_smirnov",
-    "correlation",
-    "kruskal_wallis",
-    "anova",
-    "table_one",
-    "descriptive",
-})
+LOCAL_ONLY = frozenset(
+    {
+        "t_test",
+        "mann_whitney",
+        "chi_square",
+        "fisher_exact",
+        "shapiro_wilk",
+        "kolmogorov_smirnov",
+        "correlation",
+        "kruskal_wallis",
+        "anova",
+        "table_one",
+        "descriptive",
+    }
+)
 
-LOCAL_FALLBACK_UNSUPPORTED = frozenset({
-    "propensity_score",
-    "survival_analysis",
-    "kaplan_meier",
-    "cox_regression",
-    "roc_auc",
-    "logistic_regression",
-    "multiple_regression",
-    "glm",
-    "automl",
-    "power_analysis_advanced",
-})
+LOCAL_FALLBACK_UNSUPPORTED = frozenset(
+    {
+        "propensity_score",
+        "survival_analysis",
+        "kaplan_meier",
+        "cox_regression",
+        "roc_auc",
+        "logistic_regression",
+        "multiple_regression",
+        "glm",
+        "automl",
+        "power_analysis_advanced",
+    }
+)
 
 
 class AnalysisDelegator:
@@ -73,6 +79,7 @@ class AnalysisDelegator:
         if self._automl_available is None:
             try:
                 from rde.infrastructure.adapters.automl_gateway import AutomlGateway
+
                 gw = AutomlGateway()
                 self._automl_available = gw.is_available()
                 gw.close()
@@ -108,14 +115,18 @@ class AnalysisDelegator:
             except Exception as e:
                 logger.warning(
                     "automl delegation failed for %s: %s — falling back to local",
-                    analysis_type, e,
+                    analysis_type,
+                    e,
                 )
 
         # Fallback to local
         return self._run_local(df, normalized, config)
 
     def _run_automl(
-        self, df: pd.DataFrame, analysis_type: str, config: dict[str, Any],
+        self,
+        df: pd.DataFrame,
+        analysis_type: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Delegate to automl-stat-mcp via the new REST API."""
         from rde.infrastructure.adapters.automl_gateway import AutomlGateway
@@ -128,7 +139,10 @@ class AnalysisDelegator:
             gw.close()
 
     def _run_local(
-        self, df: pd.DataFrame, analysis_type: str, config: dict[str, Any],
+        self,
+        df: pd.DataFrame,
+        analysis_type: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run analysis using local ScipyStatisticalEngine."""
         from rde.infrastructure.adapters import ScipyStatisticalEngine

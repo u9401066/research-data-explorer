@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Any, Callable
+from typing import Callable
 
 from rde.domain.events import DomainEvent
 
@@ -62,6 +62,7 @@ def reset_event_bus() -> None:
 
 
 # ── Default Handlers ─────────────────────────────────────────────────
+
 
 def _on_pii_detected(event: DomainEvent) -> None:
     """Log PII detection prominently."""

@@ -116,7 +116,7 @@ class EDAReport:
                 if ":" in line:
                     key, _, val = line.partition(":")
                     metadata[key.strip()] = val.strip().strip('"').strip("'")
-            body = markdown[fm_match.end():]
+            body = markdown[fm_match.end() :]
 
         # Use frontmatter title if not provided
         if title is None:
@@ -129,14 +129,16 @@ class EDAReport:
         sections: list[ReportSection] = []
         # Content before first ## heading goes into "overview"
         if splits:
-            preamble = body[:splits[0].start()].strip()
+            preamble = body[: splits[0].start()].strip()
             if preamble:
-                sections.append(ReportSection(
-                    section_id="data_overview",
-                    title="Overview",
-                    content=preamble,
-                    order=0,
-                ))
+                sections.append(
+                    ReportSection(
+                        section_id="data_overview",
+                        title="Overview",
+                        content=preamble,
+                        order=0,
+                    )
+                )
 
         for idx, match in enumerate(splits):
             heading = match.group(1).strip()
@@ -173,23 +175,27 @@ class EDAReport:
                     section_id = candidate
                     break
 
-            sections.append(ReportSection(
-                section_id=section_id,
-                title=heading,
-                content=content,
-                order=idx + 1,
-            ))
+            sections.append(
+                ReportSection(
+                    section_id=section_id,
+                    title=heading,
+                    content=content,
+                    order=idx + 1,
+                )
+            )
 
         # Ensure all REQUIRED_SECTIONS exist (stub missing ones)
         present_ids = {s.section_id for s in sections}
         for req_id in REQUIRED_SECTIONS:
             if req_id not in present_ids:
-                sections.append(ReportSection(
-                    section_id=req_id,
-                    title=req_id.replace("_", " ").title(),
-                    content="(Auto-generated stub — see other sections for details.)",
-                    order=100,
-                ))
+                sections.append(
+                    ReportSection(
+                        section_id=req_id,
+                        title=req_id.replace("_", " ").title(),
+                        content="(Auto-generated stub — see other sections for details.)",
+                        order=100,
+                    )
+                )
 
         return cls(
             id=report_id,

@@ -6,7 +6,6 @@ have consistent phase artifacts (no skipped phases).
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -44,9 +43,7 @@ def check_project(project_dir: Path) -> list[str]:
             present_phases[phase_idx] = True
             for fname in required_files:
                 if not (phase_dir / fname).exists():
-                    issues.append(
-                        f"  Phase {phase_idx}: {phase_name}/ 缺少 {fname}"
-                    )
+                    issues.append(f"  Phase {phase_idx}: {phase_name}/ 缺少 {fname}")
         else:
             present_phases[phase_idx] = False
 
@@ -54,9 +51,7 @@ def check_project(project_dir: Path) -> list[str]:
     for phase_idx in range(highest_phase):
         if not present_phases.get(phase_idx, False):
             phase_name = list(PHASE_ARTIFACTS.keys())[phase_idx]
-            issues.append(
-                f"  ⛔ Phase {phase_idx} ({phase_name}) 被跳過但後續 Phase 已存在"
-            )
+            issues.append(f"  ⛔ Phase {phase_idx} ({phase_name}) 被跳過但後續 Phase 已存在")
 
     return issues
 
@@ -74,10 +69,9 @@ def main() -> int:
         if not artifacts_dir.exists():
             continue
         # Detect project by presence of Phase 0 artifact or project.yaml at root
-        is_project = (
-            (artifacts_dir / "phase_00_project_setup" / "project.yaml").exists()
-            or (project_dir / "project.yaml").exists()
-        )
+        is_project = (artifacts_dir / "phase_00_project_setup" / "project.yaml").exists() or (
+            project_dir / "project.yaml"
+        ).exists()
         if is_project:
             issues = check_project(project_dir)
             if issues:

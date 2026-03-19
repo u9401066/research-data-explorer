@@ -132,9 +132,7 @@ class DecisionLogger:
         baseline_deviation = self._deviation_line_count
 
         if current_decision < baseline_decision:
-            return False, (
-                f"decision_log.jsonl shrank: {baseline_decision} → {current_decision}"
-            )
+            return False, (f"decision_log.jsonl shrank: {baseline_decision} → {current_decision}")
         if current_deviation < baseline_deviation:
             return False, (
                 f"deviation_log.jsonl shrank: {baseline_deviation} → {current_deviation}"

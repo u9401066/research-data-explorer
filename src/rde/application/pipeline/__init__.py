@@ -119,7 +119,10 @@ class PipelineState:
         for req_phase in required:
             result = self.completed_phases.get(req_phase)
             if result is not None and not result.success:
-                return False, f"Prerequisite phase '{req_phase.value}' did not complete successfully"
+                return (
+                    False,
+                    f"Prerequisite phase '{req_phase.value}' did not complete successfully",
+                )
 
         # Enforce explicit user confirmation for gated phases.
         for req_phase in required:
@@ -158,8 +161,10 @@ class PipelineState:
     @property
     def progress(self) -> float:
         """Progress percentage (0-100)."""
-        total = len(PHASE_ORDER) if not self.is_quick_explore else (
-            len(PHASE_ORDER) - len(OPTIONAL_PHASES)
+        total = (
+            len(PHASE_ORDER)
+            if not self.is_quick_explore
+            else (len(PHASE_ORDER) - len(OPTIONAL_PHASES))
         )
         completed = len(self.completed_phases)
         return min((completed / total) * 100, 100.0)

@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 
 from rde.domain.models.dataset import DatasetMetadata
-from rde.domain.models.variable import Variable, VariableType
+from rde.domain.models.variable import Variable
 from rde.domain.ports import DataLoaderPort
 
 # Map file extensions to pandas read functions
@@ -29,9 +29,27 @@ FORMAT_READERS = {
 
 # Common sentinel values that should be treated as NaN
 _SENTINEL_VALUES = {
-    "X", "x", "N/A", "n/a", "NA", "na", "NaN", "nan",
-    "NULL", "null", "None", "none", ".", "-", "--", "---",
-    "missing", "MISSING", "未測", "未做", "缺失",
+    "X",
+    "x",
+    "N/A",
+    "n/a",
+    "NA",
+    "na",
+    "NaN",
+    "nan",
+    "NULL",
+    "null",
+    "None",
+    "none",
+    ".",
+    "-",
+    "--",
+    "---",
+    "missing",
+    "MISSING",
+    "未測",
+    "未做",
+    "缺失",
 }
 
 
@@ -64,6 +82,7 @@ class PandasLoader(DataLoaderPort):
         df = self._coerce_sentinels(df)
 
         from rde.domain.services.variable_classifier import VariableClassifier
+
         classifier = VariableClassifier()
 
         variables = [
@@ -91,9 +110,7 @@ class PandasLoader(DataLoaderPort):
                 vals = df[col].dropna().unique()
                 sentinel_found = any(str(v).strip() in _SENTINEL_VALUES for v in vals)
                 if sentinel_found:
-                    df[col] = df[col].replace(
-                        {s: pd.NA for s in _SENTINEL_VALUES}
-                    )
+                    df[col] = df[col].replace({s: pd.NA for s in _SENTINEL_VALUES})
                 # Try numeric conversion for object columns
                 converted = pd.to_numeric(df[col], errors="coerce")
                 # If ≥50% of non-null values convert successfully, keep numeric

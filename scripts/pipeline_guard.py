@@ -88,13 +88,9 @@ def check_log_integrity(project_dir: Path) -> list[str]:
                 try:
                     entry = json.loads(line)
                     if "timestamp" not in entry:
-                        issues.append(
-                            f"⚠️ [H-010] {log_name} line {line_no}: 缺少 timestamp"
-                        )
+                        issues.append(f"⚠️ [H-010] {log_name} line {line_no}: 缺少 timestamp")
                 except json.JSONDecodeError:
-                    issues.append(
-                        f"❌ [H-010] {log_name} line {line_no}: 無效 JSON"
-                    )
+                    issues.append(f"❌ [H-010] {log_name} line {line_no}: 無效 JSON")
 
     return issues
 
@@ -103,11 +99,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="RDE Pipeline Guard")
     parser.add_argument("project_dir", type=Path, help="專案目錄路徑")
     parser.add_argument(
-        "--phase", type=int, default=None,
+        "--phase",
+        type=int,
+        default=None,
         help="目標 Phase 編號 (0-10)",
     )
     parser.add_argument(
-        "--strict", action="store_true",
+        "--strict",
+        action="store_true",
         help="嚴格模式：任何警告都視為錯誤",
     )
     args = parser.parse_args()

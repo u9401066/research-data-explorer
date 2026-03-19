@@ -33,6 +33,16 @@ The core governance documents are:
 - [CONSTITUTION.md](CONSTITUTION.md)
 - [.github/agent-control.yaml](.github/agent-control.yaml)
 
+Editor and collaboration support files are also provided:
+
+- [.vscode/settings.json](.vscode/settings.json)
+- [.github/agents](.github/agents)
+- [.github/prompts](.github/prompts)
+- [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+
 ## Architecture
 
 RDE follows a DDD layout:
@@ -245,3 +255,5 @@ If you change workflow governance, update these together:
 3. [AGENTS.md](AGENTS.md)
 4. [.github/copilot-instructions.md](.github/copilot-instructions.md)
 5. implementation and tests
+
+If you use VS Code agent mode, keep [.vscode/settings.json](.vscode/settings.json), [.github/agents](.github/agents), and [.github/prompts](.github/prompts) aligned with those governance files.

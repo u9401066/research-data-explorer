@@ -58,7 +58,6 @@ class MarkdownReportRenderer(ReportRendererPort):
 
     def render_html(self, report: Any) -> str:
         rpt: EDAReport = report
-        md = self.render_markdown(rpt)
         # Minimal HTML wrapper — proper HTML rendering can be added later
         html_lines = [
             "<!DOCTYPE html>",
@@ -114,7 +113,10 @@ class MarkdownReportRenderer(ReportRendererPort):
         lines.append("| " + " | ".join(str(h) for h in headers) + " |")
         lines.append("| " + " | ".join("---" for _ in headers) + " |")
         for rk in rows_keys:
-            vals = [str(tbl[h].get(rk, "")) if isinstance(tbl[h], dict) else str(tbl[h]) for h in headers]
+            vals = [
+                str(tbl[h].get(rk, "")) if isinstance(tbl[h], dict) else str(tbl[h])
+                for h in headers
+            ]
             lines.append("| " + " | ".join(vals) + " |")
         return "\n".join(lines)
 

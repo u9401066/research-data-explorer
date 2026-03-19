@@ -37,10 +37,7 @@ class CollinearityReport:
 
     def format_warnings(self, max_pairs: int = 5) -> list[str]:
         """Return formatted warning strings."""
-        return [
-            f"{p.var1} ↔ {p.var2} (r={p.correlation:.3f})"
-            for p in self.pairs[:max_pairs]
-        ]
+        return [f"{p.var1} ↔ {p.var2} (r={p.correlation:.3f})" for p in self.pairs[:max_pairs]]
 
 
 def check_collinearity(
@@ -62,8 +59,7 @@ def check_collinearity(
 
     if variables:
         numeric_cols = [
-            v for v in variables
-            if v in df.columns and pd.api.types.is_numeric_dtype(df[v])
+            v for v in variables if v in df.columns and pd.api.types.is_numeric_dtype(df[v])
         ]
     else:
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
@@ -78,11 +74,13 @@ def check_collinearity(
         for j in range(i + 1, len(numeric_cols)):
             r = float(corr.iloc[i, j])
             if abs(r) > threshold:
-                pairs.append(CollinearPair(
-                    var1=numeric_cols[i],
-                    var2=numeric_cols[j],
-                    correlation=r,
-                ))
+                pairs.append(
+                    CollinearPair(
+                        var1=numeric_cols[i],
+                        var2=numeric_cols[j],
+                        correlation=r,
+                    )
+                )
 
     # Sort by absolute correlation descending
     pairs.sort(key=lambda p: abs(p.correlation), reverse=True)

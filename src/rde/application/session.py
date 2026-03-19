@@ -9,7 +9,6 @@ This is a singleton shared across all tool calls within one server process.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import pandas as pd
 
@@ -50,12 +49,8 @@ class SessionRegistry:
 
     # ── Dataset ──────────────────────────────────────────────────────
 
-    def register_dataset(
-        self, dataset: Dataset, dataframe: pd.DataFrame
-    ) -> None:
-        self._datasets[dataset.id] = DatasetEntry(
-            dataset=dataset, dataframe=dataframe
-        )
+    def register_dataset(self, dataset: Dataset, dataframe: pd.DataFrame) -> None:
+        self._datasets[dataset.id] = DatasetEntry(dataset=dataset, dataframe=dataframe)
 
     def get_dataset_entry(self, dataset_id: str) -> DatasetEntry:
         if dataset_id not in self._datasets:

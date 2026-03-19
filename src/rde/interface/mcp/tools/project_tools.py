@@ -28,7 +28,9 @@ def register_project_tools(server: Any) -> None:
             research_question: 研究問題描述，如 "ICU sepsis 患者自主呼吸試驗的成功因素"（可選，Phase 3 再填）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
             fmt_error,
         )
 
@@ -70,23 +72,29 @@ def register_project_tools(server: Any) -> None:
             repo.save(project)
 
             store = ArtifactStore(project.artifacts_dir)
-            store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {
-                "id": project_id,
-                "name": name,
-                "data_dir": str(data_dir),
-                "output_dir": str(output_dir),
-                "research_question": research_question,
-                "created_at": datetime.now().isoformat(),
-            })
+            store.save(
+                PipelinePhase.PROJECT_SETUP,
+                "project.yaml",
+                {
+                    "id": project_id,
+                    "name": name,
+                    "data_dir": str(data_dir),
+                    "output_dir": str(output_dir),
+                    "research_question": research_question,
+                    "created_at": datetime.now().isoformat(),
+                },
+            )
 
             pipeline = session.get_pipeline(project_id)
             pipeline.mark_started(PipelinePhase.PROJECT_SETUP)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.PROJECT_SETUP,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"project.yaml": str(output_dir / "artifacts")},
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.PROJECT_SETUP,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={"project.yaml": str(output_dir / "artifacts")},
+                )
+            )
             project.advance_to(ProjectStatus.PROJECT_SETUP)
 
             log_tool_result("init_project", f"created {project_id}")
@@ -116,7 +124,9 @@ def register_project_tools(server: Any) -> None:
             project_id: 專案 ID，如 "a1b2c3d4"（可選，預設使用最近建立的專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, fmt_error, ensure_project_context,
+            log_tool_call,
+            fmt_error,
+            ensure_project_context,
         )
 
         log_tool_call("get_pipeline_status", {"project_id": project_id})
@@ -126,6 +136,7 @@ def register_project_tools(server: Any) -> None:
             return fmt_error(msg)
 
         from rde.application.session import get_session
+
         session = get_session()
         pipeline = session.get_pipeline(project.id)
         datasets = session.list_datasets()
@@ -170,7 +181,9 @@ def register_project_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, fmt_error, ensure_project_context,
+            log_tool_call,
+            fmt_error,
+            ensure_project_context,
         )
 
         log_tool_call("get_decision_log", {"project_id": project_id})
@@ -180,6 +193,7 @@ def register_project_tools(server: Any) -> None:
             return fmt_error(msg)
 
         from rde.application.session import get_session
+
         logger = get_session().get_logger(project.id)
         decisions = logger.read_decisions()
 
@@ -210,7 +224,9 @@ def register_project_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, fmt_error, ensure_project_context,
+            log_tool_call,
+            fmt_error,
+            ensure_project_context,
         )
 
         log_tool_call("get_deviation_log", {"project_id": project_id})
@@ -220,6 +236,7 @@ def register_project_tools(server: Any) -> None:
             return fmt_error(msg)
 
         from rde.application.session import get_session
+
         logger = get_session().get_logger(project.id)
         deviations = logger.read_deviations()
 
@@ -258,13 +275,20 @@ def register_project_tools(server: Any) -> None:
             impact_assessment: 影響評估，如 "不影響主要結論，已補充 Dunn post-hoc"
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            fmt_success,
+            ensure_project_context,
         )
 
-        log_tool_call("log_deviation", {
-            "planned_action": planned_action, "actual_action": actual_action,
-        })
+        log_tool_call(
+            "log_deviation",
+            {
+                "planned_action": planned_action,
+                "actual_action": actual_action,
+            },
+        )
 
         if not planned_action or not actual_action or not reason:
             return fmt_error("planned_action、actual_action、reason 都是必填欄位。")
@@ -275,6 +299,7 @@ def register_project_tools(server: Any) -> None:
 
         try:
             from rde.application.session import get_session
+
             logger = get_session().get_logger(project.id)
 
             entry = logger.log_deviation(

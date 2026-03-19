@@ -10,11 +10,20 @@ from rde.domain.models.cleaning import CleaningPlan, CleaningAction
 from rde.domain.models.project import Project, ProjectStatus
 
 __all__ = [
-    "Dataset", "Variable", "VariableType",
-    "DataProfile", "VariableProfile",
-    "QualityReport", "QualityIssue", "Severity",
-    "AnalysisResult", "StatisticalTest",
-    "EDAReport", "ReportSection",
-    "CleaningPlan", "CleaningAction",
-    "Project", "ProjectStatus",
+    "Dataset",
+    "Variable",
+    "VariableType",
+    "DataProfile",
+    "VariableProfile",
+    "QualityReport",
+    "QualityIssue",
+    "Severity",
+    "AnalysisResult",
+    "StatisticalTest",
+    "EDAReport",
+    "ReportSection",
+    "CleaningPlan",
+    "CleaningAction",
+    "Project",
+    "ProjectStatus",
 ]

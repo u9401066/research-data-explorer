@@ -10,14 +10,14 @@ import logging
 from datetime import datetime
 
 from rde.domain.models.profile import DataProfile
-
-logger = logging.getLogger(__name__)
 from rde.domain.models.quality import (
     IssueCategory,
     QualityIssue,
     QualityReport,
     Severity,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class QualityAssessor:
@@ -47,11 +47,7 @@ class QualityAssessor:
         self._check_pii(profile, issues)
 
         # Overall score
-        overall = (
-            completeness_score * 0.4
-            + (100 - uniqueness_penalty) * 0.2
-            + validity_score * 0.4
-        )
+        overall = completeness_score * 0.4 + (100 - uniqueness_penalty) * 0.2 + validity_score * 0.4
 
         return QualityReport(
             dataset_id=profile.dataset_id,
@@ -63,9 +59,7 @@ class QualityAssessor:
             validity_score=round(validity_score, 1),
         )
 
-    def _check_completeness(
-        self, profile: DataProfile, issues: list[QualityIssue]
-    ) -> float:
+    def _check_completeness(self, profile: DataProfile, issues: list[QualityIssue]) -> float:
         if not profile.variable_profiles:
             return 100.0
 
@@ -77,9 +71,7 @@ class QualityAssessor:
                         category=IssueCategory.COMPLETENESS,
                         severity=Severity.CRITICAL,
                         variable_name=vp.variable_name,
-                        description=(
-                            f"Missing rate {vp.missing_rate:.1%} exceeds 50%."
-                        ),
+                        description=(f"Missing rate {vp.missing_rate:.1%} exceeds 50%."),
                         affected_rows=vp.missing_count,
                         suggestion="Consider dropping this variable or using imputation.",
                     )
@@ -100,9 +92,7 @@ class QualityAssessor:
 
         return max(0, 100 - total_penalty)
 
-    def _check_uniqueness(
-        self, profile: DataProfile, issues: list[QualityIssue]
-    ) -> float:
+    def _check_uniqueness(self, profile: DataProfile, issues: list[QualityIssue]) -> float:
         dup_rate = profile.duplicate_row_count / max(profile.row_count, 1)
         if dup_rate > self.DUPLICATE_THRESHOLD:
             issues.append(
@@ -118,9 +108,7 @@ class QualityAssessor:
             return min(dup_rate * 100, 30)
         return 0.0
 
-    def _check_validity(
-        self, profile: DataProfile, issues: list[QualityIssue]
-    ) -> float:
+    def _check_validity(self, profile: DataProfile, issues: list[QualityIssue]) -> float:
         penalty = len(profile.warnings) * 5
         for warning in profile.warnings:
             issues.append(
@@ -133,9 +121,7 @@ class QualityAssessor:
             )
         return max(0, 100 - penalty)
 
-    def _check_pii(
-        self, profile: DataProfile, issues: list[QualityIssue]
-    ) -> None:
+    def _check_pii(self, profile: DataProfile, issues: list[QualityIssue]) -> None:
         """Flag variables that were marked as PII suspects during profiling."""
         # This depends on variable metadata set by VariableClassifier
         # Here we check profile warnings for PII-related flags

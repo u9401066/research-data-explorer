@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -67,8 +66,4 @@ class DataProfile:
 
     def variables_with_high_missing(self, threshold: float = 0.3) -> list[str]:
         """Return variable names with missing rate above threshold."""
-        return [
-            vp.variable_name
-            for vp in self.variable_profiles
-            if vp.missing_rate > threshold
-        ]
+        return [vp.variable_name for vp in self.variable_profiles if vp.missing_rate > threshold]

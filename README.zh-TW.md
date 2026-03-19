@@ -27,6 +27,16 @@ Research Data Explorer，簡稱 RDE，是一個把資料探索流程做成可約
 - [CONSTITUTION.md](CONSTITUTION.md)
 - [.github/agent-control.yaml](.github/agent-control.yaml)
 
+這次也補上讓 VS Code agent mode 真正吃到 repo 規則的配套檔：
+
+- [.vscode/settings.json](.vscode/settings.json)
+- [.github/agents](.github/agents)
+- [.github/prompts](.github/prompts)
+- [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+
 關鍵實作位置：
 
 - MCP server 入口: [src/rde/__main__.py](src/rde/__main__.py)
@@ -221,6 +231,8 @@ docker compose --profile ml up -d
 Phase 5 沒完成前不要做進階分析。
 如果要偏離計畫，請記錄 deviation。
 ```
+
+如果你是在 VS Code 直接用 agent mode，建議保持 [.vscode/settings.json](.vscode/settings.json)、[.github/agents](.github/agents)、[.github/prompts](.github/prompts) 與治理文件同步，否則 editor 端能看到的規則會落後於 repo 真實約束。
 
 ## 目前已驗證到什麼程度
 

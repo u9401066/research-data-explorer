@@ -15,9 +15,7 @@ def _get_logger() -> logging.Logger:
         _logger = logging.getLogger("rde.mcp.tools")
         if not _logger.handlers:
             handler = logging.StreamHandler()
-            handler.setFormatter(
-                logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-            )
+            handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
             _logger.addHandler(handler)
             _logger.setLevel(logging.DEBUG)
     return _logger

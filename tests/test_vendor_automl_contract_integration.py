@@ -86,8 +86,13 @@ def vendor_stack() -> Generator[None, None, None]:
     touched_services = False
 
     try:
-        touched_services = _ensure_service_health("stats-service", "http://localhost:8003", env) or touched_services
-        touched_services = _ensure_service_health("automl-api", "http://localhost:8001", env) or touched_services
+        touched_services = (
+            _ensure_service_health("stats-service", "http://localhost:8003", env)
+            or touched_services
+        )
+        touched_services = (
+            _ensure_service_health("automl-api", "http://localhost:8001", env) or touched_services
+        )
     except subprocess.CalledProcessError:
         try:
             subprocess.run(
@@ -101,7 +106,10 @@ def vendor_stack() -> Generator[None, None, None]:
         except subprocess.CalledProcessError:
             # In shared development hosts, vendor containers may already exist under
             # fixed container_name values. If those containers are healthy, reuse them.
-            if not (_health_available("http://localhost:8003") and _health_available("http://localhost:8001")):
+            if not (
+                _health_available("http://localhost:8003")
+                and _health_available("http://localhost:8001")
+            ):
                 raise
 
     _wait_for_health("http://localhost:8003")
@@ -128,15 +136,17 @@ def test_vendor_services_health(vendor_stack: None) -> None:
 
 
 def test_stats_service_contract_endpoints(vendor_stack: None) -> None:
-    csv_content = "".join([
-        "treatment,outcome,time,event,group,score,age,bmi\n",
-        "1,1,5,1,A,0.91,64,27.1\n",
-        "0,0,8,0,B,0.20,59,24.8\n",
-        "1,1,3,1,A,0.82,67,29.0\n",
-        "0,0,10,0,B,0.11,55,22.5\n",
-        "1,0,6,1,A,0.73,70,31.2\n",
-        "0,1,4,1,B,0.64,58,26.4\n",
-    ])
+    csv_content = "".join(
+        [
+            "treatment,outcome,time,event,group,score,age,bmi\n",
+            "1,1,5,1,A,0.91,64,27.1\n",
+            "0,0,8,0,B,0.20,59,24.8\n",
+            "1,1,3,1,A,0.82,67,29.0\n",
+            "0,0,10,0,B,0.11,55,22.5\n",
+            "1,0,6,1,A,0.73,70,31.2\n",
+            "0,1,4,1,B,0.64,58,26.4\n",
+        ]
+    )
 
     with httpx.Client(timeout=30.0) as client:
         direct = client.post(
@@ -196,7 +206,13 @@ def test_stats_service_contract_endpoints(vendor_stack: None) -> None:
         )
         assert power.status_code == 200, power.text
         power_data = power.json()
-        assert {"calculation_type", "result", "parameters", "interpretation", "assumptions"}.issubset(power_data)
+        assert {
+            "calculation_type",
+            "result",
+            "parameters",
+            "interpretation",
+            "assumptions",
+        }.issubset(power_data)
 
 
 def test_automl_training_contract(vendor_stack: None) -> None:
@@ -234,4 +250,11 @@ def test_automl_training_contract(vendor_stack: None) -> None:
         )
         assert train.status_code == 200, train.text
         job = train.json()
-        assert {"job_id", "job_type", "status", "progress", "status_message", "created_at"}.issubset(job)
+        assert {
+            "job_id",
+            "job_type",
+            "status",
+            "progress",
+            "status_message",
+            "created_at",
+        }.issubset(job)

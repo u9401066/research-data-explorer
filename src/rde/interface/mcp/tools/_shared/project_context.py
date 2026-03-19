@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from rde.application.pipeline import PREREQUISITES, OPTIONAL_PHASES, PipelinePhase
-from rde.application.session import SessionRegistry, get_session, DatasetEntry
+from rde.application.session import get_session, DatasetEntry
 from rde.domain.models.project import Project
 from rde.domain.policies.hard_constraints import HardConstraints
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
@@ -24,7 +22,6 @@ def ensure_project_context(
         project = session.get_project(project_id)
         return True, f"專案: {project.name} ({project.id})", project
     except KeyError as e:
-        available = session.list_datasets()  # proxy — no list_projects on session
         return False, str(e), None
 
 
@@ -48,7 +45,7 @@ def ensure_dataset(
     try:
         entry = session.get_dataset_entry(dataset_id)
         return True, f"資料集: {dataset_id}", entry
-    except KeyError as e:
+    except KeyError:
         available = session.list_datasets()
         return False, f"資料集 '{dataset_id}' 不存在。可用: {available}", None
 
@@ -85,7 +82,12 @@ def ensure_phase_ready(
     for prereq in required_phases:
         present, missing = store.check_artifacts(prereq)
         if not present:
-            return False, f"Missing artifacts for {prereq.value}: {', '.join(missing)}", project, dataset_entry
+            return (
+                False,
+                f"Missing artifacts for {prereq.value}: {', '.join(missing)}",
+                project,
+                dataset_entry,
+            )
 
     return True, "ready", project, dataset_entry
 
@@ -125,7 +127,13 @@ def check_plan_adherence(
 
     # Normalise tool_name → analysis type keywords for matching
     tool_type_map = {
-        "compare_groups": {"compare_groups", "group_comparison", "t_test", "mann_whitney", "chi_square"},
+        "compare_groups": {
+            "compare_groups",
+            "group_comparison",
+            "t_test",
+            "mann_whitney",
+            "chi_square",
+        },
         "analyze_variable": {"analyze_variable", "univariate", "descriptive"},
         "correlation_matrix": {"correlation_matrix", "correlation", "collinearity"},
         "generate_table_one": {"generate_table_one", "table_one", "table_1", "baseline"},

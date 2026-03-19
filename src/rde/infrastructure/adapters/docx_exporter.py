@@ -40,7 +40,7 @@ class DocxExporter(DocumentExporterPort):
     ) -> Path:
         """Export EDAReport as Word .docx with embedded figures and tables."""
         from docx import Document
-        from docx.shared import Pt, Inches
+        from docx.shared import Pt
         from docx.enum.text import WD_ALIGN_PARAGRAPH
 
         rpt: EDAReport = report
@@ -146,13 +146,13 @@ class DocxExporter(DocumentExporterPort):
             if not fig_path.is_absolute() and figures_dir:
                 fig_path = figures_dir / fig_path.name
             if fig_path.exists():
-                doc.add_picture(
-                    str(fig_path), width=Inches(self.FIGURE_WIDTH_INCHES)
-                )
+                doc.add_picture(str(fig_path), width=Inches(self.FIGURE_WIDTH_INCHES))
                 cap = doc.add_paragraph(f"Figure: {fig_path.stem}")
                 cap.style = doc.styles["Caption"] if "Caption" in doc.styles else None
 
-    def _add_markdown_content(self, doc: Any, content: str, figures_dir: Path | None = None) -> None:
+    def _add_markdown_content(
+        self, doc: Any, content: str, figures_dir: Path | None = None
+    ) -> None:
         """Parse markdown-like content and add to document.
 
         Handles: paragraphs, bold (**text**), bullet lists (- item),
@@ -222,7 +222,7 @@ class DocxExporter(DocumentExporterPort):
                 line_for_fig = line_for_fig[2:].strip()
             line_for_fig_clean = self._strip_md_formatting(line_for_fig)
             fig_match = re.search(
-                r'\[.*?(?:Figure|Fig|圖)\s*\d*[:\s]+([^\]]+\.png)\]',
+                r"\[.*?(?:Figure|Fig|圖)\s*\d*[:\s]+([^\]]+\.png)\]",
                 line_for_fig_clean,
             )
             if fig_match and figures_dir:
@@ -361,7 +361,9 @@ class DocxExporter(DocumentExporterPort):
         doc.add_paragraph()  # spacing
 
     def _build_pdf_html(
-        self, report: EDAReport, figures_dir: Path | None = None,
+        self,
+        report: EDAReport,
+        figures_dir: Path | None = None,
     ) -> str:
         """Build a self-contained HTML for PDF rendering.
 

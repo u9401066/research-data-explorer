@@ -22,8 +22,12 @@ def register_profiling_tools(server: Any) -> None:
             dataset_id: 已載入的資料集 ID（由 load_dataset 或 run_intake 回傳）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_table, ensure_dataset,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            fmt_table,
+            ensure_dataset,
         )
 
         log_tool_call("profile_dataset", {"dataset_id": dataset_id})
@@ -62,22 +66,22 @@ def register_profiling_tools(server: Any) -> None:
                     }
                     if col is not None and pd.api.types.is_numeric_dtype(col):
                         desc = col.describe()
-                        vp_kwargs.update({
-                            "mean": float(desc.get("mean", 0)),
-                            "std": float(desc.get("std", 0)),
-                            "min_val": float(desc.get("min", 0)),
-                            "max_val": float(desc.get("max", 0)),
-                            "median": float(desc.get("50%", 0)),
-                            "q1": float(desc.get("25%", 0)),
-                            "q3": float(desc.get("75%", 0)),
-                            "skewness": float(col.skew()),
-                            "kurtosis": float(col.kurtosis()),
-                        })
+                        vp_kwargs.update(
+                            {
+                                "mean": float(desc.get("mean", 0)),
+                                "std": float(desc.get("std", 0)),
+                                "min_val": float(desc.get("min", 0)),
+                                "max_val": float(desc.get("max", 0)),
+                                "median": float(desc.get("50%", 0)),
+                                "q1": float(desc.get("25%", 0)),
+                                "q3": float(desc.get("75%", 0)),
+                                "skewness": float(col.skew()),
+                                "kurtosis": float(col.kurtosis()),
+                            }
+                        )
                     elif col is not None:
                         vc = col.value_counts().head(10)
-                        vp_kwargs["top_values"] = tuple(
-                            (str(k), int(cnt)) for k, cnt in vc.items()
-                        )
+                        vp_kwargs["top_values"] = tuple((str(k), int(cnt)) for k, cnt in vc.items())
                         vp_kwargs["mode"] = str(vc.index[0]) if len(vc) > 0 else None
 
                     var_profiles.append(VariableProfile(**vp_kwargs))
@@ -106,10 +110,16 @@ def register_profiling_tools(server: Any) -> None:
                 # ydata path: summary object has .variables
                 for v in summary.variables:
                     pii = "⚠️" if v.is_pii_suspect else ""
-                    rows.append([
-                        v.name, v.variable_type, v.dtype,
-                        f"{v.missing_rate:.1%}", v.n_unique, pii,
-                    ])
+                    rows.append(
+                        [
+                            v.name,
+                            v.variable_type,
+                            v.dtype,
+                            f"{v.missing_rate:.1%}",
+                            v.n_unique,
+                            pii,
+                        ]
+                    )
             else:
                 # Fallback: build from profile + dataset
                 var_map = {v.name: v for v in entry.dataset.variables}
@@ -117,17 +127,21 @@ def register_profiling_tools(server: Any) -> None:
                     dv = var_map.get(vp.variable_name)
                     pii = "⚠️" if (dv and dv.is_pii_suspect) else ""
                     var_type = dv.variable_type.value if dv else "unknown"
-                    rows.append([
-                        vp.variable_name, var_type, vp.dtype,
-                        f"{vp.missing_rate:.1%}", vp.unique_count, pii,
-                    ])
+                    rows.append(
+                        [
+                            vp.variable_name,
+                            var_type,
+                            vp.dtype,
+                            f"{vp.missing_rate:.1%}",
+                            vp.unique_count,
+                            pii,
+                        ]
+                    )
             table = fmt_table(headers, rows)
 
             warnings_text = ""
             if profile.warnings:
-                warnings_text = "\n**⚠️ 警告:**\n" + "\n".join(
-                    f"- {w}" for w in profile.warnings
-                )
+                warnings_text = "\n**⚠️ 警告:**\n" + "\n".join(f"- {w}" for w in profile.warnings)
 
             high_missing_text = ""
             if high_missing:
@@ -162,8 +176,11 @@ def register_profiling_tools(server: Any) -> None:
             dataset_id: 已載入的資料集 ID（需先執行 profile_dataset）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, ensure_dataset,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            ensure_dataset,
         )
 
         log_tool_call("assess_quality", {"dataset_id": dataset_id})

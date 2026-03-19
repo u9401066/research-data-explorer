@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pre-commit
+
+      - name: Ruff check
+        run: python -m ruff check .
+
+      - name: Ruff format check
+        run: python -m ruff format --check .
+
+      - name: Governance and regression tests
+        run: python3 -m pytest -q -m "not vendor_integration"
+
+      - name: Pre-commit hooks
+        run: SKIP=no-commit-to-branch pre-commit run --all-files
+
+  vendor-contract:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Start vendor services
+        run: docker compose -f vendor/automl-stat-mcp/docker-compose.yml --profile ml up -d
+
+      - name: Run vendor integration test
+        run: python3 -m pytest -q tests/test_vendor_automl_contract_integration.py -m vendor_integration
+
+      - name: Stop vendor services
+        if: always()
+        run: docker compose -f vendor/automl-stat-mcp/docker-compose.yml --profile ml down -v

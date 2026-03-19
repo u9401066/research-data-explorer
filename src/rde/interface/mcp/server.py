@@ -7,7 +7,6 @@ Tool groups organized around the 11-Phase Auditable EDA Pipeline.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from rde.interface.mcp.tools.discovery_tools import register_discovery_tools
 from rde.interface.mcp.tools.profiling_tools import register_profiling_tools
@@ -43,12 +42,12 @@ def create_server():
     )
 
     # Register tool groups (organized by pipeline phases)
-    register_project_tools(server)       # Phase 0: Project Setup
-    register_discovery_tools(server)     # Phase 1-2: Data Intake & Schema
-    register_profiling_tools(server)     # Phase 2: Schema Registry (profiling)
-    register_plan_tools(server)          # Phase 3-5: Concept, Plan, Pre-check
-    register_analysis_tools(server)      # Phase 6-7: Execute & Collect
-    register_report_tools(server)        # Phase 8: Report Assembly
-    register_audit_tools(server)         # Phase 9-10: Audit & Improve
+    register_project_tools(server)  # Phase 0: Project Setup
+    register_discovery_tools(server)  # Phase 1-2: Data Intake & Schema
+    register_profiling_tools(server)  # Phase 2: Schema Registry (profiling)
+    register_plan_tools(server)  # Phase 3-5: Concept, Plan, Pre-check
+    register_analysis_tools(server)  # Phase 6-7: Execute & Collect
+    register_report_tools(server)  # Phase 8: Report Assembly
+    register_audit_tools(server)  # Phase 9-10: Audit & Improve
 
     return server

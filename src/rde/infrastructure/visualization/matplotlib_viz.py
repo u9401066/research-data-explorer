@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -43,8 +44,7 @@ class MatplotlibVisualizer(VisualizationPort):
         method_name = self._PLOT_DISPATCH.get(plot_type)
         if method_name is None:
             raise ValueError(
-                f"Unsupported plot type: {plot_type}. "
-                f"Supported: {list(self._PLOT_DISPATCH.keys())}"
+                f"Unsupported plot type: {plot_type}. Supported: {list(self._PLOT_DISPATCH.keys())}"
             )
 
         output_path = Path(output_path)
@@ -66,9 +66,7 @@ class MatplotlibVisualizer(VisualizationPort):
     ) -> None:
         import seaborn as sns
 
-        fig, axes = plt.subplots(
-            1, len(variables), figsize=(5 * len(variables), 4), squeeze=False
-        )
+        fig, axes = plt.subplots(1, len(variables), figsize=(5 * len(variables), 4), squeeze=False)
         for i, var in enumerate(variables):
             if var in df.columns:
                 sns.histplot(df[var].dropna(), kde=True, ax=axes[0, i])
@@ -92,9 +90,9 @@ class MatplotlibVisualizer(VisualizationPort):
             sns.boxplot(data=df, x=group_var, y=variables[0], ax=ax)
             ax.set_title(f"{variables[0]} by {group_var}")
         else:
-            plot_data = df[
-                [v for v in variables if v in df.columns]
-            ].select_dtypes(include="number")
+            plot_data = df[[v for v in variables if v in df.columns]].select_dtypes(
+                include="number"
+            )
             fig, ax = plt.subplots(figsize=(max(6, len(plot_data.columns) * 1.5), 4))
             plot_data.boxplot(ax=ax)
             ax.set_title("Box Plot")
@@ -116,9 +114,7 @@ class MatplotlibVisualizer(VisualizationPort):
         x_var, y_var = variables[0], variables[1]
         hue = kwargs.get("hue")
         fig, ax = plt.subplots(figsize=(6, 5))
-        sns.scatterplot(
-            data=df, x=x_var, y=y_var, hue=hue, alpha=0.7, ax=ax
-        )
+        sns.scatterplot(data=df, x=x_var, y=y_var, hue=hue, alpha=0.7, ax=ax)
         ax.set_title(f"{x_var} vs {y_var}")
         plt.tight_layout()
         fig.savefig(output_path, dpi=150, bbox_inches="tight")
@@ -232,8 +228,9 @@ class MatplotlibVisualizer(VisualizationPort):
 
         if show_individual:
             for _, row in complete.iterrows():
-                ax.plot(range(len(cols)), row[cols].values,
-                        color="steelblue", alpha=0.15, linewidth=0.8)
+                ax.plot(
+                    range(len(cols)), row[cols].values, color="steelblue", alpha=0.15, linewidth=0.8
+                )
 
         # Summary: median + IQR
         medians = [complete[c].median() for c in cols]
@@ -241,8 +238,15 @@ class MatplotlibVisualizer(VisualizationPort):
         q75 = [complete[c].quantile(0.75) for c in cols]
 
         ax.fill_between(range(len(cols)), q25, q75, alpha=0.3, color="steelblue", label="IQR")
-        ax.plot(range(len(cols)), medians, "o-", color="steelblue",
-                linewidth=2, markersize=8, label="Median")
+        ax.plot(
+            range(len(cols)),
+            medians,
+            "o-",
+            color="steelblue",
+            linewidth=2,
+            markersize=8,
+            label="Median",
+        )
 
         ax.set_xticks(range(len(cols)))
         ax.set_xticklabels(labels)
@@ -277,11 +281,11 @@ class MatplotlibVisualizer(VisualizationPort):
 
         fig, ax = plt.subplots(figsize=(6, 5))
         for _, row in sub.iterrows():
-            ax.plot([0, 1], [row[x_var], row[y_var]],
-                    color="steelblue", alpha=0.3, linewidth=0.8)
+            ax.plot([0, 1], [row[x_var], row[y_var]], color="steelblue", alpha=0.3, linewidth=0.8)
         ax.boxplot(
             [sub[x_var], sub[y_var]],
-            positions=[0, 1], widths=0.3,
+            positions=[0, 1],
+            widths=0.3,
             patch_artist=True,
             boxprops=dict(facecolor="lightblue", alpha=0.7),
         )

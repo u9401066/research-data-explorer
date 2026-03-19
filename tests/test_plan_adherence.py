@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-import pytest
 
 from rde.application.pipeline import PipelinePhase
 from rde.domain.models.project import Project
@@ -54,17 +53,13 @@ class TestCheckPlanAdherence:
     def test_tool_matches_plan_by_type(self, tmp_path: Path) -> None:
         project = _make_project(tmp_path)
         _write_plan(project, [{"type": "compare_groups", "variables": ["age"]}])
-        ok, reason = check_plan_adherence(
-            project, "compare_groups", {"outcome_variables": ["age"]}
-        )
+        ok, reason = check_plan_adherence(project, "compare_groups", {"outcome_variables": ["age"]})
         assert ok is True
 
     def test_tool_matches_plan_by_synonym(self, tmp_path: Path) -> None:
         project = _make_project(tmp_path)
         _write_plan(project, [{"type": "t_test", "variables": ["bp"]}])
-        ok, reason = check_plan_adherence(
-            project, "compare_groups", {"outcome_variables": ["bp"]}
-        )
+        ok, reason = check_plan_adherence(project, "compare_groups", {"outcome_variables": ["bp"]})
         assert ok is True
 
     def test_tool_not_in_plan_returns_deviation(self, tmp_path: Path) -> None:
@@ -80,9 +75,7 @@ class TestCheckPlanAdherence:
     def test_type_match_without_vars_in_plan_is_enough(self, tmp_path: Path) -> None:
         project = _make_project(tmp_path)
         _write_plan(project, [{"type": "compare_groups"}])
-        ok, _ = check_plan_adherence(
-            project, "compare_groups", {"outcome_variables": ["anything"]}
-        )
+        ok, _ = check_plan_adherence(project, "compare_groups", {"outcome_variables": ["anything"]})
         assert ok is True
 
     def test_advanced_analysis_uses_analysis_type_param(self, tmp_path: Path) -> None:

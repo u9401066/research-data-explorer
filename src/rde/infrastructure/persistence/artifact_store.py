@@ -45,6 +45,7 @@ class ArtifactStore:
         elif filename.endswith(".yaml") or filename.endswith(".yml"):
             try:
                 import yaml
+
                 path.write_text(
                     yaml.dump(data, allow_unicode=True, default_flow_style=False),
                     encoding="utf-8",
@@ -90,6 +91,7 @@ class ArtifactStore:
         elif filename.endswith(".yaml") or filename.endswith(".yml"):
             try:
                 import yaml
+
                 return yaml.safe_load(path.read_text(encoding="utf-8"))
             except ImportError:
                 return path.read_text(encoding="utf-8")

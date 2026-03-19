@@ -8,18 +8,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
-
-from rde.domain.models.analysis import AnalysisResult, StatisticalTest, TestCategory
+from rde.domain.models.analysis import StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset
 from rde.domain.models.variable import VariableType
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.ports import StatisticalEnginePort
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,7 +32,9 @@ class UnivariateProfile:
     missing_rate: float
     n_unique: int
     # Numeric-only fields
-    descriptive: dict[str, float] | None = None  # mean, std, min, q1, median, q3, max, skewness, kurtosis
+    descriptive: dict[str, float] | None = (
+        None  # mean, std, min, q1, median, q3, max, skewness, kurtosis
+    )
     normality_test: StatisticalTest | None = None
     # Categorical-only fields
     top_values: list[tuple[str, int]] | None = None
@@ -127,7 +128,9 @@ class AnalyzeVariableUseCase:
             top_values = [(str(k), int(v)) for k, v in vc.items()]
 
         # S-003: Viz advisor
-        viz_type = var_type_enum or (VariableType.CONTINUOUS if is_numeric else VariableType.CATEGORICAL)
+        viz_type = var_type_enum or (
+            VariableType.CONTINUOUS if is_numeric else VariableType.CATEGORICAL
+        )
         s003 = SoftConstraints.s003_visualization_advisor(viz_type)
         viz_suggestion = s003.suggestion
 

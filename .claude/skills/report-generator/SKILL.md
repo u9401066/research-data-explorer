@@ -48,8 +48,8 @@ Phase 8 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯
 自動清除以下內容：
 | 模式 | 替換為 |
 |------|--------|
-| `C:\Users\xxx\...` | `<project>/...` |
-| `/home/xxx/...` | `<project>/...` |
+| `<windows-user-path>/...` | `<project>/...` |
+| `<linux-home>/...` | `<project>/...` |
 | API keys, tokens | `<REDACTED>` |
 
 ## PUBLISHABLE 標記

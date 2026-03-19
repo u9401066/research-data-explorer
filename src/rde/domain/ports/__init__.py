@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from rde.domain.models.dataset import Dataset, DatasetMetadata
+from rde.domain.models.dataset import DatasetMetadata
 from rde.domain.models.profile import DataProfile
 from rde.domain.models.variable import Variable
 
@@ -98,16 +98,13 @@ class ProjectRepositoryPort(ABC):
     """Port for persisting projects."""
 
     @abstractmethod
-    def save(self, project: Any) -> None:
-        ...
+    def save(self, project: Any) -> None: ...
 
     @abstractmethod
-    def load(self, project_id: str) -> Any:
-        ...
+    def load(self, project_id: str) -> Any: ...
 
     @abstractmethod
-    def list_all(self) -> list[Any]:
-        ...
+    def list_all(self) -> list[Any]: ...
 
 
 class AutomlGatewayPort(ABC):
@@ -125,42 +122,54 @@ class AutomlGatewayPort(ABC):
 
     @abstractmethod
     def direct_analyze(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run direct statistical analysis (stats-service /direct/analyze)."""
         ...
 
     @abstractmethod
     def run_propensity(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run propensity score analysis (stats-service /propensity/*)."""
         ...
 
     @abstractmethod
     def run_survival(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run survival analysis (stats-service /survival/*)."""
         ...
 
     @abstractmethod
     def run_roc(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run ROC/AUC analysis (stats-service /roc/*)."""
         ...
 
     @abstractmethod
     def run_power(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run power analysis (stats-service /power/*)."""
         ...
 
     @abstractmethod
     def submit_automl(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> str:
         """Submit AutoML training job (automl-service). Returns job_id."""
         ...
@@ -180,14 +189,22 @@ class DocumentExporterPort(ABC):
 
     @abstractmethod
     def export_docx(
-        self, report: Any, output_path: Path, *, figures_dir: Path | None = None,
+        self,
+        report: Any,
+        output_path: Path,
+        *,
+        figures_dir: Path | None = None,
     ) -> Path:
         """Export report as Word docx with embedded figures and tables."""
         ...
 
     @abstractmethod
     def export_pdf(
-        self, report: Any, output_path: Path, *, figures_dir: Path | None = None,
+        self,
+        report: Any,
+        output_path: Path,
+        *,
+        figures_dir: Path | None = None,
     ) -> Path:
         """Export report as PDF. May require optional dependencies."""
         ...

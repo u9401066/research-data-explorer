@@ -3,7 +3,10 @@ from __future__ import annotations
 import pandas as pd
 
 from rde.infrastructure.adapters.analysis_delegator import AnalysisDelegator
-from rde.infrastructure.adapters.automl_gateway import AutomlGateway, _prepare_direct_analysis_config
+from rde.infrastructure.adapters.automl_gateway import (
+    AutomlGateway,
+    _prepare_direct_analysis_config,
+)
 from rde.infrastructure.adapters.scipy_engine import ScipyStatisticalEngine
 
 
@@ -77,7 +80,9 @@ def test_automl_gateway_maps_power_analysis_advanced_to_power_endpoint(monkeypat
 
     try:
         df = pd.DataFrame({"effect_size": [0.5], "alpha": [0.05]})
-        result = gateway.analyze_df(df, "power_analysis_advanced", {"test_type": "ttest", "effect_size": 0.5})
+        result = gateway.analyze_df(
+            df, "power_analysis_advanced", {"test_type": "ttest", "effect_size": 0.5}
+        )
     finally:
         gateway.close()
 

@@ -1,5 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+exclude: '^vendor/'
+
 repos:
   # ── Standard Quality ──────────────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -20,6 +22,7 @@ repos:
       - id: detect-private-key
       - id: no-commit-to-branch
         args: [--branch, main]
+        stages: [pre-commit]
 
   # ── RDE Pipeline Guards (custom local hooks) ──────────────────────
   - repo: local
@@ -45,7 +48,6 @@ repos:
         entry: python scripts/hooks/artifact_gate.py
         files: '^data/projects/'
         pass_filenames: false
-        always_run: true
 
       - id: rde-report-sanitize
         name: "RDE: Report output sanitization (H-006)"

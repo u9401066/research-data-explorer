@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
-from rde.domain.models.report import EDAReport, ReportFormat, ReportSection
+from rde.domain.models.report import EDAReport, ReportSection
 from rde.domain.ports import DocumentExporterPort
 
 logger = logging.getLogger(__name__)
@@ -72,13 +71,17 @@ class ExportReportUseCase:
 
             if fmt_lower == "docx":
                 path = self._exporter.export_docx(
-                    report, output_path, figures_dir=figures_dir,
+                    report,
+                    output_path,
+                    figures_dir=figures_dir,
                 )
                 results["docx"] = path
 
             elif fmt_lower == "pdf":
                 path = self._exporter.export_pdf(
-                    report, output_path, figures_dir=figures_dir,
+                    report,
+                    output_path,
+                    figures_dir=figures_dir,
                 )
                 results["pdf"] = path
 
@@ -111,9 +114,7 @@ class ExportReportUseCase:
             return
 
         # Try to match figures to sections by name prefix
-        section_map: dict[str, ReportSection] = {
-            s.section_id: s for s in report.sections
-        }
+        section_map: dict[str, ReportSection] = {s.section_id: s for s in report.sections}
         remaining: list[Path] = []
 
         for fig in unattached:

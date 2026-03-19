@@ -1,5 +1,7 @@
 """Export the full AKI analysis report to DOCX with all 8 figures embedded."""
+
 import sys
+
 sys.path.insert(0, "src")
 
 from pathlib import Path

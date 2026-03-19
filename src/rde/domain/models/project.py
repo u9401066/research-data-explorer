@@ -32,7 +32,9 @@ class ProjectStatus(Enum):
 
 
 # Pipeline phase ordering (excluding terminal states)
-PIPELINE_ORDER = [s for s in ProjectStatus if s not in (ProjectStatus.CREATED, ProjectStatus.COMPLETED)]
+PIPELINE_ORDER = [
+    s for s in ProjectStatus if s not in (ProjectStatus.CREATED, ProjectStatus.COMPLETED)
+]
 
 
 @dataclass

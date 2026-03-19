@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
 from typing import Any
 
 from rde.domain.models.report import EDAReport, ReportSection
@@ -91,10 +90,10 @@ class GenerateReportUseCase:
     def _sanitize_output(self, content: str) -> str:
         """H-006: Remove sensitive file paths from output."""
         patterns = [
-            r"[A-Z]:\\Users\\[^\\]+\\",     # Windows user paths
-            r"/home/[^/]+/",                  # Linux home
-            r"/Users/[^/]+/",                 # macOS home
-            r"\\AppData\\[^\\]+\\",           # Windows AppData
+            r"[A-Z]:\\Users\\[^\\]+\\",  # Windows user paths
+            r"/home/[^/]+/",  # Linux home
+            r"/Users/[^/]+/",  # macOS home
+            r"\\AppData\\[^\\]+\\",  # Windows AppData
         ]
         for pattern in patterns:
             content = re.sub(pattern, "[PATH]/", content)

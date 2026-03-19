@@ -6,9 +6,9 @@ Study: Urinary biomarkers for subclinical AKI after controlled hypotension
 
 This script runs a complete 11-Phase-like analysis directly.
 """
+
 from __future__ import annotations
 
-import json
 import warnings
 from pathlib import Path
 from datetime import datetime
@@ -27,10 +27,20 @@ OUT.mkdir(parents=True, exist_ok=True)
 # ── Load ─────────────────────────────────────────────────────────
 df = pd.read_csv(DATA)
 # Coerce numeric columns that may contain non-numeric values like 'X'
-numeric_candidates = [c for c in df.columns if c not in (
-    "subject_id", "sex", "sex_code", "aki_cr_rise", "aki_cr_7d",
-    "aki_urine_criteria", "aki_status",
-)]
+numeric_candidates = [
+    c
+    for c in df.columns
+    if c
+    not in (
+        "subject_id",
+        "sex",
+        "sex_code",
+        "aki_cr_rise",
+        "aki_cr_7d",
+        "aki_urine_criteria",
+        "aki_status",
+    )
+]
 for col in numeric_candidates:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 print(f"Loaded {len(df)} subjects × {len(df.columns)} variables")
@@ -66,7 +76,7 @@ def make_table1(df: pd.DataFrame) -> str:
 
     def fmt_categorical(col):
         vc = df[col].value_counts()
-        parts = [f"{k}: {v} ({v/len(df)*100:.1f}%)" for k, v in vc.items()]
+        parts = [f"{k}: {v} ({v / len(df) * 100:.1f}%)" for k, v in vc.items()]
         return ", ".join(parts)
 
     # Demographics
@@ -81,7 +91,6 @@ def make_table1(df: pd.DataFrame) -> str:
     lines.append(f"| Surgery time (min) | {fmt_continuous('surgery_min', 'min')} |")
     lines.append(f"| Hypotension time (min) | {fmt_continuous('hypotension_min', 'min')} |")
     if "hypotensive_drug" in df.columns:
-        drug = df["hypotensive_drug"].dropna()
         lines.append(f"| Hypotensive drug | {fmt_categorical('hypotensive_drug')} |")
 
     # Renal function
@@ -137,8 +146,8 @@ def analyze_biomarker_timecourse(df: pd.DataFrame) -> str:
         vals_24 = complete[c24].values
 
         # Descriptive
-        lines.append(f"| Timepoint | n | Median (IQR) | Mean ± SD |")
-        lines.append(f"|-----------|---|--------------|-----------|")
+        lines.append("| Timepoint | n | Median (IQR) | Mean ± SD |")
+        lines.append("|-----------|---|--------------|-----------|")
         for tp_name, vals in [("0h", vals_0), ("4h", vals_4), ("24h", vals_24)]:
             med = np.median(vals)
             q1, q3 = np.percentile(vals, [25, 75])
@@ -153,7 +162,9 @@ def analyze_biomarker_timecourse(df: pd.DataFrame) -> str:
             norms[tp_name] = p > 0.05
 
         all_normal = all(norms.values())
-        lines.append(f"\nNormality (Shapiro-Wilk): {'All normal' if all_normal else 'Non-normal detected'}")
+        lines.append(
+            f"\nNormality (Shapiro-Wilk): {'All normal' if all_normal else 'Non-normal detected'}"
+        )
 
         # Friedman test (non-parametric repeated measures)
         try:
@@ -167,17 +178,21 @@ def analyze_biomarker_timecourse(df: pd.DataFrame) -> str:
             lines.append(f"**Kendall's W** = {w:.3f}")
 
             if friedman_p < 0.05:
-                lines.append(f"→ **顯著差異** across timepoints")
+                lines.append("→ **顯著差異** across timepoints")
 
                 # Post-hoc: Wilcoxon signed-rank pairwise
-                pairs = [("0h vs 4h", vals_0, vals_4), ("0h vs 24h", vals_0, vals_24), ("4h vs 24h", vals_4, vals_24)]
-                lines.append(f"\nPost-hoc Wilcoxon signed-rank (Bonferroni α = {0.05/3:.4f}):")
+                pairs = [
+                    ("0h vs 4h", vals_0, vals_4),
+                    ("0h vs 24h", vals_0, vals_24),
+                    ("4h vs 24h", vals_4, vals_24),
+                ]
+                lines.append(f"\nPost-hoc Wilcoxon signed-rank (Bonferroni α = {0.05 / 3:.4f}):")
                 for pair_name, a, b in pairs:
                     w_stat, w_p = stats.wilcoxon(a, b)
                     # Effect size r = Z / sqrt(N)
                     z = stats.norm.ppf(w_p / 2)
                     r = abs(z) / np.sqrt(n)
-                    sig = "✅" if w_p < 0.05/3 else "—"
+                    sig = "✅" if w_p < 0.05 / 3 else "—"
                     lines.append(f"  {pair_name}: W={w_stat:.1f}, p={w_p:.4f}, r={r:.3f} {sig}")
             else:
                 lines.append("→ 無顯著差異 across timepoints")
@@ -187,7 +202,7 @@ def analyze_biomarker_timecourse(df: pd.DataFrame) -> str:
         # Store results
         results[name] = {
             "n": n,
-            "friedman_p": float(friedman_p) if 'friedman_p' in dir() else None,
+            "friedman_p": float(friedman_p) if "friedman_p" in dir() else None,
             "median_0h": float(np.median(vals_0)),
             "median_4h": float(np.median(vals_4)),
             "median_24h": float(np.median(vals_24)),
@@ -217,17 +232,17 @@ def analyze_egfr_change(df: pd.DataFrame) -> str:
     post = complete["postop24_egfr"].values
     diff = post - pre
 
-    lines.append(f"\n| Metric | Pre-op | Post-24h | Difference |")
-    lines.append(f"|--------|--------|----------|------------|")
+    lines.append("\n| Metric | Pre-op | Post-24h | Difference |")
+    lines.append("|--------|--------|----------|------------|")
     lines.append(
         f"| Mean ± SD | {np.mean(pre):.1f} ± {np.std(pre):.1f} | "
         f"{np.mean(post):.1f} ± {np.std(post):.1f} | "
         f"{np.mean(diff):.1f} ± {np.std(diff):.1f} |"
     )
     lines.append(
-        f"| Median (IQR) | {np.median(pre):.1f} ({np.percentile(pre,25):.1f}–{np.percentile(pre,75):.1f}) | "
-        f"{np.median(post):.1f} ({np.percentile(post,25):.1f}–{np.percentile(post,75):.1f}) | "
-        f"{np.median(diff):.1f} ({np.percentile(diff,25):.1f}–{np.percentile(diff,75):.1f}) |"
+        f"| Median (IQR) | {np.median(pre):.1f} ({np.percentile(pre, 25):.1f}–{np.percentile(pre, 75):.1f}) | "
+        f"{np.median(post):.1f} ({np.percentile(post, 25):.1f}–{np.percentile(post, 75):.1f}) | "
+        f"{np.median(diff):.1f} ({np.percentile(diff, 25):.1f}–{np.percentile(diff, 75):.1f}) |"
     )
 
     # Normality of difference
@@ -262,7 +277,11 @@ def analyze_correlations(df: pd.DataFrame) -> str:
     lines.append("# Correlation Analysis: Hypotension Duration vs Biomarkers")
     lines.append("")
 
-    bio_cols = [c for c in df.columns if c.startswith(("ngal_", "kim1_", "cystc_")) and "clarity" not in c and "volume" not in c]
+    bio_cols = [
+        c
+        for c in df.columns
+        if c.startswith(("ngal_", "kim1_", "cystc_")) and "clarity" not in c and "volume" not in c
+    ]
 
     lines.append("| Biomarker | n | Spearman ρ | p-value | Interpretation |")
     lines.append("|-----------|---|------------|---------|----------------|")
@@ -325,9 +344,7 @@ def analyze_drug_subgroups(df: pd.DataFrame) -> str:
     lines.append("")
 
     drug = df[df["hypotensive_drug"].notna()].copy()
-    drug["drug_label"] = drug["hypotensive_drug"].map(
-        {1: "NTG", 2: "Trandate", 3: "NTG+Trandate"}
-    )
+    drug["drug_label"] = drug["hypotensive_drug"].map({1: "NTG", 2: "Trandate", 3: "NTG+Trandate"})
     lines.append(f"Drug distribution: {dict(drug['drug_label'].value_counts())}")
     lines.append("")
 
@@ -338,9 +355,17 @@ def analyze_drug_subgroups(df: pd.DataFrame) -> str:
         lines.append("⚠️ Only one drug group — cannot compare")
         return "\n".join(lines)
 
-    bio_markers = ["ngal_cr_0hr", "ngal_cr_4hr", "ngal_cr_24hr",
-                   "kim1_cr_0hr", "kim1_cr_4hr", "kim1_cr_24hr",
-                   "cystc_cr_0hr", "cystc_cr_4hr", "cystc_cr_24hr"]
+    bio_markers = [
+        "ngal_cr_0hr",
+        "ngal_cr_4hr",
+        "ngal_cr_24hr",
+        "kim1_cr_0hr",
+        "kim1_cr_4hr",
+        "kim1_cr_24hr",
+        "cystc_cr_0hr",
+        "cystc_cr_4hr",
+        "cystc_cr_24hr",
+    ]
 
     lines.append("| Biomarker | Test | Statistic | p-value | Sig? |")
     lines.append("|-----------|------|-----------|---------|------|")
@@ -390,10 +415,9 @@ def analyze_cr_change(df: pd.DataFrame) -> str:
     pre = complete["preop_cr"].values
     post = complete["postop24_cr"].values
     diff = post - pre
-    pct_change = (diff / pre) * 100
 
-    lines.append(f"\n| Metric | Pre-op | Post-24h | Change |")
-    lines.append(f"|--------|--------|----------|--------|")
+    lines.append("\n| Metric | Pre-op | Post-24h | Change |")
+    lines.append("|--------|--------|----------|--------|")
     lines.append(
         f"| Mean ± SD | {np.mean(pre):.3f} ± {np.std(pre):.3f} | "
         f"{np.mean(post):.3f} ± {np.std(post):.3f} | "
@@ -417,9 +441,9 @@ def analyze_cr_change(df: pd.DataFrame) -> str:
     # AKI KDIGO Stage 1: Cr increase ≥ 0.3 mg/dL or ≥ 1.5× baseline
     cr_rise_03 = (diff >= 0.3).sum()
     cr_rise_15x = (post >= pre * 1.5).sum()
-    lines.append(f"\nKDIGO AKI Stage 1:")
-    lines.append(f"  Cr rise ≥ 0.3 mg/dL: {cr_rise_03}/{n} ({cr_rise_03/n*100:.1f}%)")
-    lines.append(f"  Cr rise ≥ 1.5× baseline: {cr_rise_15x}/{n} ({cr_rise_15x/n*100:.1f}%)")
+    lines.append("\nKDIGO AKI Stage 1:")
+    lines.append(f"  Cr rise ≥ 0.3 mg/dL: {cr_rise_03}/{n} ({cr_rise_03 / n * 100:.1f}%)")
+    lines.append(f"  Cr rise ≥ 1.5× baseline: {cr_rise_15x}/{n} ({cr_rise_15x / n * 100:.1f}%)")
 
     return "\n".join(lines)
 
@@ -439,9 +463,13 @@ def analyze_sex_difference(df: pd.DataFrame) -> str:
     lines.append(f"Male: {len(male)}, Female: {len(female)}")
     lines.append("")
 
-    bio_cols = [c for c in df.columns
-                if c.startswith(("ngal_cr_", "kim1_cr_", "cystc_cr_"))
-                and "clarity" not in c and "volume" not in c]
+    bio_cols = [
+        c
+        for c in df.columns
+        if c.startswith(("ngal_cr_", "kim1_cr_", "cystc_cr_"))
+        and "clarity" not in c
+        and "volume" not in c
+    ]
 
     lines.append("| Biomarker | Male median | Female median | U | p | Sig? |")
     lines.append("|-----------|-------------|---------------|---|---|------|")
@@ -453,7 +481,9 @@ def analyze_sex_difference(df: pd.DataFrame) -> str:
             continue
         u_stat, p = stats.mannwhitneyu(m, f, alternative="two-sided")
         sig = "✅" if p < 0.05 else ""
-        lines.append(f"| {col} | {m.median():.4f} | {f.median():.4f} | {u_stat:.0f} | {p:.4f} | {sig} |")
+        lines.append(
+            f"| {col} | {m.median():.4f} | {f.median():.4f} | {u_stat:.0f} | {p:.4f} | {sig} |"
+        )
 
     return "\n".join(lines)
 
@@ -481,7 +511,7 @@ def analyze_missing(df: pd.DataFrame) -> str:
     both_miss = (bio_4 & bio_24).sum()
     only_4 = (bio_4 & ~bio_24).sum()
     only_24 = (~bio_4 & bio_24).sum()
-    lines.append(f"\n4hr & 24hr biomarker missing pattern:")
+    lines.append("\n4hr & 24hr biomarker missing pattern:")
     lines.append(f"  Both missing: {both_miss}")
     lines.append(f"  Only 4hr missing: {only_4}")
     lines.append(f"  Only 24hr missing: {only_24}")
@@ -497,7 +527,9 @@ def analyze_missing(df: pd.DataFrame) -> str:
         i = incomplete[col].dropna()
         if len(c) >= 3 and len(i) >= 3:
             u, p = stats.mannwhitneyu(c, i, alternative="two-sided")
-            lines.append(f"  {col}: complete median={c.median():.1f} vs incomplete={i.median():.1f}, p={p:.3f}")
+            lines.append(
+                f"  {col}: complete median={c.median():.1f} vs incomplete={i.median():.1f}, p={p:.3f}"
+            )
 
     return "\n".join(lines)
 
@@ -506,17 +538,17 @@ def analyze_missing(df: pd.DataFrame) -> str:
 # MAIN: Assemble Report
 # ══════════════════════════════════════════════════════════════════
 def main():
-    print("="*60)
+    print("=" * 60)
     print("AKI Biomarker Analysis — Full Report")
-    print("="*60)
+    print("=" * 60)
 
     report = []
-    report.append(f"---")
-    report.append(f"title: AKI Biomarker EDA Report")
+    report.append("---")
+    report.append("title: AKI Biomarker EDA Report")
     report.append(f"date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     report.append(f"subjects: {len(df)}")
-    report.append(f"pipeline: RDE 11-Phase (Direct Execution)")
-    report.append(f"---\n")
+    report.append("pipeline: RDE 11-Phase (Direct Execution)")
+    report.append("---\n")
 
     # 1) Table 1
     print("\n[1/8] Table 1...")
@@ -573,9 +605,9 @@ def main():
     print(f"   {len(report_text)} chars, {report_text.count(chr(10))} lines")
 
     # Also print key findings
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("KEY FINDINGS SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print(report_text)
 
 

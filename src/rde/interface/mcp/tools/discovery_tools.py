@@ -9,18 +9,28 @@ from __future__ import annotations
 from typing import Any
 
 
-def _pii_gate_message(pii_vars: list[str], *, allow_pii: bool, context: str) -> tuple[bool, str, str, str]:
+def _pii_gate_message(
+    pii_vars: list[str], *, allow_pii: bool, context: str
+) -> tuple[bool, str, str, str]:
     """Return a standardized H-004 decision for discovery/load flows."""
     if not pii_vars:
         return True, "", "", ""
     if allow_pii:
-        return True, "", "", (
-            f"\n⚠️ **[H-004] 疑似 PII{context}: {', '.join(pii_vars)}\n"
-            f"已依 allow_pii=true 明確允許載入，請盡快遮蔽或移除。\n"
+        return (
+            True,
+            "",
+            "",
+            (
+                f"\n⚠️ **[H-004] 疑似 PII{context}: {', '.join(pii_vars)}\n"
+                f"已依 allow_pii=true 明確允許載入，請盡快遮蔽或移除。\n"
+            ),
         )
-    return False, "[H-004] 偵測到疑似 PII 欄位，已停止載入。", \
-        f"疑似欄位{context}: {', '.join(pii_vars)}", \
-        "先匿名化資料，或在明確知情下以 allow_pii=true 重新呼叫。"
+    return (
+        False,
+        "[H-004] 偵測到疑似 PII 欄位，已停止載入。",
+        f"疑似欄位{context}: {', '.join(pii_vars)}",
+        "先匿名化資料，或在明確知情下以 allow_pii=true 重新呼叫。",
+    )
 
 
 def register_discovery_tools(server: Any) -> None:
@@ -37,8 +47,11 @@ def register_discovery_tools(server: Any) -> None:
             directory: 要掃描的資料目錄路徑，如 "data/rawdata" 或 "/mnt/data"（預設: data/rawdata）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_table,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            fmt_table,
         )
         from pathlib import Path
 
@@ -105,8 +118,11 @@ def register_discovery_tools(server: Any) -> None:
             allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_table,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            fmt_table,
         )
         from pathlib import Path
 
@@ -143,15 +159,18 @@ def register_discovery_tools(server: Any) -> None:
                 pii_vars, allow_pii=allow_pii, context=""
             )
             if not pii_allowed:
-                return fmt_error(pii_error, detail=pii_detail, suggestion="先匿名化資料，或在明確知情下以 allow_pii=true 重新呼叫。")
+                return fmt_error(
+                    pii_error,
+                    detail=pii_detail,
+                    suggestion="先匿名化資料，或在明確知情下以 allow_pii=true 重新呼叫。",
+                )
 
             session = get_session()
             session.register_dataset(dataset, df)
 
             headers = ["變數", "dtype", "類型", "缺失", "唯一值"]
             rows = [
-                [v.name, v.dtype, v.variable_type.value, v.n_missing, v.n_unique]
-                for v in variables
+                [v.name, v.dtype, v.variable_type.value, v.n_missing, v.n_unique] for v in variables
             ]
             table = fmt_table(headers, rows)
 
@@ -190,8 +209,11 @@ def register_discovery_tools(server: Any) -> None:
             allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_success, ensure_project_context,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            ensure_project_context,
         )
         from pathlib import Path
         from datetime import datetime
@@ -268,8 +290,7 @@ def register_discovery_tools(server: Any) -> None:
                 "column_count": len(variables),
                 "pii_suspects": pii_vars,
                 "rejections": [
-                    {"file": f.file_name, "reason": f.rejection_reason}
-                    for f in rejected_files
+                    {"file": f.file_name, "reason": f.rejection_reason} for f in rejected_files
                 ],
                 "timestamp": datetime.now().isoformat(),
             }
@@ -282,12 +303,14 @@ def register_discovery_tools(server: Any) -> None:
 
                 pipeline = session.get_pipeline(project.id)
                 pipeline.mark_started(PipelinePhase.DATA_INTAKE)
-                pipeline.mark_completed(PhaseResult(
-                    phase=PipelinePhase.DATA_INTAKE,
-                    completed_at=datetime.now(),
-                    success=True,
-                    artifacts={"intake_report.json": ""},
-                ))
+                pipeline.mark_completed(
+                    PhaseResult(
+                        phase=PipelinePhase.DATA_INTAKE,
+                        completed_at=datetime.now(),
+                        success=True,
+                        artifacts={"intake_report.json": ""},
+                    )
+                )
 
             rejected_info = ""
             if rejected_files:
@@ -330,8 +353,13 @@ def register_discovery_tools(server: Any) -> None:
             project_id: 專案 ID（可選）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_table, ensure_dataset, ensure_project_context,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            fmt_table,
+            ensure_dataset,
+            ensure_project_context,
         )
         from datetime import datetime
 
@@ -416,10 +444,16 @@ def register_discovery_tools(server: Any) -> None:
 
                 schema["variables"].append(var_info)
                 pii_flag = "⚠️" if v.is_pii_suspect else ""
-                rows.append([
-                    v.name, v.dtype, v.variable_type.value,
-                    f"{missing_rate:.1%}", v.n_unique, pii_flag,
-                ])
+                rows.append(
+                    [
+                        v.name,
+                        v.dtype,
+                        v.variable_type.value,
+                        f"{missing_rate:.1%}",
+                        v.n_unique,
+                        pii_flag,
+                    ]
+                )
 
             table = fmt_table(headers, rows)
 
@@ -432,21 +466,23 @@ def register_discovery_tools(server: Any) -> None:
 
                 pipeline = session.get_pipeline(project.id)
                 pipeline.mark_started(PipelinePhase.SCHEMA_REGISTRY)
-                pipeline.mark_completed(PhaseResult(
-                    phase=PipelinePhase.SCHEMA_REGISTRY,
-                    completed_at=datetime.now(),
-                    success=True,
-                    artifacts={"schema.json": ""},
-                ))
+                pipeline.mark_completed(
+                    PhaseResult(
+                        phase=PipelinePhase.SCHEMA_REGISTRY,
+                        completed_at=datetime.now(),
+                        success=True,
+                        artifacts={"schema.json": ""},
+                    )
+                )
 
-            log_tool_result("build_schema", f"{len(ds.variables)} variables, {len(reclassified)} reclassified")
+            log_tool_result(
+                "build_schema", f"{len(ds.variables)} variables, {len(reclassified)} reclassified"
+            )
 
             reclass_info = ""
             if reclassified:
                 reclass_info = (
-                    "\n### 🔄 重新分類的變數\n"
-                    + "\n".join(f"- {r}" for r in reclassified)
-                    + "\n"
+                    "\n### 🔄 重新分類的變數\n" + "\n".join(f"- {r}" for r in reclassified) + "\n"
                 )
 
             return (

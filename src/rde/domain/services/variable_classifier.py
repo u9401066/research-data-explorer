@@ -16,22 +16,37 @@ logger = logging.getLogger(__name__)
 
 # Column name patterns that suggest PII (Hook H-004)
 PII_PATTERNS = [
-    "name", "姓名", "email", "phone", "電話", "address", "地址",
-    "id_number", "身分證", "身份證", "社會安全", "ssn", "passport",
-    "護照", "birthday", "生日", "出生",
+    "name",
+    "姓名",
+    "email",
+    "phone",
+    "電話",
+    "address",
+    "地址",
+    "id_number",
+    "身分證",
+    "身份證",
+    "社會安全",
+    "ssn",
+    "passport",
+    "護照",
+    "birthday",
+    "生日",
+    "出生",
 ]
 
 # Column name patterns that strongly suggest ID columns
 ID_NAME_PATTERNS = re.compile(
-    r"(?:^id$|_id$|^.*_?(?:no|number|code|key|uuid|guid)$)", re.IGNORECASE,
+    r"(?:^id$|_id$|^.*_?(?:no|number|code|key|uuid|guid)$)",
+    re.IGNORECASE,
 )
 
 # Common date-like patterns for string detection
 _DATE_PATTERNS = [
-    re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}"),          # 2025-03-02
-    re.compile(r"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}"),        # 03/02/2025
-    re.compile(r"^\d{8}$"),                                 # 20250302
-    re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}\s+\d{1,2}"), # 2025-03-02 10:...
+    re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}"),  # 2025-03-02
+    re.compile(r"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}"),  # 03/02/2025
+    re.compile(r"^\d{8}$"),  # 20250302
+    re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}\s+\d{1,2}"),  # 2025-03-02 10:...
 ]
 
 
@@ -129,10 +144,7 @@ class VariableClassifier:
         valid = [str(s).strip() for s in samples if s is not None and str(s).strip()]
         if len(valid) < 2:
             return False
-        matches = sum(
-            1 for v in valid
-            if any(p.match(v) for p in _DATE_PATTERNS)
-        )
+        matches = sum(1 for v in valid if any(p.match(v) for p in _DATE_PATTERNS))
         return matches / len(valid) >= 0.6
 
     @staticmethod

@@ -25,14 +25,18 @@ def register_report_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("collect_results", {"project_id": project_id})
 
-        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.COLLECT_RESULTS, project_id=project_id)
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.COLLECT_RESULTS, project_id=project_id
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -51,10 +55,11 @@ def register_report_tools(server: Any) -> None:
             decisions = logger.read_decisions()
             datasets = session.list_datasets()
 
-            has_analysis = any(
-                session.get_dataset_entry(did).analysis_results
-                for did in datasets
-            ) if datasets else False
+            has_analysis = (
+                any(session.get_dataset_entry(did).analysis_results for did in datasets)
+                if datasets
+                else False
+            )
 
             if not decisions and not has_analysis:
                 return fmt_error(
@@ -80,15 +85,17 @@ def register_report_tools(server: Any) -> None:
 
                     # Mark statistically significant results as PUBLISHABLE
                     for t in result.significant_tests:
-                        publishable.append({
-                            "dataset_id": ds_id,
-                            "test_name": t.test_name,
-                            "variables": list(t.variables_involved),
-                            "p_value": t.p_value,
-                            "effect_size": t.effect_size,
-                            "effect_size_name": getattr(t, "effect_size_name", None),
-                            "marker": "PUBLISHABLE",
-                        })
+                        publishable.append(
+                            {
+                                "dataset_id": ds_id,
+                                "test_name": t.test_name,
+                                "variables": list(t.variables_involved),
+                                "p_value": t.p_value,
+                                "effect_size": t.effect_size,
+                                "effect_size_name": getattr(t, "effect_size_name", None),
+                                "marker": "PUBLISHABLE",
+                            }
+                        )
 
             # Read decision + deviation logs
             logger = session.get_logger(project.id)
@@ -124,12 +131,18 @@ def register_report_tools(server: Any) -> None:
 
             # Save artifact
             store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", summary)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.COLLECT_RESULTS,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"results_summary.json": str(store.get_path(PipelinePhase.COLLECT_RESULTS, "results_summary.json"))},
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.COLLECT_RESULTS,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={
+                        "results_summary.json": str(
+                            store.get_path(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+                        )
+                    },
+                )
+            )
 
             # Format output
             lines = [
@@ -149,16 +162,19 @@ def register_report_tools(server: Any) -> None:
             if publishable:
                 lines.append("\n## 🟢 可發表結果 (PUBLISHABLE)")
                 for p in publishable:
-                    es = f", {p['effect_size_name']}={p['effect_size']:.3f}" if p.get("effect_size") else ""
+                    es = (
+                        f", {p['effect_size_name']}={p['effect_size']:.3f}"
+                        if p.get("effect_size")
+                        else ""
+                    )
                     lines.append(
-                        f"- {', '.join(p['variables'])}: "
-                        f"{p['test_name']} p={p['p_value']:.4f}{es}"
+                        f"- {', '.join(p['variables'])}: {p['test_name']} p={p['p_value']:.4f}{es}"
                     )
 
             if sensitivity_hint:
                 lines.append(f"\n💡 {sensitivity_hint}")
 
-            lines.append(f"\n**Artifact:** results_summary.json")
+            lines.append("\n**Artifact:** results_summary.json")
 
             return "\n".join(lines)
 
@@ -181,14 +197,19 @@ def register_report_tools(server: Any) -> None:
             title: 報告標題
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            fmt_success,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("assemble_report", {"project_id": project_id, "title": title})
 
-        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.REPORT_ASSEMBLY, project_id=project_id)
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.REPORT_ASSEMBLY, project_id=project_id
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -267,12 +288,18 @@ def register_report_tools(server: Any) -> None:
 
             # Save artifact
             store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", content)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.REPORT_ASSEMBLY,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"eda_report.md": str(store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))},
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.REPORT_ASSEMBLY,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={
+                        "eda_report.md": str(
+                            store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+                        )
+                    },
+                )
+            )
 
             word_count = len(content.split())
             return fmt_success(
@@ -313,14 +340,22 @@ def register_report_tools(server: Any) -> None:
             group_var: 分組變數，如 "treatment_group"（可選，用於組間比對圖）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error, log_tool_result,
-            fmt_error, fmt_success, ensure_minimum_sample_size, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            fmt_success,
+            ensure_minimum_sample_size,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
-        log_tool_call("create_visualization", {
-            "plot_type": plot_type, "variables": variables,
-        })
+        log_tool_call(
+            "create_visualization",
+            {
+                "plot_type": plot_type,
+                "variables": variables,
+            },
+        )
 
         ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
@@ -333,15 +368,22 @@ def register_report_tools(server: Any) -> None:
         if not ok:
             return fmt_error(msg)
 
-        valid_types = ["histogram", "boxplot", "scatter", "bar", "violin", "heatmap", "line", "paired"]
+        valid_types = [
+            "histogram",
+            "boxplot",
+            "scatter",
+            "bar",
+            "violin",
+            "heatmap",
+            "line",
+            "paired",
+        ]
         if plot_type not in valid_types:
-            return fmt_error(
-                f"不支援的圖表類型 '{plot_type}'。"
-                f"支援: {', '.join(valid_types)}"
-            )
+            return fmt_error(f"不支援的圖表類型 '{plot_type}'。支援: {', '.join(valid_types)}")
 
         try:
             from rde.infrastructure.visualization.matplotlib_viz import MatplotlibVisualizer
+
             # Determine output path
             if output_filename is None:
                 var_str = "_".join(variables[:2])
@@ -402,14 +444,19 @@ def register_report_tools(server: Any) -> None:
             title: 報告標題，如 "Sepsis EDA Report"（預設: EDA Report）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            fmt_success,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("export_report", {"formats": formats, "title": title})
 
-        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.REPORT_ASSEMBLY, project_id=project_id)
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.REPORT_ASSEMBLY, project_id=project_id
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -420,16 +467,13 @@ def register_report_tools(server: Any) -> None:
             from rde.application.use_cases.export_report import ExportReportUseCase
             from rde.infrastructure.adapters import MarkdownReportRenderer, DocxExporter
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
-            from pathlib import Path
 
             session = get_session()
             store = ArtifactStore(project.artifacts_dir)
 
             # H-008: Phase 8 must be done
             if not store.exists(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"):
-                return fmt_error(
-                    "[H-008] 報告尚未組裝。請先執行 `assemble_report()` (Phase 8)。"
-                )
+                return fmt_error("[H-008] 報告尚未組裝。請先執行 `assemble_report()` (Phase 8)。")
 
             # Rebuild EDAReport from artifacts (same logic as assemble_report)
             artifacts: dict[str, str] = {}
@@ -469,9 +513,7 @@ def register_report_tools(server: Any) -> None:
             valid_fmts = {"docx", "pdf"}
             invalid = [f for f in fmt_list if f not in valid_fmts]
             if invalid:
-                return fmt_error(
-                    f"不支援的格式: {', '.join(invalid)}。支援: docx, pdf"
-                )
+                return fmt_error(f"不支援的格式: {', '.join(invalid)}。支援: docx, pdf")
 
             # Export
             figures_dir = project.output_dir / "figures"
@@ -491,8 +533,7 @@ def register_report_tools(server: Any) -> None:
 
             return fmt_success(
                 f"報告已匯出 — {', '.join(f.upper() for f in exported)}",
-                f"- **嵌入圖表:** {fig_count} 張\n"
-                + "\n".join(lines),
+                f"- **嵌入圖表:** {fig_count} 張\n" + "\n".join(lines),
             )
 
         except ImportError as e:
@@ -516,7 +557,7 @@ def _format_data_overview(
     lines = []
     if intake:
         lines.append(f"**檔案:** {intake.get('loaded_file', intake.get('filename', '?'))}")
-        rows = intake.get('row_count', intake.get('rows', '?'))
+        rows = intake.get("row_count", intake.get("rows", "?"))
         lines.append(f"**列數:** {rows}")
         lines.append(f"**欄數:** {intake.get('column_count', intake.get('columns', '?'))}")
         if intake.get("size_mb"):
@@ -563,9 +604,10 @@ def _format_data_quality(
             for v in variables:
                 vt = v.get("variable_type", v.get("type", "unknown"))
                 type_counts[vt] = type_counts.get(vt, 0) + 1
-            lines.append(f"\n**變數類型分佈:** " + ", ".join(
-                f"{t}: {n}" for t, n in sorted(type_counts.items())
-            ))
+            lines.append(
+                "\n**變數類型分佈:** "
+                + ", ".join(f"{t}: {n}" for t, n in sorted(type_counts.items()))
+            )
     return "\n".join(lines) if lines else "[Data quality information not available]"
 
 
@@ -592,7 +634,7 @@ def _format_analyses(results: dict | None) -> str:
     lines = [f"**分析總數:** {results.get('total_analyses', 0)}"]
     pub = results.get("publishable_items", [])
     if pub:
-        lines.append(f"\n**可發表結果:**")
+        lines.append("\n**可發表結果:**")
         for p in pub:
             lines.append(f"- {p.get('test_name', '?')}: p={p.get('p_value', '?')}")
     return "\n".join(lines)

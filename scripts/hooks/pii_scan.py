@@ -35,9 +35,7 @@ def scan_file(filepath: str) -> list[str]:
             for line_no, line in enumerate(f, 1):
                 for pattern, desc in PII_PATTERNS + PATH_PATTERNS:
                     if re.search(pattern, line):
-                        warnings.append(
-                            f"  Line {line_no}: {desc} — {line.strip()[:60]}"
-                        )
+                        warnings.append(f"  Line {line_no}: {desc} — {line.strip()[:60]}")
     except (OSError, UnicodeDecodeError):
         pass
     return warnings

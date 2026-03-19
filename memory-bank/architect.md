@@ -32,4 +32,3 @@ Interface (MCP tools) → Application (Use Cases, Pipeline) → Domain (Pure Log
 9. **Authoritative Control Manifest**: `.github/agent-control.yaml` 為 agent workflow 的實作契約，文件與測試都需對齊
 10. **Phase-ready helper**: MCP tools 透過 shared helper 進行 gate / artifact / sample-size 驗證，避免各 tool 各自散落實作
 11. **Plan-aware execution**: Phase 6 decision logging 延伸為 auto deviation detection，將 S-011 轉為可執行治理機制
-

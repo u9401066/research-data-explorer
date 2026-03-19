@@ -30,7 +30,10 @@ def test_direct_analysis_contract_detection_and_summary() -> None:
     }
 
     assert _is_direct_analysis_contract(payload) is True
-    assert _summarize_advanced_analysis_result(payload) == "job_id=stats-123, status=pending, rows=20, columns=4"
+    assert (
+        _summarize_advanced_analysis_result(payload)
+        == "job_id=stats-123, status=pending, rows=20, columns=4"
+    )
 
 
 def test_save_advanced_analysis_artifact_persists_phase06_json(tmp_path: Path) -> None:

@@ -104,10 +104,9 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
         # Detect categorical columns
         categorical = [
-            c for c in cols
-            if df[c].dtype == "object"
-            or df[c].dtype.name == "category"
-            or df[c].nunique() <= 10
+            c
+            for c in cols
+            if df[c].dtype == "object" or df[c].dtype.name == "category" or df[c].nunique() <= 10
         ]
 
         with warnings.catch_warnings():
@@ -128,8 +127,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         for col_key, rows in raw_dict.items():
             str_col = str(col_key) if not isinstance(col_key, str) else col_key
             table_dict[str_col] = {
-                (str(k) if not isinstance(k, str) else k): v
-                for k, v in rows.items()
+                (str(k) if not isinstance(k, str) else k): v for k, v in rows.items()
             }
 
         return {
@@ -143,15 +141,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
     # ── individual test implementations ──────────────────────────────
 
-    def _ttest_ind(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _ttest_ind(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         outcome, group = variables[0], variables[1]
-        groups = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_keys = list(groups.index)
         if len(group_keys) < 2:
             return {"error": f"Need ≥2 groups, found {len(group_keys)}."}
@@ -171,9 +165,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, d, "Cohen's d"),
         }
 
-    def _ttest_paired(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _ttest_paired(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         if len(variables) < 2:
@@ -195,15 +187,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, d, "Cohen's d"),
         }
 
-    def _mann_whitney(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _mann_whitney(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         outcome, group = variables[0], variables[1]
-        groups = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_keys = list(groups.index)
         if len(group_keys) < 2:
             return {"error": f"Need ≥2 groups, found {len(group_keys)}."}
@@ -224,9 +212,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, r, "r"),
         }
 
-    def _wilcoxon(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _wilcoxon(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         if len(variables) < 2:
@@ -248,15 +234,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, r, "r"),
         }
 
-    def _anova(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _anova(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_arrays = [g for g in groups_series]
         if len(group_arrays) < 2:
             return {"error": "ANOVA requires ≥2 groups."}
@@ -264,12 +246,8 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         stat, p = stats.f_oneway(*group_arrays)
         # eta-squared
         grand_mean = np.concatenate(group_arrays).mean()
-        ss_between = sum(
-            len(g) * (g.mean() - grand_mean) ** 2 for g in group_arrays
-        )
-        ss_total = sum(
-            np.sum((g - grand_mean) ** 2) for g in group_arrays
-        )
+        ss_between = sum(len(g) * (g.mean() - grand_mean) ** 2 for g in group_arrays)
+        ss_total = sum(np.sum((g - grand_mean) ** 2) for g in group_arrays)
         eta_sq = ss_between / ss_total if ss_total > 0 else 0
 
         return {
@@ -283,15 +261,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, eta_sq, "η²"),
         }
 
-    def _kruskal(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _kruskal(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_arrays = [g for g in groups_series]
         if len(group_arrays) < 2:
             return {"error": "Kruskal-Wallis requires ≥2 groups."}
@@ -312,9 +286,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, eta_h, "η²"),
         }
 
-    def _friedman(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _friedman(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         """Friedman test — non-parametric repeated measures ANOVA.
 
         Expects `variables` to be a list of ≥3 column names representing
@@ -360,15 +332,17 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         descriptives = []
         for c in cols:
             vals = complete[c]
-            descriptives.append({
-                "variable": c,
-                "n": n,
-                "mean": float(vals.mean()),
-                "std": float(vals.std()),
-                "median": float(vals.median()),
-                "q25": float(vals.quantile(0.25)),
-                "q75": float(vals.quantile(0.75)),
-            })
+            descriptives.append(
+                {
+                    "variable": c,
+                    "n": n,
+                    "mean": float(vals.mean()),
+                    "std": float(vals.std()),
+                    "median": float(vals.median()),
+                    "q25": float(vals.quantile(0.25)),
+                    "q75": float(vals.quantile(0.75)),
+                }
+            )
         result["descriptives"] = descriptives
 
         # Post-hoc: pairwise Wilcoxon signed-rank with Bonferroni correction
@@ -379,16 +353,18 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             for i, j in combinations(range(k), 2):
                 w_stat, w_p = stats.wilcoxon(arrays[i], arrays[j])
                 r_eff = w_stat / (n * (n + 1) / 2) if n > 0 else 0
-                posthoc.append({
-                    "var_1": cols[i],
-                    "var_2": cols[j],
-                    "statistic": float(w_stat),
-                    "p_value": float(w_p),
-                    "p_adjusted": float(min(w_p * n_pairs, 1.0)),
-                    "significant": w_p < bonferroni_alpha,
-                    "effect_size": float(r_eff),
-                    "effect_size_name": "r",
-                })
+                posthoc.append(
+                    {
+                        "var_1": cols[i],
+                        "var_2": cols[j],
+                        "statistic": float(w_stat),
+                        "p_value": float(w_p),
+                        "p_adjusted": float(min(w_p * n_pairs, 1.0)),
+                        "significant": w_p < bonferroni_alpha,
+                        "effect_size": float(r_eff),
+                        "effect_size_name": "r",
+                    }
+                )
             result["posthoc"] = posthoc
             result["posthoc_correction"] = "Bonferroni"
             result["posthoc_alpha"] = bonferroni_alpha
@@ -404,9 +380,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
         return result
 
-    def _chi_squared(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _chi_squared(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         var1, var2 = variables[0], variables[1]
@@ -426,9 +400,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, cramers_v, "V"),
         }
 
-    def _fisher_exact(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _fisher_exact(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         var1, var2 = variables[0], variables[1]
@@ -447,9 +419,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_comparison(p, odds_ratio, "OR"),
         }
 
-    def _shapiro(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _shapiro(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         var_name = variables[0]
@@ -472,9 +442,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             ),
         }
 
-    def _pearson(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _pearson(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         x_name, y_name = variables[0], variables[1]
@@ -491,9 +459,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_correlation(r, p),
         }
 
-    def _spearman(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _spearman(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         x_name, y_name = variables[0], variables[1]
@@ -510,15 +476,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "interpretation": self._interpret_correlation(r, p),
         }
 
-    def _levene(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _levene(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
         outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_arrays = [g for g in groups_series]
         stat, p = stats.levene(*group_arrays)
 
@@ -540,8 +502,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
     def _cohens_d(a: np.ndarray, b: np.ndarray) -> float:
         na, nb = len(a), len(b)
         pooled_std = np.sqrt(
-            ((na - 1) * np.std(a, ddof=1) ** 2 + (nb - 1) * np.std(b, ddof=1) ** 2)
-            / (na + nb - 2)
+            ((na - 1) * np.std(a, ddof=1) ** 2 + (nb - 1) * np.std(b, ddof=1) ** 2) / (na + nb - 2)
         )
         if pooled_std == 0:
             return 0.0
@@ -572,16 +533,12 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
     # ── post-hoc tests ───────────────────────────────────────────────
 
-    def _tukey_hsd(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _tukey_hsd(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         """Tukey HSD post-hoc test for ANOVA follow-up."""
         from scipy import stats
 
         outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_labels = list(groups_series.index)
         group_arrays = [g for g in groups_series]
 
@@ -596,15 +553,17 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 p_val = float(result.pvalue[i][j])
                 stat_val = float(result.statistic[i][j])
                 d = self._cohens_d(group_arrays[i], group_arrays[j])
-                pairwise.append({
-                    "group_1": str(group_labels[i]),
-                    "group_2": str(group_labels[j]),
-                    "statistic": stat_val,
-                    "p_value": p_val,
-                    "significant": p_val < kw.get("alpha", 0.05),
-                    "effect_size": float(d),
-                    "effect_size_name": "Cohen's d",
-                })
+                pairwise.append(
+                    {
+                        "group_1": str(group_labels[i]),
+                        "group_2": str(group_labels[j]),
+                        "statistic": stat_val,
+                        "p_value": p_val,
+                        "significant": p_val < kw.get("alpha", 0.05),
+                        "effect_size": float(d),
+                        "effect_size_name": "Cohen's d",
+                    }
+                )
 
         return {
             "test_name": "Tukey HSD",
@@ -618,17 +577,13 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             ),
         }
 
-    def _dunn(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _dunn(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         """Dunn's test — non-parametric post-hoc for Kruskal-Wallis follow-up."""
         from scipy import stats
         from itertools import combinations
 
         outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(
-            lambda x: x.dropna().values
-        )
+        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_labels = list(groups_series.index)
         group_arrays = [g for g in groups_series]
 
@@ -638,7 +593,6 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         # Dunn's test using Bonferroni correction on pairwise Mann-Whitney
         alpha = kw.get("alpha", 0.05)
         n_pairs = len(list(combinations(range(len(group_arrays)), 2)))
-        adjusted_alpha = alpha / n_pairs  # Bonferroni
 
         pairwise: list[dict] = []
         for i, j in combinations(range(len(group_arrays)), 2):
@@ -648,16 +602,18 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             n = len(a) + len(b)
             r = abs(stat_val - (len(a) * len(b) / 2)) / (len(a) * len(b)) if n > 0 else 0
 
-            pairwise.append({
-                "group_1": str(group_labels[i]),
-                "group_2": str(group_labels[j]),
-                "statistic": float(stat_val),
-                "p_value_raw": float(p_raw),
-                "p_value_adjusted": float(p_adj),
-                "significant": p_adj < alpha,
-                "effect_size": float(r),
-                "effect_size_name": "rank-biserial r",
-            })
+            pairwise.append(
+                {
+                    "group_1": str(group_labels[i]),
+                    "group_2": str(group_labels[j]),
+                    "statistic": float(stat_val),
+                    "p_value_raw": float(p_raw),
+                    "p_value_adjusted": float(p_adj),
+                    "significant": p_adj < alpha,
+                    "effect_size": float(r),
+                    "effect_size_name": "rank-biserial r",
+                }
+            )
 
         return {
             "test_name": "Dunn's test (Bonferroni)",
@@ -672,9 +628,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             ),
         }
 
-    def _point_biserial(
-        self, df: pd.DataFrame, variables: list[str], **kw: Any
-    ) -> dict[str, Any]:
+    def _point_biserial(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         """Point-biserial correlation between binary and continuous variable."""
         from scipy import stats
 
@@ -731,7 +685,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 power = 1 - stats.ncf.cdf(crit, df1, df2, lam)
         elif test_name in ("Chi-squared", "Fisher's exact"):
             # Chi-sq: w = sqrt(chi2/n), noncentrality = n*w^2
-            lam = n * effect_size ** 2
+            lam = n * effect_size**2
             df_val = max(1, n_groups - 1)
             crit = stats.chi2.ppf(1 - alpha, df_val)
             power = 1 - stats.ncx2.cdf(crit, df_val, lam)
@@ -811,19 +765,21 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 if valid_mask.sum() < 10:
                     continue
                 try:
-                    stat, p = stats.pointbiserialr(
-                        indicator[valid_mask], df[predictor][valid_mask]
-                    )
+                    stat, p = stats.pointbiserialr(indicator[valid_mask], df[predictor][valid_mask])
                     if p < 0.05:
                         mcar_evidence = False
-                        correlation_results.append({
-                            "missing_var": target,
-                            "predictor": predictor,
-                            "r": float(stat),
-                            "p_value": float(p),
-                        })
+                        correlation_results.append(
+                            {
+                                "missing_var": target,
+                                "predictor": predictor,
+                                "r": float(stat),
+                                "p_value": float(p),
+                            }
+                        )
                 except Exception as exc:
-                    logger.debug("MCAR correlation check skipped for %s vs %s: %s", target, predictor, exc)
+                    logger.debug(
+                        "MCAR correlation check skipped for %s vs %s: %s", target, predictor, exc
+                    )
 
         # Determine pattern type
         if not cols_with_missing:
@@ -832,8 +788,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         elif mcar_evidence:
             pattern_type = "MCAR"
             interpretation = (
-                "缺失值可能為完全隨機 (MCAR)。"
-                "Complete case analysis 或多重插補皆適用。"
+                "缺失值可能為完全隨機 (MCAR)。Complete case analysis 或多重插補皆適用。"
             )
         elif correlation_results:
             # MAR: missing depends on observed variables
@@ -854,8 +809,10 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "mcar_evidence": mcar_evidence,
             "significant_correlations": correlation_results,
             "recommendation": (
-                "Complete case analysis" if pattern_type == "MCAR"
-                else "Multiple Imputation" if pattern_type == "MAR"
+                "Complete case analysis"
+                if pattern_type == "MCAR"
+                else "Multiple Imputation"
+                if pattern_type == "MAR"
                 else "需人工判斷"
             ),
         }

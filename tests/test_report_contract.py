@@ -82,7 +82,9 @@ def test_export_use_case_accepts_project_scoped_figures_dir(tmp_path: Path) -> N
         ],
         start=1,
     ):
-        report.add_section(ReportSection(section_id=section_id, title=section_id, content="ok", order=idx))
+        report.add_section(
+            ReportSection(section_id=section_id, title=section_id, content="ok", order=idx)
+        )
 
     spy = _ExporterSpy()
     use_case = ExportReportUseCase(spy)

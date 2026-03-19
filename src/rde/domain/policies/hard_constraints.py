@@ -159,9 +159,7 @@ class HardConstraints:
         )
 
     @staticmethod
-    def h009_decision_logging_required(
-        phase_index: int, has_decision_log: bool
-    ) -> PolicyResult:
+    def h009_decision_logging_required(phase_index: int, has_decision_log: bool) -> PolicyResult:
         """H-009: Phase 6 operations must produce decision log entries."""
         # Only enforced during/after Phase 6
         if phase_index >= 6 and not has_decision_log:

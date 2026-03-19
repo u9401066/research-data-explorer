@@ -10,15 +10,14 @@ import logging
 from datetime import datetime
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from rde.domain.models.analysis import AnalysisResult, StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset
-from rde.domain.models.variable import VariableType
 from rde.domain.policies.hard_constraints import HardConstraints
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.ports import StatisticalEnginePort
 from rde.domain.services.statistical_advisor import StatisticalAdvisor
+
+logger = logging.getLogger(__name__)
 
 
 class CompareGroupsUseCase:
@@ -60,6 +59,7 @@ class CompareGroupsUseCase:
 
             # Count actual groups in the data
             import pandas as pd
+
             df: pd.DataFrame = raw_data
             actual_groups = df[group_variable].nunique()
             group_sizes = df.groupby(group_variable)[var_name].count().tolist()
@@ -93,16 +93,12 @@ class CompareGroupsUseCase:
             tests.append(test)
 
             # Soft Constraint S-009: effect size reminder
-            es_check = SoftConstraints.s009_effect_size_reminder(
-                test.p_value, test.effect_size
-            )
+            es_check = SoftConstraints.s009_effect_size_reminder(test.p_value, test.effect_size)
             if not es_check.passed:
                 warnings.append(f"[S-009] {var_name}: {es_check.suggestion}")
 
             # Soft Constraint S-010: power analysis
-            pw_check = SoftConstraints.s010_power_analysis_hint(
-                test.p_value, dataset.row_count
-            )
+            pw_check = SoftConstraints.s010_power_analysis_hint(test.p_value, dataset.row_count)
             if not pw_check.passed:
                 warnings.append(f"[S-010] {var_name}: {pw_check.suggestion}")
 

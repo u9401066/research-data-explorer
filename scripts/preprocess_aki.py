@@ -5,12 +5,13 @@ analysis-ready CSV at data/rawdata/aki_analysis_ready.csv.
 
 This script does NOT modify original files.
 """
+
 from pathlib import Path
 import pandas as pd
-import numpy as np
 import sys
 
 RAW = Path("data/rawdata")
+
 
 def find_files():
     files = sorted(RAW.glob("AKI_*.xlsx"))
@@ -127,10 +128,10 @@ def main():
 
     # Summary
     print(f"\nColumns:\n{list(merged.columns)}")
-    print(f"\nMissing per column:")
+    print("\nMissing per column:")
     miss = merged.isnull().sum()
     for col, n in miss[miss > 0].items():
-        print(f"  {col}: {n}/{len(merged)} ({n/len(merged)*100:.0f}%)")
+        print(f"  {col}: {n}/{len(merged)} ({n / len(merged) * 100:.0f}%)")
 
     if "aki_status" in merged.columns:
         print(f"\nAKI status: {dict(merged['aki_status'].value_counts())}")

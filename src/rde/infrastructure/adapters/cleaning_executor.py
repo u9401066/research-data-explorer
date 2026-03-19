@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from rde.domain.models.cleaning import CleaningAction, CleaningActionType, CleaningPlan
@@ -47,24 +46,28 @@ class CleaningExecutor:
             rows_before = len(result)
             method_name = self._ACTION_DISPATCH.get(action.action_type)
             if method_name is None:
-                logs.append({
-                    "action": action.action_type.value,
-                    "status": "skipped",
-                    "reason": "No handler for action type.",
-                })
+                logs.append(
+                    {
+                        "action": action.action_type.value,
+                        "status": "skipped",
+                        "reason": "No handler for action type.",
+                    }
+                )
                 continue
             method = getattr(self, method_name)
             result = method(result, action)
             rows_after = len(result)
             action.mark_applied()
-            logs.append({
-                "action": action.action_type.value,
-                "target": action.target_variable,
-                "status": "applied",
-                "rows_before": rows_before,
-                "rows_after": rows_after,
-                "rows_affected": rows_before - rows_after,
-            })
+            logs.append(
+                {
+                    "action": action.action_type.value,
+                    "target": action.target_variable,
+                    "status": "applied",
+                    "rows_before": rows_before,
+                    "rows_after": rows_after,
+                    "rows_affected": rows_before - rows_after,
+                }
+            )
 
         return result, logs
 
@@ -119,9 +122,7 @@ class CleaningExecutor:
             df[col] = df[col].fillna(value)
         return df
 
-    def _remove_duplicates(
-        self, df: pd.DataFrame, action: CleaningAction
-    ) -> pd.DataFrame:
+    def _remove_duplicates(self, df: pd.DataFrame, action: CleaningAction) -> pd.DataFrame:
         subset = action.params.get("subset")
         return df.drop_duplicates(subset=subset)
 
@@ -136,9 +137,7 @@ class CleaningExecutor:
             df[col] = df[col].clip(lower=lower, upper=upper)
         return df
 
-    def _remove_outliers(
-        self, df: pd.DataFrame, action: CleaningAction
-    ) -> pd.DataFrame:
+    def _remove_outliers(self, df: pd.DataFrame, action: CleaningAction) -> pd.DataFrame:
         col = action.target_variable
         if col and col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
             q1 = df[col].quantile(0.25)
@@ -166,9 +165,7 @@ class CleaningExecutor:
             df = df.rename(columns={old_name: new_name})
         return df
 
-    def _encode_categorical(
-        self, df: pd.DataFrame, action: CleaningAction
-    ) -> pd.DataFrame:
+    def _encode_categorical(self, df: pd.DataFrame, action: CleaningAction) -> pd.DataFrame:
         col = action.target_variable
         if col and col in df.columns:
             df[col] = df[col].astype("category").cat.codes

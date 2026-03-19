@@ -30,15 +30,22 @@ def register_plan_tools(server: Any) -> None:
             confirm: 是否確認概念對齊，必須設為 true 才能解鎖 Phase 4（預設 false）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, fmt_table, ensure_phase_ready,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            fmt_table,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
-        log_tool_call("align_concept", {
-            "research_question": research_question,
-            "variable_roles": variable_roles,
-        })
+        log_tool_call(
+            "align_concept",
+            {
+                "research_question": research_question,
+                "variable_roles": variable_roles,
+            },
+        )
 
         ok, msg, project, _ = ensure_phase_ready(
             PipelinePhase.CONCEPT_ALIGNMENT,
@@ -62,7 +69,9 @@ def register_plan_tools(server: Any) -> None:
 
             dataset_ids = session.list_datasets()
             if not dataset_ids:
-                return fmt_error("尚未載入任何資料集。請先使用 `load_dataset()` 或 `run_intake()`。")
+                return fmt_error(
+                    "尚未載入任何資料集。請先使用 `load_dataset()` 或 `run_intake()`。"
+                )
 
             entry = session.get_dataset_entry(dataset_ids[0])
             ds = entry.dataset
@@ -71,7 +80,9 @@ def register_plan_tools(server: Any) -> None:
             role_assignments: dict[str, str] = {}
             if variable_roles:
                 for role_key, var_names_raw in variable_roles.items():
-                    names_list = [var_names_raw] if isinstance(var_names_raw, str) else var_names_raw
+                    names_list = (
+                        [var_names_raw] if isinstance(var_names_raw, str) else var_names_raw
+                    )
                     for vn in names_list:
                         if vn in available_vars:
                             try:
@@ -83,7 +94,8 @@ def register_plan_tools(server: Any) -> None:
 
             analyzable = sum(1 for v in ds.variables if v.is_analyzable())
             unassigned = [
-                v.name for v in ds.variables
+                v.name
+                for v in ds.variables
                 if v.role == VariableRole.UNASSIGNED and v.is_analyzable()
             ]
             pii_suspects = [v.name for v in ds.variables if v.is_pii_suspect]
@@ -100,27 +112,31 @@ def register_plan_tools(server: Any) -> None:
             }
 
             store = ArtifactStore(project.artifacts_dir)
-            store.save(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md",
-                        f"# Concept Alignment\n\n"
-                        f"## Research Question\n{project.research_question}\n\n"
-                        f"## Variable Roles\n{role_assignments}\n")
+            store.save(
+                PipelinePhase.CONCEPT_ALIGNMENT,
+                "concept_alignment.md",
+                f"# Concept Alignment\n\n"
+                f"## Research Question\n{project.research_question}\n\n"
+                f"## Variable Roles\n{role_assignments}\n",
+            )
             store.save(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json", alignment)
 
             pipeline = session.get_pipeline(project.id)
             pipeline.mark_started(PipelinePhase.CONCEPT_ALIGNMENT)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.CONCEPT_ALIGNMENT,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"concept_alignment.md": "", "variable_roles.json": ""},
-                user_confirmed=confirm,
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.CONCEPT_ALIGNMENT,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={"concept_alignment.md": "", "variable_roles.json": ""},
+                    user_confirmed=confirm,
+                )
+            )
 
             # Build variable table
             headers = ["變數", "類型", "角色", "可分析"]
             rows = [
-                [v.name, v.variable_type.value, v.role.value,
-                 "✅" if v.is_analyzable() else "❌"]
+                [v.name, v.variable_type.value, v.role.value, "✅" if v.is_analyzable() else "❌"]
                 for v in ds.variables
             ]
             table = fmt_table(headers, rows)
@@ -135,7 +151,9 @@ def register_plan_tools(server: Any) -> None:
             if unassigned:
                 unassigned_text = f"\n**未指定角色:** {', '.join(unassigned)}\n"
 
-            log_tool_result("align_concept", f"{analyzable} analyzable, {len(role_assignments)} assigned")
+            log_tool_result(
+                "align_concept", f"{analyzable} analyzable, {len(role_assignments)} assigned"
+            )
 
             return (
                 f"# 🔬 概念對齊 (Phase 3)\n\n"
@@ -146,8 +164,8 @@ def register_plan_tools(server: Any) -> None:
                 f"{table}\n\n"
                 + (
                     "✅ **已確認概念對齊，可進入 Phase 4。**"
-                    if confirm else
-                    "⚠️ **尚未確認概念對齊。請用 `confirm=true` 重新呼叫後再進入 Phase 4。**"
+                    if confirm
+                    else "⚠️ **尚未確認概念對齊。請用 `confirm=true` 重新呼叫後再進入 Phase 4。**"
                 )
             )
 
@@ -178,21 +196,33 @@ def register_plan_tools(server: Any) -> None:
             confirm: 是否確認並鎖定計畫，必須設為 true 才會鎖定（預設 false）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, ensure_phase_ready,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
-        log_tool_call("register_analysis_plan", {
-            "alpha": alpha, "missing_strategy": missing_strategy,
-        })
+        log_tool_call(
+            "register_analysis_plan",
+            {
+                "alpha": alpha,
+                "missing_strategy": missing_strategy,
+            },
+        )
 
-        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.PLAN_REGISTRATION, project_id=project_id)
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.PLAN_REGISTRATION, project_id=project_id
+        )
         if not ok:
             return fmt_error(msg)
 
         if not confirm:
-            return fmt_error("Phase 4 需要明確用戶確認才能鎖定分析計畫。", suggestion="以 `confirm=true` 重新呼叫 register_analysis_plan()。")
+            return fmt_error(
+                "Phase 4 需要明確用戶確認才能鎖定分析計畫。",
+                suggestion="以 `confirm=true` 重新呼叫 register_analysis_plan()。",
+            )
 
         try:
             from datetime import datetime
@@ -215,11 +245,22 @@ def register_plan_tools(server: Any) -> None:
             # Validate analysis entries schema
             validation_errors: list[str] = []
             VALID_ANALYSIS_TYPES = {
-                "compare_groups", "analyze_variable", "correlation_matrix",
-                "generate_table_one", "run_advanced_analysis", "run_repeated_measures",
-                "propensity_score", "survival_analysis", "roc_auc",
-                "logistic_regression", "multiple_regression", "power_analysis_advanced",
-                "descriptive", "univariate", "table_one", "visualization",
+                "compare_groups",
+                "analyze_variable",
+                "correlation_matrix",
+                "generate_table_one",
+                "run_advanced_analysis",
+                "run_repeated_measures",
+                "propensity_score",
+                "survival_analysis",
+                "roc_auc",
+                "logistic_regression",
+                "multiple_regression",
+                "power_analysis_advanced",
+                "descriptive",
+                "univariate",
+                "table_one",
+                "visualization",
             }
             for i, entry in enumerate(analyses):
                 if not isinstance(entry, dict):
@@ -235,13 +276,15 @@ def register_plan_tools(server: Any) -> None:
                             f"支援: {', '.join(sorted(VALID_ANALYSIS_TYPES))}"
                         )
                 if "variables" not in entry and "type" in entry:
-                    validation_errors.append(f"  #{i} ({entry.get('type', '?')}): 建議指定 'variables' 以啟用自動偏離偵測")
+                    validation_errors.append(
+                        f"  #{i} ({entry.get('type', '?')}): 建議指定 'variables' 以啟用自動偏離偵測"
+                    )
 
             if validation_errors:
                 return fmt_error(
                     f"分析計畫驗證失敗 ({len(validation_errors)} 個問題):",
                     "\n".join(validation_errors),
-                    "每項分析應含 type (必填)、variables (建議)、rationale (選填)。"
+                    "每項分析應含 type (必填)、variables (建議)、rationale (選填)。",
                 )
 
             plan = {
@@ -259,13 +302,15 @@ def register_plan_tools(server: Any) -> None:
             store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", plan)
 
             pipeline.mark_started(PipelinePhase.PLAN_REGISTRATION)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.PLAN_REGISTRATION,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"analysis_plan.yaml": ""},
-                user_confirmed=True,
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.PLAN_REGISTRATION,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={"analysis_plan.yaml": ""},
+                    user_confirmed=True,
+                )
+            )
             project.plan_locked = True
 
             analyses_text = ""
@@ -273,7 +318,7 @@ def register_plan_tools(server: Any) -> None:
                 analyses_text = "\n**計畫分析項目:**\n"
                 for i, a in enumerate(analyses, 1):
                     analyses_text += f"{i}. **{a.get('type', '')}** — {a.get('rationale', '')}\n"
-                    if a.get('variables'):
+                    if a.get("variables"):
                         analyses_text += f"   變數: {a['variables']}\n"
 
             log_tool_result("register_analysis_plan", f"{len(analyses)} analyses, locked")
@@ -305,15 +350,20 @@ def register_plan_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_result, log_tool_error,
-            fmt_error, ensure_phase_ready,
+            log_tool_call,
+            log_tool_result,
+            log_tool_error,
+            fmt_error,
+            ensure_phase_ready,
         )
         from rde.interface.mcp.tools._shared.formatting import fmt_checks
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("check_readiness", {"project_id": project_id})
 
-        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.PRE_EXPLORE_CHECK, project_id=project_id)
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.PRE_EXPLORE_CHECK, project_id=project_id
+        )
         if not ok:
             return fmt_error(msg)
 
@@ -321,7 +371,9 @@ def register_plan_tools(server: Any) -> None:
             from datetime import datetime
             from rde.application.session import get_session
             from rde.application.pipeline import (
-                PipelinePhase, PhaseResult, REQUIRED_ARTIFACTS,
+                PipelinePhase,
+                PhaseResult,
+                REQUIRED_ARTIFACTS,
             )
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -338,15 +390,20 @@ def register_plan_tools(server: Any) -> None:
                 entry = session.get_dataset_entry(dataset_ids[0])
                 n = entry.dataset.row_count
                 passed = n >= 10
-                checks.append({
-                    "id": "H-003", "name": "最小樣本量",
-                    "passed": passed,
-                    "detail": f"n = {n}" + ("" if passed else " (需 ≥ 10)"),
-                })
+                checks.append(
+                    {
+                        "id": "H-003",
+                        "name": "最小樣本量",
+                        "passed": passed,
+                        "detail": f"n = {n}" + ("" if passed else " (需 ≥ 10)"),
+                    }
+                )
                 if not passed:
                     all_passed = False
             else:
-                checks.append({"id": "H-003", "name": "最小樣本量", "passed": False, "detail": "無資料集"})
+                checks.append(
+                    {"id": "H-003", "name": "最小樣本量", "passed": False, "detail": "無資料集"}
+                )
                 all_passed = False
 
             # H-004: PII check
@@ -354,20 +411,26 @@ def register_plan_tools(server: Any) -> None:
             if dataset_ids:
                 entry = session.get_dataset_entry(dataset_ids[0])
                 pii_vars = [v.name for v in entry.dataset.variables if v.is_pii_suspect]
-            checks.append({
-                "id": "H-004", "name": "PII 偵測",
-                "passed": len(pii_vars) == 0,
-                "detail": f"疑似 PII: {pii_vars}" if pii_vars else "無 PII",
-            })
+            checks.append(
+                {
+                    "id": "H-004",
+                    "name": "PII 偵測",
+                    "passed": len(pii_vars) == 0,
+                    "detail": f"疑似 PII: {pii_vars}" if pii_vars else "無 PII",
+                }
+            )
             if pii_vars:
                 all_passed = False
 
             # H-007: Plan locked
-            checks.append({
-                "id": "H-007", "name": "分析計畫已鎖定",
-                "passed": pipeline.plan_locked,
-                "detail": "已鎖定" if pipeline.plan_locked else "未鎖定",
-            })
+            checks.append(
+                {
+                    "id": "H-007",
+                    "name": "分析計畫已鎖定",
+                    "passed": pipeline.plan_locked,
+                    "detail": "已鎖定" if pipeline.plan_locked else "未鎖定",
+                }
+            )
             if not pipeline.plan_locked:
                 all_passed = False
 
@@ -383,12 +446,14 @@ def register_plan_tools(server: Any) -> None:
                 required = REQUIRED_ARTIFACTS.get(phase, [])
                 missing = [f for f in required if not store.exists(phase, f)]
                 passed = len(missing) == 0
-                checks.append({
-                    "id": "H-008",
-                    "name": f"Artifact Gate: {phase.value}",
-                    "passed": passed,
-                    "detail": f"缺少: {missing}" if missing else "完整",
-                })
+                checks.append(
+                    {
+                        "id": "H-008",
+                        "name": f"Artifact Gate: {phase.value}",
+                        "passed": passed,
+                        "detail": f"缺少: {missing}" if missing else "完整",
+                    }
+                )
                 if not passed:
                     all_passed = False
 
@@ -396,65 +461,82 @@ def register_plan_tools(server: Any) -> None:
             if dataset_ids:
                 entry = session.get_dataset_entry(dataset_ids[0])
                 continuous = [
-                    v.name for v in entry.dataset.variables
-                    if v.variable_type.value == "continuous"
+                    v.name for v in entry.dataset.variables if v.variable_type.value == "continuous"
                 ]
-                checks.append({
-                    "id": "S-001", "name": "常態性檢定提醒",
-                    "passed": True,
-                    "detail": f"有 {len(continuous)} 個連續變數，建議執行常態性檢定",
-                })
+                checks.append(
+                    {
+                        "id": "S-001",
+                        "name": "常態性檢定提醒",
+                        "passed": True,
+                        "detail": f"有 {len(continuous)} 個連續變數，建議執行常態性檢定",
+                    }
+                )
 
             # S-005: Missing pattern analysis
             if dataset_ids:
                 entry = session.get_dataset_entry(dataset_ids[0])
                 df = entry.dataframe
-                missing_cols = [
-                    c for c in df.columns if df[c].isna().sum() > 0
-                ]
+                missing_cols = [c for c in df.columns if df[c].isna().sum() > 0]
                 if missing_cols:
                     try:
                         from rde.infrastructure.adapters import ScipyStatisticalEngine
+
                         engine = ScipyStatisticalEngine()
                         mp = engine.analyze_missing_patterns(df, missing_cols)
                         pattern = mp.get("pattern", "unknown")
                         rec = mp.get("recommendation", "")
-                        checks.append({
-                            "id": "S-005", "name": "缺失模式分析",
-                            "passed": True,
-                            "detail": f"模式: {pattern}，建議: {rec}",
-                        })
+                        checks.append(
+                            {
+                                "id": "S-005",
+                                "name": "缺失模式分析",
+                                "passed": True,
+                                "detail": f"模式: {pattern}，建議: {rec}",
+                            }
+                        )
                     except Exception:
-                        checks.append({
-                            "id": "S-005", "name": "缺失模式分析",
-                            "passed": True,
-                            "detail": f"{len(missing_cols)} 個變數有缺失值",
-                        })
+                        checks.append(
+                            {
+                                "id": "S-005",
+                                "name": "缺失模式分析",
+                                "passed": True,
+                                "detail": f"{len(missing_cols)} 個變數有缺失值",
+                            }
+                        )
                 else:
-                    checks.append({
-                        "id": "S-005", "name": "缺失模式分析",
-                        "passed": True,
-                        "detail": "無缺失值",
-                    })
+                    checks.append(
+                        {
+                            "id": "S-005",
+                            "name": "缺失模式分析",
+                            "passed": True,
+                            "detail": "無缺失值",
+                        }
+                    )
 
             # S-007: Collinearity check (VIF preview)
             if dataset_ids:
                 entry = session.get_dataset_entry(dataset_ids[0])
                 df = entry.dataframe
                 from rde.domain.services.collinearity_checker import check_collinearity
+
                 report = check_collinearity(df)
                 if report.has_collinearity:
-                    checks.append({
-                        "id": "S-007", "name": "共線性預檢",
-                        "passed": True,
-                        "detail": f"⚠️ 高相關: {', '.join(report.format_warnings())}",
-                    })
+                    checks.append(
+                        {
+                            "id": "S-007",
+                            "name": "共線性預檢",
+                            "passed": True,
+                            "detail": f"⚠️ 高相關: {', '.join(report.format_warnings())}",
+                        }
+                    )
                 else:
-                    checks.append({
-                        "id": "S-007", "name": "共線性預檢",
-                        "passed": True,
-                        "detail": "無明顯共線性",
-                    })
+                    checks.append(
+                        {
+                            "id": "S-007",
+                            "name": "共線性預檢",
+                            "passed": True,
+                            "detail": "無明顯共線性",
+                        }
+                    )
 
             # Save artifact
             checklist = {
@@ -466,12 +548,14 @@ def register_plan_tools(server: Any) -> None:
             store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", checklist)
 
             pipeline.mark_started(PipelinePhase.PRE_EXPLORE_CHECK)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.PRE_EXPLORE_CHECK,
-                completed_at=datetime.now(),
-                success=all_passed,
-                artifacts={"readiness_checklist.json": ""},
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.PRE_EXPLORE_CHECK,
+                    completed_at=datetime.now(),
+                    success=all_passed,
+                    artifacts={"readiness_checklist.json": ""},
+                )
+            )
 
             checks_text = fmt_checks(checks)
 
@@ -479,11 +563,7 @@ def register_plan_tools(server: Any) -> None:
 
             status = "✅ 準備就緒，可進入 Phase 6" if all_passed else "❌ 尚有未通過的檢查項目"
 
-            return (
-                f"# 🔍 準備度檢查 (Phase 5)\n\n"
-                f"{checks_text}\n\n"
-                f"**結果:** {status}"
-            )
+            return f"# 🔍 準備度檢查 (Phase 5)\n\n{checks_text}\n\n**結果:** {status}"
 
         except Exception as e:
             log_tool_error("check_readiness", e)

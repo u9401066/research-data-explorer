@@ -56,31 +56,47 @@ def test_phase_0_to_5_integration_creates_required_artifacts(tmp_path: Path) -> 
     dataset, df, variables, row_count = _load_fixture_dataset()
     session.register_dataset(dataset, df)
 
-    store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {"id": project.id, "name": project.name})
-    pipeline.mark_completed(PhaseResult(PipelinePhase.PROJECT_SETUP, datetime.now(), True, {"project.yaml": ""}))
+    store.save(
+        PipelinePhase.PROJECT_SETUP, "project.yaml", {"id": project.id, "name": project.name}
+    )
+    pipeline.mark_completed(
+        PhaseResult(PipelinePhase.PROJECT_SETUP, datetime.now(), True, {"project.yaml": ""})
+    )
     project.advance_to(ProjectStatus.PROJECT_SETUP)
 
-    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {
-        "loaded_file": FIXTURE_CSV.name,
-        "row_count": row_count,
-        "column_count": len(variables),
-    })
-    pipeline.mark_completed(PhaseResult(PipelinePhase.DATA_INTAKE, datetime.now(), True, {"intake_report.json": ""}))
+    store.save(
+        PipelinePhase.DATA_INTAKE,
+        "intake_report.json",
+        {
+            "loaded_file": FIXTURE_CSV.name,
+            "row_count": row_count,
+            "column_count": len(variables),
+        },
+    )
+    pipeline.mark_completed(
+        PhaseResult(PipelinePhase.DATA_INTAKE, datetime.now(), True, {"intake_report.json": ""})
+    )
     project.advance_to(ProjectStatus.DATA_INTAKE)
 
-    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {
-        "row_count": row_count,
-        "column_count": len(variables),
-        "variables": [
-            {
-                "name": v.name,
-                "variable_type": v.variable_type.value,
-                "missing_rate": (v.n_missing / row_count if row_count else 0),
-            }
-            for v in variables
-        ],
-    })
-    pipeline.mark_completed(PhaseResult(PipelinePhase.SCHEMA_REGISTRY, datetime.now(), True, {"schema.json": ""}))
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "row_count": row_count,
+            "column_count": len(variables),
+            "variables": [
+                {
+                    "name": v.name,
+                    "variable_type": v.variable_type.value,
+                    "missing_rate": (v.n_missing / row_count if row_count else 0),
+                }
+                for v in variables
+            ],
+        },
+    )
+    pipeline.mark_completed(
+        PhaseResult(PipelinePhase.SCHEMA_REGISTRY, datetime.now(), True, {"schema.json": ""})
+    )
     project.advance_to(ProjectStatus.SCHEMA_REGISTRY)
 
     for variable in dataset.variables:
@@ -90,9 +106,11 @@ def test_phase_0_to_5_integration_creates_required_artifacts(tmp_path: Path) -> 
             variable.role = VariableRole.OUTCOME
 
     store.save(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md", "# Concept Alignment\n")
-    store.save(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json", {
-        "variable_roles": {v.name: v.role.value for v in dataset.variables}
-    })
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "variable_roles.json",
+        {"variable_roles": {v.name: v.role.value for v in dataset.variables}},
+    )
     pipeline.mark_completed(
         PhaseResult(
             PipelinePhase.CONCEPT_ALIGNMENT,
@@ -104,10 +122,16 @@ def test_phase_0_to_5_integration_creates_required_artifacts(tmp_path: Path) -> 
     )
     project.advance_to(ProjectStatus.CONCEPT_ALIGNMENT)
 
-    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {
-        "locked": True,
-        "analyses": [{"type": "compare_groups", "variables": ["petal_length"], "group": "species"}],
-    })
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        {
+            "locked": True,
+            "analyses": [
+                {"type": "compare_groups", "variables": ["petal_length"], "group": "species"}
+            ],
+        },
+    )
     pipeline.mark_completed(
         PhaseResult(
             PipelinePhase.PLAN_REGISTRATION,
@@ -119,14 +143,22 @@ def test_phase_0_to_5_integration_creates_required_artifacts(tmp_path: Path) -> 
     )
     project.advance_to(ProjectStatus.PLAN_REGISTRATION)
 
-    store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", {
-        "all_passed": True,
-        "checks": [
-            {"id": "H-003", "passed": True, "detail": f"n = {row_count}"},
-            {"id": "H-004", "passed": True, "detail": "無 PII"},
-        ],
-    })
-    pipeline.mark_completed(PhaseResult(PipelinePhase.PRE_EXPLORE_CHECK, datetime.now(), True, {"readiness_checklist.json": ""}))
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {
+            "all_passed": True,
+            "checks": [
+                {"id": "H-003", "passed": True, "detail": f"n = {row_count}"},
+                {"id": "H-004", "passed": True, "detail": "無 PII"},
+            ],
+        },
+    )
+    pipeline.mark_completed(
+        PhaseResult(
+            PipelinePhase.PRE_EXPLORE_CHECK, datetime.now(), True, {"readiness_checklist.json": ""}
+        )
+    )
     project.advance_to(ProjectStatus.PRE_EXPLORE_CHECK)
 
     for phase in [
@@ -161,14 +193,49 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
 
     prerequisite_artifacts = {
         PipelinePhase.PROJECT_SETUP: {"project.yaml": {"id": project.id}},
-        PipelinePhase.DATA_INTAKE: {"intake_report.json": {"loaded_file": FIXTURE_CSV.name, "row_count": row_count, "column_count": len(variables)}},
-        PipelinePhase.SCHEMA_REGISTRY: {"schema.json": {"variables": [{"name": v.name, "variable_type": v.variable_type.value, "missing_rate": (v.n_missing / row_count if row_count else 0)} for v in variables]}},
+        PipelinePhase.DATA_INTAKE: {
+            "intake_report.json": {
+                "loaded_file": FIXTURE_CSV.name,
+                "row_count": row_count,
+                "column_count": len(variables),
+            }
+        },
+        PipelinePhase.SCHEMA_REGISTRY: {
+            "schema.json": {
+                "variables": [
+                    {
+                        "name": v.name,
+                        "variable_type": v.variable_type.value,
+                        "missing_rate": (v.n_missing / row_count if row_count else 0),
+                    }
+                    for v in variables
+                ]
+            }
+        },
         PipelinePhase.CONCEPT_ALIGNMENT: {
             "concept_alignment.md": "# Concept Alignment\n",
-            "variable_roles.json": {"variable_roles": {v.name: v.role.value for v in dataset.variables}},
+            "variable_roles.json": {
+                "variable_roles": {v.name: v.role.value for v in dataset.variables}
+            },
         },
-        PipelinePhase.PLAN_REGISTRATION: {"analysis_plan.yaml": {"locked": True, "analyses": [{"type": "compare_groups", "variables": ["petal_length", "petal_width"], "group": "species"}]}},
-        PipelinePhase.PRE_EXPLORE_CHECK: {"readiness_checklist.json": {"all_passed": True, "checks": [{"id": "H-003", "passed": True, "detail": f"n = {row_count}"}] }},
+        PipelinePhase.PLAN_REGISTRATION: {
+            "analysis_plan.yaml": {
+                "locked": True,
+                "analyses": [
+                    {
+                        "type": "compare_groups",
+                        "variables": ["petal_length", "petal_width"],
+                        "group": "species",
+                    }
+                ],
+            }
+        },
+        PipelinePhase.PRE_EXPLORE_CHECK: {
+            "readiness_checklist.json": {
+                "all_passed": True,
+                "checks": [{"id": "H-003", "passed": True, "detail": f"n = {row_count}"}],
+            }
+        },
     }
     for phase, artifact_map in prerequisite_artifacts.items():
         for filename, payload in artifact_map.items():
@@ -179,7 +246,8 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
                 datetime.now(),
                 True,
                 {filename: "" for filename in artifact_map},
-                user_confirmed=phase in {PipelinePhase.CONCEPT_ALIGNMENT, PipelinePhase.PLAN_REGISTRATION},
+                user_confirmed=phase
+                in {PipelinePhase.CONCEPT_ALIGNMENT, PipelinePhase.PLAN_REGISTRATION},
             )
         )
 
@@ -195,7 +263,10 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
         phase="phase_06",
         action="compare_groups",
         tool_used="compare_groups",
-        parameters={"outcome_variables": ["petal_length", "petal_width"], "group_variable": "species"},
+        parameters={
+            "outcome_variables": ["petal_length", "petal_width"],
+            "group_variable": "species",
+        },
         rationale="integration test",
         result_summary=compare_result.summary,
         artifacts=["compare_groups.json"],
@@ -207,15 +278,27 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
         reason="integration coverage",
         impact_assessment="none",
     )
-    store.save(PipelinePhase.EXECUTE_EXPLORATION, "compare_groups.json", {
-        "summary": compare_result.summary,
-        "tests": [{"test_name": t.test_name, "p_value": t.p_value} for t in compare_result.tests],
-    })
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "compare_groups.json",
+        {
+            "summary": compare_result.summary,
+            "tests": [
+                {"test_name": t.test_name, "p_value": t.p_value} for t in compare_result.tests
+            ],
+        },
+    )
 
-    collinearity = check_collinearity(df, ["sepal_length", "sepal_width", "petal_length", "petal_width"])
-    store.save(PipelinePhase.EXECUTE_EXPLORATION, "correlation_matrix.json", {
-        "warnings": collinearity.format_warnings(),
-    })
+    collinearity = check_collinearity(
+        df, ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "correlation_matrix.json",
+        {
+            "warnings": collinearity.format_warnings(),
+        },
+    )
 
     figure_path = project.output_dir / "figures" / "boxplot_petal_length.png"
     MatplotlibVisualizer().create_plot(
@@ -239,24 +322,32 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
         )
     )
 
-    store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", {
-        "total_analyses": 1,
-        "publishable_count": len(compare_result.significant_tests),
-        "publishable_items": [
-            {
-                "test_name": t.test_name,
-                "variables": list(t.variables_involved),
-                "p_value": t.p_value,
-                "effect_size": t.effect_size,
-                "effect_size_name": t.effect_size_name,
-            }
-            for t in compare_result.significant_tests
-        ],
-        "decision_count": logger.decision_count,
-        "deviation_count": logger.deviation_count,
-        "plan_coverage": {"planned": 1, "executed": 1, "coverage": 1.0},
-    })
-    pipeline.mark_completed(PhaseResult(PipelinePhase.COLLECT_RESULTS, datetime.now(), True, {"results_summary.json": ""}))
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "total_analyses": 1,
+            "publishable_count": len(compare_result.significant_tests),
+            "publishable_items": [
+                {
+                    "test_name": t.test_name,
+                    "variables": list(t.variables_involved),
+                    "p_value": t.p_value,
+                    "effect_size": t.effect_size,
+                    "effect_size_name": t.effect_size_name,
+                }
+                for t in compare_result.significant_tests
+            ],
+            "decision_count": logger.decision_count,
+            "deviation_count": logger.deviation_count,
+            "plan_coverage": {"planned": 1, "executed": 1, "coverage": 1.0},
+        },
+    )
+    pipeline.mark_completed(
+        PhaseResult(
+            PipelinePhase.COLLECT_RESULTS, datetime.now(), True, {"results_summary.json": ""}
+        )
+    )
 
     report = GenerateReportUseCase(MarkdownReportRenderer()).execute(
         dataset_id=dataset.id,
@@ -273,13 +364,23 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
     )
     content = GenerateReportUseCase(MarkdownReportRenderer()).render(report, "markdown")
     store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", content)
-    pipeline.mark_completed(PhaseResult(PipelinePhase.REPORT_ASSEMBLY, datetime.now(), True, {"eda_report.md": ""}))
+    pipeline.mark_completed(
+        PhaseResult(PipelinePhase.REPORT_ASSEMBLY, datetime.now(), True, {"eda_report.md": ""})
+    )
 
-    store.save(PipelinePhase.AUDIT_REVIEW, "audit_report.json", {"grade": "B", "decision_count": logger.decision_count})
-    pipeline.mark_completed(PhaseResult(PipelinePhase.AUDIT_REVIEW, datetime.now(), True, {"audit_report.json": ""}))
+    store.save(
+        PipelinePhase.AUDIT_REVIEW,
+        "audit_report.json",
+        {"grade": "B", "decision_count": logger.decision_count},
+    )
+    pipeline.mark_completed(
+        PhaseResult(PipelinePhase.AUDIT_REVIEW, datetime.now(), True, {"audit_report.json": ""})
+    )
 
     store.save(PipelinePhase.AUTO_IMPROVE, "final_report.md", content + "\n\n# Final\n")
-    pipeline.mark_completed(PhaseResult(PipelinePhase.AUTO_IMPROVE, datetime.now(), True, {"final_report.md": ""}))
+    pipeline.mark_completed(
+        PhaseResult(PipelinePhase.AUTO_IMPROVE, datetime.now(), True, {"final_report.md": ""})
+    )
 
     assert logger.decision_count == 1
     assert logger.deviation_count == 1

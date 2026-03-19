@@ -96,7 +96,9 @@ class AutomlGateway(AutomlGatewayPort):
     # ── Direct Analysis (stats-service) ─────────────────────────
 
     def direct_analyze(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /direct/analyze — direct CSV statistical analysis."""
         payload = {"csv_content": csv_content, **config}
@@ -107,7 +109,9 @@ class AutomlGateway(AutomlGatewayPort):
     # ── Propensity Score (stats-service) ────────────────────────
 
     def run_propensity(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /propensity/* — propensity score analysis."""
         config = dict(config)
@@ -120,7 +124,9 @@ class AutomlGateway(AutomlGatewayPort):
     # ── Survival Analysis (stats-service) ───────────────────────
 
     def run_survival(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /survival/* — survival analysis."""
         config = dict(config)
@@ -133,7 +139,9 @@ class AutomlGateway(AutomlGatewayPort):
     # ── ROC/AUC (stats-service) ─────────────────────────────────
 
     def run_roc(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /roc/* — ROC curve analysis."""
         config = dict(config)
@@ -146,7 +154,9 @@ class AutomlGateway(AutomlGatewayPort):
     # ── Power Analysis (stats-service) ──────────────────────────
 
     def run_power(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """POST /power/* — power analysis for various tests."""
         config = dict(config)
@@ -159,7 +169,9 @@ class AutomlGateway(AutomlGatewayPort):
     # ── AutoML Training (automl-service) ────────────────────────
 
     def submit_automl(
-        self, csv_content: str, config: dict[str, Any],
+        self,
+        csv_content: str,
+        config: dict[str, Any],
     ) -> str:
         """POST /train/automl — submit AutoML training job."""
         # First upload dataset
@@ -190,7 +202,10 @@ class AutomlGateway(AutomlGatewayPort):
     # ── Convenience: DataFrame input ────────────────────────────
 
     def analyze_df(
-        self, df: pd.DataFrame, analysis_type: str, config: dict[str, Any],
+        self,
+        df: pd.DataFrame,
+        analysis_type: str,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """High-level: route DataFrame-based analysis to the right endpoint."""
         csv = _df_to_csv(df)
@@ -198,12 +213,20 @@ class AutomlGateway(AutomlGatewayPort):
         dispatch = {
             "propensity_score": self.run_propensity,
             "survival_analysis": self.run_survival,
-            "kaplan_meier": lambda c, cfg: self.run_survival(c, {**cfg, "endpoint": "kaplan-meier"}),
+            "kaplan_meier": lambda c, cfg: self.run_survival(
+                c, {**cfg, "endpoint": "kaplan-meier"}
+            ),
             "cox_regression": lambda c, cfg: self.run_survival(c, {**cfg, "endpoint": "cox"}),
             "roc_auc": self.run_roc,
-            "logistic_regression": lambda c, cfg: self.direct_analyze(c, _prepare_direct_analysis_config(cfg, "logistic_regression")),
-            "multiple_regression": lambda c, cfg: self.direct_analyze(c, _prepare_direct_analysis_config(cfg, "multiple_regression")),
-            "glm": lambda c, cfg: self.direct_analyze(c, _prepare_direct_analysis_config(cfg, "glm")),
+            "logistic_regression": lambda c, cfg: self.direct_analyze(
+                c, _prepare_direct_analysis_config(cfg, "logistic_regression")
+            ),
+            "multiple_regression": lambda c, cfg: self.direct_analyze(
+                c, _prepare_direct_analysis_config(cfg, "multiple_regression")
+            ),
+            "glm": lambda c, cfg: self.direct_analyze(
+                c, _prepare_direct_analysis_config(cfg, "glm")
+            ),
             "power_analysis": self.run_power,
             "power_analysis_advanced": self.run_power,
             "automl": lambda c, cfg: {"job_id": self.submit_automl(c, cfg)},

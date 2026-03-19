@@ -23,3 +23,5 @@
 | 2026-03-10 | Phase 6 logs 固定寫入 phase_06 artifact 目錄 | 讓 audit contract、artifact gate、export_handoff 與實體檔案位置一致 |
 | 2026-03-10 | Phase 6 自動檢查 analysis plan adherence | 將 S-011 從提醒提升為可執行自動偏離紀錄，降低 agent 無聲偏離風險 |
 | 2026-03-10 | smoke tests 全面遷移為 pytest suite | 讓控制規則與回歸驗證可由 `python3 -m pytest -q` 直接守住 |
+| 2026-03-19 | Adopted template-derived editor scaffolding for VS Code agent mode in RDE via .vscode/settings.json, .github/agents, and .github/prompts. | The repository already had governance content but lacked the file locations VS Code agent mode and prompt discovery rely on. Adding RDE-specific agents/prompts makes the constraints operational instead of documentation-only. |
+| 2026-03-19 | Keep repo quality gates focused on repository-owned code and restore blocking CI. | Vendor code under vendor/automl-stat-mcp is upstream content and should not block RDE lint/pre-commit quality gates. After excluding vendor and fixing repo-owned lint issues, Ruff, pre-commit, and non-vendor pytest can be enforced again as hard checks. |

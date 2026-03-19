@@ -25,8 +25,10 @@ def register_audit_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
@@ -73,14 +75,16 @@ def register_audit_tools(server: Any) -> None:
             completeness_score = int(30 * completeness_pct)
             total_score += completeness_score
 
-            checks.append({
-                "category": "completeness",
-                "score": completeness_score,
-                "max": 30,
-                "passed": completeness_pct >= 0.8,
-                "details": f"{completed_phases}/{total_phases} phases with artifacts",
-                "missing": missing_artifacts,
-            })
+            checks.append(
+                {
+                    "category": "completeness",
+                    "score": completeness_score,
+                    "max": 30,
+                    "passed": completeness_pct >= 0.8,
+                    "details": f"{completed_phases}/{total_phases} phases with artifacts",
+                    "missing": missing_artifacts,
+                }
+            )
 
             # ── 2. Plan adherence ───────────────────────────────────
             max_score += 25
@@ -98,23 +102,27 @@ def register_audit_tools(server: Any) -> None:
                     if not d.get("reason"):
                         adherence_score = max(0, adherence_score - 5)
                 total_score += adherence_score
-                checks.append({
-                    "category": "plan_adherence",
-                    "score": adherence_score,
-                    "max": 25,
-                    "passed": adherence_score >= 18,
-                    "details": f"coverage={coverage:.0%}, deviations={len(deviations)}",
-                })
+                checks.append(
+                    {
+                        "category": "plan_adherence",
+                        "score": adherence_score,
+                        "max": 25,
+                        "passed": adherence_score >= 18,
+                        "details": f"coverage={coverage:.0%}, deviations={len(deviations)}",
+                    }
+                )
             else:
                 # Quick explore → no plan
                 total_score += 15
-                checks.append({
-                    "category": "plan_adherence",
-                    "score": 15,
-                    "max": 25,
-                    "passed": True,
-                    "details": "No formal plan (Quick Explore mode)",
-                })
+                checks.append(
+                    {
+                        "category": "plan_adherence",
+                        "score": 15,
+                        "max": 25,
+                        "passed": True,
+                        "details": "No formal plan (Quick Explore mode)",
+                    }
+                )
 
             # ── 3. Effect size completeness (S-009) ─────────────────
             max_score += 15
@@ -126,13 +134,15 @@ def register_audit_tools(server: Any) -> None:
                 es_pct = 1.0
             es_score = int(15 * es_pct)
             total_score += es_score
-            checks.append({
-                "category": "effect_size_completeness",
-                "score": es_score,
-                "max": 15,
-                "passed": es_pct >= 0.8,
-                "details": f"{es_pct:.0%} of results include effect sizes",
-            })
+            checks.append(
+                {
+                    "category": "effect_size_completeness",
+                    "score": es_score,
+                    "max": 15,
+                    "passed": es_pct >= 0.8,
+                    "details": f"{es_pct:.0%} of results include effect sizes",
+                }
+            )
 
             # ── 4. Decision traceability (H-009, H-010) ─────────────
             max_score += 15
@@ -144,13 +154,15 @@ def register_audit_tools(server: Any) -> None:
             if append_ok:
                 trace_score += 5
             total_score += trace_score
-            checks.append({
-                "category": "traceability",
-                "score": trace_score,
-                "max": 15,
-                "passed": trace_score >= 10,
-                "details": f"{len(decisions)} decisions, append-only={'✅' if append_ok else '❌'}",
-            })
+            checks.append(
+                {
+                    "category": "traceability",
+                    "score": trace_score,
+                    "max": 15,
+                    "passed": trace_score >= 10,
+                    "details": f"{len(decisions)} decisions, append-only={'✅' if append_ok else '❌'}",
+                }
+            )
 
             # ── 5. Reproducibility ──────────────────────────────────
             max_score += 15
@@ -162,13 +174,15 @@ def register_audit_tools(server: Any) -> None:
             if has_report:
                 repro_score += 8
             total_score += repro_score
-            checks.append({
-                "category": "reproducibility",
-                "score": repro_score,
-                "max": 15,
-                "passed": repro_score >= 10,
-                "details": f"schema={'✅' if has_schema else '❌'}, report={'✅' if has_report else '❌'}",
-            })
+            checks.append(
+                {
+                    "category": "reproducibility",
+                    "score": repro_score,
+                    "max": 15,
+                    "passed": repro_score >= 10,
+                    "details": f"schema={'✅' if has_schema else '❌'}, report={'✅' if has_report else '❌'}",
+                }
+            )
 
             # ── Grade ───────────────────────────────────────────────
             pct = total_score / max(1, max_score)
@@ -196,12 +210,18 @@ def register_audit_tools(server: Any) -> None:
             }
 
             store.save(PipelinePhase.AUDIT_REVIEW, "audit_report.json", audit_report)
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.AUDIT_REVIEW,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"audit_report.json": str(store.get_path(PipelinePhase.AUDIT_REVIEW, "audit_report.json"))},
-            ))
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.AUDIT_REVIEW,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={
+                        "audit_report.json": str(
+                            store.get_path(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
+                        )
+                    },
+                )
+            )
 
             # Format output
             grade_icon = {"A": "🏆", "B": "🟢", "C": "🟡", "D": "🟠", "F": "🔴"}
@@ -215,8 +235,7 @@ def register_audit_tools(server: Any) -> None:
             for c in checks:
                 icon = "✅" if c["passed"] else "❌"
                 lines.append(
-                    f"| {c['category']} | {c['score']}/{c['max']} | "
-                    f"{icon} | {c['details']} |"
+                    f"| {c['category']} | {c['score']}/{c['max']} | {icon} | {c['details']} |"
                 )
 
             if suggestions:
@@ -229,7 +248,7 @@ def register_audit_tools(server: Any) -> None:
                 for m in missing_artifacts:
                     lines.append(f"- {m}")
 
-            lines.append(f"\n**Artifact:** audit_report.json")
+            lines.append("\n**Artifact:** audit_report.json")
 
             return "\n".join(lines)
 
@@ -249,8 +268,10 @@ def register_audit_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
@@ -274,9 +295,7 @@ def register_audit_tools(server: Any) -> None:
             # Read audit report
             audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
             if not audit:
-                return fmt_error(
-                    "[H-008] 請先執行 `run_audit()` (Phase 9) 才能進行自動改善。"
-                )
+                return fmt_error("[H-008] 請先執行 `run_audit()` (Phase 9) 才能進行自動改善。")
 
             actions_taken: list[str] = []
             auto_fixed: list[str] = []
@@ -290,17 +309,22 @@ def register_audit_tools(server: Any) -> None:
                     results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
                     if schema or results:
                         basic_report = (
-                            "# EDA Report (自動生成)\n\n"
-                            "此報告由 auto_improve 自動生成。\n\n"
+                            "# EDA Report (自動生成)\n\n此報告由 auto_improve 自動生成。\n\n"
                         )
                         if schema:
-                            basic_report += f"## Schema\n- 變數數: {schema.get('n_variables', '?')}\n\n"
+                            basic_report += (
+                                f"## Schema\n- 變數數: {schema.get('n_variables', '?')}\n\n"
+                            )
                         if results:
-                            basic_report += f"## Results\n- 分析項目: {results.get('total_analyses', '?')}\n"
+                            basic_report += (
+                                f"## Results\n- 分析項目: {results.get('total_analyses', '?')}\n"
+                            )
                         store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", basic_report)
                         auto_fixed.append("✅ 自動生成基本報告 (eda_report.md)")
                     else:
-                        actions_taken.append("報告不存在且缺少資料 → 請手動執行 `assemble_report()`")
+                        actions_taken.append(
+                            "報告不存在且缺少資料 → 請手動執行 `assemble_report()`"
+                        )
                 except Exception:
                     actions_taken.append("報告不存在 → 請手動執行 `assemble_report()`")
 
@@ -328,7 +352,9 @@ def register_audit_tools(server: Any) -> None:
                             "collected_at": datetime.now().isoformat(),
                             "source": "auto_improve",
                         }
-                        store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", results_summary)
+                        store.save(
+                            PipelinePhase.COLLECT_RESULTS, "results_summary.json", results_summary
+                        )
                         auto_fixed.append(f"✅ 自動收集 {len(entry.analysis_results)} 項分析結果")
                         break
 
@@ -349,19 +375,24 @@ def register_audit_tools(server: Any) -> None:
             store.save(PipelinePhase.AUTO_IMPROVE, "improvement_log.json", improvement_log)
 
             # Save final report marker
-            store.save(PipelinePhase.AUTO_IMPROVE, "final_report.md",
-                        f"# Final Report\n\nAudit grade: {original_grade}\n"
-                        f"Auto-fixed: {len(auto_fixed)}\n"
-                        f"Manual suggestions: {len(actions_taken)}\n")
-            pipeline.mark_completed(PhaseResult(
-                phase=PipelinePhase.AUTO_IMPROVE,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"final_report.md": "", "improvement_log.json": ""},
-            ))
+            store.save(
+                PipelinePhase.AUTO_IMPROVE,
+                "final_report.md",
+                f"# Final Report\n\nAudit grade: {original_grade}\n"
+                f"Auto-fixed: {len(auto_fixed)}\n"
+                f"Manual suggestions: {len(actions_taken)}\n",
+            )
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.AUTO_IMPROVE,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={"final_report.md": "", "improvement_log.json": ""},
+                )
+            )
 
             lines = [
-                f"# 🔧 自動改善 (Phase 10)\n",
+                "# 🔧 自動改善 (Phase 10)\n",
                 f"- **原始等級:** {original_grade}",
                 f"- **自動修正:** {len(auto_fixed)}",
                 f"- **手動建議:** {len(actions_taken)}",
@@ -380,7 +411,7 @@ def register_audit_tools(server: Any) -> None:
             if not all_items:
                 lines.append("\n✅ 無需改善，所有項目已達標。")
 
-            lines.append(f"\n**Artifacts:** improvement_log.json, final_report.md")
+            lines.append("\n**Artifacts:** improvement_log.json, final_report.md")
 
             return "\n".join(lines)
 
@@ -399,8 +430,11 @@ def register_audit_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, fmt_success, ensure_phase_ready,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            fmt_success,
+            ensure_phase_ready,
         )
         from rde.application.pipeline import PipelinePhase
 
@@ -411,14 +445,11 @@ def register_audit_tools(server: Any) -> None:
             return fmt_error(msg)
 
         try:
-            from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
-            from pathlib import Path
             import json
             import shutil
 
-            session = get_session()
             store = ArtifactStore(project.artifacts_dir)
 
             # Create handoff directory
@@ -444,16 +475,12 @@ def register_audit_tools(server: Any) -> None:
                     included_files.append(filename)
 
             # Copy decision log
-            decision_src = store.get_path(
-                PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl"
-            )
+            decision_src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl")
             if decision_src.exists():
                 shutil.copy2(decision_src, handoff_dir / "decision_log.jsonl")
                 included_files.append("decision_log.jsonl")
 
-            deviation_src = store.get_path(
-                PipelinePhase.EXECUTE_EXPLORATION, "deviation_log.jsonl"
-            )
+            deviation_src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "deviation_log.jsonl")
             if deviation_src.exists():
                 shutil.copy2(deviation_src, handoff_dir / "deviation_log.jsonl")
                 included_files.append("deviation_log.jsonl")
@@ -487,7 +514,7 @@ def register_audit_tools(server: Any) -> None:
                 f"- **路徑:** {handoff_dir}\n"
                 f"- **檔案清單:**\n"
                 + "\n".join(f"  - {f}" for f in included_files)
-                + f"\n\n可提供給 med-paper-assistant 使用。",
+                + "\n\n可提供給 med-paper-assistant 使用。",
             )
 
         except Exception as e:
@@ -504,8 +531,10 @@ def register_audit_tools(server: Any) -> None:
             project_id: 專案 ID (預設使用當前專案)
         """
         from rde.interface.mcp.tools._shared import (
-            log_tool_call, log_tool_error,
-            fmt_error, ensure_project_context,
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            ensure_project_context,
         )
 
         log_tool_call("verify_audit_trail", {"project_id": project_id})
@@ -534,7 +563,9 @@ def register_audit_tools(server: Any) -> None:
                     continue
                 present, missing = store.check_artifacts(phase)
                 icon = "✅" if present else "❌"
-                lines.append(f"- {icon} {phase.value}: {len(required) - len(missing)}/{len(required)}")
+                lines.append(
+                    f"- {icon} {phase.value}: {len(required) - len(missing)}/{len(required)}"
+                )
                 if missing:
                     for m in missing:
                         lines.append(f"  - 缺少: {m}")
