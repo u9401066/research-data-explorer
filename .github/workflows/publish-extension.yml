@@ -62,13 +62,13 @@ jobs:
 
   publish-marketplace:
     needs: package
-    if: >-
-      secrets.VSCE_PAT != '' &&
-      (github.event_name == 'push' || inputs.publishMarketplace)
+    if: github.event_name == 'push' || inputs.publishMarketplace
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: vscode-extension
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,20 +89,23 @@ jobs:
           name: packaged-vsix
           path: vscode-extension
 
+      - name: Skip marketplace publish when token is unavailable
+        if: env.VSCE_PAT == ''
+        run: echo "VSCE_PAT is not set; skipping Visual Studio Marketplace publish."
+
       - name: Publish to Visual Studio Marketplace
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        if: env.VSCE_PAT != ''
         run: npx @vscode/vsce publish --packagePath "${{ needs.package.outputs.vsix_name }}" --no-yarn
 
   publish-openvsx:
     needs: package
-    if: >-
-      secrets.OVSX_PAT != '' &&
-      (github.event_name == 'push' || inputs.publishOpenVsx)
+    if: github.event_name == 'push' || inputs.publishOpenVsx
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: vscode-extension
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -123,7 +126,10 @@ jobs:
           name: packaged-vsix
           path: vscode-extension
 
+      - name: Skip Open VSX publish when token is unavailable
+        if: env.OVSX_PAT == ''
+        run: echo "OVSX_PAT is not set; skipping Open VSX publish."
+
       - name: Publish to Open VSX
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        if: env.OVSX_PAT != ''
         run: npx ovsx publish "${{ needs.package.outputs.vsix_name }}" -p "$OVSX_PAT"
