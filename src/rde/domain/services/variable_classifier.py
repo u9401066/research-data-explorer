@@ -11,29 +11,12 @@ import re
 from typing import Any
 
 from rde.domain.models.variable import Variable, VariableType
+from rde.domain.policies import DEFAULT_HEURISTIC_POLICY
 
 logger = logging.getLogger(__name__)
 
 # Column name patterns that suggest PII (Hook H-004)
-PII_PATTERNS = [
-    "name",
-    "姓名",
-    "email",
-    "phone",
-    "電話",
-    "address",
-    "地址",
-    "id_number",
-    "身分證",
-    "身份證",
-    "社會安全",
-    "ssn",
-    "passport",
-    "護照",
-    "birthday",
-    "生日",
-    "出生",
-]
+PII_PATTERNS = list(DEFAULT_HEURISTIC_POLICY.classification.pii_patterns)
 
 # Column name patterns that strongly suggest ID columns
 ID_NAME_PATTERNS = re.compile(
@@ -104,9 +87,13 @@ class VariableClassifier:
                 return VariableType.ID
             if n_unique == 2:
                 return VariableType.BINARY
-            if n_total > 0 and n_unique / n_total > 0.05:
+            if (
+                n_total > 0
+                and n_unique / n_total
+                > DEFAULT_HEURISTIC_POLICY.classification.numeric_continuous_unique_ratio_threshold
+            ):
                 return VariableType.CONTINUOUS
-            if n_unique <= 10:
+            if n_unique <= DEFAULT_HEURISTIC_POLICY.classification.numeric_ordinal_unique_max:
                 return VariableType.ORDINAL
             return VariableType.CONTINUOUS
 
@@ -128,9 +115,13 @@ class VariableClassifier:
 
             if n_unique == 2:
                 return VariableType.BINARY
-            if n_unique <= 20:
+            if n_unique <= DEFAULT_HEURISTIC_POLICY.classification.string_categorical_unique_max:
                 return VariableType.CATEGORICAL
-            if n_total > 0 and n_unique / n_total > 0.9:
+            if (
+                n_total > 0
+                and n_unique / n_total
+                > DEFAULT_HEURISTIC_POLICY.classification.string_id_unique_ratio_threshold
+            ):
                 return VariableType.ID
             return VariableType.TEXT
 
@@ -145,7 +136,10 @@ class VariableClassifier:
         if len(valid) < 2:
             return False
         matches = sum(1 for v in valid if any(p.match(v) for p in _DATE_PATTERNS))
-        return matches / len(valid) >= 0.6
+        return (
+            matches / len(valid)
+            >= DEFAULT_HEURISTIC_POLICY.classification.sample_match_ratio_threshold
+        )
 
     @staticmethod
     def _looks_like_numeric_string(samples: list[Any]) -> bool:
@@ -160,7 +154,10 @@ class VariableClassifier:
                 numeric += 1
             except (ValueError, TypeError):
                 pass
-        return numeric / len(valid) >= 0.6
+        return (
+            numeric / len(valid)
+            >= DEFAULT_HEURISTIC_POLICY.classification.sample_match_ratio_threshold
+        )
 
     def _check_pii(self, name: str) -> bool:
         """Hook H-004: flag potential PII columns."""

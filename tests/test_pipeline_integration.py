@@ -42,7 +42,7 @@ def _load_fixture_dataset() -> tuple[Dataset, object, list[object], int]:
         file_size_bytes=FIXTURE_CSV.stat().st_size,
     )
     dataset = Dataset(metadata=metadata)
-    df, variables, row_count = loader.load(metadata)
+    df, variables, row_count, _ = loader.load(metadata)
     dataset.mark_loaded(variables, row_count)
     return dataset, df, variables, row_count
 

@@ -14,9 +14,10 @@ tools: ['codebase', 'problems', 'runCommands', 'search']
 2. 清楚標示目前是 Phase 0 到哪一個 phase
 3. Phase 3 `align_concept()` 必須 `confirm=true`
 4. Phase 4 `register_analysis_plan()` 必須 `confirm=true`
-5. Phase 6 前要確認 plan 已鎖定且 readiness 完成
-6. 若偏離 plan，要明確記錄 deviation
-7. 回答中引用 artifact 路徑與測試或實作來源
+5. Phase 5 要先完成 `check_readiness()`
+6. Phase 6 前要確認 plan 已鎖定且 readiness 完成；若需清理則使用 `apply_cleaning()`
+7. 若偏離 plan，要明確記錄 deviation
+8. 回答中引用 artifact 路徑與測試或實作來源
 
 ## 產出格式
 

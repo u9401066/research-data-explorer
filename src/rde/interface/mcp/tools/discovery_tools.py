@@ -151,8 +151,9 @@ def register_discovery_tools(server: Any) -> None:
                 return fmt_error("資料集無法載入", "; ".join(errors))
 
             loader = PandasLoader()
-            df, variables, row_count = loader.load(metadata)
+            df, variables, row_count, report = loader.load(metadata)
             dataset.mark_loaded(variables, row_count)
+            dataset.tags["normalization_report"] = report.as_dict()
 
             pii_vars = [v.name for v in variables if v.is_pii_suspect]
             pii_allowed, pii_error, pii_detail, pii_warning = _pii_gate_message(
@@ -258,8 +259,9 @@ def register_discovery_tools(server: Any) -> None:
                 file_size_bytes=path.stat().st_size,
             )
             dataset = Dataset(metadata=metadata)
-            df, variables, row_count = loader.load(metadata)
+            df, variables, row_count, report = loader.load(metadata)
             dataset.mark_loaded(variables, row_count)
+            dataset.tags["normalization_report"] = report.as_dict()
 
             # Step 3: PII check (H-004)
             pii_vars = [v.name for v in variables if v.is_pii_suspect]
@@ -288,6 +290,7 @@ def register_discovery_tools(server: Any) -> None:
                 "dataset_id": dataset.id,
                 "row_count": row_count,
                 "column_count": len(variables),
+                "normalization": report.as_dict(),
                 "pii_suspects": pii_vars,
                 "rejections": [
                     {"file": f.file_name, "reason": f.rejection_reason} for f in rejected_files

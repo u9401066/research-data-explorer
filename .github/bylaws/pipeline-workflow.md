@@ -11,15 +11,15 @@
 | Phase | 必要 Artifact |
 |-------|---------------|
 | 0 | `project.yaml` |
-| 1 | `artifacts/phase_01_intake/intake_report.json` |
-| 2 | `artifacts/phase_02_schema/schema.json` |
-| 3 | `artifacts/phase_03_concept/concept_alignment.md` |
-| 4 | `artifacts/phase_04_plan/analysis_plan.yaml` |
-| 5 | `artifacts/phase_05_precheck/readiness_checklist.json` |
+| 1 | `artifacts/phase_01_data_intake/intake_report.json` |
+| 2 | `artifacts/phase_02_schema_registry/schema.json` |
+| 3 | `artifacts/phase_03_concept_alignment/concept_alignment.md` |
+| 4 | `artifacts/phase_04_plan_registration/analysis_plan.yaml` |
+| 5 | `artifacts/phase_05_pre_explore_check/readiness_checklist.json` |
 | 6 | `decision_log.jsonl` (Phase 6+ 需持續寫入) |
-| 7 | `artifacts/phase_07_results/results_summary.json` |
-| 8 | `artifacts/phase_08_report/eda_report.md` |
-| 9 | `artifacts/phase_09_audit/audit_report.json` |
+| 7 | `artifacts/phase_07_collect_results/results_summary.json` |
+| 8 | `artifacts/phase_08_report_assembly/eda_report.md` |
+| 9 | `artifacts/phase_09_audit_review/audit_report.json` |
 
 ### 1.2 User Confirmation Gate
 

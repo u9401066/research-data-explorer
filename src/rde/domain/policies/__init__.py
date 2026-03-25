@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from .heuristics import DEFAULT_HEURISTIC_POLICY, HeuristicPolicy
+
 
 class ConstraintLevel(Enum):
     HARD = "hard"  # Code-enforced, cannot be overridden
@@ -24,3 +26,11 @@ class PolicyResult:
     level: ConstraintLevel
     message: str
     suggestion: str = ""
+
+
+__all__ = [
+    "ConstraintLevel",
+    "PolicyResult",
+    "HeuristicPolicy",
+    "DEFAULT_HEURISTIC_POLICY",
+]

@@ -45,21 +45,21 @@ profile_dataset()           # ydata-profiling (fallback: basic engine)
 
 ### Phase 3: Concept–Schema Alignment ⚠️ 用戶必須確認
 ```
-align_concepts(research_question, variable_roles)
+align_concept(research_question, variable_roles, confirm=true)
 → concept_alignment.md + variable_roles.json
 ```
 **Agent 必須：** 向用戶展示對齊結果，等待確認。
 
 ### Phase 4: Analysis Plan Registration ⚠️ 用戶必須確認 → 🔒 鎖定
 ```
-register_plan()
+register_analysis_plan(confirm=true)
 → analysis_plan.yaml (LOCKED after confirmation)
 ```
 **Agent 必須：** 展示完整計畫（方法、α 值、missing 策略），等待確認後鎖定。
 
 ### Phase 5: Pre-Exploration Check
 ```
-run_precheck()
+check_readiness()
 　├ [H-003] 樣本量 ≥ 10
 　├ [S-001] 常態性檢定
 　├ [S-005] 缺失模式 (MCAR/MAR/MNAR)
@@ -70,6 +70,7 @@ run_precheck()
 
 ### Phase 6: Execute Exploration 🔒 計畫鎖定中
 ```
+apply_cleaning()
 generate_table_one()
 compare_groups() × N
 analyze_variable() × N

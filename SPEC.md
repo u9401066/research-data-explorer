@@ -180,16 +180,16 @@ pipeline_version: "0.2.0"
 data/projects/{slug}/
 ├── project.yaml              # 專案設定
 ├── artifacts/                # 所有產出物（按 phase 分目錄）
-│   ├── phase_01_intake/
-│   ├── phase_02_schema/
-│   ├── phase_03_concept/
-│   ├── phase_04_plan/
-│   ├── phase_05_precheck/
-│   ├── phase_06_execution/
-│   ├── phase_07_results/
-│   ├── phase_08_report/
-│   ├── phase_09_audit/
-│   └── phase_10_improve/
+│   ├── phase_01_data_intake/
+│   ├── phase_02_schema_registry/
+│   ├── phase_03_concept_alignment/
+│   ├── phase_04_plan_registration/
+│   ├── phase_05_pre_explore_check/
+│   ├── phase_06_execute_exploration/
+│   ├── phase_07_collect_results/
+│   ├── phase_08_report_assembly/
+│   ├── phase_09_audit_review/
+│   └── phase_10_auto_improve/
 └── figures/                  # 圖表產出
 
 Phase 6 append-only logs 實體位置：
@@ -416,8 +416,8 @@ sensitivity_analyses:
 
 **Decision Log 格式**（每一步 append）：
 ```jsonl
-{"timestamp":"2026-03-01T11:00:00","phase":6,"step":"6.3","action":"generate_table_one","method":"tableone","params":{"groupby":"mortality_30d","variables":["age","sex","sofa_score","cci_score"]},"result_ref":"artifacts/phase_06_execution/table_one.csv","decision":"Include all baseline variables per plan OBJ-002"}
-{"timestamp":"2026-03-01T11:05:00","phase":6,"step":"6.5","action":"compare_groups","method":"mann_whitney_u","params":{"var":"sofa_score","groups":"mortality_30d"},"result_ref":"artifacts/phase_06_execution/bivariate_results/sofa_score_vs_mortality.json","decision":"Mann-Whitney chosen because normality check failed (Phase 5 deviation)","effect_size":"r=0.42","p_value":0.00012}
+{"timestamp":"2026-03-01T11:00:00","phase":6,"step":"6.3","action":"generate_table_one","method":"tableone","params":{"groupby":"mortality_30d","variables":["age","sex","sofa_score","cci_score"]},"result_ref":"artifacts/phase_06_execute_exploration/table_one.csv","decision":"Include all baseline variables per plan OBJ-002"}
+{"timestamp":"2026-03-01T11:05:00","phase":6,"step":"6.5","action":"compare_groups","method":"mann_whitney_u","params":{"var":"sofa_score","groups":"mortality_30d"},"result_ref":"artifacts/phase_06_execute_exploration/bivariate_results/sofa_score_vs_mortality.json","decision":"Mann-Whitney chosen because normality check failed (Phase 5 deviation)","effect_size":"r=0.42","p_value":0.00012}
 ```
 
 ---
@@ -639,11 +639,11 @@ handoff_package/
 | `load_dataset` | 載入資料集 | 2 |
 | `build_schema` | 建立完整 schema registry | 2 |
 | `profile_dataset` | ydata-profiling 完整報告 | 2 |
-| `align_concepts` | 研究概念→schema 變數映射 | 3 |
-| `register_plan` | 建立+鎖定 analysis plan | 4 |
+| `align_concept` | 研究概念→schema 變數映射 | 3 |
+| `register_analysis_plan` | 建立+鎖定 analysis plan | 4 |
 | `log_deviation` | 記錄計畫偏離 | 4+ |
-| `run_precheck` | 執行所有前提檢查 | 5 |
-| `execute_cleaning` | 執行資料清理 | 6 |
+| `check_readiness` | 執行所有前提檢查 | 5 |
+| `apply_cleaning` | 執行資料清理 | 6 |
 | `generate_table_one` | 生成 Table 1 | 6 |
 | `analyze_variable` | 單變數分析 | 6 |
 | `compare_groups` | 組間比較（自動選擇檢定） | 6 |
@@ -676,7 +676,7 @@ handoff_package/
 |----|------|---------|--------|
 | H-001 | File Size Guard | run_intake | 檔案超過 500MB 拒絕載入 |
 | H-002 | Format Whitelist | run_intake | 僅允許 CSV/Excel/Parquet/SAS/SPSS/Stata/TSV |
-| H-003 | Min Sample Size | run_precheck, compare_groups | n < 10 拒絕統計分析 |
+| H-003 | Min Sample Size | check_readiness, compare_groups | n < 10 拒絕統計分析 |
 | H-004 | PII Detection | run_intake, build_schema | 偵測到 PII 欄位時警告 |
 | H-005 | Report Integrity | assemble_report | 報告必須包含所有必要章節 |
 | H-006 | Output Sanitization | assemble_report | 清除暫存路徑與敏感資訊 |
@@ -689,14 +689,14 @@ handoff_package/
 
 | ID | Hook | Trigger | Guidance |
 |----|------|---------|----------|
-| S-001 | Normality Check | run_precheck, compare_groups | 非常態分佈 → 建議無母數檢定 |
+| S-001 | Normality Check | check_readiness, compare_groups | 非常態分佈 → 建議無母數檢定 |
 | S-002 | Multiple Comparisons | compare_groups | 多組比較 → 建議 Bonferroni/FDR 校正 |
 | S-003 | Visualization Advisor | create_visualization | 根據變數類型建議適當圖表 |
 | S-004 | Transform Suggestion | analyze_variable | 偏態分佈 → 建議 log/sqrt 轉換 |
-| S-005 | Missing Pattern | run_precheck | MCAR/MAR/MNAR 判斷與處理建議 |
-| S-006 | Outlier Strategy | run_precheck | 極端值 → 建議處理策略 |
-| S-007 | Collinearity Warning | run_precheck, correlation_matrix | VIF > 10 → 多重共線性警告 |
-| S-008 | Sample Balance | run_precheck, compare_groups | 組間樣本量差距大 → 建議修正 |
+| S-005 | Missing Pattern | check_readiness | MCAR/MAR/MNAR 判斷與處理建議 |
+| S-006 | Outlier Strategy | check_readiness | 極端值 → 建議處理策略 |
+| S-007 | Collinearity Warning | check_readiness, correlation_matrix | Pairwise correlation 超過閾值 → 建議再做 VIF 檢查 |
+| S-008 | Sample Balance | check_readiness, compare_groups | 組間樣本量差距大 → 建議修正 |
 | S-009 | Effect Size Reminder | compare_groups | 統計顯著不等於臨床意義 |
 | S-010 | Power Analysis Hint | compare_groups | 非顯著結果 → 建議檢定力分析 |
 | S-011 | Plan Deviation Alert | execute_* | 操作偏離計畫 → 提醒記錄理由 |

@@ -4,6 +4,7 @@
 
 - 將 governance hardening 變更完整落盤到文件、memory bank、git 與 GitHub 交付
 - 維持 agent-control manifest、測試、文件三者一致
+- 完成 release hardening：版本同步 guard、CHANGELOG、內部測試資料保護、分段提交與 tag 前檢查
 
 ## Recently Completed
 
@@ -23,6 +24,11 @@
 - Phase 6 decision/deviation log 路徑統一到 artifacts/phase_06_execute_exploration/
 - Phase 6 自動 plan adherence 檢查與 deviation auto-log (S-011)
 - 全 repo pytest 通過，現為 24 tests
+- repo 與 VS Code extension 版本同步檢查已接入 pre-commit
+- CHANGELOG.md 已建立，0.1.0 與 Unreleased 區段已就位
+- 內部測試資料經超音波施打動脈導管收案總表V3xlsx.xlsx 已加入 gitignore 與 release guard 阻擋
+- 全 repo pytest 通過，現為 49 passed, 3 skipped
+- pre-commit 全綠，包含新的 release consistency hook
 
 ## Known Issues
 
@@ -32,3 +38,4 @@
 ## Current Blockers
 
 - None critical
+- 尚未完成分段 commit、push 與 main merge 後 tag

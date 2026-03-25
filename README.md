@@ -257,3 +257,16 @@ If you change workflow governance, update these together:
 5. implementation and tests
 
 If you use VS Code agent mode, keep [.vscode/settings.json](.vscode/settings.json), [.github/agents](.github/agents), and [.github/prompts](.github/prompts) aligned with those governance files.
+
+## Extension Release
+
+The VS Code extension release path now includes:
+
+1. extension lint, test, and VSIX packaging in [.github/workflows/ci.yml](.github/workflows/ci.yml)
+2. tag-driven publish automation in [.github/workflows/publish-extension.yml](.github/workflows/publish-extension.yml)
+3. Apache-2.0 license files in [LICENSE](LICENSE) and [vscode-extension/LICENSE.txt](vscode-extension/LICENSE.txt)
+
+Required GitHub secrets for automated publishing:
+
+- `VSCE_PAT` for Visual Studio Marketplace
+- `OVSX_PAT` for Open VSX

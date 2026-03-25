@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from rde.domain.models.dataset import DatasetMetadata
+from rde.domain.models.ingestion import RawDataNormalizationReport
 from rde.domain.models.profile import DataProfile
 from rde.domain.models.variable import Variable
 
@@ -19,8 +20,10 @@ class DataLoaderPort(ABC):
     """Port for loading data from files."""
 
     @abstractmethod
-    def load(self, metadata: DatasetMetadata) -> tuple[Any, list[Variable], int]:
-        """Load data and return (raw_dataframe, variables, row_count)."""
+    def load(
+        self, metadata: DatasetMetadata
+    ) -> tuple[Any, list[Variable], int, RawDataNormalizationReport]:
+        """Load data and return (raw_dataframe, variables, row_count, normalization_report)."""
         ...
 
     @abstractmethod

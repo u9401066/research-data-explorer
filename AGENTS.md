@@ -178,13 +178,13 @@ Phase 4: Analysis Plan Registration
   └─ → analysis_plan.yaml (LOCKED)
 
 Phase 5: Pre-Exploration Check
-  └─ run_precheck()
+  └─ check_readiness()
   └─ [H-003] 樣本量  [S-001] 常態性  [S-005] 缺失模式  [S-007] VIF
   └─ 如需調整 → log_deviation() → ⚠️ 用戶確認
   └─ → readiness_checklist.json
 
 Phase 6: Execute Exploration
-  └─ execute_cleaning()
+  └─ apply_cleaning()
   └─ generate_table_one()
   └─ compare_groups() × N
   └─ analyze_variable() × N
