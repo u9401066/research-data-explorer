@@ -39,7 +39,7 @@ repos:
         language: python
         entry: python scripts/hooks/pii_scan.py
         files: '\.(md|json|csv|html)$'
-        exclude: '^(vendor/|\.github/|node_modules/)'
+        exclude: '^(vendor/|\.github/|node_modules/|vscode-extension/package-lock\.json$)'
         pass_filenames: true
 
       - id: rde-artifact-gate
@@ -55,3 +55,11 @@ repos:
         entry: python scripts/hooks/report_sanitize.py
         files: '(eda_report|final_report|results_summary)\.(md|json)$'
         pass_filenames: true
+
+      - id: rde-release-consistency
+        name: "RDE: release consistency and internal data guard"
+        language: python
+        entry: python scripts/hooks/check_release_consistency.py
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

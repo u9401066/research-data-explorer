@@ -51,3 +51,6 @@ tests/**/*.py[cod]
 
 # xhtml2pdf / reportlab caches
 .cache/
+
+# Internal local-only datasets
+經超音波施打動脈導管收案總表V3xlsx.xlsx

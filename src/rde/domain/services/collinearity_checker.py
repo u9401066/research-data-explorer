@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
+
+from rde.domain.policies import DEFAULT_HEURISTIC_POLICY
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ class CollinearityReport:
 def check_collinearity(
     data: Any,
     variables: list[str] | None = None,
-    threshold: float = 0.8,
+    threshold: float = DEFAULT_HEURISTIC_POLICY.analysis.collinearity_correlation_threshold,
 ) -> CollinearityReport:
     """Check pairwise correlation for collinearity (S-007).
 
@@ -72,7 +74,7 @@ def check_collinearity(
 
     for i in range(len(numeric_cols)):
         for j in range(i + 1, len(numeric_cols)):
-            r = float(corr.iloc[i, j])
+            r = float(cast(Any, corr.iloc[i, j]))
             if abs(r) > threshold:
                 pairs.append(
                     CollinearPair(

@@ -19,17 +19,17 @@ import sys
 from pathlib import Path
 
 PHASE_NAMES = [
-    "phase_00_project",
-    "phase_01_intake",
-    "phase_02_schema",
-    "phase_03_concept",
-    "phase_04_plan",
-    "phase_05_precheck",
-    "phase_06_execution",
-    "phase_07_results",
-    "phase_08_report",
-    "phase_09_audit",
-    "phase_10_improve",
+    "phase_00_project_setup",
+    "phase_01_data_intake",
+    "phase_02_schema_registry",
+    "phase_03_concept_alignment",
+    "phase_04_plan_registration",
+    "phase_05_pre_explore_check",
+    "phase_06_execute_exploration",
+    "phase_07_collect_results",
+    "phase_08_report_assembly",
+    "phase_09_audit_review",
+    "phase_10_auto_improve",
 ]
 
 
@@ -61,7 +61,7 @@ def check_plan_lock(project_dir: Path, target_phase: int) -> list[str]:
     if target_phase < 6:
         return []
 
-    plan_file = project_dir / "artifacts" / "phase_04_plan" / "analysis_plan.yaml"
+    plan_file = project_dir / "artifacts" / "phase_04_plan_registration" / "analysis_plan.yaml"
     if not plan_file.exists():
         return ["⛔ [H-007] Phase 6 需要鎖定的分析計畫，但 analysis_plan.yaml 不存在"]
 

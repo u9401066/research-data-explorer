@@ -9,7 +9,7 @@ S-011~S-012: Audit trail advisories (11-Phase Pipeline)
 from __future__ import annotations
 
 from rde.domain.models.variable import VariableType
-from rde.domain.policies import ConstraintLevel, PolicyResult
+from rde.domain.policies import ConstraintLevel, DEFAULT_HEURISTIC_POLICY, PolicyResult
 
 
 class SoftConstraints:
@@ -167,19 +167,29 @@ class SoftConstraints:
     @staticmethod
     def s007_collinearity_warning(max_vif: float) -> PolicyResult:
         """S-007: Warn about multicollinearity."""
-        if max_vif > 10:
+        threshold = DEFAULT_HEURISTIC_POLICY.analysis.collinearity_correlation_threshold
+        if max_vif >= threshold:
             return PolicyResult(
                 passed=False,
                 constraint_id="S-007",
                 level=ConstraintLevel.SOFT,
-                message=f"VIF = {max_vif:.1f} indicates multicollinearity.",
-                suggestion="Consider removing or combining collinear variables.",
+                message=(
+                    f"Pairwise correlation / VIF screening indicates potential collinearity "
+                    f"(screening value = {max_vif:.2f}, threshold = {threshold:.2f})."
+                ),
+                suggestion=(
+                    "Review pairwise correlation first, then confirm with VIF before removing "
+                    "or combining collinear variables."
+                ),
             )
         return PolicyResult(
             passed=True,
             constraint_id="S-007",
             level=ConstraintLevel.SOFT,
-            message=f"VIF = {max_vif:.1f} — no multicollinearity concern.",
+            message=(
+                f"Pairwise correlation / VIF screening value = {max_vif:.2f} "
+                f"(threshold = {threshold:.2f}) — no concern."
+            ),
         )
 
     @staticmethod

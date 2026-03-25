@@ -46,7 +46,7 @@ def main() -> int:
     for filepath in sys.argv[1:]:
         warnings = scan_file(filepath)
         if warnings:
-            print(f"⚠️ [H-004/H-006] Potential PII in {filepath}:")
+            print(f"[H-004/H-006] Potential PII in {filepath}:")
             for w in warnings:
                 print(w)
             exit_code = 1
