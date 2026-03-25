@@ -77,7 +77,9 @@ def main() -> int:
         )
 
     if not CHANGELOG.exists():
-        errors.append("CHANGELOG.md is missing. Add a changelog entry before committing release-related changes.")
+        errors.append(
+            "CHANGELOG.md is missing. Add a changelog entry before committing release-related changes."
+        )
     elif not changelog_has_version(repo_version):
         errors.append(
             f"CHANGELOG.md does not contain a section for version {repo_version}. "
@@ -92,7 +94,9 @@ def main() -> int:
         print("❌ [Release Guard] Commit blocked:")
         for item in errors:
             print(f"- {item}")
-        print("\nExpected release rule: repo tag, pyproject version, and VSX version move together.")
+        print(
+            "\nExpected release rule: repo tag, pyproject version, and VSX version move together."
+        )
         return 1
 
     return 0

@@ -51,9 +51,20 @@ def test_pandas_loader_normalizes_messy_raw_csv(tmp_path: Path) -> None:
     assert df.loc[0, "病歷號"] == "A001"
     assert df.loc[1, "年齡"] is pd.NA or pd.isna(df.loc[1, "年齡"])
 
-    normalized_pairs = {(item.original_name, item.normalized_name) for item in report.standardized_columns}
-    assert any(original == "病歷號" and normalized == "病歷號" for original, normalized in normalized_pairs) is False
-    assert any(original == "CRP(mg/dL)" and normalized.startswith("CRP") for original, normalized in normalized_pairs)
+    normalized_pairs = {
+        (item.original_name, item.normalized_name) for item in report.standardized_columns
+    }
+    assert (
+        any(
+            original == "病歷號" and normalized == "病歷號"
+            for original, normalized in normalized_pairs
+        )
+        is False
+    )
+    assert any(
+        original == "CRP(mg/dL)" and normalized.startswith("CRP")
+        for original, normalized in normalized_pairs
+    )
     assert {variable.name for variable in variables} == set(df.columns)
     assert any("公式" in warning or "script" in warning for warning in report.warnings)
 
@@ -67,8 +78,8 @@ def test_pandas_loader_merges_multirow_headers_and_assigns_semantic_aliases(tmp_
                 ",基本資料,基本資料,實驗室,實驗室,註記",
                 "受試者編號,性別,年齡,血清肌酐,CRP（mg／dL）,附註",
                 "S001,M,67,1.8,2.4,正常",
-                'S002,F,58,=cmd|\'/c calc\'!A0,1.1,https://bad.example',
-                'S003,F,61,1.2,0.8,Sub Auto_Open() ',
+                "S002,F,58,=cmd|'/c calc'!A0,1.1,https://bad.example",
+                "S003,F,61,1.2,0.8,Sub Auto_Open() ",
             ]
         ),
         encoding="utf-8",
@@ -97,7 +108,9 @@ def test_pandas_loader_merges_multirow_headers_and_assigns_semantic_aliases(tmp_
     assert alias_map["實驗室_血清肌酐"] == "serum_creatinine"
     assert alias_map["實驗室_CRP_mg_dL"] == "crp"
 
-    variable_aliases = {variable.name: variable.extra.get("semantic_alias") for variable in variables}
+    variable_aliases = {
+        variable.name: variable.extra.get("semantic_alias") for variable in variables
+    }
     assert variable_aliases["基本資料_性別"] == "sex"
     assert variable_aliases["實驗室_血清肌酐"] == "serum_creatinine"
 
@@ -183,6 +196,10 @@ def test_pandas_loader_preserves_code_like_and_non_alias_columns(tmp_path: Path)
     alias_map = {item.normalized_name: item.semantic_alias for item in report.semantic_aliases}
     assert "stage" not in alias_map
     assert "message" not in alias_map
-    variable_aliases = {variable.name: variable.extra.get("semantic_alias") for variable in variables}
+    variable_aliases = {
+        variable.name: variable.extra.get("semantic_alias") for variable in variables
+    }
     assert variable_aliases["stage"] is None
-    assert any("sample_code" in warning and "保留文字格式" in warning for warning in report.warnings)
+    assert any(
+        "sample_code" in warning and "保留文字格式" in warning for warning in report.warnings
+    )

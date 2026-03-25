@@ -118,7 +118,15 @@ class IntakeHeuristics:
     )
     semantic_alias_patterns: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
-            "patient_id": ("病歷號", "病歷編號", "病例號", "個案編號", "chartno", "mrn", "patientid"),
+            "patient_id": (
+                "病歷號",
+                "病歷編號",
+                "病例號",
+                "個案編號",
+                "chartno",
+                "mrn",
+                "patientid",
+            ),
             "case_id": ("案號", "受試者編號", "subjectid", "caseid", "studyid"),
             "sex": ("性別", "gender", "sex"),
             "age": ("年齡", "age", "歲"),
