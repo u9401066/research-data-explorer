@@ -1,0 +1,180 @@
+{
+  "name": "research-data-explorer",
+  "displayName": "Research Data Explorer",
+  "description": "11-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
+  "version": "0.1.0",
+  "publisher": "u9401066",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/u9401066/research-data-explorer"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "AI",
+    "Data Science",
+    "Education"
+  ],
+  "keywords": [
+    "research",
+    "data",
+    "eda",
+    "statistics",
+    "mcp",
+    "copilot",
+    "clinical-research",
+    "pipeline",
+    "auditable"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "rde",
+        "label": "Research Data Explorer MCP Server"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "rde.assistant",
+        "name": "rde",
+        "fullName": "Research Data Explorer",
+        "description": "結構化、可審計的探索性資料分析 — 11-Phase Pipeline",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "explore",
+            "description": "快速探索資料集概況"
+          },
+          {
+            "name": "fullreport",
+            "description": "從資料到完整分析報告的受治理流程"
+          },
+          {
+            "name": "pipeline",
+            "description": "查看目前 Pipeline 進度"
+          },
+          {
+            "name": "compare",
+            "description": "比較兩組差異"
+          },
+          {
+            "name": "table1",
+            "description": "產生 Table 1 (基線特徵表)"
+          },
+          {
+            "name": "advanced",
+            "description": "進階統計分析 (PSM, Survival, ROC)"
+          },
+          {
+            "name": "report",
+            "description": "組裝與匯出報告"
+          },
+          {
+            "name": "audit",
+            "description": "審計紀錄與品質檢查"
+          },
+          {
+            "name": "help",
+            "description": "顯示所有可用指令"
+          }
+        ],
+        "disambiguation": [
+          {
+            "category": "data-analysis",
+            "description": "User wants help with exploratory data analysis, statistics, or data profiling",
+            "examples": [
+              "幫我分析這份資料",
+              "載入 CSV 資料集",
+              "比較兩組差異",
+              "做 Table 1",
+              "跑統計分析",
+              "產出報告",
+              "目前進度？",
+              "匯出 Word 報告"
+            ]
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "rde.startServer",
+        "title": "Start RDE MCP Server",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.stopServer",
+        "title": "Stop RDE MCP Server",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.showStatus",
+        "title": "Show RDE Status",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.runPipeline",
+        "title": "Run Full Pipeline (Phase 0-10)",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.setupWorkspace",
+        "title": "Setup Workspace - 設定 Skills/Prompts/Instructions",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.checkAutoml",
+        "title": "Check automl-stat-mcp Status",
+        "category": "RDE"
+      }
+    ],
+    "configuration": {
+      "title": "Research Data Explorer",
+      "properties": {
+        "rde.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Python executable. Leave empty to auto-detect (uv > venv > system)."
+        },
+        "rde.automlEndpoint": {
+          "type": "string",
+          "default": "http://localhost:8002",
+          "description": "automl-stat-mcp service endpoint for advanced analysis delegation."
+        },
+        "rde.automlAutoCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check automl-stat-mcp Docker service availability on startup."
+        }
+      }
+    }
+  },
+  "extensionDependencies": [],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext ts",
+    "validate": "bash ./scripts/validate-build.sh || powershell -File ./scripts/validate-build.ps1",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/vsce": "^2.24.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.9"
+  }
+}

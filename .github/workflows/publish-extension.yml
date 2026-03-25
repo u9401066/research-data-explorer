@@ -1,0 +1,129 @@
+name: Publish Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publishMarketplace:
+        description: Publish to Visual Studio Marketplace
+        required: false
+        default: true
+        type: boolean
+      publishOpenVsx:
+        description: Publish to Open VSX
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+    outputs:
+      vsix_name: ${{ steps.package.outputs.vsix_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Lint extension
+        run: npm run lint
+
+      - name: Test extension
+        run: npm test
+
+      - name: Package VSIX
+        id: package
+        shell: bash
+        run: |
+          npm run package -- --no-yarn
+          vsix_name=$(basename *.vsix)
+          echo "vsix_name=${vsix_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-vsix
+          path: vscode-extension/*.vsix
+          if-no-files-found: error
+
+  publish-marketplace:
+    needs: package
+    if: >-
+      secrets.VSCE_PAT != '' &&
+      (github.event_name == 'push' || inputs.publishMarketplace)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: packaged-vsix
+          path: vscode-extension
+
+      - name: Publish to Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx @vscode/vsce publish --packagePath "${{ needs.package.outputs.vsix_name }}" --no-yarn
+
+  publish-openvsx:
+    needs: package
+    if: >-
+      secrets.OVSX_PAT != '' &&
+      (github.event_name == 'push' || inputs.publishOpenVsx)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: packaged-vsix
+          path: vscode-extension
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx ovsx publish "${{ needs.package.outputs.vsix_name }}" -p "$OVSX_PAT"
