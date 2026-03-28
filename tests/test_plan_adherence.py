@@ -88,6 +88,29 @@ class TestCheckPlanAdherence:
         )
         assert ok is True
 
+    def test_advanced_analysis_matches_planned_variables_when_logged(self, tmp_path: Path) -> None:
+        project = _make_project(tmp_path)
+        _write_plan(
+            project,
+            [
+                {
+                    "type": "run_advanced_analysis",
+                    "variables": ["success", "operator_id", "trial"],
+                }
+            ],
+        )
+        ok, reason = check_plan_adherence(
+            project,
+            "run_advanced_analysis",
+            {
+                "analysis_type": "learning_curve_cusum",
+                "variables": ["success", "operator_id", "trial"],
+                "group_variable": "operator_id",
+            },
+        )
+        assert ok is True
+        assert reason is None
+
 
 # ── artifact_gate hook ───────────────────────────────────────────
 

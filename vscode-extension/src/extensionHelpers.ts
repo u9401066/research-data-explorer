@@ -50,25 +50,11 @@ export function determinePythonPath(options: {
     extensionPath: string;
 }): string {
     const { configuredPath, wsRoot, extensionPath } = options;
+    const pyprojectPath = wsRoot ? path.join(wsRoot, 'pyproject.toml') : undefined;
+    const isRepoProject = pyprojectPath ? isRdeProject(pyprojectPath) : false;
 
-    if (configuredPath) {
-        if (configuredPath === 'uv' || configuredPath === 'uvx') {
-            return configuredPath;
-        }
-        if (fs.existsSync(configuredPath)) {
-            return configuredPath;
-        }
-    }
-
-    if (wsRoot) {
-        const pyprojectPath = path.join(wsRoot, 'pyproject.toml');
-        if (isRdeProject(pyprojectPath)) {
-            return 'uv';
-        }
-    }
-
-    if (wsRoot) {
-        const venvCandidates = process.platform === 'win32'
+    const workspaceVenvCandidates = wsRoot
+        ? (process.platform === 'win32'
             ? [
                 path.join(wsRoot, '.venv', 'Scripts', 'python.exe'),
                 path.join(wsRoot, 'venv', 'Scripts', 'python.exe'),
@@ -80,11 +66,37 @@ export function determinePythonPath(options: {
                 path.join(wsRoot, '.venv', 'bin', 'python3'),
                 path.join(wsRoot, 'venv', 'bin', 'python'),
                 path.join(wsRoot, 'venv', 'bin', 'python3'),
-            ];
-        for (const venvPath of venvCandidates) {
-            if (fs.existsSync(venvPath)) {
-                return venvPath;
+            ])
+        : [];
+
+    if (configuredPath) {
+        if (configuredPath === 'uv') {
+            return configuredPath;
+        }
+        if (configuredPath === 'uvx') {
+            return isRepoProject ? 'uv' : configuredPath;
+        }
+        if (isRepoProject) {
+            const normalizedConfiguredPath = path.normalize(configuredPath);
+            for (const candidate of workspaceVenvCandidates) {
+                if (path.normalize(candidate) === normalizedConfiguredPath && fs.existsSync(candidate)) {
+                    return configuredPath;
+                }
             }
+            return 'uv';
+        }
+        if (fs.existsSync(configuredPath)) {
+            return configuredPath;
+        }
+    }
+
+    if (isRepoProject) {
+        return 'uv';
+    }
+
+    for (const venvPath of workspaceVenvCandidates) {
+        if (fs.existsSync(venvPath)) {
+            return venvPath;
         }
     }
 

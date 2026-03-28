@@ -12,9 +12,39 @@ import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 import pandas as pd
 
 from rde.domain.ports import VisualizationPort
+
+
+def _configure_font_fallback() -> None:
+    """Prefer a local CJK-capable sans-serif font when available."""
+    available_fonts = {font.name for font in font_manager.fontManager.ttflist}
+    preferred_fonts = [
+        "Microsoft JhengHei",
+        "Microsoft YaHei",
+        "Noto Sans CJK TC",
+        "Noto Sans CJK SC",
+        "PingFang TC",
+        "PingFang SC",
+    ]
+    selected_fonts = [font for font in preferred_fonts if font in available_fonts]
+    if not selected_fonts:
+        return
+
+    existing_fonts = list(matplotlib.rcParams.get("font.sans-serif", []))
+    merged_fonts: list[str] = []
+    for font_name in selected_fonts + existing_fonts:
+        if font_name not in merged_fonts:
+            merged_fonts.append(font_name)
+
+    matplotlib.rcParams["font.family"] = ["sans-serif"]
+    matplotlib.rcParams["font.sans-serif"] = merged_fonts
+    matplotlib.rcParams["axes.unicode_minus"] = False
+
+
+_configure_font_fallback()
 
 
 class MatplotlibVisualizer(VisualizationPort):

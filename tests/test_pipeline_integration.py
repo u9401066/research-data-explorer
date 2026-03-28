@@ -1,5 +1,9 @@
+import asyncio
 from datetime import datetime
 from pathlib import Path
+import shutil
+
+import pytest
 
 from rde.application.pipeline import PhaseResult, PipelinePhase, REQUIRED_ARTIFACTS
 from rde.application.session import get_session
@@ -14,6 +18,7 @@ from rde.infrastructure.adapters.pandas_loader import PandasLoader
 from rde.infrastructure.adapters.scipy_engine import ScipyStatisticalEngine
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 from rde.infrastructure.visualization.matplotlib_viz import MatplotlibVisualizer
+from rde.interface.mcp.server import create_server
 
 
 FIXTURE_CSV = Path(__file__).parent / "fixtures" / "iris_sample.csv"
@@ -400,3 +405,145 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
         required = REQUIRED_ARTIFACTS.get(phase, [])
         if required:
             assert present, f"{phase.value} missing {missing}"
+
+
+def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    staged_csv = raw_dir / FIXTURE_CSV.name
+    shutil.copy2(FIXTURE_CSV, staged_csv)
+
+    def _textify(result: object) -> str:
+        blocks = result if isinstance(result, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> str:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "mcp-phase6-collect",
+                "data_dir": str(raw_dir),
+                "research_question": "Do iris species differ in petal length?",
+            },
+        )
+        project = session.get_project()
+
+        await server.call_tool(
+            "run_intake",
+            {
+                "directory": str(raw_dir),
+                "project_id": project.id,
+            },
+        )
+
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool(
+            "build_schema",
+            {
+                "dataset_id": dataset_id,
+                "project_id": project.id,
+            },
+        )
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "research_question": "Do iris species differ in petal length?",
+                "variable_roles": {
+                    "group": "species",
+                    "outcome": ["petal_length"],
+                },
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
+            "register_analysis_plan",
+            {
+                "project_id": project.id,
+                "analyses": [
+                    {
+                        "type": "generate_table_one",
+                        "variables": ["species", "sepal_length", "petal_length"],
+                        "rationale": "paper-ready baseline table",
+                    },
+                    {
+                        "type": "compare_groups",
+                        "variables": ["species", "petal_length"],
+                        "rationale": "integration regression",
+                    },
+                    {
+                        "type": "descriptive",
+                        "variables": ["petal_length"],
+                        "rationale": "coverage regression",
+                    },
+                    {
+                        "type": "visualization",
+                        "variables": ["species", "petal_length"],
+                        "rationale": "coverage regression",
+                    }
+                ],
+                "confirm": True,
+            },
+        )
+        await server.call_tool("check_readiness", {"project_id": project.id})
+        await server.call_tool(
+            "generate_table_one",
+            {
+                "dataset_id": dataset_id,
+                "group_variable": "species",
+                "variables": ["sepal_length", "petal_length"],
+            },
+        )
+        await server.call_tool(
+            "compare_groups",
+            {
+                "dataset_id": dataset_id,
+                "outcome_variables": ["petal_length"],
+                "group_variable": "species",
+            },
+        )
+        await server.call_tool(
+            "analyze_variable",
+            {
+                "dataset_id": dataset_id,
+                "variable_name": "petal_length",
+            },
+        )
+        await server.call_tool(
+            "create_visualization",
+            {
+                "dataset_id": dataset_id,
+                "plot_type": "boxplot",
+                "variables": ["petal_length"],
+                "group_var": "species",
+                "output_filename": "petal_length_by_species.png",
+            },
+        )
+
+        collect_result = await server.call_tool("collect_results", {"project_id": project.id})
+        pipeline = session.get_pipeline(project.id)
+        store = ArtifactStore(project.artifacts_dir)
+        results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+        assert PipelinePhase.EXECUTE_EXPLORATION in pipeline.completed_phases
+        assert store.exists(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
+        assert store.exists(PipelinePhase.EXECUTE_EXPLORATION, "table_one.json")
+        assert results["total_analyses"] == 4
+        assert results["plan_coverage"] == {"planned": 4, "executed": 4, "coverage": 1.0}
+        return _textify(collect_result)
+
+    collect_output = asyncio.run(run_flow())
+
+    assert "❌" not in collect_output
+    assert "結果彙整" in collect_output
+    assert "100% (4/4)" in collect_output

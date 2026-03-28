@@ -7,6 +7,7 @@ from rde.interface.mcp.tools.analysis_tools import (
     _format_advanced_analysis_output,
     _is_direct_analysis_contract,
     _save_advanced_analysis_artifact,
+    _save_advanced_analysis_markdown_artifact,
     _summarize_advanced_analysis_result,
 )
 
@@ -60,6 +61,22 @@ def test_save_advanced_analysis_artifact_persists_phase06_json(tmp_path: Path) -
     assert '"analysis_type": "logistic_regression"' in content
 
 
+def test_save_advanced_analysis_markdown_artifact_persists_phase06_markdown(
+    tmp_path: Path,
+) -> None:
+    project = _make_project(tmp_path)
+    artifact = _save_advanced_analysis_markdown_artifact(
+        project,
+        analysis_type="learning_curve_cusum",
+        analysis_result={"analysis_type": "learning_curve_cusum"},
+        content="# CUSUM\n\nsummary",
+    )
+
+    assert artifact.exists()
+    assert artifact.name == "advanced_analysis_learning_curve_cusum.md"
+    assert artifact.read_text(encoding="utf-8") == "# CUSUM\n\nsummary"
+
+
 def test_format_advanced_analysis_output_includes_job_summary_and_artifact(tmp_path: Path) -> None:
     artifact_path = tmp_path / "advanced_analysis_logistic_regression_stats-123.json"
     rendered = _format_advanced_analysis_output(
@@ -86,4 +103,44 @@ def test_format_advanced_analysis_output_includes_job_summary_and_artifact(tmp_p
     assert "- **job_id:** stats-123" in rendered
     assert "- **列數:** 20" in rendered
     assert "欄位型別" in rendered
+    assert str(artifact_path) in rendered
+
+
+def test_format_advanced_analysis_output_for_learning_curve_cusum(tmp_path: Path) -> None:
+    artifact_path = tmp_path / "advanced_analysis_learning_curve_cusum.json"
+    rendered = _format_advanced_analysis_output(
+        analysis_type="learning_curve_cusum",
+        source="local (ScipyStatisticalEngine)",
+        analysis_result={
+            "analysis_type": "learning_curve_cusum",
+            "success_variable": "成功_0不成功_1成功",
+            "operator_variable": "Operator_ID",
+            "trial_variable": "Trial",
+            "target_success_rate": 0.75,
+            "cohort_success_rate": 0.8,
+            "total_trials": 24,
+            "operators_analyzed": 3,
+            "operators": [
+                {
+                    "operator_id": "A",
+                    "n_trials": 10,
+                    "success_rate": 0.9,
+                    "final_cusum": 1.5,
+                    "peak_cusum": 1.8,
+                    "peak_trial": 9,
+                }
+            ],
+            "interpretation": "1/3 位施打者高於 cohort target。",
+        },
+        artifact_path=artifact_path,
+        automl_available=False,
+    )
+
+    assert "## 分析設定" in rendered
+    assert "成功_0不成功_1成功" in rendered
+    assert "Operator_ID" in rendered
+    assert "Trial" in rendered
+    assert "## 施打者 CUSUM 摘要" in rendered
+    assert "final CUSUM=1.500" in rendered
+    assert "**解讀:** 1/3 位施打者高於 cohort target。" in rendered
     assert str(artifact_path) in rendered

@@ -39,6 +39,7 @@ def register_report_tools(server: Any) -> None:
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session
@@ -101,6 +102,7 @@ def register_report_tools(server: Any) -> None:
             logger = session.get_logger(project.id)
             decisions = logger.read_decisions()
             deviations = logger.read_deviations()
+            executed_analyses = max(len(all_results), len(decisions))
 
             # Check plan coverage
             plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
@@ -109,8 +111,8 @@ def register_report_tools(server: Any) -> None:
                 planned_analyses = plan.get("analyses", plan.get("steps", []))
                 plan_coverage = {
                     "planned": len(planned_analyses),
-                    "executed": len(all_results),
-                    "coverage": min(1.0, len(all_results) / max(1, len(planned_analyses))),
+                    "executed": executed_analyses,
+                    "coverage": min(1.0, executed_analyses / max(1, len(planned_analyses))),
                 }
 
             # S-012: Sensitivity analysis suggestion
@@ -121,7 +123,7 @@ def register_report_tools(server: Any) -> None:
                 )
 
             summary = {
-                "total_analyses": len(all_results),
+                "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
                 "publishable_items": publishable,
                 "plan_coverage": plan_coverage,
@@ -147,7 +149,7 @@ def register_report_tools(server: Any) -> None:
             # Format output
             lines = [
                 "# 📋 結果彙整 (Phase 7)\n",
-                f"- **分析總數:** {len(all_results)}",
+                f"- **分析總數:** {executed_analyses}",
                 f"- **可發表項目:** {len(publishable)}",
                 f"- **決策紀錄:** {len(decisions)} 筆",
                 f"- **計畫偏離:** {len(deviations)} 筆",
@@ -212,6 +214,7 @@ def register_report_tools(server: Any) -> None:
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session
@@ -244,6 +247,10 @@ def register_report_tools(server: Any) -> None:
             if schema:
                 artifacts["variable_profiles"] = _format_variable_profiles(schema)
 
+            table_one = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
+            if table_one:
+                artifacts["baseline_table"] = _format_baseline_table(table_one)
+
             # Statistical analyses from results summary
             results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
             if results:
@@ -255,6 +262,17 @@ def register_report_tools(server: Any) -> None:
                 if datasets:
                     artifacts["statistical_analyses"] = "[Quick Explore — No formal analysis plan]"
                     artifacts["key_findings"] = "[Quick Explore — Review individual analyses]"
+
+            sensitivity_artifacts = _load_phase6_markdown_bundle(store, "sensitivity_analysis")
+            if sensitivity_artifacts:
+                artifacts["sensitivity_analysis"] = sensitivity_artifacts
+
+            learning_curve_artifacts = _load_phase6_markdown_bundle(
+                store,
+                "advanced_analysis_learning_curve_cusum",
+            )
+            if learning_curve_artifacts:
+                artifacts["learning_curve_cusum"] = learning_curve_artifacts
 
             # Recommendations
             artifacts["recommendations"] = _build_recommendations(results, readiness)
@@ -364,6 +382,8 @@ def register_report_tools(server: Any) -> None:
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
+        assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -391,7 +411,7 @@ def register_report_tools(server: Any) -> None:
 
             output_dir = project.output_dir / "figures"
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = str(output_dir / output_filename)
+            output_path = output_dir / output_filename
 
             viz = MatplotlibVisualizer()
             kwargs = {}
@@ -459,6 +479,7 @@ def register_report_tools(server: Any) -> None:
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session
@@ -488,12 +509,24 @@ def register_report_tools(server: Any) -> None:
                 artifacts["data_quality"] = _format_data_quality(schema, readiness)
             if schema:
                 artifacts["variable_profiles"] = _format_variable_profiles(schema)
+            table_one = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
+            if table_one:
+                artifacts["baseline_table"] = _format_baseline_table(table_one)
             if results:
                 artifacts["statistical_analyses"] = _format_analyses(results)
                 artifacts["key_findings"] = _format_findings(results)
             else:
                 artifacts["statistical_analyses"] = "[Quick Explore]"
                 artifacts["key_findings"] = "[Quick Explore]"
+            sensitivity_artifacts = _load_phase6_markdown_bundle(store, "sensitivity_analysis")
+            if sensitivity_artifacts:
+                artifacts["sensitivity_analysis"] = sensitivity_artifacts
+            learning_curve_artifacts = _load_phase6_markdown_bundle(
+                store,
+                "advanced_analysis_learning_curve_cusum",
+            )
+            if learning_curve_artifacts:
+                artifacts["learning_curve_cusum"] = learning_curve_artifacts
             artifacts["recommendations"] = _build_recommendations(results, readiness)
 
             datasets = session.list_datasets()
@@ -625,6 +658,40 @@ def _format_variable_profiles(schema: dict | None) -> str:
         missing = v.get("missing_rate", v.get("missing_pct", 0))
         lines.append(f"| {name} | {vtype} | {missing:.1%} |")
     return "\n".join(lines)
+
+
+def _format_baseline_table(table_one_markdown: str | None) -> str:
+    """Format persisted Table 1 artifact for the report."""
+    if not table_one_markdown:
+        return "[Table 1 not available]"
+
+    cleaned = table_one_markdown.strip()
+    if cleaned.startswith("#"):
+        parts = cleaned.split("\n", 1)
+        cleaned = parts[1].strip() if len(parts) > 1 else cleaned
+    return cleaned
+
+
+def _load_phase6_markdown_bundle(store: Any, prefix: str) -> str | None:
+    """Load and concatenate optional Phase 6 markdown artifacts by filename prefix."""
+    from rde.application.pipeline import PipelinePhase
+
+    filenames = [
+        name
+        for name in store.list_phase_artifacts(PipelinePhase.EXECUTE_EXPLORATION)
+        if name.startswith(prefix) and name.endswith(".md")
+    ]
+    if not filenames:
+        return None
+
+    rendered: list[str] = []
+    for name in sorted(filenames):
+        content = store.load(PipelinePhase.EXECUTE_EXPLORATION, name)
+        if not content:
+            continue
+        rendered.append(str(content).strip())
+
+    return "\n\n---\n\n".join(rendered) if rendered else None
 
 
 def _format_analyses(results: dict | None) -> str:

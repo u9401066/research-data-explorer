@@ -96,3 +96,31 @@ def test_prepare_direct_analysis_config_maps_target_column() -> None:
     assert payload["analysis_type"] == "glm"
     assert payload["target"] == "outcome"
     assert payload["target_column"] == "outcome"
+
+
+def test_delegator_runs_learning_curve_cusum_locally() -> None:
+    df = pd.DataFrame(
+        {
+            "Operator_ID": ["A", "A", "A", "B", "B", "B"],
+            "Trial": [1, 2, 3, 1, 2, 3],
+            "成功_0不成功_1成功": [1, 0, 1, 0, 1, 1],
+        }
+    )
+    delegator = AnalysisDelegator()
+
+    result = delegator.run_analysis(
+        df,
+        "learning_curve_cusum",
+        {
+            "target": "成功_0不成功_1成功",
+            "group_var": "Operator_ID",
+            "trial_var": "Trial",
+        },
+    )
+
+    assert result["source"] == "local (ScipyStatisticalEngine)"
+    assert result["result"]["analysis_type"] == "learning_curve_cusum"
+    assert result["result"]["operator_variable"] == "Operator_ID"
+    assert result["result"]["trial_variable"] == "Trial"
+    assert result["result"]["operators_analyzed"] == 2
+    assert len(result["result"]["operators"]) == 2
