@@ -276,7 +276,7 @@ function registerMcpServerProvider(context: vscode.ExtensionContext): vscode.Dis
                 // Development: use workspace source via uv run
                 const pythonPath = getPythonPath(context);
                 rdeCommand = pythonPath;
-                rdeArgs = getPythonArgs(pythonPath, 'rde');
+                rdeArgs = getPythonArgs(pythonPath, 'rde', pythonPath === 'uv' ? { projectPath: wsRoot } : undefined);
 
                 const pythonPathEnv = buildDevPythonPath(wsRoot, bundledToolPath);
                 mcpEnv = buildMcpEnv({ workspaceDir: wsRoot, pythonPath: pythonPathEnv });

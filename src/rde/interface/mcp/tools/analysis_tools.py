@@ -86,6 +86,26 @@ def _save_advanced_analysis_artifact(
     return store.save(PipelinePhase.EXECUTE_EXPLORATION, filename, payload)
 
 
+def _save_advanced_analysis_markdown_artifact(
+    project: Any,
+    *,
+    analysis_type: str,
+    analysis_result: Any,
+    content: str,
+) -> Path:
+    """Persist the rendered Phase 6 advanced-analysis markdown for reports/handoff."""
+    from rde.application.pipeline import PipelinePhase
+    from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+    normalized = _normalize_analysis_type(analysis_type)
+    job_id = analysis_result.get("job_id") if isinstance(analysis_result, dict) else None
+    job_suffix = f"_{str(job_id).replace('/', '_')}" if job_id else ""
+    filename = f"advanced_analysis_{normalized}{job_suffix}.md"
+
+    store = ArtifactStore(project.artifacts_dir)
+    return store.save(PipelinePhase.EXECUTE_EXPLORATION, filename, content)
+
+
 def _append_nested_markdown(lines: list[str], key: str, value: Any) -> None:
     """Render nested dict/list payloads into readable markdown bullets."""
     if isinstance(value, dict):
@@ -114,12 +134,48 @@ def _format_advanced_analysis_output(
     automl_available: bool,
 ) -> str:
     """Build user-facing markdown for advanced analysis execution."""
+    normalized_analysis_type = _normalize_analysis_type(analysis_type)
     lines = [
         f"# 📊 進階分析 — {analysis_type}\n",
         f"**引擎:** {source}",
     ]
 
-    if _is_direct_analysis_contract(analysis_result):
+    if normalized_analysis_type == "learning_curve_cusum" and isinstance(analysis_result, dict):
+        lines.append("\n## 分析設定")
+        lines.append(f"- **成功變數:** {analysis_result.get('success_variable', '?')}")
+        lines.append(f"- **施打者變數:** {analysis_result.get('operator_variable', '?')}")
+        lines.append(f"- **次序變數:** {analysis_result.get('trial_variable', '?')}")
+        lines.append(
+            f"- **目標成功率:** {float(analysis_result.get('target_success_rate', 0.0)):.1%}"
+        )
+        lines.append(
+            f"- **cohort 成功率:** {float(analysis_result.get('cohort_success_rate', 0.0)):.1%}"
+        )
+        lines.append(f"- **總試次:** {analysis_result.get('total_trials', '?')}")
+        lines.append(f"- **施打者數:** {analysis_result.get('operators_analyzed', '?')}")
+
+        operators = analysis_result.get("operators", [])
+        if operators:
+            lines.append("\n## 施打者 CUSUM 摘要")
+            for operator in operators[:10]:
+                lines.append(
+                    "- **{operator_id}:** n={n_trials}, success={success_rate:.1%}, final CUSUM={final_cusum:.3f}, "
+                    "peak={peak_cusum:.3f} (trial {peak_trial})".format(
+                        operator_id=operator.get("operator_id", "?"),
+                        n_trials=operator.get("n_trials", "?"),
+                        success_rate=float(operator.get("success_rate", 0.0)),
+                        final_cusum=float(operator.get("final_cusum", 0.0)),
+                        peak_cusum=float(operator.get("peak_cusum", 0.0)),
+                        peak_trial=operator.get("peak_trial", "?"),
+                    )
+                )
+            if len(operators) > 10:
+                lines.append(f"- ... 共 {len(operators)} 位施打者")
+
+        interpretation = analysis_result.get("interpretation")
+        if interpretation:
+            lines.append(f"\n**解讀:** {interpretation}")
+    elif _is_direct_analysis_contract(analysis_result):
         preview = analysis_result.get("data_preview", {})
         column_names = preview.get("column_names", [])
         sample_rows = preview.get("sample_rows", [])
@@ -190,9 +246,11 @@ def _auto_log_decision(
     in the locked analysis plan, auto-logs a deviation entry.
     """
     from rde.application.session import get_session
+    from rde.application.pipeline import PipelinePhase
 
     session = get_session()
     project = session.get_project()
+    pipeline = session.get_pipeline(project.id)
     logger = session.get_logger(project.id)
     logger.log_decision(
         phase="phase_06",
@@ -204,8 +262,24 @@ def _auto_log_decision(
         artifacts=artifacts,
     )
 
+    if PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases:
+        from datetime import datetime
+
+        from rde.application.pipeline import PhaseResult
+        from rde.domain.models.project import ProjectStatus
+
+        pipeline.mark_started(PipelinePhase.EXECUTE_EXPLORATION)
+        pipeline.mark_completed(
+            PhaseResult(
+                phase=PipelinePhase.EXECUTE_EXPLORATION,
+                completed_at=datetime.now(),
+                success=True,
+                artifacts={"decision_log.jsonl": str(project.decision_log_path)},
+            )
+        )
+        project.advance_to(ProjectStatus.EXECUTE_EXPLORATION)
+
     # Auto-detect plan deviation (S-011)
-    pipeline = session.get_pipeline(project.id)
     if pipeline.plan_locked:
         from rde.interface.mcp.tools._shared import check_plan_adherence
 
@@ -766,13 +840,14 @@ def register_analysis_tools(server: Any) -> None:
             },
         )
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
         assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
@@ -784,6 +859,7 @@ def register_analysis_tools(server: Any) -> None:
 
         try:
             from rde.infrastructure.adapters import ScipyStatisticalEngine
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             if variables:
                 cols = [v for v in variables if v in df.columns]
@@ -826,12 +902,35 @@ def register_analysis_tools(server: Any) -> None:
                 f"\n- **類別變數:** {result.get('n_categorical', 0)}"
             )
 
+            table_one_content = "\n".join(lines)
+            store = ArtifactStore(project.artifacts_dir)
+            table_one_md_path = store.save(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                "table_one.md",
+                table_one_content,
+            )
+            store.save(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                "table_one.json",
+                {
+                    "group_variable": group_variable,
+                    "variables": cols,
+                    "table_text": result.get("table_text", ""),
+                    "table_dict": result.get("table_dict", {}),
+                    "n_variables": result.get("n_variables", len(cols)),
+                    "n_categorical": result.get("n_categorical", 0),
+                },
+            )
+
+            lines.append(f"\n**Artifact:** {table_one_md_path}")
+
             # H-009
             _auto_log_decision(
                 "generate_table_one",
                 {"group_variable": group_variable, "variables": cols},
                 "生成 Table 1 (基線特徵表)",
                 f"Table 1: {result.get('n_variables', len(cols))} variables",
+                artifacts=[str(table_one_md_path)],
             )
 
             return "\n".join(lines)
@@ -934,16 +1033,32 @@ def register_analysis_tools(server: Any) -> None:
                 artifact_path=artifact_path,
                 automl_available=delegator.automl_available,
             )
+            markdown_artifact_path = _save_advanced_analysis_markdown_artifact(
+                project,
+                analysis_type=analysis_type,
+                analysis_result=analysis_result,
+                content=rendered_output,
+            )
 
             decision_summary = _summarize_advanced_analysis_result(analysis_result)
 
             # H-009
             _auto_log_decision(
                 "run_advanced_analysis",
-                {"analysis_type": analysis_type, "source": source},
+                {
+                    "analysis_type": analysis_type,
+                    "source": source,
+                    "target_variable": target_variable,
+                    "group_variable": group_variable,
+                    "variables": [
+                        value
+                        for value in [target_variable, group_variable, *(covariates or [])]
+                        if value
+                    ],
+                },
                 f"進階分析: {analysis_type}",
                 f"source={source}; {decision_summary}",
-                artifacts=[artifact_path.name],
+                artifacts=[artifact_path.name, markdown_artifact_path.name],
             )
 
             return rendered_output

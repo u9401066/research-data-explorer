@@ -37,6 +37,7 @@ def register_audit_tools(server: Any) -> None:
         ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUDIT_REVIEW, project_id=project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session
@@ -60,6 +61,8 @@ def register_audit_tools(server: Any) -> None:
             missing_artifacts: list[str] = []
 
             for phase in PipelinePhase:
+                if phase in {PipelinePhase.AUDIT_REVIEW, PipelinePhase.AUTO_IMPROVE}:
+                    continue
                 required = REQUIRED_ARTIFACTS.get(phase, [])
                 if not required:
                     continue
@@ -280,6 +283,7 @@ def register_audit_tools(server: Any) -> None:
         ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUTO_IMPROVE, project_id=project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session
@@ -443,6 +447,7 @@ def register_audit_tools(server: Any) -> None:
         ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUTO_IMPROVE, project_id=project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.pipeline import PipelinePhase
@@ -473,6 +478,25 @@ def register_audit_tools(server: Any) -> None:
                     dst = handoff_dir / filename
                     shutil.copy2(src, dst)
                     included_files.append(filename)
+
+            optional_phase6_files = ["table_one.md", "table_one.json"]
+            for filename in optional_phase6_files:
+                src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, filename)
+                if src.exists():
+                    shutil.copy2(src, handoff_dir / filename)
+                    included_files.append(filename)
+
+            for filename in store.list_phase_artifacts(PipelinePhase.EXECUTE_EXPLORATION):
+                if filename.startswith("sensitivity_analysis") and filename.endswith((".md", ".json")):
+                    src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, filename)
+                    if src.exists():
+                        shutil.copy2(src, handoff_dir / filename)
+                        included_files.append(filename)
+                if filename.startswith("advanced_analysis_learning_curve_cusum") and filename.endswith((".md", ".json")):
+                    src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, filename)
+                    if src.exists():
+                        shutil.copy2(src, handoff_dir / filename)
+                        included_files.append(filename)
 
             # Copy decision log
             decision_src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl")
@@ -542,6 +566,7 @@ def register_audit_tools(server: Any) -> None:
         ok, msg, project = ensure_project_context(project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session

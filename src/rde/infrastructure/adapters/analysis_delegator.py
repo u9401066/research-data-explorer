@@ -49,6 +49,7 @@ LOCAL_ONLY = frozenset(
         "anova",
         "table_one",
         "descriptive",
+        "learning_curve_cusum",
     }
 )
 
@@ -186,6 +187,8 @@ class AnalysisDelegator:
                             "top": str(series.mode().iloc[0]) if not series.mode().empty else None,
                         }
                 result = {"analysis_type": "descriptive", "summary": summary}
+        elif analysis_type == "learning_curve_cusum":
+            result = self._run_learning_curve_cusum(df, config)
         elif analysis_type in LOCAL_FALLBACK_UNSUPPORTED:
             result = {
                 "error": f"Local ScipyStatisticalEngine does not support '{analysis_type}'.",
@@ -200,6 +203,125 @@ class AnalysisDelegator:
             )
 
         return {"source": "local (ScipyStatisticalEngine)", "result": result}
+
+    def _run_learning_curve_cusum(
+        self,
+        df: pd.DataFrame,
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run a descriptive operator-level learning-curve CUSUM analysis."""
+        success_var = config.get("target")
+        operator_var = config.get("group_var")
+        covariates = config.get("covariates", []) or []
+        trial_var = config.get("trial_var") or (covariates[0] if covariates else None)
+
+        missing = [
+            name
+            for name, value in {
+                "target_variable": success_var,
+                "group_variable": operator_var,
+                "trial_variable": trial_var,
+            }.items()
+            if not value
+        ]
+        if missing:
+            return {
+                "error": "learning_curve_cusum requires target, operator, and trial variables.",
+                "suggestion": f"Provide {', '.join(missing)} via run_advanced_analysis().",
+            }
+
+        required_columns = [str(success_var), str(operator_var), str(trial_var)]
+        missing_columns = [column for column in required_columns if column not in df.columns]
+        if missing_columns:
+            return {
+                "error": f"Columns not found for learning_curve_cusum: {', '.join(missing_columns)}",
+                "suggestion": "Check the schema and provide existing column names.",
+            }
+
+        working = df[required_columns].copy().dropna()
+        if working.empty:
+            return {
+                "error": "No complete rows available for learning_curve_cusum.",
+                "suggestion": "Ensure operator, trial, and success columns all contain data.",
+            }
+
+        working["_success"] = pd.to_numeric(working[str(success_var)], errors="coerce")
+        working["_trial"] = pd.to_numeric(working[str(trial_var)], errors="coerce")
+        working = working.dropna(subset=["_success", "_trial"])
+        if working.empty:
+            return {
+                "error": "learning_curve_cusum requires numeric trial order and binary success values.",
+                "suggestion": "Convert Trial to numeric and ensure success is encoded as 0/1.",
+            }
+
+        working["_success"] = working["_success"].astype(int)
+        success_values = set(working["_success"].unique().tolist())
+        if not success_values.issubset({0, 1}):
+            return {
+                "error": "learning_curve_cusum requires a binary success variable encoded as 0/1.",
+                "suggestion": f"Observed values: {sorted(success_values)}",
+            }
+
+        working = working.sort_values([str(operator_var), "_trial"]).reset_index(drop=True)
+        cohort_success_rate = float(working["_success"].mean())
+        target_success_rate = float(config.get("target_success_rate", cohort_success_rate))
+        working["_cusum_increment"] = working["_success"] - target_success_rate
+        working["_cusum"] = working.groupby(str(operator_var))["_cusum_increment"].cumsum()
+
+        operators: list[dict[str, Any]] = []
+        improving = 0
+        for operator_id, operator_df in working.groupby(str(operator_var), sort=False):
+            operator_df = operator_df.sort_values("_trial")
+            success_rate = float(operator_df["_success"].mean())
+            final_cusum = float(operator_df["_cusum"].iloc[-1])
+            peak_idx = operator_df["_cusum"].idxmax()
+            trough_idx = operator_df["_cusum"].idxmin()
+            peak_trial = int(operator_df.loc[peak_idx, "_trial"])
+            trough_trial = int(operator_df.loc[trough_idx, "_trial"])
+            direction = "above_target" if final_cusum >= 0 else "below_target"
+            if final_cusum >= 0:
+                improving += 1
+            operators.append(
+                {
+                    "operator_id": str(operator_id),
+                    "n_trials": int(len(operator_df)),
+                    "success_rate": success_rate,
+                    "final_cusum": final_cusum,
+                    "peak_cusum": float(operator_df["_cusum"].max()),
+                    "peak_trial": peak_trial,
+                    "trough_cusum": float(operator_df["_cusum"].min()),
+                    "trough_trial": trough_trial,
+                    "direction": direction,
+                    "series": [
+                        {
+                            "trial": int(row["_trial"]),
+                            "success": int(row["_success"]),
+                            "cusum": float(row["_cusum"]),
+                        }
+                        for _, row in operator_df.iterrows()
+                    ],
+                }
+            )
+
+        operators.sort(key=lambda item: (item["final_cusum"], item["success_rate"]), reverse=True)
+        interpretation = (
+            f"{improving}/{len(operators)} 位施打者的最終 CUSUM 高於 cohort target，"
+            f"代表其累積成功表現高於目標成功率 {target_success_rate:.1%}。"
+        )
+
+        return {
+            "analysis_type": "learning_curve_cusum",
+            "success_variable": str(success_var),
+            "operator_variable": str(operator_var),
+            "trial_variable": str(trial_var),
+            "target_success_rate": target_success_rate,
+            "cohort_success_rate": cohort_success_rate,
+            "operators_analyzed": len(operators),
+            "total_trials": int(len(working)),
+            "operators_above_target": improving,
+            "interpretation": interpretation,
+            "operators": operators,
+        }
 
     @property
     def automl_available(self) -> bool:

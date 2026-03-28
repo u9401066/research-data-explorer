@@ -2,11 +2,14 @@ from pathlib import Path
 
 from rde.domain.models.report import EDAReport, ReportSection
 from rde.interface.mcp.tools.report_tools import (
+    _format_baseline_table,
     _format_data_overview,
     _format_data_quality,
     _format_variable_profiles,
 )
 from rde.application.use_cases.export_report import ExportReportUseCase
+from rde.application.use_cases.generate_report import GenerateReportUseCase
+from rde.infrastructure.adapters.markdown_renderer import MarkdownReportRenderer
 
 
 def test_format_data_overview_uses_current_intake_keys() -> None:
@@ -100,3 +103,33 @@ def test_export_use_case_accepts_project_scoped_figures_dir(tmp_path: Path) -> N
 
     assert result["docx"].exists()
     assert spy.figures_dir == figures_dir
+
+
+def test_generate_report_supports_optional_table_one_and_sensitivity_sections() -> None:
+    use_case = GenerateReportUseCase(MarkdownReportRenderer())
+    report = use_case.execute(
+        dataset_id="d1",
+        project_id="p1",
+        title="Paper Ready",
+        artifacts={
+            "data_overview": "overview",
+            "data_quality": "quality",
+            "variable_profiles": "profiles",
+            "baseline_table": _format_baseline_table(
+                "# 📊 Table 1\n\n| var | all |\n| --- | --- |\n| age | 10 |"
+            ),
+            "key_findings": "findings",
+            "statistical_analyses": "analysis",
+            "learning_curve_cusum": "CUSUM suggests later operators outperform the cohort target.",
+            "sensitivity_analysis": "Sensitivity remained directionally consistent.",
+            "recommendations": "recommendations",
+        },
+    )
+
+    rendered = use_case.render(report, "markdown")
+
+    assert "## Table 1 — Baseline Characteristics" in rendered
+    assert "## Learning Curve CUSUM" in rendered
+    assert "CUSUM suggests later operators outperform the cohort target." in rendered
+    assert "## Sensitivity Analysis" in rendered
+    assert "Sensitivity remained directionally consistent." in rendered
