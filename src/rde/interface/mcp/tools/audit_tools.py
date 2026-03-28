@@ -487,12 +487,16 @@ def register_audit_tools(server: Any) -> None:
                     included_files.append(filename)
 
             for filename in store.list_phase_artifacts(PipelinePhase.EXECUTE_EXPLORATION):
-                if filename.startswith("sensitivity_analysis") and filename.endswith((".md", ".json")):
+                if filename.startswith("sensitivity_analysis") and filename.endswith(
+                    (".md", ".json")
+                ):
                     src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, filename)
                     if src.exists():
                         shutil.copy2(src, handoff_dir / filename)
                         included_files.append(filename)
-                if filename.startswith("advanced_analysis_learning_curve_cusum") and filename.endswith((".md", ".json")):
+                if filename.startswith(
+                    "advanced_analysis_learning_curve_cusum"
+                ) and filename.endswith((".md", ".json")):
                     src = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, filename)
                     if src.exists():
                         shutil.copy2(src, handoff_dir / filename)

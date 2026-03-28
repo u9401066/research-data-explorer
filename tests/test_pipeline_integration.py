@@ -491,7 +491,7 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
                         "type": "visualization",
                         "variables": ["species", "petal_length"],
                         "rationale": "coverage regression",
-                    }
+                    },
                 ],
                 "confirm": True,
             },
