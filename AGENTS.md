@@ -93,6 +93,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 | `compare_groups` | 組間比較（自動選擇檢定方法） |
 | `correlation_matrix` | 相關性分析矩陣（含 S-007 VIF 檢查） |
 | `run_advanced_analysis` | 進階分析（自動委派 automl-stat-mcp） |
+| `run_repeated_measures` | 重複測量分析（ANOVA / 配對檢定） |
 | `create_visualization` | 生成圖表 |
 | `log_deviation` | 記錄計畫偏離（偏離計畫時必須呼叫！） |
 
