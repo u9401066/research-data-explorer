@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { getPythonArgs, loadSkillContent, BUNDLED_SKILLS, BUNDLED_PROMPTS, BUNDLED_AGENTS } from './utils';
 import { findUvPath, installUvHeadless, buildMcpCommand, buildMcpEnv, ensureInstalledTool, checkDockerServiceHealth } from './uvManager';
-import { shouldSkipMcpRegistration, isDevWorkspace as checkIsDevWorkspace, determinePythonPath, countMissingBundledItems, buildDevPythonPath } from './extensionHelpers';
+import { shouldSkipMcpRegistration, isDevWorkspace as checkIsDevWorkspace, determinePythonPath, countMissingBundledItems, buildDevPythonPath, isBundledToolProject } from './extensionHelpers';
 import { TOOL_GROUPS, FULL_REPORT_CHAT_QUERY, buildPipelineExecutionPrompt, buildToolRetryInstruction, filterRdeTools, getToolCallPolicyAction, NO_AVAILABLE_RDE_TOOLS_MESSAGE, NO_RDE_TOOL_CALL_MESSAGE, toolGroupIncludes } from './toolPolicy';
 
 let outputChannel: vscode.OutputChannel;
@@ -173,7 +173,7 @@ async function ensureUvReady(context: vscode.ExtensionContext): Promise<void> {
 
 // ─── Marketplace Tool Install ──────────────────────────────────────────────────
 
-async function ensureMarketplaceToolsReady(_context: vscode.ExtensionContext): Promise<void> {
+async function ensureMarketplaceToolsReady(context: vscode.ExtensionContext): Promise<void> {
     if (!resolvedUvPath) {
         outputChannel.appendLine('[Install] Skipping tool auto-install because uv is not ready.');
         return;
@@ -199,6 +199,12 @@ async function ensureMarketplaceToolsReady(_context: vscode.ExtensionContext): P
                 outputChannel.appendLine('[Install] Could not inspect .vscode/mcp.json - continuing with checks.');
             }
         }
+    }
+
+    const bundledToolPath = path.join(context.extensionPath, 'bundled', 'tool');
+    if (isBundledToolProject(bundledToolPath)) {
+        outputChannel.appendLine('[Install] Bundled RDE project detected - skipping registry install.');
+        return;
     }
 
     const toolSpecs: Array<{ packageName: string; binaryName?: string }> = [
@@ -260,6 +266,7 @@ function registerMcpServerProvider(context: vscode.ExtensionContext): vscode.Dis
 
             const definitions: vscode.McpServerDefinition[] = [];
             const bundledToolPath = path.join(context.extensionPath, 'bundled', 'tool');
+            const hasBundledTool = isBundledToolProject(bundledToolPath);
 
             let rdeCommand: string;
             let rdeArgs: string[];
@@ -273,6 +280,12 @@ function registerMcpServerProvider(context: vscode.ExtensionContext): vscode.Dis
 
                 const pythonPathEnv = buildDevPythonPath(wsRoot, bundledToolPath);
                 mcpEnv = buildMcpEnv({ workspaceDir: wsRoot, pythonPath: pythonPathEnv });
+            } else if (hasBundledTool) {
+                // Packaged extension: run the bundled local Python project via uv.
+                rdeCommand = uvPath;
+                rdeArgs = getPythonArgs(uvPath, 'rde', { projectPath: bundledToolPath });
+                mcpEnv = buildMcpEnv({ workspaceDir: wsRoot });
+                outputChannel.appendLine(`[MCP] RDE: using bundled project at ${bundledToolPath}`);
             } else {
                 // Marketplace: prefer pre-installed tool, fallback to uvx
                 const [cmd, args, preInstalled] = buildMcpCommand(uvPath, 'research-data-explorer');

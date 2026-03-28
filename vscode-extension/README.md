@@ -16,7 +16,7 @@ AI-powered research data exploration assistant with MCP tools, prompts, and skil
 ### From VSIX
 
 ```bash
-code --install-extension research-data-explorer-0.1.0.vsix
+code --install-extension <downloaded-vsix-file>
 ```
 
 Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
@@ -44,8 +44,9 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 
 ## MCP Installation Behavior
 
-- MCP Python tools are installed persistently per machine with `uv tool install`.
-- On extension updates, existing tools are checked with `uv tool upgrade`.
+- RDE source workspaces run the local project directly via `uv run python -m rde`.
+- Packaged VSIX builds ship a bundled Python project and run it via `uv run --project ... python -m rde`.
+- No Python package registry publication is required for the MCP server to start.
 - If the workspace already has a `.vscode/mcp.json` defining `rde`, the extension skips auto-registration.
 - uv 會自動偵測多個可能路徑（`~/.local/bin`, `~/.cargo/bin`, `%LOCALAPPDATA%\uv\bin`, `/opt/homebrew/bin`）。
 

@@ -9,11 +9,18 @@ import * as fs from 'fs';
 /**
  * Determine the correct Python args based on the command being used.
  */
-export function getPythonArgs(command: string, module: string): string[] {
+export function getPythonArgs(
+    command: string,
+    module: string,
+    options?: { projectPath?: string },
+): string[] {
     const baseCommand = path.basename(command).toLowerCase();
     const commandName = baseCommand.replace(/\.exe$/, '');
 
     if (commandName === 'uv') {
+        if (options?.projectPath) {
+            return ['run', '--project', options.projectPath, 'python', '-m', module];
+        }
         return ['run', 'python', '-m', module];
     }
 

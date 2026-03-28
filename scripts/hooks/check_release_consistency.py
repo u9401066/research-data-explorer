@@ -91,7 +91,7 @@ def main() -> int:
         errors.append(f"Blocked internal dataset staged for commit: {path}")
 
     if errors:
-        print("❌ [Release Guard] Commit blocked:")
+        print("[Release Guard] Commit blocked:")
         for item in errors:
             print(f"- {item}")
         print(

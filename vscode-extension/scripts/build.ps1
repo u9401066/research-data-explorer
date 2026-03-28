@@ -99,20 +99,11 @@ if (Test-Path $instrSrc) {
     Write-Host "  ✓ copilot-instructions.md" -ForegroundColor Green
 }
 
-# ─── 5. Copy bundled Python source ─────────────────────────────────────────────
-Write-Host "`n--- Copying bundled Python source ---"
-$BundledTool = Join-Path $ExtDir "bundled\tool"
-if (-not (Test-Path $BundledTool)) { New-Item -ItemType Directory -Path $BundledTool -Force | Out-Null }
-
-$rdeSrc = Join-Path $RepoRoot "src\rde"
-if (Test-Path $rdeSrc) {
-    $rdeDst = Join-Path $BundledTool "rde"
-    if (Test-Path $rdeDst) { Remove-Item $rdeDst -Recurse -Force }
-    Copy-Item $rdeSrc $rdeDst -Recurse -Force
-    # Clean __pycache__
-    Get-ChildItem $rdeDst -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "  ✓ rde source copied" -ForegroundColor Green
-}
+# ─── 5. Prepare bundled Python project ────────────────────────────────────────
+Write-Host "`n--- Preparing bundled Python project ---"
+Push-Location $ExtDir
+node .\scripts\prepare-bundle.mjs
+Pop-Location
 
 # ─── 6. Compile TypeScript ─────────────────────────────────────────────────────
 Write-Host "`n--- Compiling TypeScript ---"

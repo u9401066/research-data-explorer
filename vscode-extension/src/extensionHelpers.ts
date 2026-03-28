@@ -114,10 +114,21 @@ export function buildDevPythonPath(wsRoot: string, bundledToolPath: string): str
     const paths = [
         path.join(wsRoot, 'src'),
     ];
-    if (fs.existsSync(bundledToolPath)) {
+    const bundledSrcPath = path.join(bundledToolPath, 'src');
+    if (fs.existsSync(bundledSrcPath)) {
+        paths.push(bundledSrcPath);
+    } else if (fs.existsSync(bundledToolPath)) {
         paths.push(bundledToolPath);
     }
     return paths.join(path.delimiter);
+}
+
+/**
+ * Check if the extension has a bundled local Python project for RDE.
+ */
+export function isBundledToolProject(projectRoot: string): boolean {
+    return fs.existsSync(path.join(projectRoot, 'pyproject.toml'))
+        && fs.existsSync(path.join(projectRoot, 'src', 'rde', '__main__.py'));
 }
 
 /**
