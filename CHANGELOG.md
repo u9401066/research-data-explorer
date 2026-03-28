@@ -6,10 +6,11 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-03-28
+## [0.2.1] - 2026-03-28
 
 ### Fixed
 
+- VSX extension no longer depends on publishing `research-data-explorer` to a Python package registry; packaged builds now run a bundled local Python project, and repo workspaces continue to run the local source tree directly.
 - VSX extension: `setupWorkspace()` and `loadSkillContent()` were copying/reading from non-existent `vscode-extension/{skills,agents,prompts}/` directories — these resources now ship bundled inside the extension.
 - `run_repeated_measures` was registered in the VSX tool policy but missing from AGENTS.md tool inventory.
 - H-003 soft-constraint description was ambiguous (`≥ 10` could be read as "reject when n >= 10").

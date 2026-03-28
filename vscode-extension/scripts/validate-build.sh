@@ -54,7 +54,8 @@ echo "--- Bundled Assets ---"
 check_dir "$EXT_DIR/skills" "skills/"
 check_dir "$EXT_DIR/prompts" "prompts/"
 check_dir "$EXT_DIR/agents" "agents/"
-check_dir "$EXT_DIR/bundled/tool/rde" "bundled/tool/rde/"
+check_file "$EXT_DIR/bundled/tool/pyproject.toml" "bundled/tool/pyproject.toml"
+check_dir "$EXT_DIR/bundled/tool/src/rde" "bundled/tool/src/rde/"
 
 # 4. Cross-platform scripts
 echo ""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 
@@ -21,7 +22,11 @@ def _load_hook_module():
 def test_repo_and_extension_versions_match() -> None:
     hook = _load_hook_module()
 
-    assert hook.read_repo_version() == hook.read_extension_version() == "0.1.0"
+    repo_version = hook.read_repo_version()
+    extension_version = hook.read_extension_version()
+
+    assert repo_version == extension_version
+    assert re.fullmatch(r"\d+\.\d+\.\d+", repo_version)
 
 
 def test_changelog_exists_and_covers_current_version() -> None:

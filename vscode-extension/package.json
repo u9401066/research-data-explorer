@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "11-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {
@@ -157,10 +157,11 @@
   },
   "extensionDependencies": [],
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "prepare:bundle": "node ./scripts/prepare-bundle.mjs",
+    "vscode:prepublish": "npm run prepare:bundle && npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile",
+    "pretest": "npm run prepare:bundle && npm run compile",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext ts",

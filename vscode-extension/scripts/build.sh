@@ -96,27 +96,10 @@ if [ -f "$src" ]; then
     echo "  ✓ copilot-instructions.md"
 fi
 
-# ─── 5. Copy bundled Python source ─────────────────────────────────────────────
+# ─── 5. Prepare bundled Python project ────────────────────────────────────────
 echo ""
-echo "--- Copying bundled Python source ---"
-BUNDLED_TOOL="$EXT_DIR/bundled/tool"
-mkdir -p "$BUNDLED_TOOL"
-
-if [ -d "$REPO_ROOT/src/rde" ]; then
-    # Use rsync if available, otherwise fall back to cp
-    if command -v rsync &>/dev/null; then
-        rsync -a --delete \
-            --exclude='__pycache__' \
-            --exclude='*.pyc' \
-            "$REPO_ROOT/src/rde/" "$BUNDLED_TOOL/rde/"
-    else
-        rm -rf "$BUNDLED_TOOL/rde"
-        cp -R "$REPO_ROOT/src/rde" "$BUNDLED_TOOL/rde"
-        find "$BUNDLED_TOOL/rde" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-        find "$BUNDLED_TOOL/rde" -name '*.pyc' -delete 2>/dev/null || true
-    fi
-    echo "  ✓ rde source copied"
-fi
+echo "--- Preparing bundled Python project ---"
+node "$EXT_DIR/scripts/prepare-bundle.mjs"
 
 # ─── 6. Compile TypeScript ─────────────────────────────────────────────────────
 echo ""

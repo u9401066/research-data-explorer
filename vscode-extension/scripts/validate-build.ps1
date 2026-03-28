@@ -52,7 +52,8 @@ Write-Host "`n--- Bundled Assets ---"
 Check-Dir (Join-Path $ExtDir "skills") "skills/"
 Check-Dir (Join-Path $ExtDir "prompts") "prompts/"
 Check-Dir (Join-Path $ExtDir "agents") "agents/"
-Check-Dir (Join-Path $ExtDir "bundled\tool\rde") "bundled/tool/rde/"
+Check-File (Join-Path $ExtDir "bundled\tool\pyproject.toml") "bundled/tool/pyproject.toml"
+Check-Dir (Join-Path $ExtDir "bundled\tool\src\rde") "bundled/tool/src/rde/"
 
 # 4. Cross-platform scripts
 Write-Host "`n--- Build Scripts ---"
