@@ -6,6 +6,27 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-30
+
+### 0.4.0 Added
+
+- **Autonomous EDA Planner** (`AutonomousEDAPlanner`): greedy candidate ranking, multi-round plan enrichment, deterministic methodology review/repair, execution schedule generation, and `statsmodels`-centered baseline analysis script generation.
+- **`propose_analysis_plan()` MCP tool** (Phase 3.5): generates a pre-lock blueprint with ranked candidates, coverage tags, enrichment rounds, and a reviewable statsmodels script before Phase 4 plan registration.
+- **`statsmodels>=0.14`** added as first-class local modeling dependency for OLS, logistic, GLM, ANOVA, and multiple-testing correction.
+- **Vendor integration overhaul**: `AutomlGateway` now targets the real `automl-stat-mcp` submit-based contract (`/analysis/submit`, `/propensity/submit`, `/survival/submit`, `/roc/submit`, `/power/submit`, `/train/automl`), with proper job-ID polling and fallback.
+- **Phase 6 `run_advanced_analysis()`** extended with `survival_analysis`, `roc_auc`, `power_analysis`, and `automl_training` parameter mappings for vendor delegation.
+- **Timestamp-prefixed project folders**: `init_project()` now creates `data/projects/YYYYMMDD_HHMMSS_<project_id>/` for human-readable chronological sorting while keeping the stable 8-char `project_id`.
+- **Vendor stats-service fix**: re-exported `StatisticalTestRequest` / `StatisticalTestResponse` in vendor `domain.ports` so the Docker container starts without `ImportError`.
+- Integration test for timestamp-prefixed folder naming contract.
+- Planner unit tests and benchmark suite covering grouped/binary, repeated-measure, and learning-curve scenarios.
+- Live vendor integration tests exercising `AutomlGateway` against the real Docker stack (stats-service + automl-api + Redis).
+
+### 0.4.0 Fixed
+
+- `AutomlGateway` endpoint paths aligned to vendor's actual `/analysis/submit` contract (was using legacy `/analysis/direct`).
+- `_textify` test helper now correctly handles MCP tuple return shape `([TextContent(...)], metadata)`.
+- Nullable-project assertions added in `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` to prevent unhandled `None` dereferences.
+
 ## [0.3.0] - 2026-03-28
 
 ### 0.3.0 Fixed

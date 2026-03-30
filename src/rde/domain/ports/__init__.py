@@ -173,8 +173,8 @@ class AutomlGatewayPort(ABC):
         self,
         csv_content: str,
         config: dict[str, Any],
-    ) -> str:
-        """Submit AutoML training job (automl-service). Returns job_id."""
+    ) -> dict[str, Any]:
+        """Submit AutoML training job (automl-service). Returns the job payload."""
         ...
 
     @abstractmethod

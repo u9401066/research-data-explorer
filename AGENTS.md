@@ -23,6 +23,7 @@ Agent:
   Phase 1 → run_intake("rawdata/")        # 格式+大小+PII 檢查；H-004 預設阻擋
   Phase 2 → build_schema()                 # 完整 schema registry
   Phase 3 → align_concept(confirm=true)    # 研究問題 → 變數映射 → 用戶確認
+  Phase 3.5 → propose_analysis_plan()      # greedy 候選分析 + 圖表 bundle（不鎖定）
   Phase 4 → register_analysis_plan(confirm=true)  # 分析計畫（用戶確認後鎖定）
   Phase 5 → check_readiness()              # 前提檢查
   Phase 6 → execute analysis tools         # 按計畫執行
@@ -76,6 +77,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 #### Phase 4: Plan Registration
 | Tool | Purpose |
 |------|---------|
+| `propose_analysis_plan` | 根據 schema / roles / 研究問題，自主產生 greedy Phase 4 blueprint |
 | `register_analysis_plan` | 建立分析計畫+automl 指令預排 → 用戶確認 → 鎖定 |
 
 #### Phase 5: Pre-Exploration Check
@@ -171,6 +173,11 @@ Phase 3: Concept–Schema Alignment
   └─ align_concept(confirm=true)
   └─ 研究問題 → 變數映射 → ⚠️ 用戶確認
   └─ → concept_alignment.md + variable_roles.json
+
+Phase 3.5: Greedy Plan Ideation
+  └─ propose_analysis_plan()
+  └─ greedy candidate ranking + visualization bundle（不鎖定）
+  └─ → greedy_analysis_candidates.json + greedy_analysis_candidates.md
 
 Phase 4: Analysis Plan Registration
   └─ register_analysis_plan(confirm=true)

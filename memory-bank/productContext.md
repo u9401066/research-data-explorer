@@ -6,8 +6,8 @@ Research Data Explorer (RDE) — MCP Server 提供 11-Phase Auditable EDA Pipeli
 
 ## Core Features
 
-- **11-Phase Pipeline**: Project Setup → Data Intake → Schema → Concept Alignment → Plan → Precheck → Execute → Collect → Report → Audit → Auto-Improve
-- **30 MCP Tools**: 7 tool 檔案涵蓋 project/discovery/profiling/plan/analysis/report/audit
+- **11-Phase Pipeline**: Project Setup → Data Intake → Schema → Concept Alignment → Greedy Plan Ideation → Plan → Precheck → Execute → Collect → Report → Audit → Auto-Improve
+- **31 MCP Tools**: 7 tool 檔案涵蓋 project/discovery/profiling/plan/analysis/report/audit
 - **Audit Trail**: decision_log.jsonl + deviation_log.jsonl (append-only)
 - **Hard Constraints** (H-001~H-010): 自動防呆（檔案大小、格式、PII、plan lock 等）
 - **Soft Constraints** (S-001~S-012): 統計提醒（常態性、多重比較、效果量等）
@@ -15,6 +15,8 @@ Research Data Explorer (RDE) — MCP Server 提供 11-Phase Auditable EDA Pipeli
 - **Export**: Word (.docx) + PDF 輸出含嵌入圖表
 - **Machine-readable governance**: `.github/agent-control.yaml` 定義 confirm flag、PII override、audit path、delegation、analysis plan schema
 - **Plan-aware execution**: Phase 6 工具會自動比對已鎖定 analysis_plan.yaml，偏離時自動寫入 deviation log
+- **Autonomous ideation**: `propose_analysis_plan()` 以 deterministic greedy heuristic 產生 ranked candidates + visualization bundle，輸出可直接送入 Phase 4 的 blueprint
+- **Methodology guardrails**: Phase 3.5 會先做 internal review + repair；Phase 4 對 under-scoped plan 預設拒絕鎖定，除非明確 override
 
 ## Technical Stack
 

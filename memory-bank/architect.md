@@ -32,3 +32,5 @@ Interface (MCP tools) → Application (Use Cases, Pipeline) → Domain (Pure Log
 9. **Authoritative Control Manifest**: `.github/agent-control.yaml` 為 agent workflow 的實作契約，文件與測試都需對齊
 10. **Phase-ready helper**: MCP tools 透過 shared helper 進行 gate / artifact / sample-size 驗證，避免各 tool 各自散落實作
 11. **Plan-aware execution**: Phase 6 decision logging 延伸為 auto deviation detection，將 S-011 轉為可執行治理機制
+12. **Autonomous ideation stays pre-lock**: greedy EDA 發想層以 `propose_analysis_plan()` 存在於 Phase 3 與 Phase 4 之間，只產生 blueprint，不直接繞過 user confirmation 或 plan lock
+13. **Methodology gate before lock**: Phase 3.5 先用 deterministic review / repair 補足缺失分析家族；Phase 4 再用 methodology gate 阻止 under-scoped plan 被直接鎖定，除非明示 override

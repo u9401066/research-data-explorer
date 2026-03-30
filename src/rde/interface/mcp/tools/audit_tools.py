@@ -95,7 +95,11 @@ def register_audit_tools(server: Any) -> None:
             results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
 
             if plan and results:
-                planned = plan.get("analyses", plan.get("steps", []))
+                planned = [
+                    entry
+                    for entry in plan.get("analyses", plan.get("steps", []))
+                    if not isinstance(entry, dict) or entry.get("required", True)
+                ]
                 executed = results.get("total_analyses", 0)
                 coverage = min(1.0, executed / max(1, len(planned)))
                 deviations = logger.read_deviations()

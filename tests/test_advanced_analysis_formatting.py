@@ -5,6 +5,7 @@ from pathlib import Path
 from rde.domain.models.project import Project
 from rde.interface.mcp.tools.analysis_tools import (
     _format_advanced_analysis_output,
+    _is_async_job_contract,
     _is_direct_analysis_contract,
     _save_advanced_analysis_artifact,
     _save_advanced_analysis_markdown_artifact,
@@ -37,6 +38,23 @@ def test_direct_analysis_contract_detection_and_summary() -> None:
     )
 
 
+def test_async_job_contract_detection_and_summary() -> None:
+    payload = {
+        "job_id": "automl-123",
+        "job_type": "automl",
+        "status": "pending",
+        "progress": 0.0,
+        "status_message": "Queued for processing",
+        "created_at": "2026-03-28T12:00:00Z",
+    }
+
+    assert _is_async_job_contract(payload) is True
+    assert (
+        _summarize_advanced_analysis_result(payload)
+        == "job_id=automl-123, status=pending, progress=0.0, message=Queued for processing"
+    )
+
+
 def test_save_advanced_analysis_artifact_persists_phase06_json(tmp_path: Path) -> None:
     project = _make_project(tmp_path)
     artifact = _save_advanced_analysis_artifact(
@@ -59,6 +77,30 @@ def test_save_advanced_analysis_artifact_persists_phase06_json(tmp_path: Path) -
     content = artifact.read_text(encoding="utf-8")
     assert '"contract": "direct_analyze"' in content
     assert '"analysis_type": "logistic_regression"' in content
+
+
+def test_save_advanced_analysis_artifact_marks_generic_job_submission(tmp_path: Path) -> None:
+    project = _make_project(tmp_path)
+    artifact = _save_advanced_analysis_artifact(
+        project,
+        dataset_id="dataset-1",
+        analysis_type="automl",
+        source="automl-stat-mcp",
+        config={"target": "outcome"},
+        analysis_result={
+            "job_id": "automl-123",
+            "job_type": "automl",
+            "status": "pending",
+            "progress": 0.0,
+            "status_message": "Queued for processing",
+            "created_at": "2026-03-28T12:00:00Z",
+        },
+    )
+
+    assert artifact.exists()
+    content = artifact.read_text(encoding="utf-8")
+    assert '"contract": "job_submission"' in content
+    assert '"analysis_type": "automl"' in content
 
 
 def test_save_advanced_analysis_markdown_artifact_persists_phase06_markdown(
@@ -103,6 +145,32 @@ def test_format_advanced_analysis_output_includes_job_summary_and_artifact(tmp_p
     assert "- **job_id:** stats-123" in rendered
     assert "- **列數:** 20" in rendered
     assert "欄位型別" in rendered
+    assert str(artifact_path) in rendered
+
+
+def test_format_advanced_analysis_output_renders_generic_async_job(tmp_path: Path) -> None:
+    artifact_path = tmp_path / "advanced_analysis_automl_automl-123.json"
+    rendered = _format_advanced_analysis_output(
+        analysis_type="automl",
+        source="automl-stat-mcp",
+        analysis_result={
+            "job_id": "automl-123",
+            "job_type": "automl",
+            "status": "pending",
+            "progress": 0.0,
+            "status_message": "Queued for processing",
+            "created_at": "2026-03-28T12:00:00Z",
+        },
+        artifact_path=artifact_path,
+        automl_available=True,
+    )
+
+    assert "## 工作提交摘要" in rendered
+    assert "- **job_id:** automl-123" in rendered
+    assert "- **job_type:** automl" in rendered
+    assert "- **status:** pending" in rendered
+    assert "- **progress:** 0.0%" in rendered
+    assert "Queued for processing" in rendered
     assert str(artifact_path) in rendered
 
 

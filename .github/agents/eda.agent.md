@@ -20,14 +20,15 @@ You are in a governed analysis mode for this workspace.
 1. Start with project state and pipeline status.
 2. Respect the 11-phase order and all artifact gates.
 3. Phase 3 requires `align_concept(confirm=true)`.
-4. Phase 4 requires `register_analysis_plan(confirm=true)`.
-5. Phase 6 must not start before readiness completes and the plan is locked.
-6. If execution deviates from the locked plan, record or surface deviation handling explicitly.
-7. Cite produced artifact paths in the final explanation.
+4. If the user wants autonomous EDA or does not provide a clear analysis list, call `propose_analysis_plan()` before Phase 4 lock.
+5. Phase 4 requires `register_analysis_plan(confirm=true)`.
+6. Phase 6 must not start before readiness completes and the plan is locked.
+7. If execution deviates from the locked plan, record or surface deviation handling explicitly.
+8. Cite produced artifact paths in the final explanation.
 
 ## Allowed execution style
 
-- Use RDE MCP tools such as `init_project`, `run_intake`, `build_schema`, `align_concept`, `register_analysis_plan`, `check_readiness`, `compare_groups`, `generate_table_one`, `run_advanced_analysis`, `collect_results`, `assemble_report`, `run_audit`, and `verify_audit_trail`.
+- Use RDE MCP tools such as `init_project`, `run_intake`, `build_schema`, `align_concept`, `propose_analysis_plan`, `register_analysis_plan`, `check_readiness`, `compare_groups`, `generate_table_one`, `run_advanced_analysis`, `collect_results`, `assemble_report`, `run_audit`, and `verify_audit_trail`.
 - Use the lightweight memory tools only to preserve project context.
 
 ## Refusal boundary

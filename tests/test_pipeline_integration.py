@@ -1,9 +1,15 @@
+# pyright: reportMissingImports=false
+
 import asyncio
 from datetime import datetime
 from pathlib import Path
+import re
 import shutil
 
-import pytest
+# mypy: disable-error-code="import-untyped, attr-defined"
+
+from pandas import DataFrame
+import pytest  # type: ignore
 
 from rde.application.pipeline import PhaseResult, PipelinePhase, REQUIRED_ARTIFACTS
 from rde.application.session import get_session
@@ -11,7 +17,7 @@ from rde.application.use_cases.compare_groups import CompareGroupsUseCase
 from rde.application.use_cases.generate_report import GenerateReportUseCase
 from rde.domain.models.dataset import Dataset, DatasetMetadata
 from rde.domain.models.project import Project, ProjectStatus
-from rde.domain.models.variable import VariableRole
+from rde.domain.models.variable import Variable, VariableRole
 from rde.domain.services.collinearity_checker import check_collinearity
 from rde.infrastructure.adapters.markdown_renderer import MarkdownReportRenderer
 from rde.infrastructure.adapters.pandas_loader import PandasLoader
@@ -39,7 +45,7 @@ def _setup_project(tmp_path: Path) -> tuple[Project, ArtifactStore]:
     return project, store
 
 
-def _load_fixture_dataset() -> tuple[Dataset, object, list[object], int]:
+def _load_fixture_dataset() -> tuple[Dataset, DataFrame, list[Variable], int]:
     loader = PandasLoader()
     metadata = DatasetMetadata(
         file_path=FIXTURE_CSV,
@@ -196,7 +202,7 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
         else:
             variable.role = VariableRole.OUTCOME
 
-    prerequisite_artifacts = {
+    prerequisite_artifacts: dict[PipelinePhase, dict[str, object]] = {
         PipelinePhase.PROJECT_SETUP: {"project.yaml": {"id": project.id}},
         PipelinePhase.DATA_INTAKE: {
             "intake_report.json": {
@@ -418,7 +424,13 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
     shutil.copy2(FIXTURE_CSV, staged_csv)
 
     def _textify(result: object) -> str:
-        blocks = result if isinstance(result, (list, tuple)) else [result]
+        content = getattr(result, "content", None)
+        if isinstance(content, (list, tuple)):
+            blocks = content
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
+            blocks = result[0]
+        else:
+            blocks = result if isinstance(result, (list, tuple)) else [result]
         parts: list[str] = []
         for block in blocks:
             text = getattr(block, "text", None)
@@ -547,3 +559,45 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
     assert "❌" not in collect_output
     assert "結果彙整" in collect_output
     assert "100% (4/4)" in collect_output
+
+
+def test_init_project_uses_timestamp_prefixed_output_directory(tmp_path: Path) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        if isinstance(content, (list, tuple)):
+            blocks = content
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
+            blocks = result[0]
+        else:
+            blocks = result if isinstance(result, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, str, str]:
+        server = create_server()
+        session = get_session()
+
+        result = await server.call_tool(
+            "init_project",
+            {
+                "name": "timestamp-order-check",
+                "data_dir": str(raw_dir),
+            },
+        )
+        project = session.get_project()
+        return _textify(result), project.id, project.output_dir.name
+
+    output, project_id, folder_name = asyncio.run(run_flow())
+
+    assert re.fullmatch(r"\d{8}_\d{6}_[0-9a-f]{8}", folder_name)
+    assert folder_name.endswith(f"_{project_id}")
+    assert folder_name in output
+    assert f"data/projects/{folder_name}" in output.replace("\\", "/")

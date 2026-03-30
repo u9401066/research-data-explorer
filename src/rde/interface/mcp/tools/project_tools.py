@@ -50,8 +50,10 @@ def register_project_tools(server: Any) -> None:
             from rde.infrastructure.persistence import FileSystemProjectRepository
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
+            created_at = datetime.now()
             project_id = str(uuid.uuid4())[:8]
-            output_dir = Path("data/projects") / project_id
+            folder_name = f"{created_at.strftime('%Y%m%d_%H%M%S')}_{project_id}"
+            output_dir = Path("data/projects") / folder_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
             project = Project(
@@ -59,6 +61,7 @@ def register_project_tools(server: Any) -> None:
                 name=name,
                 data_dir=Path(data_dir),
                 output_dir=output_dir,
+                created_at=created_at,
                 research_question=research_question,
             )
 
@@ -77,11 +80,12 @@ def register_project_tools(server: Any) -> None:
                 "project.yaml",
                 {
                     "id": project_id,
+                    "folder_name": folder_name,
                     "name": name,
                     "data_dir": str(data_dir),
                     "output_dir": str(output_dir),
                     "research_question": research_question,
-                    "created_at": datetime.now().isoformat(),
+                    "created_at": created_at.isoformat(),
                 },
             )
 
@@ -104,6 +108,7 @@ def register_project_tools(server: Any) -> None:
                 f"✅ 專案建立成功！\n\n"
                 f"📁 **專案名稱:** {name}\n"
                 f"🔖 **專案 ID:** {project_id}\n"
+                f"🕒 **資料夾排序鍵:** {folder_name}\n"
                 f"📂 **輸出目錄:** {output_dir}\n"
                 f"🔬 **研究問題:** {rq}\n\n"
                 f"**下一步:** 使用 `run_intake()` 執行完整收件流程，"
@@ -134,6 +139,7 @@ def register_project_tools(server: Any) -> None:
         ok, msg, project = ensure_project_context(project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         from rde.application.session import get_session
 
@@ -191,6 +197,7 @@ def register_project_tools(server: Any) -> None:
         ok, msg, project = ensure_project_context(project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         from rde.application.session import get_session
 
@@ -234,6 +241,7 @@ def register_project_tools(server: Any) -> None:
         ok, msg, project = ensure_project_context(project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         from rde.application.session import get_session
 
@@ -296,6 +304,7 @@ def register_project_tools(server: Any) -> None:
         ok, msg, project = ensure_project_context(project_id)
         if not ok:
             return fmt_error(msg)
+        assert project is not None
 
         try:
             from rde.application.session import get_session

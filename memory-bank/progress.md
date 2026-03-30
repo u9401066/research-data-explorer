@@ -1,26 +1,24 @@
-# Progress (Updated: 2026-03-26)
+# Progress (Updated: 2026-03-28)
 
 ## Done
 
-- 新增 repo 與 extension 的 Apache-2.0 license 檔案
-- 在 CI 加入 VS Code extension 的 lint、test、VSIX package 與 artifact upload
-- 新增 tag 驅動的 marketplace/Open VSX 發布 workflow
-- 補上 extension ESLint 設定並清掉 release 驗證的 lint blocker
-- 完成 extension lint、test、package 驗證並產出 research-data-explorer-0.1.0.vsix
-- 建立 CHANGELOG.md 並補上 0.1.0 release 記錄骨架
-- 加入 release consistency pre-commit hook，強制 repo/VSX 版本同步與 changelog 覆蓋
-- 將內部測試 Excel 加入 gitignore 並在 hook 中阻止誤提交
-- 修正 Windows pre-commit 編碼與 lockfile 誤報問題
-- 驗證全 repo pytest 與 pre-commit 皆通過
-- 已切到 feature/extension-release-0.1.0，第一包 release 相關檔案已 staged
+- 新增 `propose_analysis_plan()` MCP tool，作為 Phase 3.5 greedy autonomous EDA layer
+- 新增 AutonomousEDAPlanner domain service 與 ProposeAnalysisPlanUseCase
+- 將 greedy plan ideation 接入 extension tool allowlist、strict agent prompt、workflow skill、README 與 agent-control manifest
+- 新增 autonomous planner tests，並驗證全 repo pytest 通過（57 passed, 4 skipped）
+- 在 AutonomousEDAPlanner 內加入 methodology review / repair stage，輸出 review metadata 與 repair actions
+- `register_analysis_plan()` 現在會先用 reviewed blueprint 自動補入 optional exploratory branches，補完後仍太薄才需要 `allow_methodology_override=true`
+- `propose_analysis_plan()` / `register_analysis_plan()` 現在都會保存 execution schedule artifact，讓 Phase 6 依 reviewed blueprint 排序
+- 新增 autonomous EDA benchmark regression 測試，量化 reviewed plan 對 coverage 與分析數的保留
+- collect_results / audit 改為只以 required analyses 計算 plan coverage，避免 exploratory extension 造成假性 coverage 下降
+- 全 repo pytest 再驗證通過（63 passed, 3 skipped）
 
 ## Doing
 
-- 準備依三包切分提交，之後 push feature branch，等待 merge 後再打 v0.1.0 tag
+- 整理 soft-budget expansion / execution schedule 後的最終文件與 memory bank 狀態
 
 ## Next
 
-- 若要正式發版，設定 GitHub secrets VSCE_PAT 與 OVSX_PAT
-- 完成第二包與第三包 staged/commit
-- push feature/extension-release-0.1.0 並等待 CI/PR
-- merge 到 main 後建立並 push v0.1.0 tag
+- 評估是否要讓 `propose_analysis_plan()` 進一步讀取 raw profiling 統計，而不只依賴 schema/roles heuristics
+- 若要更激進的 autonomous EDA，可考慮把 execution schedule 進一步接成真正的 blueprint → execute orchestrator，而不只是一份 artifact
+- 可考慮將 methodology review 的分數與 shadow benchmark 指標存成 artifact，做版本間比較
