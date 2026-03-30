@@ -19,7 +19,7 @@
 Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← Infrastructure (Adapters)
 ```
 
-- **30 MCP tools** across 7 tool files
+- **31 MCP tools** across 7 tool files
 - **11-Phase Pipeline** with Hard/Soft constraints
 - **automl-stat-mcp** delegation via AnalysisDelegator
 
@@ -42,6 +42,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 | 用戶說什麼 | 你做什麼 |
 |------------|----------|
 | 「我有資料想分析」 | 完整 Phase 0-10 |
+| 「幫我自己先規劃分析」 | Phase 0-3 → propose_analysis_plan → Phase 4-10 |
 | 「只想看概況」 | Quick Explore |
 | 「比較兩組差異」 | Phase 0-5 → compare_groups → 7-10 |
 | 「做 Table 1」 | Phase 0-5 → generate_table_one → 7-10 |
@@ -111,6 +112,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 ## Agent Control Notes
 
 - Phase 3 `align_concept()` 與 Phase 4 `register_analysis_plan()` 都需要 `confirm=true` 才算解除下一階段 gate
+- 若使用者要 agent 自主規劃 EDA，或尚未提供明確分析清單，應先用 `propose_analysis_plan()` 產生 greedy blueprint，再進入 Phase 4 鎖定
 - `load_dataset()` / `run_intake()` 偵測疑似 PII 時預設拒絕；只有 `allow_pii=true` 可覆蓋，而且回覆中必須明確警告
 - `decision_log.jsonl` 與 `deviation_log.jsonl` 位於 `artifacts/phase_06_execute_exploration/`
 - 測試與回歸驗證請使用 `python3 -m pytest -q`

@@ -26,6 +26,8 @@
 - **Variable Classification**: `VariableClassifier` 推論 numeric/categorical/datetime/identifier/text types
 - **Phase Gate Wrapper**: tool 先呼叫 `ensure_phase_ready(...)`，同時檢查 pipeline gate 與 prerequisite artifacts
 - **Plan Adherence Auto-Log**: `_auto_log_decision()` 在 Phase 6 除 decision log 外，還會依 analysis plan 自動寫 deviation log
+- **Greedy Plan Ideation**: `propose_analysis_plan()` 在 Phase 3 後用 deterministic heuristic 排序 candidate analyses，輸出可直接鎖進 Phase 4 的 blueprint 與 visualization bundle
+- **Methodology Review Before Lock**: autonomous planner 先產生 draft，再做 internal review / repair；`register_analysis_plan()` 會再次檢查是否低於方法學最低覆蓋要求
 - **PII Safety Default**: discovery/load flow 透過 `_pii_gate_message()` 對疑似 PII 預設阻擋，只有明確 override 才放行
 
 ## File Naming

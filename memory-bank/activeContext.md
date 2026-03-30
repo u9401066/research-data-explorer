@@ -2,9 +2,9 @@
 
 ## Current Goals
 
-- 將 governance hardening 變更完整落盤到文件、memory bank、git 與 GitHub 交付
-- 維持 agent-control manifest、測試、文件三者一致
-- 完成 release hardening：版本同步 guard、CHANGELOG、內部測試資料保護、分段提交與 tag 前檢查
+- 將 autonomous EDA 的 greedy plan ideation 正式整合進受治理 workflow
+- 維持 agent-control manifest、tool policy、prompt、README 與測試一致
+- 讓 agent 能先自主展開候選分析，再進入 Phase 4 plan lock
 
 ## Recently Completed
 
@@ -29,6 +29,16 @@
 - 內部測試資料經超音波施打動脈導管收案總表V3xlsx.xlsx 已加入 gitignore 與 release guard 阻擋
 - 全 repo pytest 通過，現為 49 passed, 3 skipped
 - pre-commit 全綠，包含新的 release consistency hook
+- `propose_analysis_plan()` 已落地為正式 MCP tool，位於 Phase 3 與 Phase 4 之間
+- 新增 deterministic greedy AutonomousEDAPlanner domain service + ProposeAnalysisPlanUseCase
+- extension allowlist、strict eda prompt、README、skills、agent-control 已同步接受 greedy plan ideation
+- 全 repo pytest 通過，現為 57 passed, 4 skipped
+- Phase 3.5 現在包含 deterministic methodology review + repair，不再只是 draft greedy 排序
+- Phase 3.5 現在會輸出 greedy execution schedule，供 Phase 6 排序使用
+- Phase 3.5/4 的 methodology review 改為 soft-budget expansion 優先，不先為了守住舊 budget 砍掉新 EDA 分支
+- Phase 4 `register_analysis_plan()` 會先自動補入 optional exploratory branches；補完後仍 under-scoped 才要求 override
+- collect_results / audit 的 plan coverage 只計 required analyses，不用 exploratory extension 懲罰 coverage
+- 全 repo pytest 通過，現為 63 passed, 3 skipped
 
 ## Known Issues
 
@@ -38,4 +48,4 @@
 ## Current Blockers
 
 - None critical
-- 尚未完成分段 commit、push 與 main merge 後 tag
+- AGENTS.md 仍有既有 markdownlint 噪音，但不影響 pytest / docs sync / MCP workflow

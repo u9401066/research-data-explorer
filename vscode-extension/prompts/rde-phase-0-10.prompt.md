@@ -13,11 +13,12 @@ tools: ['codebase', 'problems', 'runCommands', 'search']
 1. 先讀 `README.md`、`.github/copilot-instructions.md`、`.github/agent-control.yaml`、`AGENTS.md`
 2. 清楚標示目前是 Phase 0 到哪一個 phase
 3. Phase 3 `align_concept()` 必須 `confirm=true`
-4. Phase 4 `register_analysis_plan()` 必須 `confirm=true`
-5. Phase 5 要先完成 `check_readiness()`
-6. Phase 6 前要確認 plan 已鎖定且 readiness 完成；若需清理則使用 `apply_cleaning()`
-7. 若偏離 plan，要明確記錄 deviation
-8. 回答中引用 artifact 路徑與測試或實作來源
+4. 若使用者要 agent 自主規劃 EDA，或沒有提供明確分析清單，Phase 3 後先呼叫 `propose_analysis_plan()` 產生 greedy blueprint
+5. Phase 4 `register_analysis_plan()` 必須 `confirm=true`
+6. Phase 5 要先完成 `check_readiness()`
+7. Phase 6 前要確認 plan 已鎖定且 readiness 完成；若需清理則使用 `apply_cleaning()`
+8. 若偏離 plan，要明確記錄 deviation
+9. 回答中引用 artifact 路徑與測試或實作來源
 
 ## 產出格式
 

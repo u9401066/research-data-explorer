@@ -19,12 +19,36 @@ phase_controls:
     requires_user_confirmation: true
     confirmation_flag: confirm
     next_phase_unblocked_only_when_confirmed: true
+  plan_ideation:
+    tool: propose_analysis_plan
+    phase: phase_04_plan_registration
+    requires_confirmed_phase_03: true
+    strategy: greedy_coverage_under_budget
+    includes_internal_review_and_repair: true
+    review_may_expand_soft_budget: true
+    does_not_lock_plan: true
+    output_artifacts:
+      - greedy_analysis_candidates.json
+      - greedy_analysis_candidates.md
+      - greedy_analysis_review.json
+      - greedy_analysis_review.md
+      - greedy_execution_schedule.json
+      - greedy_execution_schedule.md
   plan_registration:
     tool: register_analysis_plan
     phase: phase_04_plan_registration
     requires_user_confirmation: true
     confirmation_flag: confirm
     locks_plan_when_confirmed: true
+    methodology_review_applies_before_lock: true
+    methodology_auto_expands_exploratory_branches_before_block: true
+    methodology_override_flag: allow_methodology_override
+    methodology_review_artifacts:
+      - analysis_plan_review.json
+      - analysis_plan_review.md
+    execution_schedule_artifacts:
+      - analysis_execution_schedule.json
+      - analysis_execution_schedule.md
   execute_exploration:
     phase: phase_06_execute_exploration
     requires_locked_plan: true

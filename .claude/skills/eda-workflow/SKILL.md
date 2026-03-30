@@ -50,12 +50,21 @@ align_concept(research_question, variable_roles, confirm=true)
 ```
 **Agent 必須：** 向用戶展示對齊結果，等待確認。
 
+### Phase 3.5: Greedy Plan Ideation（自主 EDA 時建議）
+```
+propose_analysis_plan()
+→ greedy_analysis_candidates.json + greedy_analysis_candidates.md
+→ greedy_analysis_review.json + greedy_analysis_review.md
+→ greedy_execution_schedule.json + greedy_execution_schedule.md
+```
+**Agent 必須：** 當使用者要 agent 自主規劃，或尚未提供明確分析清單時，先產生候選 blueprint。此步現在包含內部 methodology review + repair，會補足缺失的分析家族，而且必要時可擴張 soft budget 保留額外 EDA 路線，再進 Phase 4。execution schedule artifact 可直接作為 Phase 6 排程骨架。
+
 ### Phase 4: Analysis Plan Registration ⚠️ 用戶必須確認 → 🔒 鎖定
 ```
 register_analysis_plan(confirm=true)
 → analysis_plan.yaml (LOCKED after confirmation)
 ```
-**Agent 必須：** 展示完整計畫（方法、α 值、missing 策略），等待確認後鎖定。
+**Agent 必須：** 展示完整計畫（方法、α 值、missing 策略），等待確認後鎖定。若 plan 明顯低於方法學最低覆蓋要求，Phase 4 會先自動補入 exploratory extension；若補完後仍不足才在鎖定前擋下，除非明確使用 override flag。鎖定時同步保存 analysis execution schedule，供 Phase 6 依序執行。
 
 ### Phase 5: Pre-Exploration Check
 ```
@@ -121,4 +130,5 @@ export_handoff()   # 產出 handoff package → med-paper-assistant
 | 「只想看概況」 | Phase 0→1→2 → profile → Quick Report |
 | 「比較兩組」 | 完整 Phase 0-5 → compare_groups → 7-10 |
 | 「做 Table 1」 | 完整 Phase 0-5 → generate_table_one → 7-10 |
+| 「讓 agent 自主規劃」 | Phase 0→1→2→3 → propose_analysis_plan → 4→10 |
 | 「完整分析」 | 完整 Phase 0-10 |
