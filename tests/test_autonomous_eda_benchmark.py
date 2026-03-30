@@ -39,7 +39,9 @@ def test_reviewed_blueprint_benchmark_preserves_or_expands_coverage() -> None:
             "grouped_binary_outcome",
             _dataset(
                 _variable("mortality", VariableType.BINARY, role=VariableRole.OUTCOME, n_unique=2),
-                _variable("treatment_group", VariableType.BINARY, role=VariableRole.GROUP, n_unique=2),
+                _variable(
+                    "treatment_group", VariableType.BINARY, role=VariableRole.GROUP, n_unique=2
+                ),
                 _variable("age", VariableType.CONTINUOUS, role=VariableRole.COVARIATE),
                 _variable("sofa_score", VariableType.CONTINUOUS, role=VariableRole.PREDICTOR),
                 _variable("lactate", VariableType.BIOMARKER, role=VariableRole.PREDICTOR),

@@ -136,7 +136,16 @@ def test_prepare_direct_analysis_config_maps_target_column() -> None:
 
 def test_automl_gateway_routes_propensity_to_submit_endpoint() -> None:
     gateway = AutomlGateway()
-    fake_stats = _FakeClient([{"job_id": "prop-1", "job_type": "propensity_full", "status": "pending", "message": "submitted"}])
+    fake_stats = _FakeClient(
+        [
+            {
+                "job_id": "prop-1",
+                "job_type": "propensity_full",
+                "status": "pending",
+                "message": "submitted",
+            }
+        ]
+    )
     gateway._stats = fake_stats
 
     try:
@@ -172,7 +181,9 @@ def test_automl_gateway_routes_propensity_to_submit_endpoint() -> None:
 
 def test_automl_gateway_routes_survival_to_submit_endpoint() -> None:
     gateway = AutomlGateway()
-    fake_stats = _FakeClient([{"job_id": "surv-1", "job_type": "cox", "status": "pending", "message": "submitted"}])
+    fake_stats = _FakeClient(
+        [{"job_id": "surv-1", "job_type": "cox", "status": "pending", "message": "submitted"}]
+    )
     gateway._stats = fake_stats
 
     try:
@@ -207,7 +218,16 @@ def test_automl_gateway_routes_survival_to_submit_endpoint() -> None:
 
 def test_automl_gateway_routes_roc_to_submit_endpoint() -> None:
     gateway = AutomlGateway()
-    fake_stats = _FakeClient([{"job_id": "roc-1", "job_type": "roc_compute", "status": "pending", "message": "submitted"}])
+    fake_stats = _FakeClient(
+        [
+            {
+                "job_id": "roc-1",
+                "job_type": "roc_compute",
+                "status": "pending",
+                "message": "submitted",
+            }
+        ]
+    )
     gateway._stats = fake_stats
 
     try:

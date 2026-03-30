@@ -427,11 +427,7 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
         content = getattr(result, "content", None)
         if isinstance(content, (list, tuple)):
             blocks = content
-        elif (
-            isinstance(result, tuple)
-            and result
-            and isinstance(result[0], (list, tuple))
-        ):
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
             blocks = result[0]
         else:
             blocks = result if isinstance(result, (list, tuple)) else [result]
@@ -575,11 +571,7 @@ def test_init_project_uses_timestamp_prefixed_output_directory(tmp_path: Path) -
         content = getattr(result, "content", None)
         if isinstance(content, (list, tuple)):
             blocks = content
-        elif (
-            isinstance(result, tuple)
-            and result
-            and isinstance(result[0], (list, tuple))
-        ):
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
             blocks = result[0]
         else:
             blocks = result if isinstance(result, (list, tuple)) else [result]

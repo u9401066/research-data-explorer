@@ -141,8 +141,16 @@ def test_review_registered_plan_flags_under_scoped_plan() -> None:
     review = planner.review_registered_plan(
         dataset,
         [
-            {"type": "generate_table_one", "variables": ["age", "sex"], "group_variable": "treatment_group"},
-            {"type": "compare_groups", "variables": ["mortality"], "group_variable": "treatment_group"},
+            {
+                "type": "generate_table_one",
+                "variables": ["age", "sex"],
+                "group_variable": "treatment_group",
+            },
+            {
+                "type": "compare_groups",
+                "variables": ["mortality"],
+                "group_variable": "treatment_group",
+            },
         ],
         include_advanced=True,
         max_analyses=2,
@@ -217,7 +225,9 @@ def test_internal_review_expands_budget_before_dropping_optional_branch() -> Non
             "marker_a": 0.95,
             "marker_b": 0.95,
         },
-        groups=[_variable("treatment_group", VariableType.BINARY, role=VariableRole.GROUP, n_unique=2)],
+        groups=[
+            _variable("treatment_group", VariableType.BINARY, role=VariableRole.GROUP, n_unique=2)
+        ],
         continuous=[
             _variable("marker_a", VariableType.CONTINUOUS, n_missing=95),
             _variable("marker_b", VariableType.CONTINUOUS, n_missing=95),
@@ -264,9 +274,7 @@ def test_proposal_exposes_phase_six_execution_schedule() -> None:
         index for index, step in enumerate(schedule) if step.analysis_label == "compare_groups"
     )
     model_index = next(
-        index
-        for index, step in enumerate(schedule)
-        if step.analysis_label == "logistic_regression"
+        index for index, step in enumerate(schedule) if step.analysis_label == "logistic_regression"
     )
     assert compare_index < model_index
     assert any(step.analysis_label == "visualization_bundle" for step in schedule)
@@ -288,9 +296,7 @@ def test_repeated_measure_cluster_generates_repeated_measures_candidate() -> Non
     ]
     assert repeated, "expected repeated-measures candidate to be selected"
     assert repeated[0].candidate.variables == ("crp_t0", "crp_t1", "crp_t2")
-    assert any(
-        viz.plot_type == "paired" for viz in repeated[0].candidate.visualizations
-    )
+    assert any(viz.plot_type == "paired" for viz in repeated[0].candidate.visualizations)
 
 
 def test_learning_curve_signature_generates_cusum_candidate() -> None:
