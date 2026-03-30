@@ -27,6 +27,19 @@ def _is_direct_analysis_contract(result: Any) -> bool:
     }.issubset(result.keys())
 
 
+def _is_async_job_contract(result: Any) -> bool:
+    """Identify generic vendor async job submission responses."""
+    return (
+        isinstance(result, dict)
+        and {
+            "job_id",
+            "job_type",
+            "status",
+        }.issubset(result.keys())
+        and ("message" in result or "status_message" in result)
+    )
+
+
 def _summarize_advanced_analysis_result(analysis_result: Any) -> str:
     """Create a compact decision-log summary from a raw advanced-analysis payload."""
     if _is_direct_analysis_contract(analysis_result):
@@ -36,6 +49,18 @@ def _summarize_advanced_analysis_result(analysis_result: Any) -> str:
             f"status={analysis_result.get('status')}, "
             f"rows={preview.get('rows', '?')}, columns={preview.get('columns', '?')}"
         )
+
+    if _is_async_job_contract(analysis_result):
+        parts = [
+            f"job_id={analysis_result.get('job_id')}",
+            f"status={analysis_result.get('status')}",
+        ]
+        if "progress" in analysis_result:
+            parts.append(f"progress={analysis_result.get('progress')}")
+        status_message = analysis_result.get("status_message") or analysis_result.get("message")
+        if status_message:
+            parts.append(f"message={status_message}")
+        return ", ".join(parts)
 
     if isinstance(analysis_result, dict):
         if analysis_result.get("error"):
@@ -79,6 +104,8 @@ def _save_advanced_analysis_artifact(
         "result_summary": _summarize_advanced_analysis_result(analysis_result),
         "contract": "direct_analyze"
         if _is_direct_analysis_contract(analysis_result)
+        else "job_submission"
+        if _is_async_job_contract(analysis_result)
         else "structured_response",
     }
 
@@ -201,6 +228,26 @@ def _format_advanced_analysis_output(
             _append_nested_markdown(lines, "欄位型別", dtypes)
         lines.append(
             "\n這類 direct analyze 回應代表工作已送入 vendor stats-service 佇列；"
+            "若要追蹤完成狀態，請用 job_id 查詢 /jobs/{job_id}。"
+        )
+    elif _is_async_job_contract(analysis_result):
+        lines.append("\n## 工作提交摘要")
+        lines.append(f"- **job_id:** {analysis_result.get('job_id')}")
+        lines.append(f"- **job_type:** {analysis_result.get('job_type')}")
+        lines.append(f"- **status:** {analysis_result.get('status')}")
+        if "progress" in analysis_result:
+            progress = analysis_result.get("progress")
+            if isinstance(progress, (int, float)):
+                lines.append(f"- **progress:** {float(progress):.1%}")
+            else:
+                lines.append(f"- **progress:** {progress}")
+        status_message = analysis_result.get("status_message") or analysis_result.get("message")
+        if status_message:
+            lines.append(f"- **message:** {status_message}")
+        if analysis_result.get("created_at"):
+            lines.append(f"- **created_at:** {analysis_result.get('created_at')}")
+        lines.append(
+            "\n這類 async job 回應代表工作已送入 vendor 佇列；"
             "若要追蹤完成狀態，請用 job_id 查詢 /jobs/{job_id}。"
         )
     elif isinstance(analysis_result, dict):
@@ -946,6 +993,12 @@ def register_analysis_tools(server: Any) -> None:
         target_variable: str | None = None,
         group_variable: str | None = None,
         covariates: list[str] | None = None,
+        time_variable: str | None = None,
+        score_variable: str | None = None,
+        problem_type: str | None = None,
+        endpoint: str | None = None,
+        test_type: str | None = None,
+        vendor_options: dict[str, Any] | None = None,
     ) -> str:
         """執行進階統計分析，自動委派給 automl-stat-mcp（如可用）。
 
@@ -960,6 +1013,12 @@ def register_analysis_tools(server: Any) -> None:
             target_variable: 目標變數（如 outcome），如 "mortality"、"readmission"（可選）
             group_variable: 分組變數，如 "treatment"（可選）
             covariates: 共變量列表，如 ["age", "sex", "bmi"]（可選）
+            time_variable: survival / learning-curve 類型使用的時間或次序欄位（可選）
+            score_variable: ROC 類型使用的風險分數欄位（可選）
+            problem_type: AutoML 類型可顯式指定 binary / multiclass / regression（可選）
+            endpoint: vendor 子端點，如 propensity full / survival cox / roc compare（可選）
+            test_type: power analysis 的 test 類型，如 ttest / anova / chisquare / survival（可選）
+            vendor_options: 原樣傳遞給 vendor adapter 的額外參數（可選）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -976,6 +1035,11 @@ def register_analysis_tools(server: Any) -> None:
                 "analysis_type": analysis_type,
                 "target_variable": target_variable,
                 "group_variable": group_variable,
+                "time_variable": time_variable,
+                "score_variable": score_variable,
+                "problem_type": problem_type,
+                "endpoint": endpoint,
+                "test_type": test_type,
             },
         )
 
@@ -1000,6 +1064,7 @@ def register_analysis_tools(server: Any) -> None:
             config: dict = {
                 "variables": [],
                 "project_name": f"rde_{dataset_id}",
+                "user_id": f"rde-{project.id}",
             }
             if target_variable:
                 config["variables"].append(target_variable)
@@ -1011,6 +1076,26 @@ def register_analysis_tools(server: Any) -> None:
             if covariates:
                 config["covariates"] = covariates
                 config["variables"].extend(covariates)
+            if time_variable:
+                config["time_variable"] = time_variable
+                config["variables"].append(time_variable)
+                if _normalize_analysis_type(analysis_type) == "learning_curve_cusum":
+                    config["trial_var"] = time_variable
+            if score_variable:
+                config["score_variable"] = score_variable
+                config["variables"].append(score_variable)
+            if problem_type:
+                config["problem_type"] = problem_type
+            if endpoint:
+                config["endpoint"] = endpoint
+            if test_type:
+                config["test_type"] = test_type
+            if vendor_options:
+                config.update(
+                    {key: value for key, value in vendor_options.items() if value is not None}
+                )
+
+            config["variables"] = list(dict.fromkeys(config["variables"]))
 
             result = delegator.run_analysis(entry.dataframe, analysis_type, config)
 
