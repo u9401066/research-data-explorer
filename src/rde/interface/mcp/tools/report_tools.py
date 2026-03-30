@@ -108,7 +108,11 @@ def register_report_tools(server: Any) -> None:
             plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
             plan_coverage = None
             if plan and isinstance(plan, dict):
-                planned_analyses = plan.get("analyses", plan.get("steps", []))
+                planned_analyses = [
+                    entry
+                    for entry in plan.get("analyses", plan.get("steps", []))
+                    if not isinstance(entry, dict) or entry.get("required", True)
+                ]
                 plan_coverage = {
                     "planned": len(planned_analyses),
                     "executed": executed_analyses,
