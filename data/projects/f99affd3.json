@@ -1,0 +1,14 @@
+{
+  "id": "f99affd3",
+  "name": "mcp-phase6-collect",
+  "data_dir": "/tmp/pytest-of-runner/pytest-0/test_mcp_phase_6_marks_execute0/rawdata",
+  "output_dir": "data/projects/20260413_020742_f99affd3",
+  "created_at": "2026-04-13T02:07:42.264559",
+  "status": "created",
+  "research_question": "Do iris species differ in petal length?",
+  "dataset_ids": [],
+  "report_ids": [],
+  "completed_phases": [],
+  "plan_locked": false,
+  "config": {}
+}
