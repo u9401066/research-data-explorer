@@ -133,6 +133,10 @@ def register_project_tools(server: Any) -> None:
             fmt_error,
             ensure_project_context,
         )
+        from rde.interface.mcp.tools._shared.project_context import (
+            compute_phase6_progress,
+            PHASE6_REQUIRED_COVERAGE,
+        )
 
         log_tool_call("get_pipeline_status", {"project_id": project_id})
 
@@ -174,6 +178,29 @@ def register_project_tools(server: Any) -> None:
             lines.append(f"\n**下一步:** `{next_phase}`")
         else:
             lines.append("\n**🎉 所有階段已完成！**")
+
+        try:
+            progress = compute_phase6_progress(project)
+            planned = progress.get("planned_analyses", 0) or 0
+            executed = progress.get("executed_analyses", 0) or 0
+            required = progress.get("required_executions", 0) or 0
+            coverage = progress.get("coverage", 0.0) or 0.0
+            ready = progress.get("ready", False)
+            lines.append("\n## Phase 6 進度")
+            if planned:
+                lines.append(
+                    f"- {executed}/{planned}，覆蓋率 {coverage:.0%} "
+                    f"(門檻 {PHASE6_REQUIRED_COVERAGE:.0%}，需 {required} 項) "
+                    f"{'🟢 達標' if ready else '⌛ 繼續進行'}"
+                )
+            else:
+                lines.append(
+                    f"- 已執行 {executed} 項 (預設門檻 {required}) "
+                    f"{'🟢 達標' if ready else '⌛ 繼續進行'}"
+                )
+        except Exception:
+            # Pipeline progress hints are best-effort; ignore if context missing
+            pass
 
         return "\n".join(lines)
 

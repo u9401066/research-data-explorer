@@ -294,6 +294,11 @@ def _auto_log_decision(
     """
     from rde.application.session import get_session
     from rde.application.pipeline import PipelinePhase
+    from rde.interface.mcp.tools._shared.project_context import (
+        compute_phase6_progress,
+        mark_phase6_complete_if_ready,
+        save_phase6_progress,
+    )
 
     session = get_session()
     project = session.get_project()
@@ -309,22 +314,17 @@ def _auto_log_decision(
         artifacts=artifacts,
     )
 
-    if PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases:
-        from datetime import datetime
-
-        from rde.application.pipeline import PhaseResult
-        from rde.domain.models.project import ProjectStatus
-
-        pipeline.mark_started(PipelinePhase.EXECUTE_EXPLORATION)
-        pipeline.mark_completed(
-            PhaseResult(
-                phase=PipelinePhase.EXECUTE_EXPLORATION,
-                completed_at=datetime.now(),
-                success=True,
-                artifacts={"decision_log.jsonl": str(project.decision_log_path)},
-            )
-        )
-        project.advance_to(ProjectStatus.EXECUTE_EXPLORATION)
+    progress = compute_phase6_progress(project)
+    progress, progress_path = save_phase6_progress(
+        project,
+        progress,
+        last_action={
+            "tool": tool_name,
+            "parameters": parameters,
+            "result_summary": result_summary,
+        },
+    )
+    mark_phase6_complete_if_ready(project, pipeline, progress, progress_path)
 
     # Auto-detect plan deviation (S-011)
     if pipeline.plan_locked:

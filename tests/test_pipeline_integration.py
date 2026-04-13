@@ -509,6 +509,7 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
             },
         )
         await server.call_tool("check_readiness", {"project_id": project.id})
+        pipeline = session.get_pipeline(project.id)
         await server.call_tool(
             "generate_table_one",
             {
@@ -517,6 +518,10 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
                 "variables": ["sepal_length", "petal_length"],
             },
         )
+        assert PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases
+        early_collect = await server.call_tool("collect_results", {"project_id": project.id})
+        assert "Phase 6" in _textify(early_collect)
+        assert PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases
         await server.call_tool(
             "compare_groups",
             {
