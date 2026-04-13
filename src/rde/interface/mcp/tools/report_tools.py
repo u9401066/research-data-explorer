@@ -15,7 +15,7 @@ def register_report_tools(server: Any) -> None:
     """Register report and visualization MCP tools."""
 
     @server.tool()
-    def collect_results(project_id: str | None = None) -> str:
+    def collect_results(project_id: str | None = None, force: bool = False) -> str:
         """彙整 Phase 6 的所有分析結果，標記可發表內容 (Phase 7)。
 
         掃描已完成的分析，生成 results_summary.json。
@@ -23,23 +23,28 @@ def register_report_tools(server: Any) -> None:
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
+            force: 是否強制在未達 Phase 6 覆蓋率時收斂（會記錄偏離）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
+            ensure_project_context,
+        )
+        from rde.interface.mcp.tools._shared.project_context import (
+            compute_phase6_progress,
+            format_phase6_gate_message,
+            mark_phase6_complete_if_ready,
+            save_phase6_progress,
         )
         from rde.application.pipeline import PipelinePhase
 
-        log_tool_call("collect_results", {"project_id": project_id})
+        log_tool_call("collect_results", {"project_id": project_id, "force": force})
 
-        ok, msg, project, _ = ensure_phase_ready(
-            PipelinePhase.COLLECT_RESULTS, project_id=project_id
-        )
-        if not ok:
+        ok, msg, project = ensure_project_context(project_id)
+        if not ok or project is None:
             return fmt_error(msg)
-        assert project is not None
 
         try:
             from rde.application.session import get_session
@@ -50,22 +55,34 @@ def register_report_tools(server: Any) -> None:
             session = get_session()
             pipeline = session.get_pipeline(project.id)
             logger = session.get_logger(project.id)
-
-            # H-008: Check that Phase 6 analysis has been done
             store = ArtifactStore(project.artifacts_dir)
-            decisions = logger.read_decisions()
-            datasets = session.list_datasets()
 
-            has_analysis = (
-                any(session.get_dataset_entry(did).analysis_results for did in datasets)
-                if datasets
-                else False
-            )
+            # Gate Phase 7 on sufficient Phase 6 coverage
+            progress = compute_phase6_progress(project)
+            progress, progress_path = save_phase6_progress(project, progress)
+            if PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases:
+                if progress.get("ready"):
+                    mark_phase6_complete_if_ready(project, pipeline, progress, progress_path)
+                elif not force:
+                    return fmt_error(
+                        format_phase6_gate_message(progress),
+                        suggestion="請依分析計畫持續進行 Phase 6，或在說明下使用 force=true。",
+                    )
+                else:
+                    logger.log_deviation(
+                        phase="phase_06",
+                        planned_action="完成已鎖定計畫後再收斂",
+                        actual_action="force=true 提早收斂 Phase 6",
+                        reason="[S-011] 未達計畫覆蓋率即進入 Phase 7",
+                        impact_assessment="請在審計時確認未完成的分析是否關鍵",
+                    )
+                    mark_phase6_complete_if_ready(
+                        project, pipeline, progress, progress_path, force=True
+                    )
 
-            if not decisions and not has_analysis:
-                return fmt_error(
-                    "[H-008] Phase 6 尚未完成。必須先執行分析 (Phase 6) 才能收集結果。"
-                )
+            ok, msg, _, _ = ensure_phase_ready(PipelinePhase.COLLECT_RESULTS, project_id=project.id)
+            if not ok:
+                return fmt_error(msg)
 
             # Read all datasets' analysis results
             datasets = session.list_datasets()
@@ -118,6 +135,9 @@ def register_report_tools(server: Any) -> None:
                     "executed": executed_analyses,
                     "coverage": min(1.0, executed_analyses / max(1, len(planned_analyses))),
                 }
+                progress["planned_analyses"] = plan_coverage["planned"]
+                progress["executed_analyses"] = plan_coverage["executed"]
+                progress["coverage"] = plan_coverage["coverage"]
 
             # S-012: Sensitivity analysis suggestion
             sensitivity_hint = None
@@ -133,6 +153,7 @@ def register_report_tools(server: Any) -> None:
                 "plan_coverage": plan_coverage,
                 "decision_count": len(decisions),
                 "deviation_count": len(deviations),
+                "phase6_progress": progress,
             }
 
             # Save artifact
@@ -163,6 +184,11 @@ def register_report_tools(server: Any) -> None:
                 lines.append(
                     f"- **計畫涵蓋率:** {plan_coverage['coverage']:.0%} "
                     f"({plan_coverage['executed']}/{plan_coverage['planned']})"
+                )
+            else:
+                lines.append(
+                    f"- **Phase 6 進度:** 已執行 {progress.get('executed_analyses', 0)} 項 "
+                    f"(門檻: {progress.get('required_executions')})"
                 )
 
             if publishable:

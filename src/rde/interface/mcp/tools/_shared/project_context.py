@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
-from rde.application.pipeline import PREREQUISITES, OPTIONAL_PHASES, PipelinePhase
+from datetime import datetime
+import math
+
+from rde.application.pipeline import (
+    PREREQUISITES,
+    OPTIONAL_PHASES,
+    PhaseResult,
+    PipelinePhase,
+)
 from rde.application.session import get_session, DatasetEntry
 from rde.domain.models.project import Project
+from rde.domain.models.project import ProjectStatus
 from rde.domain.policies.hard_constraints import HardConstraints
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -100,6 +109,127 @@ def ensure_minimum_sample_size(
     """Validate H-003 before statistical analysis executes."""
     check = HardConstraints.h003_min_sample_size(dataset_entry.dataset.row_count, min_n=min_n)
     return check.passed, check.message
+
+
+PHASE6_PROGRESS_FILENAME = "phase_06_progress.json"
+PHASE6_REQUIRED_COVERAGE = 0.8
+PHASE6_MIN_EXECUTIONS_NO_PLAN = 2
+
+
+def _extract_planned_analyses(plan: dict | None) -> list:
+    """Return required analyses from the locked plan."""
+    if not plan or not isinstance(plan, dict):
+        return []
+    entries = plan.get("analyses", plan.get("steps", [])) or []
+    return [
+        entry for entry in entries if not isinstance(entry, dict) or entry.get("required", True)
+    ]
+
+
+def compute_phase6_progress(project: Project) -> dict[str, object]:
+    """Compute how far Phase 6 has progressed relative to the locked plan."""
+    session = get_session()
+    logger = session.get_logger(project.id)
+    decision_count = logger.decision_count
+    dataset_ids = session.list_datasets()
+    analysis_result_count = sum(
+        len(session.get_dataset_entry(did).analysis_results) for did in dataset_ids
+    )
+    executed = max(decision_count, analysis_result_count)
+
+    store = ArtifactStore(project.artifacts_dir)
+    plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+    planned_entries = _extract_planned_analyses(plan)
+    planned = len(planned_entries)
+
+    if planned > 0:
+        required_executions = max(1, math.ceil(planned * PHASE6_REQUIRED_COVERAGE))
+        coverage = executed / planned if planned else 0.0
+        ready = executed >= required_executions and coverage >= PHASE6_REQUIRED_COVERAGE
+    else:
+        required_executions = PHASE6_MIN_EXECUTIONS_NO_PLAN
+        coverage = 1.0 if executed else 0.0
+        ready = executed >= required_executions
+
+    return {
+        "planned_analyses": planned,
+        "planned_entries": planned_entries,
+        "executed_analyses": executed,
+        "decision_count": decision_count,
+        "analysis_result_count": analysis_result_count,
+        "coverage": coverage,
+        "required_coverage": PHASE6_REQUIRED_COVERAGE if planned else None,
+        "required_executions": required_executions,
+        "ready": ready,
+    }
+
+
+def save_phase6_progress(
+    project: Project,
+    progress: dict[str, object],
+    *,
+    last_action: dict | None = None,
+) -> tuple[dict[str, object], str]:
+    """Persist the latest Phase 6 progress snapshot."""
+    store = ArtifactStore(project.artifacts_dir)
+    snapshot = dict(progress)
+    snapshot["timestamp"] = datetime.now().isoformat()
+    if last_action:
+        snapshot["last_action"] = last_action
+    path = store.save(PipelinePhase.EXECUTE_EXPLORATION, PHASE6_PROGRESS_FILENAME, snapshot)
+    return snapshot, str(path)
+
+
+def mark_phase6_complete_if_ready(
+    project: Project,
+    pipeline: "PipelineState",
+    progress: dict[str, object],
+    progress_path: str | None,
+    *,
+    force: bool = False,
+) -> bool:
+    """Mark Phase 6 as completed when ready or forced."""
+    from rde.application.pipeline import PipelinePhase
+
+    if PipelinePhase.EXECUTE_EXPLORATION in pipeline.completed_phases:
+        return False
+
+    if not progress.get("ready", False) and not force:
+        return False
+
+    artifacts = {"decision_log.jsonl": str(project.decision_log_path)}
+    if progress_path:
+        artifacts[PHASE6_PROGRESS_FILENAME] = progress_path
+
+    pipeline.mark_completed(
+        PhaseResult(
+            phase=PipelinePhase.EXECUTE_EXPLORATION,
+            completed_at=datetime.now(),
+            success=True,
+            artifacts=artifacts,
+            warnings=[] if not force else ["forced_completion_before_plan_coverage"],
+        )
+    )
+    project.advance_to(ProjectStatus.EXECUTE_EXPLORATION)
+    return True
+
+
+def format_phase6_gate_message(progress: dict[str, object]) -> str:
+    """Build a user-facing message for insufficient Phase 6 progress."""
+    planned = progress.get("planned_analyses", 0) or 0
+    executed = progress.get("executed_analyses", 0) or 0
+    coverage = progress.get("coverage", 0.0) or 0.0
+    required_exec = progress.get("required_executions", 0) or 0
+    if planned:
+        return (
+            f"Phase 6 尚未達到完成門檻：計畫 {planned} 項，已執行 {executed} 項 "
+            f"(覆蓋率 {coverage:.0%}，需至少完成 {required_exec} 項或覆蓋率 "
+            f"{PHASE6_REQUIRED_COVERAGE:.0%})"
+        )
+    return (
+        f"Phase 6 仍在進行：已執行 {executed} 項分析，需至少 {required_exec} 項後才能收斂 "
+        "(無鎖定計畫時預設門檻 = 2)"
+    )
 
 
 def check_plan_adherence(
