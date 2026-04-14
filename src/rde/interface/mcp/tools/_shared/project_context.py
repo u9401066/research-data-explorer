@@ -10,6 +10,7 @@ from rde.application.pipeline import (
     OPTIONAL_PHASES,
     PhaseResult,
     PipelinePhase,
+    PipelineState,
 )
 from rde.application.session import get_session, DatasetEntry
 from rde.domain.models.project import Project
@@ -182,7 +183,7 @@ def save_phase6_progress(
 
 def mark_phase6_complete_if_ready(
     project: Project,
-    pipeline: "PipelineState",
+    pipeline: PipelineState,
     progress: dict[str, object],
     progress_path: str | None,
     *,
