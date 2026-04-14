@@ -6,6 +6,13 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-04-14
+
+### 0.4.2 Fixed
+
+- AKI helper scripts now resolve `data/` and `src/` paths from the repository root instead of the caller cwd, so direct script execution behaves consistently on macOS, Linux, and Windows.
+- Local runtime outputs now stay out of Git status by ignoring short-ID `data/projects/*.json` metadata files and `uv.lock`.
+
 ## [0.4.1] - 2026-04-14
 
 ### 0.4.1 Fixed
