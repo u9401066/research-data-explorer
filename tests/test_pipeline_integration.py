@@ -648,7 +648,10 @@ def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
 ) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 
-    from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+    from rde.infrastructure.persistence import (
+        FileSystemProjectRepository,
+        resolve_projects_base_dir,
+    )
 
     workspace_dir = tmp_path / "workspace"
     raw_dir = workspace_dir / "rawdata"
