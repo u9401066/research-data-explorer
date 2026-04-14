@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "11-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {

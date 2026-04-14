@@ -6,7 +6,9 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
-### Unreleased Fixed
+## [0.4.1] - 2026-04-14
+
+### 0.4.1 Fixed
 
 - VS Code extension project creation now resolves `data/projects/` from `RDE_WORKSPACE` instead of the MCP server process cwd, so `init_project()` writes new project folders into the active workspace rather than the user's home directory.
 - Persisted project metadata now rehydrates back into the MCP session after a server reset, including pipeline completion state and plan-lock status, so tools like `get_pipeline_status(project_id=...)` can continue from saved workspace projects.
