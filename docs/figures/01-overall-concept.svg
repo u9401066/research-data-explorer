@@ -48,7 +48,7 @@
   <text x="500" y="148" text-anchor="middle" font-size="22" font-weight="700" fill="#fff">Research Data Explorer</text>
   <text x="500" y="175" text-anchor="middle" font-size="13" fill="#dbeafe">11-Phase Auditable EDA Pipeline</text>
   <text x="500" y="196" text-anchor="middle" font-size="13" fill="#dbeafe">MCP Server + VS Code Agent Mode</text>
-  <text x="500" y="217" text-anchor="middle" font-size="12" fill="#93c5fd">v0.4.2 · Python 3.10+ · DDD Architecture</text>
+  <text x="500" y="217" text-anchor="middle" font-size="12" fill="#93c5fd">v0.4.3 · Python 3.10+ · DDD Architecture</text>
 
   <!-- Connecting Lines from core to pillars -->
   <line x1="340" y1="235" x2="160" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,3"/>

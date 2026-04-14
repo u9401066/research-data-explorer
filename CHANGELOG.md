@@ -6,6 +6,18 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-04-14
+
+### 0.4.3 Added
+
+- Three new SVG architecture figures under `docs/figures/` covering the overall concept, DDD system architecture, and the full 11-phase governed workflow.
+- Visual Overview sections in both `README.md` and `README.zh-TW.md` so the new diagrams are visible directly from the repository landing pages.
+
+### 0.4.3 Fixed
+
+- Repository-wide formatting and small lint/type cleanup needed for the CI quality gate to pass consistently after the documentation update.
+- The AKI report export helper now satisfies the repository Ruff import-order rule when executed directly.
+
 ## [0.4.2] - 2026-04-14
 
 ### 0.4.2 Fixed

@@ -1,6 +1,6 @@
 [project]
 name = "research-data-explorer"
-version = "0.4.2"
+version = "0.4.3"
 description = "11-Phase Auditable EDA Pipeline — MCP Server"
 requires-python = ">=3.11"
 dependencies = [
