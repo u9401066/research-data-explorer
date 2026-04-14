@@ -19,13 +19,15 @@ from rde.application.pipeline import (
     PipelineState,
     PhaseResult,
     USER_CONFIRMATION_REQUIRED,
+    REQUIRED_ARTIFACTS,
 )
 from rde.domain.models.cleaning import CleaningPlan
 from rde.domain.models.dataset import Dataset
 from rde.domain.models.profile import DataProfile
-from rde.domain.models.project import PIPELINE_ORDER, Project
+from rde.domain.models.project import PIPELINE_ORDER, Project, ProjectStatus
 from rde.domain.models.quality import QualityReport
 from rde.domain.models.analysis import AnalysisResult
+from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
 
 @dataclass
@@ -106,9 +108,48 @@ class SessionRegistry:
         except FileNotFoundError:
             return None
 
+        if self._repair_project_from_artifacts(project):
+            repo.save(project)
+
         self.register_project(project)
         self._rehydrate_pipeline(project)
         return project
+
+    def _repair_project_from_artifacts(self, project: Project) -> bool:
+        """Backfill legacy project state from existing phase artifacts."""
+
+        store = ArtifactStore(project.artifacts_dir)
+        completed = set(project.completed_phases)
+
+        if project.status in PIPELINE_ORDER:
+            completed.add(project.status)
+
+        for project_status in PIPELINE_ORDER:
+            phase = PipelinePhase(project_status.value)
+            required = REQUIRED_ARTIFACTS.get(phase, [])
+            if not required:
+                continue
+            present, _ = store.check_artifacts(phase)
+            if present:
+                completed.add(project_status)
+
+        repaired_completed = [status for status in PIPELINE_ORDER if status in completed]
+        repaired_status = repaired_completed[-1] if repaired_completed else project.status
+        repaired_plan_locked = project.plan_locked or ProjectStatus.PLAN_REGISTRATION in completed
+
+        changed = False
+        current_completed = [status for status in PIPELINE_ORDER if status in project.completed_phases]
+        if current_completed != repaired_completed:
+            project.completed_phases = repaired_completed
+            changed = True
+        if project.status != repaired_status:
+            project.status = repaired_status
+            changed = True
+        if project.plan_locked != repaired_plan_locked:
+            project.plan_locked = repaired_plan_locked
+            changed = True
+
+        return changed
 
     def _rehydrate_pipeline(self, project: Project) -> None:
         if project.id in self._pipelines:

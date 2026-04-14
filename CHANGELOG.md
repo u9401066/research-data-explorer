@@ -6,6 +6,13 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-04-14
+
+### 0.4.4 Fixed
+
+- Loading a persisted project now repairs stale `status`, `completed_phases`, and `plan_locked` from existing phase artifacts before rehydrating the MCP session, so legacy projects can resume from their real artifact-backed progress instead of getting stuck at an older JSON phase.
+- Older projects with complete Phase 7-10 artifacts can now be reopened and extended without cloning their artifacts into a separate follow-up project just to satisfy phase gates.
+
 ## [0.4.3] - 2026-04-14
 
 ### 0.4.3 Added

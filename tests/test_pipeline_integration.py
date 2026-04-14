@@ -841,3 +841,102 @@ def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
     assert "🔒 已鎖定" in output
     assert "phase_04_plan_registration" in output
     assert "phase_05_pre_explore_check" in output
+
+
+def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    from rde.infrastructure.persistence import (
+        FileSystemProjectRepository,
+        resolve_projects_base_dir,
+    )
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+
+    projects_base_dir = resolve_projects_base_dir()
+    output_dir = projects_base_dir / "20260414_150000_stalefix"
+    output_dir.mkdir(parents=True)
+    (output_dir / "artifacts").mkdir(exist_ok=True)
+    (output_dir / "figures").mkdir(exist_ok=True)
+
+    project = Project(
+        id="stalefix",
+        name="stale-artifact-project",
+        data_dir=raw_dir,
+        output_dir=output_dir,
+        created_at=datetime(2026, 4, 14, 15, 0, 0),
+        research_question="Can stale project JSON recover from later artifacts?",
+        status=ProjectStatus.PRE_EXPLORE_CHECK,
+        completed_phases=[
+            ProjectStatus.PROJECT_SETUP,
+            ProjectStatus.DATA_INTAKE,
+            ProjectStatus.SCHEMA_REGISTRY,
+            ProjectStatus.CONCEPT_ALIGNMENT,
+            ProjectStatus.PLAN_REGISTRATION,
+            ProjectStatus.PRE_EXPLORE_CHECK,
+        ],
+        plan_locked=True,
+    )
+
+    repo = FileSystemProjectRepository(projects_base_dir)
+    repo.save(project)
+
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {"id": project.id})
+    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"dataset_id": "legacy-ds"})
+    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": []})
+    store.save(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md", "aligned")
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "variable_roles.json",
+        {"dataset": "legacy-ds", "group": "treatment"},
+    )
+    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"analyses": []})
+    store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", {"checks": []})
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "decision_log.jsonl",
+        {"action": "legacy execution"},
+    )
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {"project_id": project.id, "summary": "results collected"},
+    )
+    store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", "# report")
+    store.save(PipelinePhase.AUDIT_REVIEW, "audit_report.json", {"grade": "B"})
+    store.save(PipelinePhase.AUTO_IMPROVE, "final_report.md", "# final")
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        if isinstance(content, (list, tuple)):
+            blocks = content
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
+            blocks = result[0]
+        else:
+            blocks = result if isinstance(result, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> str:
+        server = create_server()
+        result = await server.call_tool("get_pipeline_status", {"project_id": project.id})
+        return _textify(result)
+
+    output = asyncio.run(run_flow())
+    repaired = repo.load_project(project.id)
+
+    assert "phase_10_auto_improve" in output
+    assert repaired.status == ProjectStatus.AUTO_IMPROVE
+    assert ProjectStatus.AUTO_IMPROVE in repaired.completed_phases
+    assert ProjectStatus.COLLECT_RESULTS in repaired.completed_phases
+    assert ProjectStatus.REPORT_ASSEMBLY in repaired.completed_phases
+    assert ProjectStatus.AUDIT_REVIEW in repaired.completed_phases
