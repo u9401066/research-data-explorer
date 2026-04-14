@@ -16,6 +16,10 @@ env/
 .vscode/
 !.vscode/mcp.json
 .idea/
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/bundled/tool/
+vscode-extension/*.vsix
 
 # OS
 .DS_Store
@@ -48,6 +52,7 @@ tests/**/*.py[cod]
 *.py.bak
 *.swp
 *~
+.tools/
 
 # xhtml2pdf / reportlab caches
 .cache/
