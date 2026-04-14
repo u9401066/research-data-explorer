@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" font-family="'Segoe UI','Noto Sans TC',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="pillGrad1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0f9ff"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="pillGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#dcfce7"/>
+    </linearGradient>
+    <linearGradient id="pillGrad3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff7ed"/>
+      <stop offset="100%" stop-color="#fed7aa"/>
+    </linearGradient>
+    <linearGradient id="pillGrad4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fdf4ff"/>
+      <stop offset="100%" stop-color="#f3e8ff"/>
+    </linearGradient>
+    <linearGradient id="pillGrad5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fefce8"/>
+      <stop offset="100%" stop-color="#fef08a"/>
+    </linearGradient>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.10"/>
+    </filter>
+    <filter id="shadowLg" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="720" rx="16" fill="url(#bgGrad)"/>
+
+  <!-- Title -->
+  <text x="500" y="52" text-anchor="middle" font-size="28" font-weight="700" fill="#1e293b">Research Data Explorer — 整體概念總覽</text>
+  <text x="500" y="80" text-anchor="middle" font-size="14" fill="#64748b">AI-Powered Governed EDA Pipeline for Non-Technical Researchers</text>
+
+  <!-- Central core -->
+  <rect x="320" y="105" width="360" height="130" rx="20" fill="url(#coreGrad)" filter="url(#shadowLg)"/>
+  <text x="500" y="148" text-anchor="middle" font-size="22" font-weight="700" fill="#fff">Research Data Explorer</text>
+  <text x="500" y="175" text-anchor="middle" font-size="13" fill="#dbeafe">11-Phase Auditable EDA Pipeline</text>
+  <text x="500" y="196" text-anchor="middle" font-size="13" fill="#dbeafe">MCP Server + VS Code Agent Mode</text>
+  <text x="500" y="217" text-anchor="middle" font-size="12" fill="#93c5fd">v0.4.2 · Python 3.10+ · DDD Architecture</text>
+
+  <!-- Connecting Lines from core to pillars -->
+  <line x1="340" y1="235" x2="160" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <line x1="500" y1="235" x2="500" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <line x1="660" y1="235" x2="840" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,3"/>
+
+  <!-- Pillar 1: Constrained Analysis -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="300" width="240" height="155" rx="14" fill="url(#pillGrad1)" stroke="#93c5fd" stroke-width="1.5"/>
+    <rect x="40" y="300" width="240" height="36" rx="14" fill="#3b82f6"/>
+    <rect x="40" y="322" width="240" height="14" fill="#3b82f6"/>
+    <text x="160" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">🔒 受約束的分析執行</text>
+    <text x="60" y="360" font-size="11.5" fill="#334155">• 階段閘門（Phase Gate）強制順序</text>
+    <text x="60" y="380" font-size="11.5" fill="#334155">• 計畫鎖定後才可執行分析</text>
+    <text x="60" y="400" font-size="11.5" fill="#334155">• 10 項硬性約束 + 軟性提醒</text>
+    <text x="60" y="420" font-size="11.5" fill="#334155">• PII 偵測 / 檔案格式白名單</text>
+    <text x="60" y="440" font-size="11.5" fill="#334155">• 最小樣本數 / 多重比較校正</text>
+  </g>
+
+  <!-- Pillar 2: Auditable Workflow -->
+  <g filter="url(#shadow)">
+    <rect x="380" y="300" width="240" height="155" rx="14" fill="url(#pillGrad2)" stroke="#86efac" stroke-width="1.5"/>
+    <rect x="380" y="300" width="240" height="36" rx="14" fill="#16a34a"/>
+    <rect x="380" y="322" width="240" height="14" fill="#16a34a"/>
+    <text x="500" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">📋 可稽核的工作流程</text>
+    <text x="400" y="360" font-size="11.5" fill="#334155">• 決策日誌（Decision Log）</text>
+    <text x="400" y="380" font-size="11.5" fill="#334155">• 偏差日誌（Deviation Log）</text>
+    <text x="400" y="400" font-size="11.5" fill="#334155">• 每階段產出 Artifact 存檔</text>
+    <text x="400" y="420" font-size="11.5" fill="#334155">• Append-only 不可竄改記錄</text>
+    <text x="400" y="440" font-size="11.5" fill="#334155">• 報告完整性校驗 + 匯出交付</text>
+  </g>
+
+  <!-- Pillar 3: Delegated Analysis -->
+  <g filter="url(#shadow)">
+    <rect x="720" y="300" width="240" height="155" rx="14" fill="url(#pillGrad3)" stroke="#fdba74" stroke-width="1.5"/>
+    <rect x="720" y="300" width="240" height="36" rx="14" fill="#ea580c"/>
+    <rect x="720" y="322" width="240" height="14" fill="#ea580c"/>
+    <text x="840" y="324" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">🚀 委派式進階分析</text>
+    <text x="740" y="360" font-size="11.5" fill="#334155">• automl-stat-mcp 重量分析引擎</text>
+    <text x="740" y="380" font-size="11.5" fill="#334155">• 生存分析 / ROC-AUC / 檢定力</text>
+    <text x="740" y="400" font-size="11.5" fill="#334155">• 傾向分數 / AutoML 訓練</text>
+    <text x="740" y="420" font-size="11.5" fill="#334155">• 學習曲線 CUSUM 分析</text>
+    <text x="740" y="440" font-size="11.5" fill="#334155">• 本地 SciPy + 遠端 Vendor 分流</text>
+  </g>
+
+  <!-- Bottom section: User roles and flow -->
+  <rect x="40" y="490" width="920" height="100" rx="14" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#shadow)"/>
+
+  <!-- User -->
+  <g>
+    <circle cx="110" cy="540" r="28" fill="url(#pillGrad4)" stroke="#c084fc" stroke-width="1.5"/>
+    <text x="110" y="536" text-anchor="middle" font-size="20">🧑‍🔬</text>
+    <text x="110" y="554" text-anchor="middle" font-size="9" fill="#7c3aed">研究者</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="145" y1="540" x2="195" y2="540" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+  <defs><marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#94a3b8"/></marker></defs>
+
+  <!-- VS Code -->
+  <g>
+    <rect x="200" y="515" width="120" height="50" rx="10" fill="url(#pillGrad4)" stroke="#c084fc" stroke-width="1.5"/>
+    <text x="260" y="537" text-anchor="middle" font-size="13" font-weight="600" fill="#6d28d9">VS Code</text>
+    <text x="260" y="554" text-anchor="middle" font-size="10" fill="#7c3aed">Agent Mode</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="325" y1="540" x2="365" y2="540" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+  <text x="345" y="532" text-anchor="middle" font-size="9" fill="#94a3b8">MCP</text>
+
+  <!-- RDE Server -->
+  <g>
+    <rect x="370" y="510" width="170" height="60" rx="10" fill="url(#pillGrad1)" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="455" y="535" text-anchor="middle" font-size="13" font-weight="600" fill="#1d4ed8">RDE MCP Server</text>
+    <text x="455" y="554" text-anchor="middle" font-size="10" fill="#3b82f6">11-Phase Pipeline</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="545" y1="540" x2="585" y2="540" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+
+  <!-- Local Engine -->
+  <g>
+    <rect x="590" y="510" width="140" height="60" rx="10" fill="url(#pillGrad2)" stroke="#86efac" stroke-width="1.5"/>
+    <text x="660" y="535" text-anchor="middle" font-size="13" font-weight="600" fill="#15803d">Local Engine</text>
+    <text x="660" y="554" text-anchor="middle" font-size="10" fill="#16a34a">SciPy / Pandas</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="735" y1="540" x2="775" y2="540" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+
+  <!-- Vendor -->
+  <g>
+    <rect x="780" y="510" width="160" height="60" rx="10" fill="url(#pillGrad3)" stroke="#fdba74" stroke-width="1.5"/>
+    <text x="860" y="535" text-anchor="middle" font-size="13" font-weight="600" fill="#c2410c">automl-stat-mcp</text>
+    <text x="860" y="554" text-anchor="middle" font-size="10" fill="#ea580c">Delegated Analysis</text>
+  </g>
+
+  <!-- Bottom tagline -->
+  <rect x="40" y="615" width="920" height="90" rx="14" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="500" y="648" text-anchor="middle" font-size="15" font-weight="600" fill="#f1f5f9">💡 核心價值：將可信賴的方法池放入可稽核、可審查、可交付的工作流程中</text>
+  <text x="500" y="674" text-anchor="middle" font-size="12" fill="#94a3b8">RDE's value is not maximum method coverage — it's putting a narrower but trusted method pool</text>
+  <text x="500" y="692" text-anchor="middle" font-size="12" fill="#94a3b8">inside an auditable, reviewable, handoff-ready workflow.</text>
+</svg>

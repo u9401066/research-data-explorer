@@ -95,7 +95,10 @@ class SessionRegistry:
         return self._pipelines[project_id]
 
     def _load_project_from_repository(self, project_id: str) -> Project | None:
-        from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+        from rde.infrastructure.persistence import (
+            FileSystemProjectRepository,
+            resolve_projects_base_dir,
+        )
 
         repo = FileSystemProjectRepository(resolve_projects_base_dir())
         try:
@@ -118,7 +121,9 @@ class SessionRegistry:
             if project_status not in completed_statuses:
                 continue
             pipeline_phase = PipelinePhase(project_status.value)
-            completed_at = project.created_at if isinstance(project.created_at, datetime) else datetime.now()
+            completed_at = (
+                project.created_at if isinstance(project.created_at, datetime) else datetime.now()
+            )
             pipeline.mark_completed(
                 PhaseResult(
                     phase=pipeline_phase,

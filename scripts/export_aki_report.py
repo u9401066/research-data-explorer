@@ -9,9 +9,6 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from rde.domain.models.report import EDAReport
-from rde.infrastructure.adapters.docx_exporter import DocxExporter
-
 # Paths
 report_md = REPO_ROOT / "data" / "reports" / "aki_analysis" / "eda_report_final.md"
 figures_dir = REPO_ROOT / "data" / "reports" / "aki_analysis" / "figures"
@@ -20,6 +17,9 @@ output_pdf_html = REPO_ROOT / "data" / "reports" / "aki_analysis" / "eda_report_
 
 
 def main() -> None:
+    from rde.domain.models.report import EDAReport
+    from rde.infrastructure.adapters.docx_exporter import DocxExporter
+
     md_content = report_md.read_text(encoding="utf-8")
     print(f"Read report: {len(md_content)} chars")
 

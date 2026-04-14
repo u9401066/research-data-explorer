@@ -293,7 +293,6 @@ def _auto_log_decision(
     in the locked analysis plan, auto-logs a deviation entry.
     """
     from rde.application.session import get_session
-    from rde.application.pipeline import PipelinePhase
     from rde.interface.mcp.tools._shared.project_context import (
         compute_phase6_progress,
         mark_phase6_complete_if_ready,

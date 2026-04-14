@@ -174,8 +174,12 @@ class TestArtifactGateHook:
         )
         pattern = re.compile(artifact_gate["files"])
 
-        assert pattern.search("data/projects/20260414_demo/artifacts/phase_00_project_setup/project.yaml")
-        assert pattern.search(r"data\projects\20260414_demo\artifacts\phase_00_project_setup\project.yaml")
+        assert pattern.search(
+            "data/projects/20260414_demo/artifacts/phase_00_project_setup/project.yaml"
+        )
+        assert pattern.search(
+            r"data\projects\20260414_demo\artifacts\phase_00_project_setup\project.yaml"
+        )
 
 
 # ── agent-control.yaml delegation section ────────────────────────

@@ -32,7 +32,12 @@ def test_aki_scripts_resolve_paths_from_repo_root(tmp_path: Path, monkeypatch) -
     assert visualize.FIG_DIR == ROOT / "data" / "reports" / "aki_analysis" / "figures"
     assert export.report_md == ROOT / "data" / "reports" / "aki_analysis" / "eda_report_final.md"
     assert export.figures_dir == ROOT / "data" / "reports" / "aki_analysis" / "figures"
-    assert export.output_docx == ROOT / "data" / "reports" / "aki_analysis" / "eda_report_final.docx"
-    assert export.output_pdf_html == ROOT / "data" / "reports" / "aki_analysis" / "eda_report_final.pdf"
+    assert (
+        export.output_docx == ROOT / "data" / "reports" / "aki_analysis" / "eda_report_final.docx"
+    )
+    assert (
+        export.output_pdf_html
+        == ROOT / "data" / "reports" / "aki_analysis" / "eda_report_final.pdf"
+    )
     assert str(ROOT / "src") in sys.path
     assert not (tmp_path / "data").exists()
