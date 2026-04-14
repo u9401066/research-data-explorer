@@ -566,7 +566,7 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
     assert "100% (4/4)" in collect_output
 
 
-def test_init_project_uses_timestamp_prefixed_output_directory(tmp_path: Path) -> None:
+def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 
     raw_dir = tmp_path / "rawdata"
@@ -602,7 +602,7 @@ def test_init_project_uses_timestamp_prefixed_output_directory(tmp_path: Path) -
 
     output, project_id, folder_name = asyncio.run(run_flow())
 
-    assert re.fullmatch(r"\d{8}_\d{6}_[0-9a-f]{8}", folder_name)
+    assert re.fullmatch(r"\d{8}_\d{6}_timestamp-order-check_[0-9a-f]{8}", folder_name)
     assert folder_name.endswith(f"_{project_id}")
     assert folder_name in output
     assert f"data/projects/{folder_name}" in output.replace("\\", "/")
@@ -640,7 +640,142 @@ def test_init_project_uses_workspace_env_for_output_directory(
 
     assert project.output_dir.parent == expected_base
     assert project.output_dir.exists()
+    assert "workspace-output-check" in project.output_dir.name
     assert project.output_dir.name.endswith(f"_{project.id}")
+
+
+def test_init_project_persists_project_setup_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+
+    async def run_flow() -> Project:
+        server = create_server()
+        session = get_session()
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "persisted-phase-zero-check",
+                "data_dir": str(raw_dir),
+            },
+        )
+        return session.get_project()
+
+    project = asyncio.run(run_flow())
+
+    repo = FileSystemProjectRepository(resolve_projects_base_dir())
+    persisted = repo.load_project(project.id)
+
+    assert persisted.status == ProjectStatus.PROJECT_SETUP
+    assert ProjectStatus.PROJECT_SETUP in persisted.completed_phases
+
+
+def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_datasets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+
+    legacy_csv = raw_dir / "legacy_session_dataset.csv"
+    project_csv = raw_dir / "project_bound_dataset.csv"
+
+    DataFrame(
+        {
+            "treatment": ["A", "B", "A", "B", "A"],
+            "outcome": [1, 0, 1, 0, 1],
+            "age": [61, 58, 64, 55, 67],
+            "score": [3.2, 2.9, 3.5, 2.7, 3.1],
+        }
+    ).to_csv(legacy_csv, index=False)
+    DataFrame(
+        {
+            "treatment": ["A", "B"] * 6,
+            "outcome": [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1],
+            "age": [61, 58, 64, 55, 67, 59, 62, 60, 66, 57, 63, 68],
+            "score": [3.2, 2.9, 3.5, 2.7, 3.1, 2.8, 3.0, 2.6, 3.4, 2.5, 3.3, 3.6],
+        }
+    ).to_csv(project_csv, index=False)
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        if isinstance(content, (list, tuple)):
+            blocks = content
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
+            blocks = result[0]
+        else:
+            blocks = result if isinstance(result, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, Project]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool("load_dataset", {"file_path": str(legacy_csv)})
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "dataset-scope-check",
+                "data_dir": str(raw_dir),
+                "research_question": "Does treatment affect outcome?",
+            },
+        )
+        await server.call_tool("load_dataset", {"file_path": str(project_csv)})
+        await server.call_tool("build_schema", {})
+        await server.call_tool(
+            "align_concept",
+            {
+                "research_question": "Does treatment affect outcome?",
+                "variable_roles": {
+                    "outcome": "outcome",
+                    "group": "treatment",
+                    "covariates": ["age", "score"],
+                },
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
+            "register_analysis_plan",
+            {
+                "analyses": [
+                    {
+                        "type": "compare_groups",
+                        "variables": ["outcome", "treatment"],
+                        "rationale": "Compare outcome by treatment group",
+                    }
+                ],
+                "confirm": True,
+            },
+        )
+        readiness = await server.call_tool("check_readiness", {})
+        return _textify(readiness), session.get_project()
+
+    readiness_output, project = asyncio.run(run_flow())
+
+    repo = FileSystemProjectRepository(resolve_projects_base_dir())
+    persisted = repo.load_project(project.id)
+
+    assert "n = 12" in readiness_output
+    assert "n = 5" not in readiness_output
+    assert "無 PII" in readiness_output
+    assert persisted.dataset_ids == project.dataset_ids
+    assert len(persisted.dataset_ids) == 1
 
 
 def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(

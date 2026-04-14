@@ -35,29 +35,102 @@ def ensure_project_context(
         return False, str(e), None
 
 
+def persist_project(project: Project) -> None:
+    """Persist the latest in-memory project state to the repository."""
+    from rde.infrastructure.persistence import (
+        FileSystemProjectRepository,
+        resolve_projects_base_dir,
+    )
+
+    repo = FileSystemProjectRepository(resolve_projects_base_dir())
+    repo.save(project)
+
+
+def _recover_project_dataset_ids(project: Project) -> list[str]:
+    """Recover dataset bindings from project artifacts for legacy projects."""
+    store = ArtifactStore(project.artifacts_dir)
+    recovered: list[str] = []
+
+    intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+    if isinstance(intake, dict):
+        dataset_id = intake.get("dataset_id")
+        if isinstance(dataset_id, str) and dataset_id.strip():
+            recovered.append(dataset_id.strip())
+
+    alignment = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json")
+    if isinstance(alignment, dict):
+        dataset_id = alignment.get("dataset")
+        if isinstance(dataset_id, str) and dataset_id.strip():
+            recovered.append(dataset_id.strip())
+
+    return list(dict.fromkeys(recovered))
+
+
+def project_dataset_ids(project: Project | None = None) -> list[str]:
+    """Return dataset ids scoped to the current project when available."""
+    session = get_session()
+    if project is not None:
+        if project.dataset_ids:
+            return list(dict.fromkeys(project.dataset_ids))
+        recovered = _recover_project_dataset_ids(project)
+        if recovered:
+            return recovered
+
+    if project is None and session.active_project_id:
+        try:
+            active_project = session.get_project()
+        except KeyError:
+            active_project = None
+        if active_project is not None:
+            if active_project.dataset_ids:
+                return list(dict.fromkeys(active_project.dataset_ids))
+            recovered = _recover_project_dataset_ids(active_project)
+            if recovered:
+                return recovered
+
+    return session.list_datasets()
+
+
+def link_dataset_to_project(project: Project, dataset_id: str) -> None:
+    """Attach a dataset to the project and persist the association."""
+    if dataset_id not in project.dataset_ids:
+        project.dataset_ids.append(dataset_id)
+        persist_project(project)
+
+
 def ensure_dataset(
     dataset_id: str | None = None,
+    *,
+    project: Project | None = None,
 ) -> tuple[bool, str, DatasetEntry | None]:
     """Validate and return a dataset entry.
 
-    If dataset_id is None, uses the first loaded dataset.
+    If dataset_id is None, prefers the dataset bound to the current project.
 
     Returns:
         (is_valid, message, entry_or_none)
     """
     session = get_session()
-    if dataset_id is None:
-        ids = session.list_datasets()
+    resolved_dataset_id = dataset_id
+    if resolved_dataset_id is None:
+        ids = project_dataset_ids(project)
         if not ids:
             return False, "尚未載入任何資料集。請先使用 load_dataset()。", None
-        dataset_id = ids[0]
+        if project is not None and not project.dataset_ids and len(ids) > 1:
+            return (
+                False,
+                "此專案尚未綁定資料集，且目前 session 有多份資料集。"
+                "請先用 run_intake()/load_dataset() 綁定資料，或明確指定 dataset_id。",
+                None,
+            )
+        resolved_dataset_id = ids[-1] if project is not None else ids[0]
 
     try:
-        entry = session.get_dataset_entry(dataset_id)
-        return True, f"資料集: {dataset_id}", entry
+        entry = session.get_dataset_entry(resolved_dataset_id)
+        return True, f"資料集: {resolved_dataset_id}", entry
     except KeyError:
-        available = session.list_datasets()
-        return False, f"資料集 '{dataset_id}' 不存在。可用: {available}", None
+        available = project_dataset_ids(project)
+        return False, f"資料集 '{resolved_dataset_id}' 不存在。可用: {available}", None
 
 
 def ensure_phase_ready(
@@ -74,7 +147,7 @@ def ensure_phase_ready(
 
     dataset_entry = None
     if require_dataset:
-        ok, msg, dataset_entry = ensure_dataset(dataset_id)
+        ok, msg, dataset_entry = ensure_dataset(dataset_id, project=project)
         if not ok:
             return False, msg, project, None
 
@@ -132,7 +205,7 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
     session = get_session()
     logger = session.get_logger(project.id)
     decision_count = logger.decision_count
-    dataset_ids = session.list_datasets()
+    dataset_ids = project_dataset_ids(project)
     analysis_result_count = sum(
         len(session.get_dataset_entry(did).analysis_results) for did in dataset_ids
     )
@@ -212,6 +285,7 @@ def mark_phase6_complete_if_ready(
         )
     )
     project.advance_to(ProjectStatus.EXECUTE_EXPLORATION)
+    persist_project(project)
     return True
 
 

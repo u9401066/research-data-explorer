@@ -322,6 +322,7 @@ def register_plan_tools(server: Any) -> None:
             fmt_table,
             ensure_phase_ready,
         )
+        from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call(
@@ -332,7 +333,7 @@ def register_plan_tools(server: Any) -> None:
             },
         )
 
-        ok, msg, project, _ = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.CONCEPT_ALIGNMENT,
             project_id=project_id,
             require_dataset=True,
@@ -340,11 +341,13 @@ def register_plan_tools(server: Any) -> None:
         if not ok:
             return fmt_error(msg)
         assert project is not None
+        assert entry is not None
 
         try:
             from datetime import datetime
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
+            from rde.domain.models.project import ProjectStatus
             from rde.domain.models.variable import VariableRole
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -353,13 +356,6 @@ def register_plan_tools(server: Any) -> None:
             if research_question:
                 project.research_question = research_question
 
-            dataset_ids = session.list_datasets()
-            if not dataset_ids:
-                return fmt_error(
-                    "尚未載入任何資料集。請先使用 `load_dataset()` 或 `run_intake()`。"
-                )
-
-            entry = session.get_dataset_entry(dataset_ids[0])
             ds = entry.dataset
             available_vars = {v.name: v for v in ds.variables}
 
@@ -418,6 +414,8 @@ def register_plan_tools(server: Any) -> None:
                     user_confirmed=confirm,
                 )
             )
+            project.advance_to(ProjectStatus.CONCEPT_ALIGNMENT)
+            persist_project(project)
 
             # Build variable table
             headers = ["變數", "類型", "角色", "可分析"]
@@ -495,7 +493,9 @@ def register_plan_tools(server: Any) -> None:
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
+            ensure_dataset,
         )
+        from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call(
@@ -671,7 +671,9 @@ def register_plan_tools(server: Any) -> None:
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
+            ensure_dataset,
         )
+        from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call(
@@ -700,6 +702,7 @@ def register_plan_tools(server: Any) -> None:
             from datetime import datetime
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             session = get_session()
@@ -761,14 +764,14 @@ def register_plan_tools(server: Any) -> None:
 
             methodology_review_dict: dict[str, Any] | None = None
             execution_schedule: list[dict[str, Any]] = []
-            dataset_ids = session.list_datasets()
+            dataset_ok, _, dataset_entry = ensure_dataset(project=project)
+            dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
             planner = None
             auto_expanded_labels: list[str] = []
-            if dataset_ids:
+            if dataset is not None:
                 from rde.domain.services.autonomous_eda_planner import AutonomousEDAPlanner
 
                 planner = AutonomousEDAPlanner()
-                dataset = session.get_dataset_entry(dataset_ids[0]).dataset
 
                 def _planned_count(entries: list[dict[str, Any]]) -> int:
                     return len(
@@ -821,9 +824,7 @@ def register_plan_tools(server: Any) -> None:
             execution_schedule = [
                 step.to_dict() for step in planner.build_execution_schedule(analyses)
             ]
-            script_dataset = (
-                session.get_dataset_entry(dataset_ids[0]).dataset if dataset_ids else None
-            )
+            script_dataset = dataset
             script_content = (
                 planner.build_statsmodels_analysis_script(
                     script_dataset,
@@ -886,7 +887,8 @@ def register_plan_tools(server: Any) -> None:
                     user_confirmed=True,
                 )
             )
-            project.plan_locked = True
+            project.advance_to(ProjectStatus.PLAN_REGISTRATION)
+            persist_project(project)
 
             analyses_text = ""
             if analyses:
@@ -956,7 +958,9 @@ def register_plan_tools(server: Any) -> None:
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
+            ensure_dataset,
         )
+        from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.interface.mcp.tools._shared.formatting import fmt_checks
         from rde.application.pipeline import PipelinePhase
 
@@ -977,20 +981,20 @@ def register_plan_tools(server: Any) -> None:
                 PhaseResult,
                 REQUIRED_ARTIFACTS,
             )
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             session = get_session()
             pipeline = session.get_pipeline(project.id)
             store = ArtifactStore(project.artifacts_dir)
+            dataset_ok, dataset_msg, dataset_entry = ensure_dataset(project=project)
 
             checks: list[dict[str, Any]] = []
             all_passed = True
 
             # H-003: Min sample size
-            dataset_ids = session.list_datasets()
-            if dataset_ids:
-                entry = session.get_dataset_entry(dataset_ids[0])
-                n = entry.dataset.row_count
+            if dataset_ok and dataset_entry is not None:
+                n = dataset_entry.dataset.row_count
                 passed = n >= 10
                 checks.append(
                     {
@@ -1004,15 +1008,19 @@ def register_plan_tools(server: Any) -> None:
                     all_passed = False
             else:
                 checks.append(
-                    {"id": "H-003", "name": "最小樣本量", "passed": False, "detail": "無資料集"}
+                    {
+                        "id": "H-003",
+                        "name": "最小樣本量",
+                        "passed": False,
+                        "detail": dataset_msg,
+                    }
                 )
                 all_passed = False
 
             # H-004: PII check
             pii_vars = []
-            if dataset_ids:
-                entry = session.get_dataset_entry(dataset_ids[0])
-                pii_vars = [v.name for v in entry.dataset.variables if v.is_pii_suspect]
+            if dataset_ok and dataset_entry is not None:
+                pii_vars = [v.name for v in dataset_entry.dataset.variables if v.is_pii_suspect]
             checks.append(
                 {
                     "id": "H-004",
@@ -1060,10 +1068,11 @@ def register_plan_tools(server: Any) -> None:
                     all_passed = False
 
             # S-001: Normality hint
-            if dataset_ids:
-                entry = session.get_dataset_entry(dataset_ids[0])
+            if dataset_ok and dataset_entry is not None:
                 continuous = [
-                    v.name for v in entry.dataset.variables if v.variable_type.value == "continuous"
+                    v.name
+                    for v in dataset_entry.dataset.variables
+                    if v.variable_type.value == "continuous"
                 ]
                 checks.append(
                     {
@@ -1075,9 +1084,8 @@ def register_plan_tools(server: Any) -> None:
                 )
 
             # S-005: Missing pattern analysis
-            if dataset_ids:
-                entry = session.get_dataset_entry(dataset_ids[0])
-                df = entry.dataframe
+            if dataset_ok and dataset_entry is not None:
+                df = dataset_entry.dataframe
                 missing_cols = [c for c in df.columns if df[c].isna().sum() > 0]
                 if missing_cols:
                     try:
@@ -1115,9 +1123,8 @@ def register_plan_tools(server: Any) -> None:
                     )
 
             # S-007: Collinearity check (VIF preview)
-            if dataset_ids:
-                entry = session.get_dataset_entry(dataset_ids[0])
-                df = entry.dataframe
+            if dataset_ok and dataset_entry is not None:
+                df = dataset_entry.dataframe
                 from rde.domain.services.collinearity_checker import check_collinearity
 
                 report = check_collinearity(df)
@@ -1158,6 +1165,8 @@ def register_plan_tools(server: Any) -> None:
                     artifacts={"readiness_checklist.json": ""},
                 )
             )
+            project.advance_to(ProjectStatus.PRE_EXPLORE_CHECK)
+            persist_project(project)
 
             checks_text = fmt_checks(checks)
 

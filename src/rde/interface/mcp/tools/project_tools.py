@@ -5,7 +5,18 @@ All tools return markdown strings (medpaper pattern).
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+
+def _make_project_folder_slug(name: str, *, max_length: int = 40) -> str:
+    """Build a readable and filesystem-safe folder slug from the project name."""
+
+    slug = re.sub(r'[<>:"/\\|?*\s]+', '-', name.strip())
+    slug = re.sub(r'-{2,}', '-', slug).strip(' .-_')
+    if not slug:
+        return 'project'
+    return slug[:max_length].rstrip(' .-_') or 'project'
 
 
 def register_project_tools(server: Any) -> None:
@@ -33,6 +44,7 @@ def register_project_tools(server: Any) -> None:
             log_tool_error,
             fmt_error,
         )
+        from rde.interface.mcp.tools._shared.project_context import persist_project
 
         log_tool_call("init_project", {"name": name, "data_dir": data_dir})
 
@@ -47,15 +59,13 @@ def register_project_tools(server: Any) -> None:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.domain.models.project import Project, ProjectStatus
-            from rde.infrastructure.persistence import (
-                FileSystemProjectRepository,
-                resolve_projects_base_dir,
-            )
+            from rde.infrastructure.persistence import resolve_projects_base_dir
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             created_at = datetime.now()
             project_id = str(uuid.uuid4())[:8]
-            folder_name = f"{created_at.strftime('%Y%m%d_%H%M%S')}_{project_id}"
+            folder_slug = _make_project_folder_slug(name)
+            folder_name = f"{created_at.strftime('%Y%m%d_%H%M%S')}_{folder_slug}_{project_id}"
             projects_base_dir = resolve_projects_base_dir()
             output_dir = projects_base_dir / folder_name
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -75,15 +85,13 @@ def register_project_tools(server: Any) -> None:
             session = get_session()
             session.register_project(project)
 
-            repo = FileSystemProjectRepository(projects_base_dir)
-            repo.save(project)
-
             store = ArtifactStore(project.artifacts_dir)
             store.save(
                 PipelinePhase.PROJECT_SETUP,
                 "project.yaml",
                 {
                     "id": project_id,
+                    "folder_slug": folder_slug,
                     "folder_name": folder_name,
                     "name": name,
                     "data_dir": str(data_dir),
@@ -104,6 +112,7 @@ def register_project_tools(server: Any) -> None:
                 )
             )
             project.advance_to(ProjectStatus.PROJECT_SETUP)
+            persist_project(project)
 
             log_tool_result("init_project", f"created {project_id}")
 
@@ -140,6 +149,7 @@ def register_project_tools(server: Any) -> None:
         from rde.interface.mcp.tools._shared.project_context import (
             compute_phase6_progress,
             PHASE6_REQUIRED_COVERAGE,
+            project_dataset_ids,
         )
 
         log_tool_call("get_pipeline_status", {"project_id": project_id})
@@ -153,7 +163,7 @@ def register_project_tools(server: Any) -> None:
 
         session = get_session()
         pipeline = session.get_pipeline(project.id)
-        datasets = session.list_datasets()
+        datasets = project_dataset_ids(project)
         summary = pipeline.summary()
 
         completed = summary.get("completed", [])

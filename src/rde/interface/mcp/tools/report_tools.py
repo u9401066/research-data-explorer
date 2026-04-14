@@ -36,6 +36,8 @@ def register_report_tools(server: Any) -> None:
             compute_phase6_progress,
             format_phase6_gate_message,
             mark_phase6_complete_if_ready,
+            persist_project,
+            project_dataset_ids,
             save_phase6_progress,
         )
         from rde.application.pipeline import PipelinePhase
@@ -49,6 +51,7 @@ def register_report_tools(server: Any) -> None:
         try:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from datetime import datetime
 
@@ -85,7 +88,7 @@ def register_report_tools(server: Any) -> None:
                 return fmt_error(msg)
 
             # Read all datasets' analysis results
-            datasets = session.list_datasets()
+            datasets = project_dataset_ids(project)
             all_results: list[dict] = []
             publishable: list[dict] = []
 
@@ -170,6 +173,8 @@ def register_report_tools(server: Any) -> None:
                     },
                 )
             )
+            project.advance_to(ProjectStatus.COLLECT_RESULTS)
+            persist_project(project)
 
             # Format output
             lines = [
@@ -235,6 +240,10 @@ def register_report_tools(server: Any) -> None:
             fmt_success,
             ensure_phase_ready,
         )
+        from rde.interface.mcp.tools._shared.project_context import (
+            persist_project,
+            project_dataset_ids,
+        )
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("assemble_report", {"project_id": project_id, "title": title})
@@ -250,6 +259,7 @@ def register_report_tools(server: Any) -> None:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.application.use_cases.generate_report import GenerateReportUseCase
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.adapters import MarkdownReportRenderer
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from datetime import datetime
@@ -288,7 +298,7 @@ def register_report_tools(server: Any) -> None:
                 artifacts["key_findings"] = _format_findings(results)
             else:
                 # Quick explore mode: try to create from session data
-                datasets = session.list_datasets()
+                datasets = project_dataset_ids(project)
                 if datasets:
                     artifacts["statistical_analyses"] = "[Quick Explore — No formal analysis plan]"
                     artifacts["key_findings"] = "[Quick Explore — Review individual analyses]"
@@ -308,8 +318,8 @@ def register_report_tools(server: Any) -> None:
             artifacts["recommendations"] = _build_recommendations(results, readiness)
 
             # Pick first dataset_id for report metadata
-            datasets = session.list_datasets()
-            dataset_id = datasets[0] if datasets else "unknown"
+            datasets = project_dataset_ids(project)
+            dataset_id = datasets[-1] if datasets else "unknown"
 
             # Generate report via use case
             renderer = MarkdownReportRenderer()
@@ -348,6 +358,8 @@ def register_report_tools(server: Any) -> None:
                     },
                 )
             )
+            project.advance_to(ProjectStatus.REPORT_ASSEMBLY)
+            persist_project(project)
 
             word_count = len(content.split())
             return fmt_success(
@@ -500,6 +512,7 @@ def register_report_tools(server: Any) -> None:
             fmt_success,
             ensure_phase_ready,
         )
+        from rde.interface.mcp.tools._shared.project_context import project_dataset_ids
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("export_report", {"formats": formats, "title": title})
@@ -559,8 +572,8 @@ def register_report_tools(server: Any) -> None:
                 artifacts["learning_curve_cusum"] = learning_curve_artifacts
             artifacts["recommendations"] = _build_recommendations(results, readiness)
 
-            datasets = session.list_datasets()
-            dataset_id = datasets[0] if datasets else "unknown"
+            datasets = project_dataset_ids(project)
+            dataset_id = datasets[-1] if datasets else "unknown"
 
             renderer = MarkdownReportRenderer()
             gen_uc = GenerateReportUseCase(renderer)

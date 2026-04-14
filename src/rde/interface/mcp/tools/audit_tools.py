@@ -30,6 +30,7 @@ def register_audit_tools(server: Any) -> None:
             fmt_error,
             ensure_phase_ready,
         )
+        from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("run_audit", {"project_id": project_id})
@@ -42,6 +43,7 @@ def register_audit_tools(server: Any) -> None:
         try:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult, REQUIRED_ARTIFACTS
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from datetime import datetime
 
@@ -229,6 +231,8 @@ def register_audit_tools(server: Any) -> None:
                     },
                 )
             )
+            project.advance_to(ProjectStatus.AUDIT_REVIEW)
+            persist_project(project)
 
             # Format output
             grade_icon = {"A": "🏆", "B": "🟢", "C": "🟡", "D": "🟠", "F": "🔴"}
@@ -280,6 +284,10 @@ def register_audit_tools(server: Any) -> None:
             fmt_error,
             ensure_phase_ready,
         )
+        from rde.interface.mcp.tools._shared.project_context import (
+            persist_project,
+            project_dataset_ids,
+        )
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("auto_improve", {"project_id": project_id})
@@ -292,6 +300,7 @@ def register_audit_tools(server: Any) -> None:
         try:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from datetime import datetime
 
@@ -351,7 +360,7 @@ def register_audit_tools(server: Any) -> None:
             # ── Auto-fix 4: Check for results without collect ───────
             if not store.exists(PipelinePhase.COLLECT_RESULTS, "results_summary.json"):
                 # Check if we have any analysis results in session
-                dataset_ids = session.list_datasets()
+                dataset_ids = project_dataset_ids(project)
                 for did in dataset_ids:
                     entry = session.get_dataset_entry(did)
                     if entry.analysis_results:
@@ -398,6 +407,8 @@ def register_audit_tools(server: Any) -> None:
                     artifacts={"final_report.md": "", "improvement_log.json": ""},
                 )
             )
+            project.advance_to(ProjectStatus.AUTO_IMPROVE)
+            persist_project(project)
 
             lines = [
                 "# 🔧 自動改善 (Phase 10)\n",

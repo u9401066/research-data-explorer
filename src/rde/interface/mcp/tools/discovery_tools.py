@@ -53,6 +53,7 @@ def register_discovery_tools(server: Any) -> None:
             fmt_error,
             fmt_table,
         )
+        from rde.interface.mcp.tools._shared.project_context import link_dataset_to_project
         from pathlib import Path
 
         log_tool_call("scan_data_folder", {"directory": directory})
@@ -124,6 +125,7 @@ def register_discovery_tools(server: Any) -> None:
             fmt_error,
             fmt_table,
         )
+        from rde.interface.mcp.tools._shared.project_context import link_dataset_to_project
         from pathlib import Path
 
         log_tool_call("load_dataset", {"file_path": file_path})
@@ -169,6 +171,15 @@ def register_discovery_tools(server: Any) -> None:
             session = get_session()
             session.register_dataset(dataset, df)
 
+            linked_project = None
+            if session.active_project_id:
+                try:
+                    linked_project = session.get_project()
+                except KeyError:
+                    linked_project = None
+            if linked_project is not None:
+                link_dataset_to_project(linked_project, dataset.id)
+
             headers = ["變數", "dtype", "類型", "缺失", "唯一值"]
             rows = [
                 [v.name, v.dtype, v.variable_type.value, v.n_missing, v.n_unique] for v in variables
@@ -177,12 +188,17 @@ def register_discovery_tools(server: Any) -> None:
 
             log_tool_result("load_dataset", f"{row_count} rows, {len(variables)} vars")
 
+            linked_project_text = ""
+            if linked_project is not None:
+                linked_project_text = f"- **綁定專案:** `{linked_project.id}`\n"
+
             return (
                 f"✅ 資料集載入成功！\n\n"
                 f"- **資料集 ID:** `{dataset.id}`\n"
                 f"- **檔案:** {path.name}\n"
                 f"- **列數:** {row_count:,}\n"
                 f"- **變數數:** {len(variables)}\n"
+                f"{linked_project_text}"
                 f"{pii_warning}\n"
                 f"{table}\n\n"
                 f"**下一步:** 使用 `build_schema()` 建立完整 schema，"
@@ -216,6 +232,10 @@ def register_discovery_tools(server: Any) -> None:
             fmt_error,
             ensure_project_context,
         )
+        from rde.interface.mcp.tools._shared.project_context import (
+            link_dataset_to_project,
+            persist_project,
+        )
         from pathlib import Path
         from datetime import datetime
 
@@ -225,6 +245,7 @@ def register_discovery_tools(server: Any) -> None:
             from rde.infrastructure.adapters import PandasLoader
             from rde.application.use_cases.discover_data import DiscoverDataUseCase
             from rde.domain.models.dataset import Dataset, DatasetMetadata
+            from rde.domain.models.project import ProjectStatus
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
@@ -314,6 +335,9 @@ def register_discovery_tools(server: Any) -> None:
                         artifacts={"intake_report.json": ""},
                     )
                 )
+                link_dataset_to_project(project, dataset.id)
+                project.advance_to(ProjectStatus.DATA_INTAKE)
+                persist_project(project)
 
             rejected_info = ""
             if rejected_files:
@@ -364,6 +388,10 @@ def register_discovery_tools(server: Any) -> None:
             ensure_dataset,
             ensure_project_context,
         )
+        from rde.interface.mcp.tools._shared.project_context import (
+            link_dataset_to_project,
+            persist_project,
+        )
         from datetime import datetime
 
         log_tool_call("build_schema", {"dataset_id": dataset_id})
@@ -372,10 +400,12 @@ def register_discovery_tools(server: Any) -> None:
             import pandas as pd
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from rde.domain.services.variable_classifier import VariableClassifier
 
-            ok, msg, entry = ensure_dataset(dataset_id)
+            ok_p, _, project = ensure_project_context(project_id)
+            ok, msg, entry = ensure_dataset(dataset_id, project=project if ok_p else None)
             if not ok or entry is None:
                 return fmt_error(msg)
 
@@ -461,7 +491,6 @@ def register_discovery_tools(server: Any) -> None:
             table = fmt_table(headers, rows)
 
             # Save artifact if project exists
-            ok_p, _, project = ensure_project_context(project_id)
             if ok_p and project is not None:
                 session = get_session()
                 store = ArtifactStore(project.artifacts_dir)
@@ -477,6 +506,9 @@ def register_discovery_tools(server: Any) -> None:
                         artifacts={"schema.json": ""},
                     )
                 )
+                link_dataset_to_project(project, ds.id)
+                project.advance_to(ProjectStatus.SCHEMA_REGISTRY)
+                persist_project(project)
 
             log_tool_result(
                 "build_schema", f"{len(ds.variables)} variables, {len(reclassified)} reclassified"
