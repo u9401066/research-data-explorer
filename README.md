@@ -21,6 +21,20 @@ RDE's value is not maximum method coverage. Its value is putting a narrower but 
 
 繁體中文完整說明請見 [README.zh-TW.md](README.zh-TW.md).
 
+## Visual Overview
+
+### Overall Concept
+
+![Overall Concept](docs/figures/01-overall-concept.svg)
+
+### System Architecture (DDD)
+
+![System Architecture](docs/figures/02-system-architecture.svg)
+
+### 11-Phase Workflow Detail
+
+![Workflow Detail](docs/figures/03-workflow-detail.svg)
+
 ## What This Repo Solves
 
 Traditional exploratory analysis is often hard to review because method changes are not logged, intermediate decisions are not preserved, and artifacts are scattered.

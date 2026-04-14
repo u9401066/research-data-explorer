@@ -1,0 +1,279 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 920" font-family="'Segoe UI','Noto Sans TC',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <filter id="s" x="-2%" y="-2%" width="104%" height="108%">
+      <feDropShadow dx="0" dy="1" stdDeviation="3" flood-opacity="0.08"/>
+    </filter>
+    <marker id="a" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#64748b"/>
+    </marker>
+    <marker id="aG" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#16a34a"/>
+    </marker>
+
+    <!-- Phase colors -->
+    <!-- Setup: blue -->
+    <!-- Governance: green -->
+    <!-- Execution: amber -->
+    <!-- Reporting: purple -->
+  </defs>
+
+  <rect width="1100" height="920" rx="16" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="550" y="40" text-anchor="middle" font-size="26" font-weight="700" fill="#1e293b">Research Data Explorer — 11-Phase 工作流程細部介紹</text>
+  <text x="550" y="62" text-anchor="middle" font-size="12" fill="#64748b">Constrained Auditable EDA Pipeline · Each phase enforced by code, not just prompts</text>
+
+  <!-- Legend -->
+  <g transform="translate(30, 76)">
+    <rect width="1040" height="30" rx="6" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="30" cy="15" r="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="44" y="19" font-size="10" fill="#475569">初始化 Setup</text>
+    <circle cx="150" cy="15" r="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+    <text x="164" y="19" font-size="10" fill="#475569">治理 Governance</text>
+    <circle cx="290" cy="15" r="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+    <text x="304" y="19" font-size="10" fill="#475569">分析執行 Execution</text>
+    <circle cx="450" cy="15" r="8" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
+    <text x="464" y="19" font-size="10" fill="#475569">報告交付 Reporting</text>
+
+    <text x="620" y="19" font-size="10" fill="#475569">🔒 = 閘門 Gate</text>
+    <text x="720" y="19" font-size="10" fill="#475569">✋ = 需使用者確認</text>
+    <text x="850" y="19" font-size="10" fill="#475569">📦 = 產出 Artifact</text>
+    <text x="975" y="19" font-size="10" fill="#dc2626" font-weight="600">▼ 硬性約束</text>
+  </g>
+
+  <!-- ============ PHASE 0 ============ -->
+  <g filter="url(#s)" transform="translate(30, 120)">
+    <rect width="230" height="108" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#1d4ed8">Phase 0: 專案初始化</text>
+    <text x="16" y="44" font-size="11" fill="#334155">init_project</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 建立 data/projects/YYYYMMDD_ID/</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• 初始化 pipeline state</text>
+    <text x="16" y="90" font-size="9" fill="#64748b">📦 project_metadata.json</text>
+    <text x="16" y="102" font-size="8" fill="#dc2626">▼ RDE_WORKSPACE 環境解析</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="265" y1="174" x2="290" y2="174" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 1 ============ -->
+  <g filter="url(#s)" transform="translate(295, 120)">
+    <rect width="230" height="108" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#1d4ed8">Phase 1: 資料收錄</text>
+    <text x="16" y="44" font-size="11" fill="#334155">run_intake</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 檔案大小 / 格式驗證</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• PII 偵測（預設阻擋）</text>
+    <text x="16" y="90" font-size="9" fill="#64748b">📦 intake_report.json</text>
+    <text x="16" y="102" font-size="8" fill="#dc2626">▼ H-001: &lt;500MB · H-002: 白名單 · H-004: PII</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="530" y1="174" x2="555" y2="174" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 2 ============ -->
+  <g filter="url(#s)" transform="translate(560, 120)">
+    <rect width="230" height="108" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#1d4ed8">Phase 2: Schema + Profiling</text>
+    <text x="16" y="44" font-size="11" fill="#334155">build_schema · profile_dataset</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 欄位型別推斷與註冊</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• 資料品質 Profiling (ydata)</text>
+    <text x="16" y="90" font-size="9" fill="#64748b">📦 schema.json · profile_report.html</text>
+    <text x="16" y="102" font-size="8" fill="#dc2626">▼ H-003: 最小樣本數檢查</text>
+  </g>
+
+  <!-- Arrow down -->
+  <line x1="675" y1="232" x2="675" y2="264" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 3 ============ -->
+  <g filter="url(#s)" transform="translate(30, 268)">
+    <rect width="330" height="120" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 3: 概念對齊 ✋🔒</text>
+    <text x="16" y="44" font-size="11" fill="#334155">align_concept(confirm=true)</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 鎖定分析單位（病人/手術/檢體）</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• 鎖定暴露變項與主/次要結局</text>
+    <text x="16" y="90" font-size="9" fill="#64748b">• 結局類型：連續/二元/類別/存活/重複量測</text>
+    <text x="16" y="106" font-size="9" fill="#64748b">📦 concept_alignment.json · 需使用者 confirm=true</text>
+  </g>
+
+  <!-- Arrow right -->
+  <line x1="364" y1="328" x2="394" y2="328" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 3.5 ============ -->
+  <g filter="url(#s)" transform="translate(400, 268)">
+    <rect width="310" height="120" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 3.5: AI 分析計畫提案</text>
+    <text x="16" y="44" font-size="11" fill="#334155">propose_analysis_plan()</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 候選分析方向生成</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• 方法學內部審查 + 修復</text>
+    <text x="16" y="90" font-size="9" fill="#64748b">• 視覺化 Bundle + 執行排程</text>
+    <text x="16" y="106" font-size="9" fill="#64748b">📦 proposed_plan.yaml · viz_bundle · exec_schedule</text>
+  </g>
+
+  <!-- Arrow right -->
+  <line x1="714" y1="328" x2="744" y2="328" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 4 ============ -->
+  <g filter="url(#s)" transform="translate(750, 268)">
+    <rect width="310" height="120" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 4: 計畫鎖定 ✋🔒</text>
+    <text x="16" y="44" font-size="11" fill="#334155">register_analysis_plan(confirm=true)</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 方法學閘門：計畫太薄 → 自動擴充</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• alpha / 多重比較 / 缺失值策略鎖定</text>
+    <text x="16" y="90" font-size="9" fill="#64748b">• 執行排程 artifact 持久化</text>
+    <text x="16" y="106" font-size="9" fill="#64748b">📦 analysis_plan.yaml (locked) · execution_schedule</text>
+  </g>
+
+  <!-- Arrow down from Phase 4 -->
+  <line x1="905" y1="392" x2="905" y2="424" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 5 ============ -->
+  <g filter="url(#s)" transform="translate(750, 428)">
+    <rect width="310" height="90" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 5: 就緒檢查 🔒</text>
+    <text x="16" y="44" font-size="11" fill="#334155">check_readiness</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 驗證所有上游 artifacts 存在</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">• 計畫已鎖定 · Schema 已註冊</text>
+    <text x="16" y="86" font-size="8" fill="#dc2626">▼ H-007: 必須通過才能進入 Phase 6 · H-008: artifact gate</text>
+  </g>
+
+  <!-- Arrow left from Phase 5 to Phase 6 -->
+  <line x1="750" y1="473" x2="720" y2="473" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 6 ============ -->
+  <g filter="url(#s)" transform="translate(30, 428)">
+    <rect width="685" height="170" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#b45309">Phase 6: 分析執行 🔬</text>
+    <text x="350" y="24" font-size="10" fill="#92400e">依照 execution_schedule 順序執行</text>
+
+    <!-- Sub-tools grid -->
+    <g>
+      <rect x="16" y="40" width="150" height="34" rx="6" fill="#fff" stroke="#fbbf24" stroke-width="1"/>
+      <text x="91" y="55" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">compare_groups</text>
+      <text x="91" y="68" text-anchor="middle" font-size="8" fill="#78716c">t / MWU / ANOVA / KW / chi2</text>
+    </g>
+    <g>
+      <rect x="176" y="40" width="150" height="34" rx="6" fill="#fff" stroke="#fbbf24" stroke-width="1"/>
+      <text x="251" y="55" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">analyze_variable</text>
+      <text x="251" y="68" text-anchor="middle" font-size="8" fill="#78716c">分佈 / 偏態 / 離群值</text>
+    </g>
+    <g>
+      <rect x="336" y="40" width="150" height="34" rx="6" fill="#fff" stroke="#fbbf24" stroke-width="1"/>
+      <text x="411" y="55" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">correlation_matrix</text>
+      <text x="411" y="68" text-anchor="middle" font-size="8" fill="#78716c">Correlation + VIF 共線性</text>
+    </g>
+    <g>
+      <rect x="496" y="40" width="180" height="34" rx="6" fill="#fff" stroke="#fbbf24" stroke-width="1"/>
+      <text x="586" y="55" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">generate_table_one</text>
+      <text x="586" y="68" text-anchor="middle" font-size="8" fill="#78716c">基線特徵描述表</text>
+    </g>
+
+    <g>
+      <rect x="16" y="82" width="210" height="34" rx="6" fill="#fff" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="121" y="97" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">run_advanced_analysis</text>
+      <text x="121" y="110" text-anchor="middle" font-size="8" fill="#78716c">Logistic / Cox / ROC / CUSUM / AutoML</text>
+    </g>
+    <g>
+      <rect x="236" y="82" width="210" height="34" rx="6" fill="#fff" stroke="#fbbf24" stroke-width="1"/>
+      <text x="341" y="97" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">run_repeated_measures</text>
+      <text x="341" y="110" text-anchor="middle" font-size="8" fill="#78716c">重複量測 / Before-After</text>
+    </g>
+    <g>
+      <rect x="456" y="82" width="220" height="34" rx="6" fill="#fff" stroke="#fbbf24" stroke-width="1"/>
+      <text x="566" y="97" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">create_visualization</text>
+      <text x="566" y="110" text-anchor="middle" font-size="8" fill="#78716c">histogram/boxplot/scatter/heatmap/line/bar</text>
+    </g>
+
+    <rect x="16" y="124" width="660" height="18" rx="4" fill="#fef9c3"/>
+    <text x="346" y="137" text-anchor="middle" font-size="9" fill="#92400e">📦 Artifacts: analysis_results/ · figures/ · decision_log.jsonl · deviation_log.jsonl</text>
+    <text x="16" y="160" font-size="8" fill="#dc2626">▼ H-009: 每次分析必須記錄決策 · H-010: append-only 日誌 · 方法由資料自動選擇，不盲目執行所有方法</text>
+  </g>
+
+  <!-- Arrow down from Phase 6 -->
+  <line x1="370" y1="602" x2="370" y2="634" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 7 ============ -->
+  <g filter="url(#s)" transform="translate(30, 638)">
+    <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 7: 結果彙整</text>
+    <text x="16" y="44" font-size="11" fill="#334155">collect_results</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 掃描所有 Phase 6 artifacts</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">📦 collected_results.json</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="264" y1="683" x2="294" y2="683" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 8 ============ -->
+  <g filter="url(#s)" transform="translate(300, 638)">
+    <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 8: 報告組裝</text>
+    <text x="16" y="44" font-size="11" fill="#334155">assemble_report</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• DOCX / Markdown 報告產出</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">📦 report.docx · report_integrity_check</text>
+    <text x="16" y="86" font-size="8" fill="#dc2626">▼ H-005: 報告完整性校驗</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="534" y1="683" x2="564" y2="683" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 9 ============ -->
+  <g filter="url(#s)" transform="translate(570, 638)">
+    <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 9: 品質稽核</text>
+    <text x="16" y="44" font-size="11" fill="#334155">run_audit</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 計畫遵守度 / Artifact 完整性</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">📦 audit_report.json</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="804" y1="683" x2="834" y2="683" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 10 ============ -->
+  <g filter="url(#s)" transform="translate(840, 638)">
+    <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 10: 自動改善 + 交付</text>
+    <text x="16" y="44" font-size="11" fill="#334155">auto_improve · export_handoff</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• verify_audit_trail</text>
+    <text x="16" y="76" font-size="9" fill="#64748b">📦 handoff_package/ · audit_trail ✓</text>
+    <text x="16" y="86" font-size="8" fill="#dc2626">▼ H-006: 輸出清洗 (sanitization)</text>
+  </g>
+
+  <!-- ============ CONSTRAINT SIDEBAR ============ -->
+  <g filter="url(#s)" transform="translate(30, 748)">
+    <rect width="1040" height="56" rx="10" fill="#1e293b"/>
+    <text x="30" y="28" font-size="13" font-weight="700" fill="#fbbf24">🔒 硬性約束摘要</text>
+    <text x="250" y="22" font-size="9.5" fill="#e2e8f0">H-001 檔案 &lt;500MB</text>
+    <text x="250" y="38" font-size="9.5" fill="#e2e8f0">H-002 格式白名單</text>
+    <text x="250" y="54" font-size="9.5" fill="#e2e8f0">H-003 最小樣本</text>
+    <text x="420" y="22" font-size="9.5" fill="#e2e8f0">H-004 PII 偵測</text>
+    <text x="420" y="38" font-size="9.5" fill="#e2e8f0">H-005 報告完整性</text>
+    <text x="420" y="54" font-size="9.5" fill="#e2e8f0">H-006 輸出清洗</text>
+    <text x="580" y="22" font-size="9.5" fill="#e2e8f0">H-007 計畫鎖定</text>
+    <text x="580" y="38" font-size="9.5" fill="#e2e8f0">H-008 Artifact 閘門</text>
+    <text x="740" y="22" font-size="9.5" fill="#e2e8f0">H-009 決策日誌</text>
+    <text x="740" y="38" font-size="9.5" fill="#e2e8f0">H-010 Append-only</text>
+    <text x="900" y="30" font-size="10" fill="#94a3b8" font-style="italic">Enforced by code,</text>
+    <text x="900" y="46" font-size="10" fill="#94a3b8" font-style="italic">not just prompts.</text>
+  </g>
+
+  <!-- Soft constraints note -->
+  <g transform="translate(30, 820)">
+    <rect width="1040" height="46" rx="10" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="30" y="22" font-size="11" font-weight="600" fill="#475569">📋 軟性約束提醒：</text>
+    <text x="170" y="22" font-size="10" fill="#64748b">常態性檢定 · 非參數備案 · 多重比較校正 · 缺失值模式審查 · 共線性警示 · 效應量解讀 · 檢定力提示</text>
+    <text x="30" y="40" font-size="10" fill="#94a3b8">Agent 不盲目執行所有方法 — 由 Pipeline 依資料型別、研究問題自動選擇適合的統計方法，拒絕「想到就跑」的研究方式</text>
+  </g>
+
+  <!-- Phase 6 delegation detail -->
+  <g filter="url(#s)" transform="translate(830, 540)">
+    <rect width="240" height="80" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+    <text x="16" y="22" font-size="10" font-weight="600" fill="#c2410c">委派路由決策</text>
+    <text x="16" y="40" font-size="9" fill="#64748b">本地 SciPy: 16 capabilities</text>
+    <text x="16" y="54" font-size="9" fill="#64748b">遠端 automl-stat-mcp: 10 capabilities</text>
+    <text x="16" y="68" font-size="9" fill="#64748b">Delegator 自動判斷 → fallback artifact</text>
+  </g>
+  <line x1="830" y1="580" x2="720" y2="560" stroke="#d97706" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#a)"/>
+</svg>

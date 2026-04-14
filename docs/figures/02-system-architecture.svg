@@ -1,0 +1,244 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 820" font-family="'Segoe UI','Noto Sans TC',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <filter id="sh" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.10"/>
+    </filter>
+    <filter id="shL" x="-3%" y="-3%" width="106%" height="112%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#64748b"/>
+    </marker>
+    <marker id="arrB" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="820" rx="16" fill="url(#bgG)"/>
+
+  <!-- Title -->
+  <text x="500" y="42" text-anchor="middle" font-size="26" font-weight="700" fill="#1e293b">Research Data Explorer — 系統架構圖</text>
+  <text x="500" y="66" text-anchor="middle" font-size="13" fill="#64748b">Domain-Driven Design (DDD) Four-Layer Architecture</text>
+
+  <!-- Legend -->
+  <g transform="translate(720, 82)">
+    <rect width="250" height="52" rx="8" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <line x1="16" y1="20" x2="42" y2="20" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrB)"/>
+    <text x="52" y="24" font-size="10" fill="#475569">依賴方向</text>
+    <line x1="130" y1="20" x2="156" y2="20" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrR)"/>
+    <text x="166" y="24" font-size="10" fill="#475569">外部整合</text>
+    <text x="16" y="42" font-size="9" fill="#94a3b8">Interface → Application → Domain ← Infrastructure</text>
+  </g>
+
+  <!-- ======== LAYER 1: Interface ======== -->
+  <g filter="url(#shL)">
+    <rect x="40" y="92" width="660" height="136" rx="14" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <rect x="40" y="92" width="660" height="34" rx="14" fill="#3b82f6"/>
+    <rect x="40" y="112" width="660" height="14" fill="#3b82f6"/>
+    <text x="60" y="114" font-size="14" font-weight="700" fill="#fff">Interface Layer — MCP 工具介面</text>
+    <text x="530" y="114" font-size="10" fill="#bfdbfe">src/rde/interface/mcp/</text>
+
+    <!-- Tool groups -->
+    <g>
+      <rect x="60" y="140" width="122" height="38" rx="8" fill="#fff" stroke="#93c5fd" stroke-width="1"/>
+      <text x="121" y="155" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">🛠 init / intake</text>
+      <text x="121" y="168" text-anchor="middle" font-size="8.5" fill="#64748b">Phase 0-1 工具</text>
+    </g>
+    <g>
+      <rect x="192" y="140" width="122" height="38" rx="8" fill="#fff" stroke="#93c5fd" stroke-width="1"/>
+      <text x="253" y="155" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">📊 schema / profile</text>
+      <text x="253" y="168" text-anchor="middle" font-size="8.5" fill="#64748b">Phase 2 工具</text>
+    </g>
+    <g>
+      <rect x="324" y="140" width="122" height="38" rx="8" fill="#fff" stroke="#93c5fd" stroke-width="1"/>
+      <text x="385" y="155" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">🎯 align / plan</text>
+      <text x="385" y="168" text-anchor="middle" font-size="8.5" fill="#64748b">Phase 3-5 工具</text>
+    </g>
+    <g>
+      <rect x="456" y="140" width="122" height="38" rx="8" fill="#fff" stroke="#93c5fd" stroke-width="1"/>
+      <text x="517" y="155" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">🔬 analysis / viz</text>
+      <text x="517" y="168" text-anchor="middle" font-size="8.5" fill="#64748b">Phase 6 工具</text>
+    </g>
+    <g>
+      <rect x="588" y="140" width="100" height="38" rx="8" fill="#fff" stroke="#93c5fd" stroke-width="1"/>
+      <text x="638" y="155" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">📄 report / audit</text>
+      <text x="638" y="168" text-anchor="middle" font-size="8.5" fill="#64748b">Phase 7-10</text>
+    </g>
+
+    <!-- Tool count -->
+    <rect x="60" y="188" width="628" height="28" rx="6" fill="#dbeafe"/>
+    <text x="374" y="207" text-anchor="middle" font-size="10" fill="#1e40af">7 大工具群組 · init_project → run_intake → build_schema → align_concept → compare_groups → assemble_report → run_audit</text>
+  </g>
+
+  <!-- ======== LAYER 2: Application ======== -->
+  <g filter="url(#shL)">
+    <rect x="40" y="248" width="660" height="148" rx="14" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+    <rect x="40" y="248" width="660" height="34" rx="14" fill="#16a34a"/>
+    <rect x="40" y="268" width="660" height="14" fill="#16a34a"/>
+    <text x="60" y="270" font-size="14" font-weight="700" fill="#fff">Application Layer — 用例編排</text>
+    <text x="490" y="270" font-size="10" fill="#bbf7d0">src/rde/application/</text>
+
+    <!-- Components -->
+    <g>
+      <rect x="60" y="296" width="195" height="48" rx="8" fill="#fff" stroke="#86efac" stroke-width="1"/>
+      <text x="157.5" y="314" text-anchor="middle" font-size="11" font-weight="600" fill="#15803d">Pipeline State Machine</text>
+      <text x="157.5" y="332" text-anchor="middle" font-size="9" fill="#64748b">phase 追蹤 / artifact gate / plan lock</text>
+    </g>
+    <g>
+      <rect x="270" y="296" width="195" height="48" rx="8" fill="#fff" stroke="#86efac" stroke-width="1"/>
+      <text x="367.5" y="314" text-anchor="middle" font-size="11" font-weight="600" fill="#15803d">Use Cases</text>
+      <text x="367.5" y="332" text-anchor="middle" font-size="9" fill="#64748b">intake / schema / align / analyze / report</text>
+    </g>
+    <g>
+      <rect x="480" y="296" width="208" height="48" rx="8" fill="#fff" stroke="#86efac" stroke-width="1"/>
+      <text x="584" y="314" text-anchor="middle" font-size="11" font-weight="600" fill="#15803d">Decision Logger</text>
+      <text x="584" y="332" text-anchor="middle" font-size="9" fill="#64748b">append-only decision + deviation logs</text>
+    </g>
+
+    <g>
+      <rect x="60" y="354" width="300" height="32" rx="6" fill="#dcfce7"/>
+      <text x="210" y="374" text-anchor="middle" font-size="10" fill="#166534">Analysis Planner · propose_analysis_plan → methodology review → expand → lock</text>
+    </g>
+    <g>
+      <rect x="375" y="354" width="313" height="32" rx="6" fill="#dcfce7"/>
+      <text x="531.5" y="374" text-anchor="middle" font-size="10" fill="#166534">Readiness Checker · check_readiness → Phase 5 gate → execution schedule</text>
+    </g>
+  </g>
+
+  <!-- Dependency arrow: Interface → Application -->
+  <line x1="370" y1="228" x2="370" y2="248" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrB)"/>
+
+  <!-- ======== LAYER 3: Domain ======== -->
+  <g filter="url(#shL)">
+    <rect x="40" y="416" width="660" height="136" rx="14" fill="#fefce8" stroke="#fde047" stroke-width="1.5"/>
+    <rect x="40" y="416" width="660" height="34" rx="14" fill="#ca8a04"/>
+    <rect x="40" y="436" width="660" height="14" fill="#ca8a04"/>
+    <text x="60" y="438" font-size="14" font-weight="700" fill="#fff">Domain Layer — 純業務邏輯（無外部依賴）</text>
+    <text x="530" y="438" font-size="10" fill="#fef9c3">src/rde/domain/</text>
+
+    <g>
+      <rect x="60" y="464" width="148" height="42" rx="8" fill="#fff" stroke="#fde047" stroke-width="1"/>
+      <text x="134" y="480" text-anchor="middle" font-size="10" font-weight="600" fill="#854d0e">Models</text>
+      <text x="134" y="496" text-anchor="middle" font-size="8.5" fill="#64748b">Dataset / Analysis / Report</text>
+    </g>
+    <g>
+      <rect x="220" y="464" width="148" height="42" rx="8" fill="#fff" stroke="#fde047" stroke-width="1"/>
+      <text x="294" y="480" text-anchor="middle" font-size="10" font-weight="600" fill="#854d0e">Policies</text>
+      <text x="294" y="496" text-anchor="middle" font-size="8.5" fill="#64748b">Hard (H-001~010) / Soft</text>
+    </g>
+    <g>
+      <rect x="380" y="464" width="148" height="42" rx="8" fill="#fff" stroke="#fde047" stroke-width="1"/>
+      <text x="454" y="480" text-anchor="middle" font-size="10" font-weight="600" fill="#854d0e">Services</text>
+      <text x="454" y="496" text-anchor="middle" font-size="8.5" fill="#64748b">Method Selection / Routing</text>
+    </g>
+    <g>
+      <rect x="540" y="464" width="148" height="42" rx="8" fill="#fff" stroke="#fde047" stroke-width="1"/>
+      <text x="614" y="480" text-anchor="middle" font-size="10" font-weight="600" fill="#854d0e">Ports (ABC)</text>
+      <text x="614" y="496" text-anchor="middle" font-size="8.5" fill="#64748b">AnalysisEngine / Gateway</text>
+    </g>
+
+    <rect x="60" y="516" width="628" height="26" rx="6" fill="#fef9c3"/>
+    <text x="374" y="534" text-anchor="middle" font-size="10" fill="#713f12">Events · DomainEvent / PhaseCompleted / PlanLocked / DeviationDetected / AnalysisCompleted</text>
+  </g>
+
+  <!-- Dependency arrow: Application → Domain -->
+  <line x1="370" y1="396" x2="370" y2="416" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrB)"/>
+
+  <!-- ======== LAYER 4: Infrastructure ======== -->
+  <g filter="url(#shL)">
+    <rect x="40" y="572" width="660" height="136" rx="14" fill="#fff1f2" stroke="#fca5a5" stroke-width="1.5"/>
+    <rect x="40" y="572" width="660" height="34" rx="14" fill="#dc2626"/>
+    <rect x="40" y="592" width="660" height="14" fill="#dc2626"/>
+    <text x="60" y="594" font-size="14" font-weight="700" fill="#fff">Infrastructure Layer — 外部適配器</text>
+    <text x="490" y="594" font-size="10" fill="#fecdd3">src/rde/infrastructure/</text>
+
+    <g>
+      <rect x="60" y="620" width="150" height="42" rx="8" fill="#fff" stroke="#fca5a5" stroke-width="1"/>
+      <text x="135" y="636" text-anchor="middle" font-size="10" font-weight="600" fill="#b91c1c">Pandas Adapter</text>
+      <text x="135" y="652" text-anchor="middle" font-size="8.5" fill="#64748b">CSV / Excel / Parquet</text>
+    </g>
+    <g>
+      <rect x="222" y="620" width="150" height="42" rx="8" fill="#fff" stroke="#fca5a5" stroke-width="1"/>
+      <text x="297" y="636" text-anchor="middle" font-size="10" font-weight="600" fill="#b91c1c">SciPy Engine</text>
+      <text x="297" y="652" text-anchor="middle" font-size="8.5" fill="#64748b">16 Statistical Capabilities</text>
+    </g>
+    <g>
+      <rect x="384" y="620" width="150" height="42" rx="8" fill="#fff" stroke="#fca5a5" stroke-width="1"/>
+      <text x="459" y="636" text-anchor="middle" font-size="10" font-weight="600" fill="#b91c1c">Analysis Delegator</text>
+      <text x="459" y="652" text-anchor="middle" font-size="8.5" fill="#64748b">Local vs Vendor Routing</text>
+    </g>
+    <g>
+      <rect x="546" y="620" width="142" height="42" rx="8" fill="#fff" stroke="#fca5a5" stroke-width="1"/>
+      <text x="617" y="636" text-anchor="middle" font-size="10" font-weight="600" fill="#b91c1c">AutoML Gateway</text>
+      <text x="617" y="652" text-anchor="middle" font-size="8.5" fill="#64748b">Anti-Corruption Layer</text>
+    </g>
+
+    <rect x="60" y="672" width="628" height="26" rx="6" fill="#ffe4e6"/>
+    <text x="374" y="690" text-anchor="middle" font-size="10" fill="#9f1239">File I/O · Profiler (ydata) · DOCX Export · PII Detector · Artifact Persistence</text>
+  </g>
+
+  <!-- Dependency arrow: Infrastructure → Domain (goes UP, reversed) -->
+  <line x1="300" y1="572" x2="300" y2="552" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrB)"/>
+  <text x="308" y="565" font-size="9" fill="#3b82f6">implements ports</text>
+
+  <!-- ======== External Systems (right column) ======== -->
+  <!-- VS Code Extension -->
+  <g filter="url(#sh)">
+    <rect x="730" y="92" width="240" height="90" rx="12" fill="#faf5ff" stroke="#c084fc" stroke-width="1.5"/>
+    <text x="850" y="116" text-anchor="middle" font-size="13" font-weight="700" fill="#7c3aed">VS Code Extension</text>
+    <text x="850" y="135" text-anchor="middle" font-size="10" fill="#64748b">Agent Mode + Custom Agents</text>
+    <text x="850" y="152" text-anchor="middle" font-size="9" fill="#94a3b8">ask · architect · eda · audit</text>
+    <text x="850" y="168" text-anchor="middle" font-size="9" fill="#94a3b8">orchestrator · deep-thinker</text>
+  </g>
+
+  <!-- Arrow: VS Code → Interface -->
+  <line x1="730" y1="150" x2="700" y2="150" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrR)"/>
+  <text x="715" y="143" text-anchor="middle" font-size="8" fill="#ef4444">stdio</text>
+
+  <!-- automl-stat-mcp -->
+  <g filter="url(#sh)">
+    <rect x="730" y="340" width="240" height="100" rx="12" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+    <text x="850" y="364" text-anchor="middle" font-size="13" font-weight="700" fill="#c2410c">automl-stat-mcp</text>
+    <text x="850" y="384" text-anchor="middle" font-size="10" fill="#64748b">Vendor Heavy Analysis Engine</text>
+    <text x="850" y="402" text-anchor="middle" font-size="9" fill="#94a3b8">Propensity Score · Survival · ROC</text>
+    <text x="850" y="418" text-anchor="middle" font-size="9" fill="#94a3b8">Power · AutoML · 10 Capabilities</text>
+    <text x="850" y="432" text-anchor="middle" font-size="8" fill="#d97706">Docker: localhost:8002/sse</text>
+  </g>
+
+  <!-- Arrow: Infrastructure → automl-stat-mcp -->
+  <line x1="688" y1="640" x2="730" y2="400" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrR)"/>
+  <text x="728" y="530" font-size="8" fill="#ef4444" transform="rotate(-60,728,530)">HTTP / SSE</text>
+
+  <!-- Data Projects -->
+  <g filter="url(#sh)">
+    <rect x="730" y="480" width="240" height="80" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+    <text x="850" y="504" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">data/projects/</text>
+    <text x="850" y="524" text-anchor="middle" font-size="10" fill="#64748b">YYYYMMDD_HHMMSS_&lt;id&gt;/</text>
+    <text x="850" y="542" text-anchor="middle" font-size="9" fill="#94a3b8">artifacts/ · logs/ · reports/ · plans/</text>
+  </g>
+
+  <!-- Arrow: Infrastructure → Data -->
+  <line x1="700" y1="660" x2="730" y2="530" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrR)"/>
+
+  <!-- Governance Docs -->
+  <g filter="url(#sh)">
+    <rect x="730" y="590" width="240" height="80" rx="12" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.5"/>
+    <text x="850" y="614" text-anchor="middle" font-size="13" font-weight="700" fill="#0369a1">Governance Documents</text>
+    <text x="850" y="634" text-anchor="middle" font-size="9" fill="#64748b">SPEC.md · CONSTITUTION.md</text>
+    <text x="850" y="650" text-anchor="middle" font-size="9" fill="#64748b">AGENTS.md · agent-control.yaml</text>
+    <text x="850" y="662" text-anchor="middle" font-size="8" fill="#94a3b8">Policy layer constraining agent behavior</text>
+  </g>
+
+  <!-- Bottom bar -->
+  <rect x="40" y="730" width="920" height="70" rx="12" fill="#1e293b" filter="url(#sh)"/>
+  <text x="500" y="758" text-anchor="middle" font-size="14" font-weight="600" fill="#f1f5f9">依賴方向：Interface → Application → Domain ← Infrastructure</text>
+  <text x="500" y="782" text-anchor="middle" font-size="11" fill="#94a3b8">Domain 層為核心，不依賴任何外部框架 · Infrastructure 實作 Domain 定義的 Port (抽象介面)</text>
+</svg>
