@@ -40,6 +40,9 @@ data/projects/*/deviation_log.jsonl
 # Keep project configs (yaml/json) trackable
 !data/projects/*.json
 
+# Runtime-generated short-ID project metadata stays local
+data/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+
 # Test artifacts
 test_*.py
 !tests/**
@@ -53,6 +56,7 @@ tests/**/*.py[cod]
 *.swp
 *~
 .tools/
+uv.lock
 
 # xhtml2pdf / reportlab caches
 .cache/
