@@ -10,7 +10,8 @@ from pathlib import Path
 import pandas as pd
 import sys
 
-RAW = Path("data/rawdata")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+RAW = REPO_ROOT / "data" / "rawdata"
 
 
 def find_files():

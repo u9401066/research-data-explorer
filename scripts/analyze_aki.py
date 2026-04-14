@@ -20,30 +20,31 @@ from scipy import stats
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ── Paths ────────────────────────────────────────────────────────
-DATA = Path("data/rawdata/aki_analysis_ready.csv")
-OUT = Path("data/reports/aki_analysis")
-OUT.mkdir(parents=True, exist_ok=True)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA = REPO_ROOT / "data" / "rawdata" / "aki_analysis_ready.csv"
+OUT = REPO_ROOT / "data" / "reports" / "aki_analysis"
 
-# ── Load ─────────────────────────────────────────────────────────
-df = pd.read_csv(DATA)
-# Coerce numeric columns that may contain non-numeric values like 'X'
-numeric_candidates = [
-    c
-    for c in df.columns
-    if c
-    not in (
-        "subject_id",
-        "sex",
-        "sex_code",
-        "aki_cr_rise",
-        "aki_cr_7d",
-        "aki_urine_criteria",
-        "aki_status",
-    )
-]
-for col in numeric_candidates:
-    df[col] = pd.to_numeric(df[col], errors="coerce")
-print(f"Loaded {len(df)} subjects × {len(df.columns)} variables")
+
+def load_dataframe(data_path: Path = DATA) -> pd.DataFrame:
+    df = pd.read_csv(data_path)
+    # Coerce numeric columns that may contain non-numeric values like 'X'
+    numeric_candidates = [
+        c
+        for c in df.columns
+        if c
+        not in (
+            "subject_id",
+            "sex",
+            "sex_code",
+            "aki_cr_rise",
+            "aki_cr_7d",
+            "aki_urine_criteria",
+            "aki_status",
+        )
+    ]
+    for col in numeric_candidates:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -111,7 +112,9 @@ def make_table1(df: pd.DataFrame) -> str:
 # ══════════════════════════════════════════════════════════════════
 # 2) BIOMARKER TIME-COURSE ANALYSIS
 # ══════════════════════════════════════════════════════════════════
-def analyze_biomarker_timecourse(df: pd.DataFrame) -> str:
+def analyze_biomarker_timecourse(
+    df: pd.DataFrame,
+) -> tuple[str, dict[str, dict[str, float | None]]]:
     """Analyze biomarker changes across 0h → 4h → 24h."""
     lines = []
     lines.append("# Biomarker Time-Course Analysis")
@@ -541,6 +544,10 @@ def main():
     print("=" * 60)
     print("AKI Biomarker Analysis — Full Report")
     print("=" * 60)
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    df = load_dataframe()
+    print(f"Loaded {len(df)} subjects × {len(df.columns)} variables")
 
     report = []
     report.append("---")

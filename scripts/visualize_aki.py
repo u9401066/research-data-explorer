@@ -32,28 +32,31 @@ plt.rcParams.update(
 )
 
 # ── Paths ────────────────────────────────────────────────────────
-DATA = Path("data/rawdata/aki_analysis_ready.csv")
-FIG_DIR = Path("data/reports/aki_analysis/figures")
-FIG_DIR.mkdir(parents=True, exist_ok=True)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA = REPO_ROOT / "data" / "rawdata" / "aki_analysis_ready.csv"
+FIG_DIR = REPO_ROOT / "data" / "reports" / "aki_analysis" / "figures"
+df = None
 
-# ── Load ─────────────────────────────────────────────────────────
-df = pd.read_csv(DATA)
-numeric_candidates = [
-    c
-    for c in df.columns
-    if c
-    not in (
-        "subject_id",
-        "sex",
-        "sex_code",
-        "aki_cr_rise",
-        "aki_cr_7d",
-        "aki_urine_criteria",
-        "aki_status",
-    )
-]
-for col in numeric_candidates:
-    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+def load_dataframe(data_path: Path = DATA) -> pd.DataFrame:
+    df = pd.read_csv(data_path)
+    numeric_candidates = [
+        c
+        for c in df.columns
+        if c
+        not in (
+            "subject_id",
+            "sex",
+            "sex_code",
+            "aki_cr_rise",
+            "aki_cr_7d",
+            "aki_urine_criteria",
+            "aki_status",
+        )
+    ]
+    for col in numeric_candidates:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
 
 BIOMARKERS = {
     "NGAL": ("ngal_0hr", "ngal_4hr", "ngal_24hr"),
@@ -441,6 +444,8 @@ def fig_cr_change():
 # MAIN
 # ══════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    df = load_dataframe()
     print("=" * 60)
     print("Generating AKI Biomarker Figures")
     print("=" * 60)
