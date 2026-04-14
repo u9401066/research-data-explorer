@@ -21,4 +21,14 @@ describe('utils', () => {
             'rde',
         ]);
     });
+
+    it('treats POSIX virtualenv interpreters as python module runners', () => {
+        expect(getPythonArgs('/tmp/workspace/.venv/bin/python', 'rde')).toEqual(['-m', 'rde']);
+        expect(getPythonArgs('/tmp/workspace/venv/bin/python3', 'rde')).toEqual(['-m', 'rde']);
+    });
+
+    it('treats Windows virtualenv interpreters as python module runners', () => {
+        expect(getPythonArgs('C:\\repo\\.venv\\Scripts\\python.exe', 'rde')).toEqual(['-m', 'rde']);
+        expect(getPythonArgs('C:\\repo\\VENV\\Scripts\\python.exe', 'rde')).toEqual(['-m', 'rde']);
+    });
 });

@@ -157,16 +157,16 @@
   },
   "extensionDependencies": [],
   "scripts": {
-    "prepare:bundle": "node ./scripts/prepare-bundle.mjs",
-    "vscode:prepublish": "npm run prepare:bundle && npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run prepare:bundle && npm run compile",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint src --ext ts",
+    "prepare:bundle": "node ./scripts/run-with-npm-node.cjs ./scripts/prepare-bundle.mjs",
+    "vscode:prepublish": "node ./scripts/run-with-npm-node.cjs ./scripts/prepare-bundle.mjs && node ./scripts/run-with-npm-node.cjs ./node_modules/typescript/bin/tsc -p ./",
+    "compile": "node ./scripts/run-with-npm-node.cjs ./node_modules/typescript/bin/tsc -p ./",
+    "watch": "node ./scripts/run-with-npm-node.cjs ./node_modules/typescript/bin/tsc -watch -p ./",
+    "pretest": "node ./scripts/run-with-npm-node.cjs ./scripts/prepare-bundle.mjs && node ./scripts/run-with-npm-node.cjs ./node_modules/typescript/bin/tsc -p ./",
+    "test": "node ./scripts/run-with-npm-node.cjs ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node ./scripts/run-with-npm-node.cjs ./node_modules/vitest/vitest.mjs",
+    "lint": "node ./scripts/run-with-npm-node.cjs ./node_modules/eslint/bin/eslint.js src --ext ts",
     "validate": "bash ./scripts/validate-build.sh || powershell -File ./scripts/validate-build.ps1",
-    "package": "vsce package"
+    "package": "node ./scripts/run-with-npm-node.cjs ./node_modules/@vscode/vsce/vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

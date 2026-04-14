@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import yaml
 
@@ -151,6 +152,30 @@ class TestArtifactGateHook:
 
         issues = check_project(tmp_path)
         assert issues == []
+
+    def test_resolve_projects_dir_is_repo_root_relative(self, tmp_path: Path) -> None:
+        from scripts.hooks.artifact_gate import resolve_projects_dir
+
+        repo_root = tmp_path / "repo"
+        expected = repo_root / "data" / "projects"
+
+        assert resolve_projects_dir(repo_root) == expected
+
+    def test_pre_commit_pattern_matches_posix_and_windows_project_paths(self) -> None:
+        config = Path(__file__).resolve().parent.parent / ".pre-commit-config.yaml"
+        data = yaml.safe_load(config.read_text(encoding="utf-8"))
+
+        artifact_gate = next(
+            hook
+            for repo in data["repos"]
+            if repo["repo"] == "local"
+            for hook in repo["hooks"]
+            if hook["id"] == "rde-artifact-gate"
+        )
+        pattern = re.compile(artifact_gate["files"])
+
+        assert pattern.search("data/projects/20260414_demo/artifacts/phase_00_project_setup/project.yaml")
+        assert pattern.search(r"data\projects\20260414_demo\artifacts\phase_00_project_setup\project.yaml")
 
 
 # ── agent-control.yaml delegation section ────────────────────────

@@ -16,6 +16,7 @@ export function getPythonArgs(
 ): string[] {
     const baseCommand = path.basename(command).toLowerCase();
     const commandName = baseCommand.replace(/\.exe$/, '');
+    const normalizedCommand = command.replace(/\\/g, '/').toLowerCase();
 
     if (commandName === 'uv') {
         if (options?.projectPath) {
@@ -39,7 +40,7 @@ export function getPythonArgs(
         return ['-m', module];
     }
 
-    if (command.includes('.venv') || command.includes('venv')) {
+    if (/(^|\/)(\.venv|venv)(\/|$)/.test(normalizedCommand)) {
         return ['-m', module];
     }
 

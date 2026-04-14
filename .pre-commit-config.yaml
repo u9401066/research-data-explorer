@@ -46,7 +46,7 @@ repos:
         name: "RDE: Pipeline artifact gate (H-008)"
         language: python
         entry: python scripts/hooks/artifact_gate.py
-        files: '^data/projects/'
+        files: '^data[\\/]projects[\\/]'
         pass_filenames: false
 
       - id: rde-report-sanitize

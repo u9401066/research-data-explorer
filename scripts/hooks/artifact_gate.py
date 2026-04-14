@@ -26,6 +26,13 @@ PHASE_ARTIFACTS = {
 }
 
 
+def resolve_projects_dir(repo_root: Path | None = None) -> Path:
+    """Resolve the repository projects directory independent of the caller cwd."""
+
+    root = repo_root or Path(__file__).resolve().parents[2]
+    return root / "data" / "projects"
+
+
 def check_project(project_dir: Path) -> list[str]:
     """Check a project directory for artifact consistency."""
     artifacts_dir = project_dir / "artifacts"
@@ -57,7 +64,7 @@ def check_project(project_dir: Path) -> list[str]:
 
 
 def main() -> int:
-    projects_dir = Path("data/projects")
+    projects_dir = resolve_projects_dir()
     if not projects_dir.exists():
         return 0
 
