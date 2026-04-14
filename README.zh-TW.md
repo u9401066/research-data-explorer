@@ -410,6 +410,7 @@ heart_disease Phase 0-10 dry run：
 - handoff package: [data/projects/12aafc56/artifacts/handoff_package](data/projects/12aafc56/artifacts/handoff_package)
 
 現在透過 `init_project()` 新建的專案，資料夾命名會改成可排序的 `data/projects/YYYYMMDD_HHMMSS_<project_id>/`。上面這些 repo 內建 sample artifact 仍保留舊的短 ID 命名。
+當從 VS Code extension 啟動時，`init_project()` 會透過 `RDE_WORKSPACE` 把這個 `data/projects/` 根目錄對齊到目前工作區，而不是 MCP server 的 process cwd。
 
 ## 已知限制
 

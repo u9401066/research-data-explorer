@@ -41,19 +41,23 @@ def register_project_tools(server: Any) -> None:
 
         try:
             import uuid
-            from pathlib import Path
             from datetime import datetime
+            from pathlib import Path
 
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.domain.models.project import Project, ProjectStatus
-            from rde.infrastructure.persistence import FileSystemProjectRepository
+            from rde.infrastructure.persistence import (
+                FileSystemProjectRepository,
+                resolve_projects_base_dir,
+            )
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             created_at = datetime.now()
             project_id = str(uuid.uuid4())[:8]
             folder_name = f"{created_at.strftime('%Y%m%d_%H%M%S')}_{project_id}"
-            output_dir = Path("data/projects") / folder_name
+            projects_base_dir = resolve_projects_base_dir()
+            output_dir = projects_base_dir / folder_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
             project = Project(
@@ -71,7 +75,7 @@ def register_project_tools(server: Any) -> None:
             session = get_session()
             session.register_project(project)
 
-            repo = FileSystemProjectRepository(Path("data/projects"))
+            repo = FileSystemProjectRepository(projects_base_dir)
             repo.save(project)
 
             store = ArtifactStore(project.artifacts_dir)

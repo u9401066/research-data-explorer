@@ -606,3 +606,100 @@ def test_init_project_uses_timestamp_prefixed_output_directory(tmp_path: Path) -
     assert folder_name.endswith(f"_{project_id}")
     assert folder_name in output
     assert f"data/projects/{folder_name}" in output.replace("\\", "/")
+
+
+def test_init_project_uses_workspace_env_for_output_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    server_cwd = tmp_path / "server-cwd"
+    server_cwd.mkdir()
+
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+    monkeypatch.chdir(server_cwd)
+
+    async def run_flow() -> Project:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "workspace-output-check",
+                "data_dir": str(raw_dir),
+            },
+        )
+        return session.get_project()
+
+    project = asyncio.run(run_flow())
+    expected_base = workspace_dir / "data" / "projects"
+
+    assert project.output_dir.parent == expected_base
+    assert project.output_dir.exists()
+    assert project.output_dir.name.endswith(f"_{project.id}")
+
+
+def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+
+    projects_base_dir = resolve_projects_base_dir()
+    output_dir = projects_base_dir / "20260414_120000_rehyd123"
+    output_dir.mkdir(parents=True)
+    (output_dir / "artifacts").mkdir(exist_ok=True)
+    (output_dir / "figures").mkdir(exist_ok=True)
+
+    project = Project(
+        id="rehyd123",
+        name="rehydrated-project",
+        data_dir=raw_dir,
+        output_dir=output_dir,
+        created_at=datetime(2026, 4, 14, 12, 0, 0),
+        research_question="Can a persisted project survive MCP session reset?",
+    )
+    project.advance_to(ProjectStatus.PROJECT_SETUP)
+    project.advance_to(ProjectStatus.DATA_INTAKE)
+    project.advance_to(ProjectStatus.SCHEMA_REGISTRY)
+    project.advance_to(ProjectStatus.CONCEPT_ALIGNMENT)
+    project.advance_to(ProjectStatus.PLAN_REGISTRATION)
+
+    repo = FileSystemProjectRepository(projects_base_dir)
+    repo.save(project)
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        if isinstance(content, (list, tuple)):
+            blocks = content
+        elif isinstance(result, tuple) and result and isinstance(result[0], (list, tuple)):
+            blocks = result[0]
+        else:
+            blocks = result if isinstance(result, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> str:
+        server = create_server()
+        result = await server.call_tool("get_pipeline_status", {"project_id": project.id})
+        return _textify(result)
+
+    output = asyncio.run(run_flow())
+
+    assert "rehydrated-project" in output
+    assert "🔒 已鎖定" in output
+    assert "phase_04_plan_registration" in output
+    assert "phase_05_pre_explore_check" in output
