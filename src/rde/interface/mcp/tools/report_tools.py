@@ -390,6 +390,8 @@ def register_report_tools(server: Any) -> None:
         """建立資料視覺化圖表。H-009 自動記錄。
 
         支援類型: histogram, boxplot, scatter, bar, violin, heatmap, line, paired。
+        對 histogram / boxplot / scatter / bar / violin / heatmap / line / paired 會自動附加摘要統計；
+        若圖表支援比較或關聯檢定，預設會在圖中標註 p 值或相關係數。
         圖表儲存在專案的 figures/ 目錄，報告和 handoff 時自動嵌入。
 
         Args:
@@ -467,6 +469,7 @@ def register_report_tools(server: Any) -> None:
                 output_path=output_path,
                 **kwargs,
             )
+            stats_summary = viz.last_annotation_summary
 
             from rde.interface.mcp.tools.analysis_tools import _auto_log_decision
 
@@ -474,15 +477,25 @@ def register_report_tools(server: Any) -> None:
                 "create_visualization",
                 {"plot_type": plot_type, "variables": variables, "group_var": group_var},
                 "生成視覺化圖表",
-                f"{plot_type}: {result_path}",
+                (
+                    f"{plot_type}: {result_path} | {stats_summary}"
+                    if stats_summary
+                    else f"{plot_type}: {result_path}"
+                ),
                 artifacts=[result_path],
             )
 
+            details = [
+                f"- **類型:** {plot_type}",
+                f"- **變數:** {', '.join(variables)}",
+            ]
+            if stats_summary:
+                details.append(f"- **統計註記:** {stats_summary}")
+            details.append(f"- **路徑:** {result_path}")
+
             return fmt_success(
                 f"圖表已生成: {output_filename}",
-                f"- **類型:** {plot_type}\n"
-                f"- **變數:** {', '.join(variables)}\n"
-                f"- **路徑:** {result_path}",
+                "\n".join(details),
             )
 
         except Exception as e:
