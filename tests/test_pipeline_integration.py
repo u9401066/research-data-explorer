@@ -940,3 +940,35 @@ def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
     assert ProjectStatus.COLLECT_RESULTS in repaired.completed_phases
     assert ProjectStatus.REPORT_ASSEMBLY in repaired.completed_phases
     assert ProjectStatus.AUDIT_REVIEW in repaired.completed_phases
+
+
+def test_project_advance_to_does_not_regress_later_status() -> None:
+    project = Project(
+        id="phase-guard",
+        name="phase-guard",
+        data_dir=Path("data/rawdata"),
+        output_dir=Path("data/projects/phase-guard"),
+        status=ProjectStatus.AUTO_IMPROVE,
+        completed_phases=[
+            ProjectStatus.PROJECT_SETUP,
+            ProjectStatus.DATA_INTAKE,
+            ProjectStatus.SCHEMA_REGISTRY,
+            ProjectStatus.CONCEPT_ALIGNMENT,
+            ProjectStatus.PLAN_REGISTRATION,
+            ProjectStatus.PRE_EXPLORE_CHECK,
+            ProjectStatus.EXECUTE_EXPLORATION,
+            ProjectStatus.COLLECT_RESULTS,
+            ProjectStatus.REPORT_ASSEMBLY,
+            ProjectStatus.AUDIT_REVIEW,
+            ProjectStatus.AUTO_IMPROVE,
+        ],
+        plan_locked=True,
+    )
+
+    project.advance_to(ProjectStatus.EXECUTE_EXPLORATION)
+    project.advance_to(ProjectStatus.AUDIT_REVIEW)
+
+    assert project.status == ProjectStatus.AUTO_IMPROVE
+    assert project.completed_phases[-1] == ProjectStatus.AUTO_IMPROVE
+    assert project.plan_locked is True
+

@@ -75,6 +75,17 @@ class Project:
         """Advance the project to a pipeline phase."""
         if self.status == ProjectStatus.COMPLETED:
             return
+
+        if self.status in PIPELINE_ORDER and phase in PIPELINE_ORDER:
+            current_index = PIPELINE_ORDER.index(self.status)
+            target_index = PIPELINE_ORDER.index(phase)
+            if target_index < current_index:
+                if phase not in self.completed_phases:
+                    self.completed_phases.append(phase)
+                if phase == ProjectStatus.PLAN_REGISTRATION:
+                    self.plan_locked = True
+                return
+
         self.status = phase
         if phase not in self.completed_phases:
             self.completed_phases.append(phase)
