@@ -11,6 +11,10 @@ from __future__ import annotations
 from typing import Any
 
 
+MIN_DESCRIPTIVE_FIGURES = 3
+MIN_ANALYTICAL_FIGURES = 6
+
+
 def register_report_tools(server: Any) -> None:
     """Register report and visualization MCP tools."""
 
@@ -149,6 +153,8 @@ def register_report_tools(server: Any) -> None:
                     "[S-012] 有顯著結果，建議進行敏感度分析（如排除極端值或變更 α 值）。"
                 )
 
+            deliverables = _summarize_publication_deliverables(project, store)
+
             summary = {
                 "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
@@ -157,6 +163,7 @@ def register_report_tools(server: Any) -> None:
                 "decision_count": len(decisions),
                 "deviation_count": len(deviations),
                 "phase6_progress": progress,
+                "deliverables": deliverables,
             }
 
             # Save artifact
@@ -194,6 +201,18 @@ def register_report_tools(server: Any) -> None:
                 lines.append(
                     f"- **Phase 6 進度:** 已執行 {progress.get('executed_analyses', 0)} 項 "
                     f"(門檻: {progress.get('required_executions')})"
+                )
+
+            lines.append(f"- **Table 1:** {'✅' if deliverables['table_one_present'] else '❌'}")
+            lines.append(
+                f"- **粗分析圖:** {deliverables['descriptive_figures']}/{deliverables['required_descriptive_figures']}"
+            )
+            lines.append(
+                f"- **細分析圖:** {deliverables['analytical_figures']}/{deliverables['required_analytical_figures']}"
+            )
+            if deliverables["missing_components"]:
+                lines.append(
+                    f"- **最低發表包缺口:** {', '.join(deliverables['missing_components'])}"
                 )
 
             if publishable:
@@ -470,6 +489,14 @@ def register_report_tools(server: Any) -> None:
                 **kwargs,
             )
             stats_summary = viz.last_annotation_summary
+            _upsert_visualization_manifest(
+                project,
+                plot_type=plot_type,
+                variables=variables,
+                result_path=result_path,
+                group_var=group_var,
+                stats_summary=stats_summary,
+            )
 
             from rde.interface.mcp.tools.analysis_tools import _auto_log_decision
 
@@ -755,6 +782,18 @@ def _format_analyses(results: dict | None) -> str:
     if not results:
         return "[No analysis results collected]"
     lines = [f"**分析總數:** {results.get('total_analyses', 0)}"]
+    deliverables = results.get("deliverables") or {}
+    if deliverables:
+        lines.extend(
+            [
+                f"**Table 1:** {'已提供' if deliverables.get('table_one_present') else '缺少'}",
+                f"**粗分析圖:** {deliverables.get('descriptive_figures', 0)}/{deliverables.get('required_descriptive_figures', MIN_DESCRIPTIVE_FIGURES)}",
+                f"**細分析圖:** {deliverables.get('analytical_figures', 0)}/{deliverables.get('required_analytical_figures', MIN_ANALYTICAL_FIGURES)}",
+            ]
+        )
+        missing = deliverables.get("missing_components", [])
+        if missing:
+            lines.append(f"**最低發表包缺口:** {', '.join(missing)}")
     pub = results.get("publishable_items", [])
     if pub:
         lines.append("\n**可發表結果:**")
@@ -801,6 +840,9 @@ def _build_recommendations(results: dict | None, readiness: dict | None) -> str:
         plan_cov = results.get("plan_coverage", {})
         if plan_cov and plan_cov.get("coverage", 1.0) < 0.8:
             lines.append("- 計畫涵蓋率不足 80%，請檢查是否有遺漏的分析項目。")
+        deliverables = results.get("deliverables") or {}
+        if deliverables.get("missing_components"):
+            lines.append("- 最低發表包尚未滿足，請至少補齊 Table 1、3 張粗分析圖、6 張細分析圖。")
     if readiness:
         for c in readiness.get("checks", []):
             if not c.get("passed"):
@@ -850,3 +892,86 @@ def _build_appendix(logger: Any) -> str:
     lines.append(f"- **Deviation count:** {logger.deviation_count}")
 
     return "\n".join(lines)
+
+
+def _visualization_category(plot_type: str, group_var: str | None) -> str:
+    normalized = str(plot_type).strip().lower()
+    if normalized == "histogram":
+        return "descriptive"
+    if normalized == "bar" and not group_var:
+        return "descriptive"
+    return "analytical"
+
+
+def _upsert_visualization_manifest(
+    project: Any,
+    *,
+    plot_type: str,
+    variables: list[str],
+    result_path: str,
+    group_var: str | None,
+    stats_summary: str | None,
+) -> None:
+    from rde.application.pipeline import PipelinePhase
+    from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+    store = ArtifactStore(project.artifacts_dir)
+    manifest = store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json") or []
+    if not isinstance(manifest, list):
+        manifest = []
+
+    normalized_vars = [str(value) for value in variables]
+    key = (str(plot_type).lower(), tuple(normalized_vars), group_var)
+    updated = [
+        entry
+        for entry in manifest
+        if (
+            str(entry.get("plot_type", "")).lower(),
+            tuple(str(value) for value in entry.get("variables", [])),
+            entry.get("group_var"),
+        )
+        != key
+    ]
+    updated.append(
+        {
+            "plot_type": plot_type,
+            "variables": normalized_vars,
+            "group_var": group_var,
+            "output_path": result_path,
+            "stats_summary": stats_summary,
+            "category": _visualization_category(plot_type, group_var),
+        }
+    )
+    store.save(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json", updated)
+
+
+def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, Any]:
+    from rde.application.pipeline import PipelinePhase
+
+    manifest = store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json") or []
+    if not isinstance(manifest, list):
+        manifest = []
+
+    descriptive = sum(1 for entry in manifest if entry.get("category") == "descriptive")
+    analytical = sum(1 for entry in manifest if entry.get("category") == "analytical")
+    figure_files = sorted(path.name for path in (project.output_dir / "figures").glob("*.png"))
+    missing_components: list[str] = []
+    table_one_present = bool(store.exists(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md"))
+    if not table_one_present:
+        missing_components.append("Table 1")
+    if descriptive < MIN_DESCRIPTIVE_FIGURES:
+        missing_components.append(f"粗分析圖 {descriptive}/{MIN_DESCRIPTIVE_FIGURES}")
+    if analytical < MIN_ANALYTICAL_FIGURES:
+        missing_components.append(f"細分析圖 {analytical}/{MIN_ANALYTICAL_FIGURES}")
+
+    return {
+        "table_one_present": table_one_present,
+        "descriptive_figures": descriptive,
+        "analytical_figures": analytical,
+        "required_descriptive_figures": MIN_DESCRIPTIVE_FIGURES,
+        "required_analytical_figures": MIN_ANALYTICAL_FIGURES,
+        "total_figures": len(figure_files),
+        "figure_files": figure_files,
+        "minimum_publication_bundle_met": not missing_components,
+        "missing_components": missing_components,
+    }

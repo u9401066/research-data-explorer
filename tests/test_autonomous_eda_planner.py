@@ -99,6 +99,26 @@ def test_binary_outcome_group_plan_includes_core_greedy_candidates() -> None:
         for entry in proposal.plan_blueprint
         if entry["type"] == "run_advanced_analysis"
     )
+    descriptive_figures = sum(
+        1
+        for entry in proposal.plan_blueprint
+        if entry["type"] == "visualization"
+        and (
+            entry.get("plot_type") == "histogram"
+            or (entry.get("plot_type") == "bar" and not entry.get("group_variable"))
+        )
+    )
+    analytical_figures = sum(
+        1
+        for entry in proposal.plan_blueprint
+        if entry["type"] == "visualization"
+        and not (
+            entry.get("plot_type") == "histogram"
+            or (entry.get("plot_type") == "bar" and not entry.get("group_variable"))
+        )
+    )
+    assert descriptive_figures >= 3
+    assert analytical_figures >= 6
 
 
 def test_proposal_exposes_review_metadata_for_methodology_checks() -> None:
@@ -161,6 +181,8 @@ def test_review_registered_plan_flags_under_scoped_plan() -> None:
     assert "foundational_overview" in missing
     assert "association_structure" in missing
     assert "adjusted_model" in missing
+    assert "descriptive_figure_bundle" in missing
+    assert "detailed_figure_bundle" in missing
 
 
 def test_internal_review_expands_budget_before_dropping_optional_branch() -> None:

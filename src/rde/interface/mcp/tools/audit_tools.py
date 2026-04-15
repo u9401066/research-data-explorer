@@ -193,6 +193,32 @@ def register_audit_tools(server: Any) -> None:
                 }
             )
 
+            # ── 6. Publication bundle completeness ────────────────
+            max_score += 10
+            deliverables = results.get("deliverables", {}) if results else {}
+            required_desc = deliverables.get("required_descriptive_figures", 3)
+            required_analytical = deliverables.get("required_analytical_figures", 6)
+            descriptive = deliverables.get("descriptive_figures", 0)
+            analytical = deliverables.get("analytical_figures", 0)
+            bundle_score = 0
+            if deliverables.get("table_one_present"):
+                bundle_score += 2
+            bundle_score += int(3 * min(1.0, descriptive / max(1, required_desc)))
+            bundle_score += int(5 * min(1.0, analytical / max(1, required_analytical)))
+            total_score += bundle_score
+            checks.append(
+                {
+                    "category": "publication_bundle",
+                    "score": bundle_score,
+                    "max": 10,
+                    "passed": bool(deliverables.get("minimum_publication_bundle_met")),
+                    "details": (
+                        f"table_one={'✅' if deliverables.get('table_one_present') else '❌'}, "
+                        f"crude={descriptive}/{required_desc}, detailed={analytical}/{required_analytical}"
+                    ),
+                }
+            )
+
             # ── Grade ───────────────────────────────────────────────
             pct = total_score / max(1, max_score)
             if pct >= 0.9:

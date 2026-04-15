@@ -1,15 +1,19 @@
 from pathlib import Path
 
 from rde.domain.models.report import EDAReport, ReportSection
+from rde.application.pipeline import PipelinePhase
 from rde.interface.mcp.tools.report_tools import (
+    _build_recommendations,
     _format_baseline_table,
     _format_data_overview,
     _format_data_quality,
     _format_variable_profiles,
+    _summarize_publication_deliverables,
 )
 from rde.application.use_cases.export_report import ExportReportUseCase
 from rde.application.use_cases.generate_report import GenerateReportUseCase
 from rde.infrastructure.adapters.markdown_renderer import MarkdownReportRenderer
+from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
 
 def test_format_data_overview_uses_current_intake_keys() -> None:
@@ -133,3 +137,52 @@ def test_generate_report_supports_optional_table_one_and_sensitivity_sections() 
     assert "CUSUM suggests later operators outperform the cohort target." in rendered
     assert "## Sensitivity Analysis" in rendered
     assert "Sensitivity remained directionally consistent." in rendered
+
+
+def test_publication_deliverables_summary_marks_missing_bundle(tmp_path: Path) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    (project.output_dir / "figures").mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {
+                "plot_type": "histogram",
+                "variables": ["age"],
+                "category": "descriptive",
+            },
+            {
+                "plot_type": "boxplot",
+                "variables": ["age"],
+                "group_var": "group",
+                "category": "analytical",
+            },
+        ],
+    )
+
+    summary = _summarize_publication_deliverables(project, store)
+
+    assert summary["table_one_present"] is False
+    assert summary["minimum_publication_bundle_met"] is False
+    assert "Table 1" in summary["missing_components"]
+    assert "粗分析圖 1/3" in summary["missing_components"]
+    assert "細分析圖 1/6" in summary["missing_components"]
+
+
+def test_build_recommendations_mentions_publication_bundle_gap() -> None:
+    text = _build_recommendations(
+        {
+            "deliverables": {
+                "missing_components": ["Table 1", "粗分析圖 2/3", "細分析圖 4/6"],
+            },
+            "publishable_count": 0,
+            "deviation_count": 0,
+        },
+        None,
+    )
+
+    assert "最低發表包" in text

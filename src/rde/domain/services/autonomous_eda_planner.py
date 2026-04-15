@@ -48,6 +48,9 @@ REPEATED_PATTERNS = (
     ),
 )
 
+MIN_DESCRIPTIVE_VISUALIZATIONS = 3
+MIN_ANALYTICAL_VISUALIZATIONS = 6
+
 
 @dataclass(frozen=True)
 class VisualizationSuggestion:
@@ -427,6 +430,13 @@ class AutonomousEDAPlanner:
                 seen_viz.add(viz.key())
                 blueprint.append(viz.to_plan_entry())
 
+        if include_visualizations and groups:
+            blueprint = self._ensure_publication_visualization_floor(
+                blueprint,
+                candidate_pool=candidate_pool,
+                seen_viz=seen_viz,
+            )
+
         execution_schedule = self.build_execution_schedule(blueprint)
 
         return GreedyPlanProposal(
@@ -517,6 +527,12 @@ class AutonomousEDAPlanner:
             draft_families=selected_families,
             final_families=selected_families,
             requirements=required_checks,
+        )
+        checks.extend(
+            self._materialize_visualization_bundle_checks(
+                *self._count_visualization_entries(analyses),
+                has_groups=bool(groups),
+            )
         )
         missing_required_count = sum(1 for check in checks if check.status == "missing")
         requested_budget = len(selected_families)
@@ -884,7 +900,7 @@ class AutonomousEDAPlanner:
             if comparison_targets:
                 comparison_viz = self._comparison_visualizations(
                     group_variable=group_variable.name,
-                    variables=comparison_targets[:2],
+                    variables=comparison_targets,
                 )
                 candidates.append(
                     AnalysisCandidate(
@@ -1202,6 +1218,17 @@ class AutonomousEDAPlanner:
             final_families=final_families,
             requirements=required_checks,
         )
+        draft_descriptive, draft_analytical = self._count_selected_visualizations(draft_selected)
+        final_descriptive, final_analytical = self._count_selected_visualizations(selected)
+        checks.extend(
+            self._materialize_visualization_bundle_checks(
+                draft_descriptive,
+                draft_analytical,
+                has_groups=bool(groups),
+                repaired_descriptive=final_descriptive,
+                repaired_analytical=final_analytical,
+            )
+        )
         status = "pass"
         if any(check.status == "missing" for check in checks):
             status = "budget_limited" if max_analyses < recommended_floor else "partial"
@@ -1369,6 +1396,135 @@ class AutonomousEDAPlanner:
                 )
             )
         return checks
+
+    def _materialize_visualization_bundle_checks(
+        self,
+        descriptive_count: int,
+        analytical_count: int,
+        *,
+        has_groups: bool,
+        repaired_descriptive: int | None = None,
+        repaired_analytical: int | None = None,
+    ) -> list[ReviewCheck]:
+        if not has_groups:
+            return []
+
+        final_descriptive = repaired_descriptive if repaired_descriptive is not None else descriptive_count
+        final_analytical = repaired_analytical if repaired_analytical is not None else analytical_count
+        checks: list[ReviewCheck] = []
+        requirements = [
+            (
+                "descriptive_figure_bundle",
+                descriptive_count,
+                final_descriptive,
+                MIN_DESCRIPTIVE_VISUALIZATIONS,
+                f"Grouped publication-oriented analysis should include at least {MIN_DESCRIPTIVE_VISUALIZATIONS} crude/descriptive figures before inferential interpretation.",
+            ),
+            (
+                "detailed_figure_bundle",
+                analytical_count,
+                final_analytical,
+                MIN_ANALYTICAL_VISUALIZATIONS,
+                f"Grouped publication-oriented analysis should include at least {MIN_ANALYTICAL_VISUALIZATIONS} detailed figures (comparison/post-hoc/model-support plots).",
+            ),
+        ]
+        for name, draft_count, final_count, minimum, detail in requirements:
+            if draft_count >= minimum:
+                status = "pass"
+                satisfied_by = (f"count={draft_count}",)
+            elif final_count >= minimum:
+                status = "repaired"
+                satisfied_by = (f"count={final_count}",)
+            else:
+                status = "missing"
+                satisfied_by = (f"count={final_count}",)
+            checks.append(
+                ReviewCheck(
+                    name=name,
+                    status=status,
+                    detail=detail,
+                    satisfied_by=satisfied_by,
+                )
+            )
+        return checks
+
+    def _count_selected_visualizations(
+        self,
+        selected: tuple[RankedCandidate, ...] | list[RankedCandidate],
+    ) -> tuple[int, int]:
+        descriptive = 0
+        analytical = 0
+        for ranked in selected:
+            for viz in ranked.candidate.visualizations:
+                if self._visualization_category(viz.plot_type, viz.group_variable) == "descriptive":
+                    descriptive += 1
+                else:
+                    analytical += 1
+        return descriptive, analytical
+
+    def _count_visualization_entries(self, analyses: list[dict[str, Any]]) -> tuple[int, int]:
+        descriptive = 0
+        analytical = 0
+        for entry in analyses:
+            if not isinstance(entry, dict) or self._entry_family(entry) != "visualization":
+                continue
+            if self._visualization_category(
+                str(entry.get("plot_type") or ""),
+                str(entry.get("group_variable")) if entry.get("group_variable") is not None else None,
+            ) == "descriptive":
+                descriptive += 1
+            else:
+                analytical += 1
+        return descriptive, analytical
+
+    def _ensure_publication_visualization_floor(
+        self,
+        blueprint: list[dict[str, Any]],
+        *,
+        candidate_pool: list[AnalysisCandidate],
+        seen_viz: set[tuple[str, tuple[str, ...], str | None]],
+    ) -> list[dict[str, Any]]:
+        descriptive_count, analytical_count = self._count_visualization_entries(blueprint)
+        additional_viz = [
+            viz
+            for candidate in candidate_pool
+            for viz in candidate.visualizations
+            if viz.key() not in seen_viz
+        ]
+        additional_viz.sort(
+            key=lambda viz: (
+                0 if self._visualization_category(viz.plot_type, viz.group_variable) == "descriptive" else 1,
+                viz.plot_type,
+                viz.variables,
+            )
+        )
+
+        for viz in additional_viz:
+            category = self._visualization_category(viz.plot_type, viz.group_variable)
+            if category == "descriptive" and descriptive_count >= MIN_DESCRIPTIVE_VISUALIZATIONS:
+                continue
+            if category == "analytical" and analytical_count >= MIN_ANALYTICAL_VISUALIZATIONS:
+                continue
+            blueprint.append(viz.to_plan_entry())
+            seen_viz.add(viz.key())
+            if category == "descriptive":
+                descriptive_count += 1
+            else:
+                analytical_count += 1
+            if (
+                descriptive_count >= MIN_DESCRIPTIVE_VISUALIZATIONS
+                and analytical_count >= MIN_ANALYTICAL_VISUALIZATIONS
+            ):
+                break
+        return blueprint
+
+    def _visualization_category(self, plot_type: str, group_variable: str | None) -> str:
+        normalized = str(plot_type).strip().lower()
+        if normalized == "histogram":
+            return "descriptive"
+        if normalized == "bar" and not group_variable:
+            return "descriptive"
+        return "analytical"
 
     def _best_matching_candidate(
         self,

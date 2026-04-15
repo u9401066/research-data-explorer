@@ -37,10 +37,34 @@ def _merge_methodology_expansion(
         for family in [_normalized_plan_family(entry)]
         if family is not None
     }
+    existing_visualizations = {
+        (
+            str(entry.get("plot_type", "")).lower(),
+            tuple(str(value) for value in entry.get("variables", [])),
+            str(entry.get("group_variable")) if entry.get("group_variable") is not None else None,
+        )
+        for entry in merged
+        if str(entry.get("type", "")).lower() == "visualization"
+    }
     added_labels: list[str] = []
 
     for entry in proposal_blueprint:
-        if not isinstance(entry, dict) or str(entry.get("type", "")).lower() == "visualization":
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("type", "")).lower() == "visualization":
+            viz_key = (
+                str(entry.get("plot_type", "")).lower(),
+                tuple(str(value) for value in entry.get("variables", [])),
+                str(entry.get("group_variable")) if entry.get("group_variable") is not None else None,
+            )
+            if viz_key in existing_visualizations:
+                continue
+            new_entry = dict(entry)
+            new_entry.setdefault("required", False)
+            new_entry.setdefault("origin", "methodology_expansion")
+            merged.append(new_entry)
+            existing_visualizations.add(viz_key)
+            added_labels.append(f"visualization:{new_entry.get('plot_type', 'plot')}")
             continue
         family = _normalized_plan_family(entry)
         if family is None or family in existing_families:
@@ -797,7 +821,7 @@ def register_plan_tools(server: Any) -> None:
                             _planned_count(analyses), review.recommended_analysis_floor
                         ),
                         include_advanced=True,
-                        include_visualizations=False,
+                        include_visualizations=True,
                     )
                     analyses, auto_expanded_labels = _merge_methodology_expansion(
                         analyses,

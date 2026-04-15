@@ -760,6 +760,7 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
                         "rationale": "Compare outcome by treatment group",
                     }
                 ],
+                "allow_methodology_override": True,
                 "confirm": True,
             },
         )
@@ -971,4 +972,3 @@ def test_project_advance_to_does_not_regress_later_status() -> None:
     assert project.status == ProjectStatus.AUTO_IMPROVE
     assert project.completed_phases[-1] == ProjectStatus.AUTO_IMPROVE
     assert project.plan_locked is True
-
