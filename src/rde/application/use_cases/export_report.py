@@ -30,6 +30,7 @@ class ExportReportUseCase:
         *,
         formats: list[str] | None = None,
         figures_dir: Path | None = None,
+        filename_stem: str = "eda_report",
     ) -> dict[str, Path]:
         """Export report to requested formats.
 
@@ -38,6 +39,7 @@ class ExportReportUseCase:
             output_dir: Directory for output files.
             formats: List of formats ("docx", "pdf"). Default: ["docx"].
             figures_dir: Directory containing figure PNGs.
+            filename_stem: Base filename without extension for exported files.
 
         Returns:
             Dict mapping format name to output file path.
@@ -66,7 +68,7 @@ class ExportReportUseCase:
 
         for fmt in formats:
             fmt_lower = fmt.lower().strip()
-            base_name = f"eda_report.{fmt_lower}"
+            base_name = f"{filename_stem}.{fmt_lower}"
             output_path = output_dir / base_name
 
             if fmt_lower == "docx":

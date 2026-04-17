@@ -248,6 +248,7 @@ class ReportingHeuristics:
         "此報告僅供快速概況探索，未完成 concept alignment、plan lock、collect_results 與 audit review。",
     )
     publishable_requires_significance: bool = True
+    default_completion_target: str = "production_ready"
 
 
 @dataclass(frozen=True)

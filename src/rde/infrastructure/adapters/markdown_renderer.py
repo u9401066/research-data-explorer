@@ -102,6 +102,20 @@ class MarkdownReportRenderer(ReportRendererPort):
     def _dict_to_md_table(tbl: dict[str, Any]) -> str:
         if not tbl:
             return ""
+        if isinstance(tbl.get("headers"), list) and isinstance(tbl.get("rows"), list):
+            headers = [str(value) for value in tbl.get("headers", [])]
+            rows = [list(row) for row in tbl.get("rows", [])]
+            if not headers:
+                return ""
+
+            lines = []
+            lines.append("| " + " | ".join(headers) + " |")
+            lines.append("| " + " | ".join("---" for _ in headers) + " |")
+            for row in rows:
+                padded = [str(value) for value in row] + [""] * (len(headers) - len(row))
+                lines.append("| " + " | ".join(padded[: len(headers)]) + " |")
+            return "\n".join(lines)
+
         headers = list(tbl.keys())
         first_vals = tbl[headers[0]]
         if isinstance(first_vals, dict):
@@ -124,6 +138,25 @@ class MarkdownReportRenderer(ReportRendererPort):
     def _dict_to_html_table(tbl: dict[str, Any]) -> str:
         if not tbl:
             return ""
+        if isinstance(tbl.get("headers"), list) and isinstance(tbl.get("rows"), list):
+            headers = [str(value) for value in tbl.get("headers", [])]
+            rows = [list(row) for row in tbl.get("rows", [])]
+            if not headers:
+                return ""
+
+            lines = ["<table>", "<tr>"]
+            for header in headers:
+                lines.append(f"<th>{header}</th>")
+            lines.append("</tr>")
+            for row in rows:
+                padded = [str(value) for value in row] + [""] * (len(headers) - len(row))
+                lines.append("<tr>")
+                for value in padded[: len(headers)]:
+                    lines.append(f"<td>{value}</td>")
+                lines.append("</tr>")
+            lines.append("</table>")
+            return "\n".join(lines)
+
         headers = list(tbl.keys())
         first_vals = tbl[headers[0]]
         if isinstance(first_vals, dict):

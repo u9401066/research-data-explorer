@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 import pandas as pd
 
+from rde.domain.services.numeric_plausibility import apply_numeric_plausibility_filters
 from rde.domain.ports import VisualizationPort
 
 
@@ -63,6 +64,7 @@ class MatplotlibVisualizer(VisualizationPort):
 
     def __init__(self) -> None:
         self.last_annotation_summary: str | None = None
+        self._plausibility_notes_by_variable: dict[str, list[str]] = {}
 
     def create_plot(
         self,
@@ -74,6 +76,7 @@ class MatplotlibVisualizer(VisualizationPort):
     ) -> str:
         df: pd.DataFrame = data
         self.last_annotation_summary = None
+        self._plausibility_notes_by_variable = {}
 
         method_name = self._PLOT_DISPATCH.get(plot_type)
         if method_name is None:
@@ -81,16 +84,50 @@ class MatplotlibVisualizer(VisualizationPort):
                 f"Unsupported plot type: {plot_type}. Supported: {list(self._PLOT_DISPATCH.keys())}"
             )
 
+        cleaned_df, plausibility_findings = apply_numeric_plausibility_filters(df, variables)
+        for finding in plausibility_findings:
+            self._plausibility_notes_by_variable.setdefault(finding.variable_name, []).append(
+                finding.annotation_line()
+            )
+
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         method = getattr(self, method_name)
-        method(df, variables, output_path, **kwargs)
+        method(cleaned_df, variables, output_path, **kwargs)
+
+        if self.last_annotation_summary is None and plausibility_findings:
+            self.last_annotation_summary = "; ".join(
+                finding.annotation_line() for finding in plausibility_findings
+            )
 
         return str(output_path)
 
-    def _set_annotation(self, ax: Any, lines: list[str], summary: str | None = None) -> None:
+    def _get_plausibility_lines(self, context: str | list[str] | None) -> list[str]:
+        if context is None:
+            return []
+        keys = [context] if isinstance(context, str) else list(context)
+
+        lines: list[str] = []
+        for key in keys:
+            lines.extend(self._plausibility_notes_by_variable.get(key, []))
+
+        deduplicated: list[str] = []
+        for line in lines:
+            if line not in deduplicated:
+                deduplicated.append(line)
+        return deduplicated
+
+    def _set_annotation(
+        self,
+        ax: Any,
+        lines: list[str],
+        summary: str | None = None,
+        context: str | list[str] | None = None,
+    ) -> None:
         cleaned = [line for line in lines if line]
+        plausibility_lines = self._get_plausibility_lines(context)
+        cleaned.extend(plausibility_lines)
         if not cleaned:
             self.last_annotation_summary = None
             return
@@ -105,7 +142,11 @@ class MatplotlibVisualizer(VisualizationPort):
             fontsize=9,
             bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9, "edgecolor": "0.7"},
         )
-        self.last_annotation_summary = summary or "; ".join(cleaned)
+        summary_parts: list[str] = []
+        if summary:
+            summary_parts.append(summary)
+        summary_parts.extend(plausibility_lines)
+        self.last_annotation_summary = "; ".join(summary_parts) if summary_parts else "; ".join(cleaned)
 
     def _format_p_value(self, p_value: float | None) -> str:
         if p_value is None or pd.isna(p_value):
@@ -117,7 +158,12 @@ class MatplotlibVisualizer(VisualizationPort):
     def _annotate_distribution_stats(self, ax: Any, series: pd.Series, label: str) -> None:
         numeric = pd.to_numeric(series, errors="coerce").dropna()
         if numeric.empty:
-            self._set_annotation(ax, [f"{label}: no valid values"], summary=f"{label}: no valid values")
+            self._set_annotation(
+                ax,
+                [f"{label}: no valid values"],
+                summary=f"{label}: no valid values",
+                context=label,
+            )
             return
 
         self._set_annotation(
@@ -134,6 +180,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 if len(numeric) > 1
                 else f"n={len(numeric)}; mean={numeric.mean():.2f}; median={numeric.median():.2f}; SD=NA"
             ),
+            context=label,
         )
 
     def _build_grouped_numeric_frame(
@@ -181,6 +228,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 ["Comparison unavailable", "No valid grouped observations"],
                 summary="Comparison unavailable: no valid grouped observations",
+                context=value_var,
             )
             return
 
@@ -196,6 +244,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 ["Comparison unavailable", "Need at least 2 non-empty groups"],
                 summary="Comparison unavailable: fewer than 2 non-empty groups",
+                context=value_var,
             )
             return
 
@@ -212,6 +261,7 @@ class MatplotlibVisualizer(VisualizationPort):
                     ax,
                     [f"Mann-Whitney U = {statistic:.1f}", p_text, counts_line],
                     summary=f"Mann-Whitney U; {p_text}; {counts_line}",
+                    context=value_var,
                 )
                 return
             except ValueError:
@@ -224,12 +274,14 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 [f"Kruskal-Wallis H = {statistic:.2f}", p_text, counts_line],
                 summary=f"Kruskal-Wallis H; {p_text}; {counts_line}",
+                context=value_var,
             )
         except ValueError:
             self._set_annotation(
                 ax,
                 ["Comparison unavailable", counts_line],
                 summary=f"Comparison unavailable; {counts_line}",
+                context=value_var,
             )
 
     def _annotate_scatter_stats(
@@ -247,6 +299,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 ["Correlation unavailable", f"n = {len(sub)}"],
                 summary=f"Correlation unavailable; n={len(sub)}",
+                context=[x_var, y_var],
             )
             return
 
@@ -255,6 +308,7 @@ class MatplotlibVisualizer(VisualizationPort):
             ax,
             [f"Spearman rho = {rho:.2f}", self._format_p_value(float(p_value)), f"n = {len(sub)}"],
             summary=f"Spearman rho={rho:.2f}; {self._format_p_value(float(p_value))}; n={len(sub)}",
+            context=[x_var, y_var],
         )
 
     def _annotate_line_stats(self, ax: Any, complete: pd.DataFrame, cols: list[str]) -> None:
@@ -265,6 +319,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 ["Trend comparison unavailable", f"n = {len(complete)}"],
                 summary=f"Trend comparison unavailable; n={len(complete)}",
+                context=cols,
             )
             return
 
@@ -275,6 +330,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 [f"Friedman χ² = {statistic:.2f}", p_text, f"n = {len(complete)}"],
                 summary=f"Friedman chi-square={statistic:.2f}; {p_text}; n={len(complete)}",
+                context=cols,
             )
             return
 
@@ -284,6 +340,7 @@ class MatplotlibVisualizer(VisualizationPort):
             ax,
             [f"Wilcoxon W = {statistic:.1f}", p_text, f"n = {len(complete)}"],
             summary=f"Wilcoxon signed-rank; {p_text}; n={len(complete)}",
+            context=cols,
         )
 
     def _annotate_paired_stats(
@@ -300,6 +357,7 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax,
                 ["Paired comparison unavailable", f"n = {len(sub)}"],
                 summary=f"Paired comparison unavailable; n={len(sub)}",
+                context=[x_var, y_var],
             )
             return
 
@@ -310,6 +368,7 @@ class MatplotlibVisualizer(VisualizationPort):
             ax,
             [f"Wilcoxon W = {statistic:.1f}", p_text, f"median Δ = {median_delta:.2f}", f"n = {len(sub)}"],
             summary=f"Wilcoxon signed-rank; {p_text}; median delta={median_delta:.2f}; n={len(sub)}",
+            context=[x_var, y_var],
         )
 
     # ── plot implementations ─────────────────────────────────────────
@@ -506,6 +565,7 @@ class MatplotlibVisualizer(VisualizationPort):
             ax,
             [f"variables = {len(numeric_vars)}", f"complete rows = {len(df[numeric_vars].dropna())}"],
             summary=f"variables={len(numeric_vars)}; complete_rows={len(df[numeric_vars].dropna())}",
+            context=numeric_vars,
         )
         plt.tight_layout()
         fig.savefig(output_path, dpi=150, bbox_inches="tight")

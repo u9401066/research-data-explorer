@@ -7,6 +7,10 @@ All tools return markdown strings.
 
 from __future__ import annotations
 
+from datetime import datetime
+from os.path import relpath
+from pathlib import Path
+import re
 from typing import Any
 
 
@@ -219,6 +223,39 @@ def register_audit_tools(server: Any) -> None:
                 }
             )
 
+            # ── 7. Final report readiness ─────────────────────────
+            max_score += 10
+            from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
+
+            report_readiness = results.get("report_readiness") if results else None
+            if not report_readiness:
+                report_readiness = _evaluate_report_readiness(results, store)
+            readiness_score = 0
+            if report_readiness.get("review_status") in {"pass", "repaired"}:
+                readiness_score += 3
+            if report_readiness.get("publication_bundle_met"):
+                readiness_score += 3
+            if report_readiness.get("ready"):
+                readiness_score += 4
+            total_score += readiness_score
+            readiness_missing = report_readiness.get("missing_requirements", [])
+            readiness_details = (
+                f"target={report_readiness.get('target_tier', 'unknown')}, "
+                f"current={report_readiness.get('current_tier', 'unknown')}, "
+                f"bundle={'✅' if report_readiness.get('publication_bundle_met') else '❌'}"
+            )
+            if readiness_missing:
+                readiness_details += f", missing={', '.join(readiness_missing)}"
+            checks.append(
+                {
+                    "category": "report_readiness",
+                    "score": readiness_score,
+                    "max": 10,
+                    "passed": bool(report_readiness.get("ready")),
+                    "details": readiness_details,
+                }
+            )
+
             # ── Grade ───────────────────────────────────────────────
             pct = total_score / max(1, max_score)
             if pct >= 0.9:
@@ -299,6 +336,7 @@ def register_audit_tools(server: Any) -> None:
 
         讀取 audit_report.json，執行自動修正:
         - 補缺效果量、補遺漏圖表、修正報告格式。
+        - final_report.md 會附上 production-readiness 摘要，說明為何已達或尚未達 production-ready。
         不能自動修復的項目會列為手動建議。
 
         Args:
@@ -334,6 +372,7 @@ def register_audit_tools(server: Any) -> None:
             pipeline = session.get_pipeline(project.id)
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
+            from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
 
             # Read audit report
             audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
@@ -407,6 +446,8 @@ def register_audit_tools(server: Any) -> None:
                 actions_taken.append(f"建議: {s}")
 
             all_items = auto_fixed + actions_taken
+            results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+            report_readiness = _evaluate_report_readiness(results, store)
 
             # Save improvement log
             improvement_log = {
@@ -414,16 +455,23 @@ def register_audit_tools(server: Any) -> None:
                 "auto_fixed": auto_fixed,
                 "manual_suggestions": actions_taken,
                 "total_items": len(all_items),
+                "report_readiness": report_readiness,
             }
             store.save(PipelinePhase.AUTO_IMPROVE, "improvement_log.json", improvement_log)
 
-            # Save final report marker
+            # Save final report
+            assembled_report = store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
             store.save(
                 PipelinePhase.AUTO_IMPROVE,
                 "final_report.md",
-                f"# Final Report\n\nAudit grade: {original_grade}\n"
-                f"Auto-fixed: {len(auto_fixed)}\n"
-                f"Manual suggestions: {len(actions_taken)}\n",
+                _build_phase10_source_markdown(
+                    project,
+                    store,
+                    assembled_report=str(assembled_report or ""),
+                    audit=audit,
+                    report_readiness=report_readiness,
+                    improvement_log=improvement_log,
+                ),
             )
             pipeline.mark_completed(
                 PhaseResult(
@@ -441,6 +489,7 @@ def register_audit_tools(server: Any) -> None:
                 f"- **原始等級:** {original_grade}",
                 f"- **自動修正:** {len(auto_fixed)}",
                 f"- **手動建議:** {len(actions_taken)}",
+                f"- **production readiness:** {report_readiness.get('current_tier')} → {report_readiness.get('target_tier')} ({'ready' if report_readiness.get('ready') else 'not ready'})",
             ]
 
             if auto_fixed:
@@ -463,6 +512,116 @@ def register_audit_tools(server: Any) -> None:
         except Exception as e:
             log_tool_error("auto_improve", e)
             return fmt_error(f"自動改善失敗: {e}")
+
+    @server.tool()
+    def export_final_report(
+        project_id: str | None = None,
+        formats: str = "docx,pdf",
+        title: str = "",
+        allow_incomplete: bool = True,
+    ) -> str:
+        """匯出 Phase 10 final_report.md 為正式 DOCX / PDF。
+
+        會補齊 final_report.md 之外的正式輸出依賴：
+        - Table 1 轉為真正表格
+        - visualization manifest 中尚未寫進 markdown 的圖表一併附上
+        - 產出 final_report_export_manifest.json 供核對路徑與項目
+
+        Args:
+            project_id: 專案 ID（可選，預設使用當前專案）
+            formats: 匯出格式，預設 "docx,pdf"
+            title: 自訂標題；空字串時沿用 final_report.md 標題
+            allow_incomplete: 若為 False，未達 production-ready 時拒絕匯出
+        """
+        from rde.interface.mcp.tools._shared import (
+            log_tool_call,
+            log_tool_error,
+            fmt_error,
+            fmt_success,
+            ensure_phase_ready,
+        )
+        from rde.application.pipeline import PipelinePhase
+
+        log_tool_call(
+            "export_final_report",
+            {
+                "project_id": project_id,
+                "formats": formats,
+                "title": title,
+                "allow_incomplete": allow_incomplete,
+            },
+        )
+
+        ok, msg, project, _ = ensure_phase_ready(
+            PipelinePhase.AUTO_IMPROVE, project_id=project_id
+        )
+        if not ok:
+            return fmt_error(msg)
+        assert project is not None
+
+        try:
+            from rde.application.use_cases.export_report import ExportReportUseCase
+            from rde.infrastructure.adapters.docx_exporter import DocxExporter
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+            store = ArtifactStore(project.artifacts_dir)
+            report_readiness = _load_phase10_report_readiness(store)
+            if not allow_incomplete and not report_readiness.get("ready", False):
+                return fmt_error(
+                    "目前 final report 尚未達 production-ready，暫不匯出正式終版。",
+                    _render_phase10_readiness_summary(report_readiness),
+                    suggestion="若需仍先匯出供審閱，請使用 allow_incomplete=true。",
+                )
+
+            report, asset_summary = _build_phase10_export_report(project, store, title=title)
+
+            fmt_list = [value.strip().lower() for value in formats.split(",") if value.strip()]
+            valid_fmts = {"docx", "pdf"}
+            invalid = [value for value in fmt_list if value not in valid_fmts]
+            if invalid:
+                return fmt_error(f"不支援的格式: {', '.join(invalid)}。支援: docx, pdf")
+
+            output_dir = project.artifacts_dir / PipelinePhase.AUTO_IMPROVE.value / "exports"
+            exporter = DocxExporter()
+            use_case = ExportReportUseCase(exporter)
+            exported = use_case.execute(
+                report=report,
+                output_dir=output_dir,
+                formats=fmt_list,
+                figures_dir=project.output_dir / "figures",
+                filename_stem="final_report",
+            )
+
+            manifest = _build_phase10_export_manifest(
+                project,
+                store,
+                report=report,
+                exported=exported,
+                asset_summary=asset_summary,
+                report_readiness=report_readiness,
+            )
+            store.save(PipelinePhase.AUTO_IMPROVE, "final_report_export_manifest.json", manifest)
+
+            exported_lines = [
+                f"- **{(fmt.upper() + ' (HTML fallback)') if path.suffix.lower() == '.html' else fmt.upper()}:** {_relative_project_path(path, project)}"
+                for fmt, path in exported.items()
+            ]
+            return fmt_success(
+                f"Phase 10 final report 已匯出 — {', '.join(fmt.upper() for fmt in exported)}",
+                f"- **標題:** {report.title}\n"
+                f"- **完整度狀態:** {report_readiness.get('current_tier')} → {report_readiness.get('target_tier')}\n"
+                f"- **Table 1:** {'已納入' if asset_summary.get('table', {}).get('included') else '缺少'}\n"
+                f"- **圖表總數:** {asset_summary.get('figures', {}).get('included_count', 0)}\n"
+                f"- **Manifest:** {_relative_project_path(store.get_path(PipelinePhase.AUTO_IMPROVE, 'final_report_export_manifest.json'), project)}\n"
+                + "\n".join(exported_lines),
+            )
+        except ImportError as e:
+            return fmt_error(str(e))
+        except ValueError as e:
+            return fmt_error(f"Phase 10 匯出失敗: {e}")
+        except Exception as e:
+            log_tool_error("export_final_report", e)
+            return fmt_error(f"Phase 10 匯出失敗: {e}")
 
     @server.tool()
     def export_handoff(project_id: str | None = None) -> str:
@@ -691,4 +850,646 @@ def _generate_suggestions(checks: list[dict]) -> list[str]:
             suggestions.append("確保所有分析操作都有 decision log 紀錄。")
         elif cat == "reproducibility":
             suggestions.append("確保 schema 和 report 都已存在。")
+        elif cat == "report_readiness":
+            details = str(c.get("details", ""))
+            readiness_gaps: list[str] = []
+            if "methodology_review=" in details:
+                readiness_gaps.append("methodology review 缺口")
+            if "completeness_tier=" in details:
+                readiness_gaps.append("completeness tier")
+            if "publication_bundle" in details:
+                readiness_gaps.append("publication bundle")
+            if readiness_gaps:
+                suggestions.append(
+                    "若要直接輸出終版完整報告，請先補齊 "
+                    + "、".join(readiness_gaps)
+                    + "。"
+                )
+            else:
+                suggestions.append("若要直接輸出終版完整報告，請先補齊 readiness contract 缺口。")
     return suggestions
+
+
+def _as_string_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []
+
+
+def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> str:
+    ready = bool(report_readiness.get("ready"))
+    lines = ["## Production Readiness\n"]
+    lines.append(f"- **status:** {'production-ready' if ready else 'not production-ready'}")
+    lines.append(f"- **target tier:** {report_readiness.get('target_tier', 'unknown')}")
+    lines.append(f"- **current tier:** {report_readiness.get('current_tier', 'unknown')}")
+    lines.append(f"- **methodology review:** {report_readiness.get('review_status', 'unknown')}")
+    lines.append(
+        f"- **publication bundle:** {'met' if report_readiness.get('publication_bundle_met') else 'not met'}"
+    )
+    if ready:
+        lines.append("\n### Why this is production-ready")
+        lines.append("- methodology review has already passed")
+        lines.append("- the locked plan reached the production_ready target tier")
+        lines.append("- the minimum publication bundle is complete")
+    else:
+        lines.append("\n### Why this is not yet production-ready")
+        missing = _as_string_list(report_readiness.get("missing_requirements", []))
+        if missing:
+            for requirement in missing:
+                lines.append(f"- {requirement}")
+        else:
+            lines.append("- unresolved readiness gaps remain")
+    return "\n".join(lines)
+
+
+def _normalize_project_paths(text: str, project: Any) -> str:
+    normalized = str(text or "")
+    replacements = [
+        (project.output_dir / "figures", "figures"),
+        (project.artifacts_dir, "artifacts"),
+        (project.output_dir, "."),
+    ]
+    for absolute, relative in replacements:
+        normalized = normalized.replace(str(absolute), str(relative))
+        normalized = normalized.replace(str(absolute).replace("\\", "/"), str(relative))
+    return normalized
+
+
+def _relative_project_path(path: Path, project: Any) -> str:
+    try:
+        return path.resolve().relative_to(project.output_dir.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _relative_phase10_path(path: Path, project: Any) -> str:
+    phase10_dir = (project.artifacts_dir / "phase_10_auto_improve").resolve()
+    return Path(relpath(path.resolve(), phase10_dir)).as_posix()
+
+
+def _extract_heading_one_title(markdown: str) -> str | None:
+    match = re.match(r"^#\s+(.+?)\s*$", markdown.strip(), re.MULTILINE)
+    return match.group(1).strip() if match else None
+
+
+def _split_markdown_h2_sections(markdown: str) -> tuple[str, list[str], list[tuple[str, str]]]:
+    title = _extract_heading_one_title(markdown) or "Final Report"
+    body = re.sub(r"^#\s+.+?$", "", markdown, count=1, flags=re.MULTILINE).strip()
+    pattern = re.compile(r"^##\s+(.+)$", re.MULTILINE)
+    matches = list(pattern.finditer(body))
+
+    preamble = body[: matches[0].start()].strip() if matches else body
+    preamble_lines = [line.rstrip() for line in preamble.splitlines() if line.strip()]
+
+    sections: list[tuple[str, str]] = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+        sections.append((match.group(1).strip(), body[start:end].strip()))
+    return title, preamble_lines, sections
+
+
+def _split_markdown_h3_sections(markdown: str) -> tuple[str, list[tuple[str, str]]]:
+    body = str(markdown or "").strip()
+    pattern = re.compile(r"^###\s+(.+)$", re.MULTILINE)
+    matches = list(pattern.finditer(body))
+
+    preamble = body[: matches[0].start()].strip() if matches else body
+    sections: list[tuple[str, str]] = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+        sections.append((match.group(1).strip(), body[start:end].strip()))
+    return preamble, sections
+
+
+def _strip_markdown_image_lines(text: str) -> str:
+    lines = [
+        line for line in str(text or "").splitlines() if not re.match(r"^!\[[^\]]*\]\([^)]*\)\s*$", line.strip())
+    ]
+    return "\n".join(lines).strip()
+
+
+def _section_lookup(sections: list[tuple[str, str]]) -> dict[str, str]:
+    return {title: content for title, content in sections}
+
+
+def _join_labeled_sections(items: list[tuple[str, str]]) -> str:
+    parts: list[str] = []
+    for heading, content in items:
+        cleaned = content.strip()
+        if not cleaned:
+            continue
+        parts.append(f"### {heading}\n\n{cleaned}")
+    return "\n\n".join(parts)
+
+
+def _humanize_figure_stem(stem: str) -> str:
+    text = stem.replace("_", " ").strip().title()
+    replacements = {
+        "Crbd": "CRBD",
+        "Pacu": "PACU",
+        "Bmi": "BMI",
+        "Qc": "QC",
+        "Davinci": "DaVinci",
+        "L Spine": "L-spine",
+        "Precedex": "Precedex",
+        "Aldrete": "Aldrete",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
+
+def _extract_phase10_figure_notes(markdown: str) -> tuple[str, dict[str, dict[str, str]]]:
+    preamble, sections = _split_markdown_h3_sections(markdown)
+    figure_notes: dict[str, dict[str, str]] = {}
+    for heading, content in sections:
+        image_match = re.search(r"!\[[^\]]*\]\(([^)]+)\)", content)
+        if not image_match:
+            continue
+        figure_name = Path(image_match.group(1)).name
+        figure_notes[figure_name] = {
+            "heading": heading,
+            "description": _strip_markdown_image_lines(content).strip(),
+        }
+    return _strip_markdown_image_lines(preamble).strip(), figure_notes
+
+
+def _build_phase10_figure_gallery(project: Any, store: Any, markdown: str) -> str:
+    _, figure_notes = _extract_phase10_figure_notes(markdown)
+    entries = _load_visualization_entries(store)
+    if not entries:
+        return ""
+
+    lines: list[str] = []
+
+    main_index = 1
+    appendix_index = 1
+    for entry in entries:
+        if not entry.get("exists"):
+            continue
+
+        figure_path = Path(str(entry["output_path"]))
+        existing = figure_notes.get(figure_path.name, {})
+        is_appendix = str(entry.get("category", "")).strip().lower() == "quality_control"
+        if is_appendix:
+            fallback_heading = f"Appendix Figure A{appendix_index}. {_humanize_figure_stem(figure_path.stem)}"
+            appendix_index += 1
+        else:
+            fallback_heading = f"Figure {main_index}. {_humanize_figure_stem(figure_path.stem)}"
+            main_index += 1
+
+        heading = str(existing.get("heading") or fallback_heading).strip()
+        description = str(existing.get("description") or entry.get("summary") or "").strip()
+        lines.append(f"### {heading}")
+        lines.append("")
+        lines.append(f"![{heading}]({_relative_phase10_path(figure_path, project)})")
+        if description:
+            lines.append("")
+            lines.append(description)
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def _append_markdown_section(lines: list[str], heading: str, content: str) -> None:
+    cleaned = str(content or "").strip()
+    if not cleaned:
+        return
+    if lines:
+        lines.append("")
+    lines.append(f"## {heading}")
+    lines.append("")
+    lines.append(cleaned)
+
+
+def _build_phase10_source_markdown(
+    project: Any,
+    store: Any,
+    *,
+    assembled_report: str | None,
+    audit: dict[str, object] | None,
+    report_readiness: dict[str, object],
+    improvement_log: dict[str, object],
+) -> str:
+    from rde.application.pipeline import PipelinePhase
+    from rde.interface.mcp.tools.report_tools import _format_baseline_table
+
+    base_markdown = _build_phase10_final_report(
+        assembled_report,
+        audit=audit,
+        report_readiness=report_readiness,
+        improvement_log=improvement_log,
+    )
+    normalized_markdown = _normalize_project_paths(base_markdown, project)
+    title, _, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
+    sections = _section_lookup(parsed_sections)
+
+    table_markdown = _format_baseline_table(
+        store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
+    )
+    figure_gallery = _build_phase10_figure_gallery(
+        project,
+        store,
+        sections.get("補充圖表與最低發表包完成狀態", ""),
+    )
+
+    artifact_entries = [
+        ("Results summary", store.get_path(PipelinePhase.COLLECT_RESULTS, "results_summary.json")),
+        ("Audit report", store.get_path(PipelinePhase.AUDIT_REVIEW, "audit_report.json")),
+        ("Improvement log", store.get_path(PipelinePhase.AUTO_IMPROVE, "improvement_log.json")),
+        ("Table 1 source", store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")),
+        (
+            "Visualization manifest",
+            store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"),
+        ),
+    ]
+    artifact_lines = [
+        f"- {label}: {_relative_phase10_path(path, project)}"
+        for label, path in artifact_entries
+        if path.exists()
+    ]
+
+    lines = [
+        f"# {title}",
+        "",
+        f"- 更新時間: {datetime.now().replace(microsecond=0).isoformat()}",
+        f"- 專案 ID: {project.id}",
+    ]
+
+    for heading in ["研究問題", "資料來源與前處理", "隊列概況"]:
+        _append_markdown_section(lines, heading, sections.get(heading, ""))
+
+    if table_markdown:
+        _append_markdown_section(lines, "Table 1 — Baseline Characteristics", table_markdown)
+
+    for heading in [
+        "主要結局：CRBD",
+        "次要結局",
+        "擴充分析：手術別 subgroup / interaction 與 ordinal 複核",
+        "解讀",
+        "侷限性",
+    ]:
+        _append_markdown_section(lines, heading, sections.get(heading, ""))
+
+    supplement_summary, _ = _extract_phase10_figure_notes(
+        sections.get("補充圖表與最低發表包完成狀態", "")
+    )
+    _append_markdown_section(lines, "補充圖表與最低發表包完成狀態", supplement_summary)
+    _append_markdown_section(lines, "Figure Gallery", figure_gallery)
+
+    if artifact_lines:
+        _append_markdown_section(lines, "主要 artifact", "\n".join(artifact_lines))
+
+    for heading in [
+        "Phase 10 Finalization",
+        "Production Readiness",
+        "Auto-fixed Items",
+        "Remaining Suggestions",
+    ]:
+        _append_markdown_section(lines, heading, sections.get(heading, ""))
+
+    return "\n".join(lines).strip() + "\n"
+
+
+def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -> tuple[Any, dict[str, Any]]:
+    from rde.application.pipeline import PipelinePhase
+    from rde.domain.models.report import EDAReport, ReportSection
+    from rde.interface.mcp.tools.report_tools import (
+        _extract_table_markdown_notes,
+        _parse_table_markdown_rows,
+    )
+
+    final_markdown = store.load(PipelinePhase.AUTO_IMPROVE, "final_report.md")
+    if not final_markdown:
+        raise ValueError("找不到 phase_10_auto_improve/final_report.md")
+
+    normalized_markdown = _normalize_project_paths(str(final_markdown), project)
+    inferred_title, preamble_lines, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
+    sections = _section_lookup(parsed_sections)
+    dataset_id = project.dataset_ids[-1] if getattr(project, "dataset_ids", None) else "unknown"
+
+    report = EDAReport(
+        id=f"{project.id}_phase10_final_report",
+        dataset_id=dataset_id,
+        project_id=project.id,
+        title=title.strip() or inferred_title,
+        created_at=datetime.now(),
+    )
+
+    report.add_section(
+        ReportSection(
+            section_id="data_overview",
+            title="Data Overview",
+            content="\n\n".join(
+                value
+                for value in [
+                    "\n".join(preamble_lines).strip(),
+                    _join_labeled_sections(
+                        [
+                            ("研究問題", sections.get("研究問題", "")),
+                            ("隊列概況", sections.get("隊列概況", "")),
+                        ]
+                    ),
+                ]
+                if value
+            ),
+            order=1,
+        )
+    )
+    report.add_section(
+        ReportSection(
+            section_id="data_quality",
+            title="Data Quality",
+            content=_join_labeled_sections(
+                [
+                    ("資料來源與前處理", sections.get("資料來源與前處理", "")),
+                ]
+            )
+            or "[Data quality narrative not available]",
+            order=2,
+        )
+    )
+
+    table_one_markdown = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
+    table_rows = _parse_table_markdown_rows(table_one_markdown)
+    table_payload = (
+        {"headers": table_rows[0], "rows": table_rows[1:]}
+        if len(table_rows) >= 2
+        else None
+    )
+    table_notes = "\n".join(_extract_table_markdown_notes(table_one_markdown))
+    report.add_section(
+        ReportSection(
+            section_id="variable_profiles",
+            title="Table 1 — Baseline Characteristics",
+            content=table_notes or "Phase 6 基線特徵表已附於本節。",
+            tables=[table_payload] if table_payload else [],
+            order=3,
+        )
+    )
+
+    report.add_section(
+        ReportSection(
+            section_id="key_findings",
+            title="Key Findings",
+            content=_join_labeled_sections(
+                [
+                    ("主要結局：CRBD", sections.get("主要結局：CRBD", "")),
+                    ("次要結局", sections.get("次要結局", "")),
+                    ("解讀", sections.get("解讀", "")),
+                ]
+            )
+            or "[Key findings not available]",
+            order=4,
+        )
+    )
+
+    manifest_entries = _load_visualization_entries(store)
+    figure_paths = [Path(entry["output_path"]) for entry in manifest_entries if entry.get("exists")]
+    figure_notes = [
+        f"- {entry['name']}: {entry['summary']}"
+        for entry in manifest_entries
+        if entry.get("exists") and entry.get("summary")
+    ]
+    report.add_section(
+        ReportSection(
+            section_id="statistical_analyses",
+            title="Statistical Analyses",
+            content="\n\n".join(
+                value
+                for value in [
+                    _join_labeled_sections(
+                        [
+                            (
+                                "擴充分析：手術別 subgroup / interaction 與 ordinal 複核",
+                                sections.get("擴充分析：手術別 subgroup / interaction 與 ordinal 複核", ""),
+                            ),
+                            (
+                                "補充圖表與最低發表包完成狀態",
+                                _strip_markdown_image_lines(
+                                    sections.get("補充圖表與最低發表包完成狀態", "")
+                                ),
+                            ),
+                        ]
+                    ),
+                    "### Figure Inventory\n\n" + "\n".join(figure_notes) if figure_notes else "",
+                ]
+                if value
+            )
+            or "[Statistical analysis narrative not available]",
+            figures=[str(path) for path in figure_paths],
+            order=5,
+        )
+    )
+
+    report.add_section(
+        ReportSection(
+            section_id="recommendations",
+            title="Recommendations",
+            content=_join_labeled_sections(
+                [
+                    ("侷限性", sections.get("侷限性", "")),
+                    ("Phase 10 Finalization", sections.get("Phase 10 Finalization", "")),
+                    ("Production Readiness", sections.get("Production Readiness", "")),
+                    ("Remaining Suggestions", sections.get("Remaining Suggestions", "")),
+                ]
+            )
+            or "[Final recommendations not available]",
+            order=6,
+        )
+    )
+
+    artifact_lines = _build_phase10_artifact_lines(project, store)
+    if artifact_lines:
+        report.add_section(
+            ReportSection(
+                section_id="project_artifacts",
+                title="Project Artifacts",
+                content="\n".join(artifact_lines),
+                order=7,
+            )
+        )
+
+    report.metadata.update(
+        {
+            "phase": "phase_10_auto_improve",
+            "source_markdown": _relative_project_path(
+                store.get_path(PipelinePhase.AUTO_IMPROVE, "final_report.md"), project
+            ),
+            "table_one_source": _relative_project_path(
+                store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md"), project
+            )
+            if table_one_markdown
+            else "missing",
+            "figure_count": len(figure_paths),
+        }
+    )
+
+    return report, {
+        "table": {
+            "included": bool(table_payload),
+            "row_count": max(0, len(table_rows) - 1),
+            "source": _relative_project_path(
+                store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md"), project
+            )
+            if table_one_markdown
+            else "missing",
+        },
+        "figures": {
+            "included_count": len(figure_paths),
+            "sources": [_relative_project_path(path, project) for path in figure_paths],
+        },
+    }
+
+
+def _load_phase10_report_readiness(store: Any) -> dict[str, Any]:
+    from rde.application.pipeline import PipelinePhase
+    from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
+
+    improvement_log = store.load(PipelinePhase.AUTO_IMPROVE, "improvement_log.json") or {}
+    report_readiness = improvement_log.get("report_readiness")
+    if report_readiness:
+        return report_readiness
+
+    results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+    return _evaluate_report_readiness(results, store)
+
+
+def _load_visualization_entries(store: Any) -> list[dict[str, Any]]:
+    from rde.application.pipeline import PipelinePhase
+
+    manifest = store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json") or []
+    if not isinstance(manifest, list):
+        return []
+
+    entries: list[dict[str, Any]] = []
+    for entry in manifest:
+        output_path = Path(str(entry.get("output_path", "")))
+        entries.append(
+            {
+                "name": output_path.stem,
+                "output_path": str(output_path),
+                "summary": str(entry.get("stats_summary", "")).strip(),
+                "exists": output_path.exists(),
+            }
+        )
+    return entries
+
+
+def _build_phase10_artifact_lines(project: Any, store: Any) -> list[str]:
+    from rde.application.pipeline import PipelinePhase
+
+    entries = [
+        ("Results summary", store.get_path(PipelinePhase.COLLECT_RESULTS, "results_summary.json")),
+        ("Audit report", store.get_path(PipelinePhase.AUDIT_REVIEW, "audit_report.json")),
+        ("Improvement log", store.get_path(PipelinePhase.AUTO_IMPROVE, "improvement_log.json")),
+        ("Table 1 source", store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")),
+        (
+            "Visualization manifest",
+            store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"),
+        ),
+    ]
+    lines: list[str] = []
+    for label, path in entries:
+        status = "exists" if path.exists() else "missing"
+        lines.append(f"- {label}: {_relative_project_path(path, project)} ({status})")
+    return lines
+
+
+def _build_phase10_export_manifest(
+    project: Any,
+    store: Any,
+    *,
+    report: Any,
+    exported: dict[str, Path],
+    asset_summary: dict[str, Any],
+    report_readiness: dict[str, Any],
+) -> dict[str, Any]:
+    from rde.application.pipeline import PipelinePhase
+
+    validation = {
+        "final_report_md": {
+            "path": _relative_project_path(
+                store.get_path(PipelinePhase.AUTO_IMPROVE, "final_report.md"), project
+            ),
+            "exists": store.exists(PipelinePhase.AUTO_IMPROVE, "final_report.md"),
+        },
+        "audit_report": {
+            "path": _relative_project_path(
+                store.get_path(PipelinePhase.AUDIT_REVIEW, "audit_report.json"), project
+            ),
+            "exists": store.exists(PipelinePhase.AUDIT_REVIEW, "audit_report.json"),
+        },
+        "results_summary": {
+            "path": _relative_project_path(
+                store.get_path(PipelinePhase.COLLECT_RESULTS, "results_summary.json"), project
+            ),
+            "exists": store.exists(PipelinePhase.COLLECT_RESULTS, "results_summary.json"),
+        },
+        "table_one": {
+            "path": asset_summary.get("table", {}).get("source", "missing"),
+            "exists": bool(asset_summary.get("table", {}).get("included")),
+        },
+        "visualization_manifest": {
+            "path": _relative_project_path(
+                store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"),
+                project,
+            ),
+            "exists": store.exists(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"),
+        },
+    }
+
+    return {
+        "project_id": project.id,
+        "generated_at": datetime.now().isoformat(),
+        "title": report.title,
+        "report_readiness": report_readiness,
+        "sources": validation,
+        "exports": {
+            fmt: {
+                "requested_format": fmt,
+                "actual_format": path.suffix.lstrip(".").lower(),
+                "path": _relative_project_path(path, project),
+            }
+            for fmt, path in exported.items()
+        },
+        "included_assets": asset_summary,
+        "metadata": report.metadata,
+    }
+
+
+def _build_phase10_final_report(
+    assembled_report: str | None,
+    *,
+    audit: dict[str, object] | None,
+    report_readiness: dict[str, object],
+    improvement_log: dict[str, object],
+) -> str:
+    base_report = str(assembled_report or "").strip()
+    if not base_report:
+        base_report = "# Final Report\n\nPhase 8 report was unavailable, so this Phase 10 artifact contains the finalization summary only."
+
+    lines = [base_report, "\n---\n", "## Phase 10 Finalization\n"]
+    if audit:
+        lines.append(f"- **audit grade:** {audit.get('grade', '?')}")
+        lines.append(f"- **audit score:** {audit.get('total_score', '?')}/{audit.get('max_score', '?')}")
+    auto_fixed = _as_string_list(improvement_log.get("auto_fixed", []))
+    manual_suggestions = _as_string_list(improvement_log.get("manual_suggestions", []))
+    lines.append(f"- **auto-fixed items:** {len(auto_fixed)}")
+    lines.append(f"- **manual suggestions:** {len(manual_suggestions)}")
+    lines.append("")
+    lines.append(_render_phase10_readiness_summary(report_readiness))
+
+    if auto_fixed:
+        lines.append("\n## Auto-fixed Items")
+        for item in auto_fixed:
+            lines.append(f"- {item}")
+
+    if manual_suggestions:
+        lines.append("\n## Remaining Suggestions")
+        for item in manual_suggestions:
+            lines.append(f"- {item}")
+
+    return "\n".join(lines).strip() + "\n"

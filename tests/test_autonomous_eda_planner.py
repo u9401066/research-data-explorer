@@ -185,6 +185,45 @@ def test_review_registered_plan_flags_under_scoped_plan() -> None:
     assert "detailed_figure_bundle" in missing
 
 
+def test_methodology_floor_is_at_least_four_when_pool_allows() -> None:
+    planner = AutonomousEDAPlanner()
+
+    floor = planner._recommended_analysis_floor(
+        candidate_pool_size=6,
+        has_groups=False,
+        has_association=False,
+        model_family=None,
+        has_repeated=False,
+        has_cusum=False,
+    )
+
+    assert floor == 4
+
+
+def test_review_exposes_completion_tiers_for_academic_and_production_targets() -> None:
+    planner = AutonomousEDAPlanner()
+    dataset = _dataset(
+        _variable("mortality", VariableType.BINARY, role=VariableRole.OUTCOME, n_unique=2),
+        _variable("treatment_group", VariableType.BINARY, role=VariableRole.GROUP, n_unique=2),
+        _variable("age", VariableType.CONTINUOUS, role=VariableRole.COVARIATE),
+        _variable("sofa_score", VariableType.CONTINUOUS, role=VariableRole.PREDICTOR),
+        _variable("lactate", VariableType.BIOMARKER, role=VariableRole.PREDICTOR),
+        _variable("risk_score", VariableType.CONTINUOUS, role=VariableRole.PREDICTOR),
+        _variable("sex", VariableType.CATEGORICAL, role=VariableRole.COVARIATE, n_unique=2),
+    )
+
+    proposal = planner.propose(dataset, max_analyses=6, include_advanced=True)
+
+    assert proposal.review is not None
+    assert proposal.review.academic_analysis_target >= proposal.review.recommended_analysis_floor
+    assert proposal.review.production_analysis_target >= proposal.review.academic_analysis_target
+    assert proposal.review.completeness_tier in {
+        "minimum_complete",
+        "academic_ready",
+        "production_ready",
+    }
+
+
 def test_internal_review_expands_budget_before_dropping_optional_branch() -> None:
     planner = AutonomousEDAPlanner()
     overview = _candidate(

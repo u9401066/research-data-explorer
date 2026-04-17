@@ -114,6 +114,13 @@ def _render_greedy_plan_markdown(
             f"- **方法學最低建議分析數:** {review.get('recommended_analysis_floor', len(selected))}"
         )
         lines.append(
+            f"- **學術級目標分析數:** {review.get('academic_analysis_target', review.get('recommended_analysis_floor', len(selected)))}"
+        )
+        lines.append(
+            f"- **production 級目標分析數:** {review.get('production_analysis_target', review.get('academic_analysis_target', review.get('recommended_analysis_floor', len(selected))))}"
+        )
+        lines.append(f"- **目前完整度 tier:** {review.get('completeness_tier', 'unknown')}")
+        lines.append(
             f"- **初始 budget / soft budget:** {review.get('requested_analysis_budget', len(draft_selected))} / {review.get('soft_analysis_budget', len(selected))}"
         )
 
@@ -235,6 +242,9 @@ def _render_methodology_review_markdown(review: dict[str, Any]) -> str:
     lines = ["# 📏 Plan Methodology Review\n"]
     lines.append(f"- **status:** {review.get('status', 'unknown')}")
     lines.append(f"- **recommended analysis floor:** {review.get('recommended_analysis_floor', 0)}")
+    lines.append(f"- **academic analysis target:** {review.get('academic_analysis_target', review.get('recommended_analysis_floor', 0))}")
+    lines.append(f"- **production analysis target:** {review.get('production_analysis_target', review.get('academic_analysis_target', review.get('recommended_analysis_floor', 0)))}")
+    lines.append(f"- **completeness tier:** {review.get('completeness_tier', 'unknown')}")
     lines.append(f"- **candidate pool size:** {review.get('candidate_pool_size', 0)}")
     lines.append(f"- **requested analysis budget:** {review.get('requested_analysis_budget', 0)}")
     lines.append(f"- **soft analysis budget:** {review.get('soft_analysis_budget', 0)}")

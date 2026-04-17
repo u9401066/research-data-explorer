@@ -8,11 +8,18 @@ All tools return markdown strings.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
 MIN_DESCRIPTIVE_FIGURES = 3
 MIN_ANALYTICAL_FIGURES = 6
+_COMPLETENESS_RANKS = {
+    "underpowered": 0,
+    "minimum_complete": 1,
+    "academic_ready": 2,
+    "production_ready": 3,
+}
 
 
 def register_report_tools(server: Any) -> None:
@@ -154,6 +161,10 @@ def register_report_tools(server: Any) -> None:
                 )
 
             deliverables = _summarize_publication_deliverables(project, store)
+            report_readiness = _evaluate_report_readiness(
+                {"deliverables": deliverables},
+                store,
+            )
 
             summary = {
                 "total_analyses": executed_analyses,
@@ -164,6 +175,7 @@ def register_report_tools(server: Any) -> None:
                 "deviation_count": len(deviations),
                 "phase6_progress": progress,
                 "deliverables": deliverables,
+                "report_readiness": report_readiness,
             }
 
             # Save artifact
@@ -210,9 +222,16 @@ def register_report_tools(server: Any) -> None:
             lines.append(
                 f"- **細分析圖:** {deliverables['analytical_figures']}/{deliverables['required_analytical_figures']}"
             )
+            lines.append(
+                f"- **最終報告 readiness:** {report_readiness['current_tier']} → {report_readiness['target_tier']} ({'ready' if report_readiness['ready'] else 'not ready'})"
+            )
             if deliverables["missing_components"]:
                 lines.append(
                     f"- **最低發表包缺口:** {', '.join(deliverables['missing_components'])}"
+                )
+            if report_readiness["missing_requirements"]:
+                lines.append(
+                    f"- **終版報告缺口:** {', '.join(report_readiness['missing_requirements'])}"
                 )
 
             if publishable:
@@ -242,6 +261,7 @@ def register_report_tools(server: Any) -> None:
     def assemble_report(
         project_id: str | None = None,
         title: str = "EDA Report",
+        allow_incomplete: bool = False,
     ) -> str:
         """組裝完整 EDA 報告 (Phase 8)。
 
@@ -251,6 +271,7 @@ def register_report_tools(server: Any) -> None:
         Args:
             project_id: 專案 ID (預設使用當前專案)
             title: 報告標題
+            allow_incomplete: 若為 True，允許在未達預設完整度目標時仍組裝報告
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -265,7 +286,10 @@ def register_report_tools(server: Any) -> None:
         )
         from rde.application.pipeline import PipelinePhase
 
-        log_tool_call("assemble_report", {"project_id": project_id, "title": title})
+        log_tool_call(
+            "assemble_report",
+            {"project_id": project_id, "title": title, "allow_incomplete": allow_incomplete},
+        )
 
         ok, msg, project, _ = ensure_phase_ready(
             PipelinePhase.REPORT_ASSEMBLY, project_id=project_id
@@ -287,6 +311,14 @@ def register_report_tools(server: Any) -> None:
             pipeline = session.get_pipeline(project.id)
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
+            results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+            report_readiness = _evaluate_report_readiness(results, store)
+            if not allow_incomplete and not report_readiness.get("ready", False):
+                return fmt_error(
+                    "最終報告完整度未達預設目標，暫不組裝終版報告。",
+                    _render_report_readiness_markdown(report_readiness),
+                    suggestion="先補齊 methodology / deliverables 缺口，或以 allow_incomplete=true 明示覆蓋。",
+                )
 
             # Collect artifacts for report sections
             artifacts: dict[str, str] = {}
@@ -311,7 +343,6 @@ def register_report_tools(server: Any) -> None:
                 artifacts["baseline_table"] = _format_baseline_table(table_one)
 
             # Statistical analyses from results summary
-            results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
             if results:
                 artifacts["statistical_analyses"] = _format_analyses(results)
                 artifacts["key_findings"] = _format_findings(results)
@@ -384,6 +415,8 @@ def register_report_tools(server: Any) -> None:
             return fmt_success(
                 f"EDA 報告已組裝 — {word_count} 字",
                 f"- **報告標題:** {title}\n"
+                f"- **完整度目標:** {report_readiness.get('target_tier')}\n"
+                f"- **目前 tier:** {report_readiness.get('current_tier')}\n"
                 f"- **章節數:** {len(report.sections)}\n"
                 f"- **決策紀錄:** {logger.decision_count} 筆\n"
                 f"- **偏離紀錄:** {logger.deviation_count} 筆\n"
@@ -534,6 +567,7 @@ def register_report_tools(server: Any) -> None:
         project_id: str | None = None,
         formats: str = "docx",
         title: str = "EDA Report",
+        allow_incomplete: bool = False,
     ) -> str:
         """匯出 EDA 報告為 Word (.docx) 或 PDF 格式。
 
@@ -544,6 +578,7 @@ def register_report_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
             formats: 匯出格式，以逗號分隔，如 "docx"、"pdf"、"docx,pdf"（預設: docx）
             title: 報告標題，如 "Sepsis EDA Report"（預設: EDA Report）
+            allow_incomplete: 若為 True，允許在未達預設完整度目標時仍匯出報告
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -555,7 +590,10 @@ def register_report_tools(server: Any) -> None:
         from rde.interface.mcp.tools._shared.project_context import project_dataset_ids
         from rde.application.pipeline import PipelinePhase
 
-        log_tool_call("export_report", {"formats": formats, "title": title})
+        log_tool_call(
+            "export_report",
+            {"formats": formats, "title": title, "allow_incomplete": allow_incomplete},
+        )
 
         ok, msg, project, _ = ensure_phase_ready(
             PipelinePhase.REPORT_ASSEMBLY, project_id=project_id
@@ -569,7 +607,8 @@ def register_report_tools(server: Any) -> None:
             from rde.application.pipeline import PipelinePhase
             from rde.application.use_cases.generate_report import GenerateReportUseCase
             from rde.application.use_cases.export_report import ExportReportUseCase
-            from rde.infrastructure.adapters import MarkdownReportRenderer, DocxExporter
+            from rde.infrastructure.adapters.markdown_renderer import MarkdownReportRenderer
+            from rde.infrastructure.adapters.docx_exporter import DocxExporter
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             session = get_session()
@@ -585,6 +624,13 @@ def register_report_tools(server: Any) -> None:
             schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
             readiness = store.load(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json")
             results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+            report_readiness = _evaluate_report_readiness(results, store)
+            if not allow_incomplete and not report_readiness.get("ready", False):
+                return fmt_error(
+                    "最終報告完整度未達預設目標，暫不匯出終版報告。",
+                    _render_report_readiness_markdown(report_readiness),
+                    suggestion="先補齊 methodology / deliverables 缺口，或以 allow_incomplete=true 明示覆蓋。",
+                )
 
             if intake:
                 artifacts["data_overview"] = _format_data_overview(intake, schema)
@@ -644,12 +690,20 @@ def register_report_tools(server: Any) -> None:
                 figures_dir=figures_dir,
             )
 
-            lines = [f"- **{fmt.upper()}:** {path}" for fmt, path in exported.items()]
+            lines = []
+            for fmt, path in exported.items():
+                label = fmt.upper()
+                if path.suffix.lower() == ".html":
+                    label = f"{label} (HTML fallback)"
+                lines.append(f"- **{label}:** {path}")
             fig_count = sum(len(s.figures) for s in report.sections)
 
             return fmt_success(
                 f"報告已匯出 — {', '.join(f.upper() for f in exported)}",
-                f"- **嵌入圖表:** {fig_count} 張\n" + "\n".join(lines),
+                f"- **完整度目標:** {report_readiness.get('target_tier')}\n"
+                f"- **目前 tier:** {report_readiness.get('current_tier')}\n"
+                f"- **嵌入圖表:** {fig_count} 張\n"
+                + "\n".join(lines),
             )
 
         except ImportError as e:
@@ -750,9 +804,79 @@ def _format_baseline_table(table_one_markdown: str | None) -> str:
 
     cleaned = table_one_markdown.strip()
     if cleaned.startswith("#"):
-        parts = cleaned.split("\n", 1)
-        cleaned = parts[1].strip() if len(parts) > 1 else cleaned
-    return cleaned
+        heading_parts = cleaned.split("\n", 1)
+        cleaned = heading_parts[1].strip() if len(heading_parts) > 1 else cleaned
+
+    rows = _parse_table_markdown_rows(cleaned)
+    notes = _extract_table_markdown_notes(cleaned)
+
+    parts: list[str] = []
+    if rows:
+        parts.append(_render_markdown_table(rows))
+    if notes:
+        parts.append("\n".join(notes))
+
+    return "\n\n".join(parts) if parts else cleaned
+
+
+def _parse_table_markdown_rows(table_markdown: str | None) -> list[list[str]]:
+    """Parse pipe tables or fenced tabulate-grid tables into rows."""
+    if not table_markdown:
+        return []
+
+    cleaned = str(table_markdown).strip()
+    fenced = re.search(r"```(?:[\w+-]+)?\n(?P<body>.*?)\n```", cleaned, re.DOTALL)
+    candidate = fenced.group("body") if fenced else cleaned
+
+    rows: list[list[str]] = []
+    for line in candidate.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if not cells or all(cell == "" for cell in cells):
+            continue
+        rows.append(cells)
+
+    return rows
+
+
+def _extract_table_markdown_notes(table_markdown: str | None) -> list[str]:
+    """Extract bullet notes that follow a persisted Table 1 artifact."""
+    if not table_markdown:
+        return []
+
+    notes: list[str] = []
+    in_fence = False
+    for raw_line in str(table_markdown).splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or stripped.startswith("#"):
+            continue
+        if stripped.startswith("- "):
+            notes.append(stripped)
+    return notes
+
+
+def _render_markdown_table(rows: list[list[str]]) -> str:
+    """Render parsed table rows as a markdown pipe table."""
+    if not rows:
+        return ""
+
+    n_cols = max(len(row) for row in rows)
+    normalized = [row + [""] * (n_cols - len(row)) for row in rows]
+    header = normalized[0]
+    body = normalized[1:]
+
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join("---" for _ in header) + " |",
+    ]
+    for row in body:
+        lines.append("| " + " | ".join(row) + " |")
+    return "\n".join(lines)
 
 
 def _load_phase6_markdown_bundle(store: Any, prefix: str) -> str | None:
@@ -782,6 +906,19 @@ def _format_analyses(results: dict | None) -> str:
     if not results:
         return "[No analysis results collected]"
     lines = [f"**分析總數:** {results.get('total_analyses', 0)}"]
+    report_readiness = results.get("report_readiness") or {}
+    if report_readiness:
+        lines.extend(
+            [
+                f"**完整度目標:** {report_readiness.get('target_tier', 'unknown')}",
+                f"**目前 tier:** {report_readiness.get('current_tier', 'unknown')}",
+                f"**最終報告就緒:** {'是' if report_readiness.get('ready') else '否'}",
+            ]
+        )
+        if report_readiness.get("missing_requirements"):
+            lines.append(
+                f"**完整度缺口:** {', '.join(report_readiness.get('missing_requirements', []))}"
+            )
     deliverables = results.get("deliverables") or {}
     if deliverables:
         lines.extend(
@@ -843,6 +980,12 @@ def _build_recommendations(results: dict | None, readiness: dict | None) -> str:
         deliverables = results.get("deliverables") or {}
         if deliverables.get("missing_components"):
             lines.append("- 最低發表包尚未滿足，請至少補齊 Table 1、3 張粗分析圖、6 張細分析圖。")
+        report_readiness = results.get("report_readiness") or {}
+        if report_readiness and not report_readiness.get("ready", False):
+            lines.append(
+                "- 若要直接產出終版完整報告，請先補齊以下缺口: "
+                + ", ".join(report_readiness.get("missing_requirements", []))
+            )
     if readiness:
         for c in readiness.get("checks", []):
             if not c.get("passed"):
@@ -901,6 +1044,80 @@ def _visualization_category(plot_type: str, group_var: str | None) -> str:
     if normalized == "bar" and not group_var:
         return "descriptive"
     return "analytical"
+
+
+def _normalize_completion_tier(tier: str | None) -> str:
+    normalized = str(tier or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "minimum": "minimum_complete",
+        "minimum_complete": "minimum_complete",
+        "academic": "academic_ready",
+        "academic_ready": "academic_ready",
+        "production": "production_ready",
+        "production_ready": "production_ready",
+        "underpowered": "underpowered",
+    }
+    return aliases.get(normalized, "underpowered")
+
+
+def _completion_rank(tier: str | None) -> int:
+    return _COMPLETENESS_RANKS.get(_normalize_completion_tier(tier), 0)
+
+
+def _completion_label(tier: str | None) -> str:
+    normalized = _normalize_completion_tier(tier)
+    return normalized
+
+
+def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, Any]:
+    from rde.application.pipeline import PipelinePhase
+    from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
+
+    review = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json") or {}
+    target_tier = _normalize_completion_tier(
+        DEFAULT_HEURISTIC_POLICY.reporting.default_completion_target
+    )
+    current_tier = _normalize_completion_tier(review.get("completeness_tier"))
+    review_status = str(review.get("status", "missing"))
+    deliverables = (results or {}).get("deliverables") or {}
+    publication_bundle_met = bool(deliverables.get("minimum_publication_bundle_met"))
+
+    missing_requirements: list[str] = []
+    if review_status not in {"pass", "repaired"}:
+        missing_requirements.append(f"methodology_review={review_status}")
+    if _completion_rank(current_tier) < _completion_rank(target_tier):
+        missing_requirements.append(
+            f"completeness_tier={_completion_label(current_tier)} < target={_completion_label(target_tier)}"
+        )
+    if not publication_bundle_met:
+        missing_requirements.append("publication_bundle")
+
+    return {
+        "ready": not missing_requirements,
+        "target_tier": target_tier,
+        "current_tier": current_tier,
+        "review_status": review_status,
+        "recommended_analysis_floor": review.get("recommended_analysis_floor"),
+        "academic_analysis_target": review.get("academic_analysis_target"),
+        "production_analysis_target": review.get("production_analysis_target"),
+        "publication_bundle_met": publication_bundle_met,
+        "missing_requirements": missing_requirements,
+    }
+
+
+def _render_report_readiness_markdown(readiness: dict[str, Any]) -> str:
+    lines = ["# 🧾 Report Readiness\n"]
+    lines.append(f"- **target tier:** {readiness.get('target_tier', 'unknown')}")
+    lines.append(f"- **current tier:** {readiness.get('current_tier', 'unknown')}")
+    lines.append(f"- **methodology review:** {readiness.get('review_status', 'unknown')}")
+    lines.append(
+        f"- **publication bundle:** {'ready' if readiness.get('publication_bundle_met') else 'missing'}"
+    )
+    if readiness.get("missing_requirements"):
+        lines.append("\n## Missing Requirements")
+        for requirement in readiness["missing_requirements"]:
+            lines.append(f"- {requirement}")
+    return "\n".join(lines)
 
 
 def _upsert_visualization_manifest(

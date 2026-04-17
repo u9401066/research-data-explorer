@@ -126,6 +126,20 @@ The agent also surfaces methodological reminders, including:
 - effect size interpretation
 - power and sensitivity analysis hints
 
+### Three Completion Tiers
+
+The repo now treats report completeness as a formal contract rather than assuming that any generated report counts as done.
+
+- `minimum_complete`: the minimum acceptable auditable EDA.
+   Phase 4 methodology review must pass, and when the candidate pool allows it the plan should not fall below 4 analysis families.
+   In practice this means the agent is no longer allowed to stop at one Table 1 plus one p-value.
+- `academic_ready`: the default target for manuscript-grade analysis.
+   The planner currently targets roughly 6 analysis families, usually covering cohort overview, group comparison, association structure, at least 1 adjusted model, and enough descriptive / analytical figures.
+   The point is to require structure, confounding control, modeling, and visualization evidence rather than descriptive output alone.
+- `production_ready`: an end-to-end contract rather than a Phase 4-only label.
+   The plan tier must reach `production_ready`, the publication bundle must be complete, traceability and audit must hold, and final report/export artifacts must exist.
+   `collect_results` now writes a `report_readiness` artifact, `assemble_report` and `export_report` default-gate on `production_ready` unless `allow_incomplete=true` is passed explicitly, `run_audit` scores `report_readiness`, and `auto_improve` writes a `final_report.md` section that explains why the run is or is not production-ready.
+
 ## How Copilot Is Actually Constrained
 
 Copilot is constrained through repository behavior, not just prompt text.

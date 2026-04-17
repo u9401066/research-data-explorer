@@ -82,3 +82,28 @@ def test_grouped_bar_records_chi_square_annotation(tmp_path: Path) -> None:
     assert "precedex_exposure" not in visualizer.last_annotation_summary
     assert "0 n=30" in visualizer.last_annotation_summary
     assert "1 n=30" in visualizer.last_annotation_summary
+
+
+def test_histogram_excludes_implausible_adult_bmi_values(tmp_path: Path) -> None:
+    df = pd.DataFrame(
+        {
+            "age_years": [61, 72, 77, 84],
+            "bmi": [24.0, 26.0, 555.0, 8.2],
+        }
+    )
+    output_path = tmp_path / "bmi_histogram.png"
+
+    visualizer = MatplotlibVisualizer()
+    result = visualizer.create_plot(
+        data=df,
+        plot_type="histogram",
+        variables=["bmi"],
+        output_path=output_path,
+    )
+
+    assert result == str(output_path)
+    assert output_path.exists()
+    assert visualizer.last_annotation_summary is not None
+    assert "n=2" in visualizer.last_annotation_summary
+    assert "mean=25.00" in visualizer.last_annotation_summary
+    assert "bmi: excluded 2 implausible values" in visualizer.last_annotation_summary

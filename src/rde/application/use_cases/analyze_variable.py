@@ -14,6 +14,7 @@ import pandas as pd
 
 from rde.domain.models.analysis import StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset
+from rde.domain.services.numeric_plausibility import apply_numeric_plausibility_filters
 from rde.domain.models.variable import VariableType
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.ports import StatisticalEnginePort
@@ -78,10 +79,27 @@ class AnalyzeVariableUseCase:
         is_numeric = pd.api.types.is_numeric_dtype(col)
 
         if is_numeric:
+            filtered_df, plausibility_findings = apply_numeric_plausibility_filters(df, [variable_name])
+            filtered_col = filtered_df[variable_name]
+            excluded_invalid_count = sum(
+                finding.excluded_count
+                for finding in plausibility_findings
+                if finding.variable_name == variable_name
+            )
+            missing_count += excluded_invalid_count
+            missing_rate = missing_count / max(n_total, 1)
+            n_unique = int(filtered_col.nunique())
             var_type = "continuous"
-            desc = col.describe()
-            skew_val = float(col.skew())
-            kurt_val = float(col.kurtosis())
+            valid_col = filtered_col.dropna()
+
+            if excluded_invalid_count:
+                advisories.append(
+                    f"[VALIDITY] 已在描述統計前排除 {excluded_invalid_count} 筆不合理值。"
+                )
+
+            desc = valid_col.describe()
+            skew_val = float(valid_col.skew())
+            kurt_val = float(valid_col.kurtosis())
 
             descriptive = {
                 "mean": float(desc["mean"]),
@@ -96,7 +114,7 @@ class AnalyzeVariableUseCase:
             }
 
             # S-001: Normality
-            norm_result = self._engine.run_test(df, "Shapiro-Wilk", [variable_name])
+            norm_result = self._engine.run_test(filtered_df, "Shapiro-Wilk", [variable_name])
             norm_p = norm_result.get("p_value")
             is_normal = norm_p > 0.05 if norm_p is not None else None
 

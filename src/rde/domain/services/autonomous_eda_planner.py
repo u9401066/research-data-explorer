@@ -16,6 +16,11 @@ from rde.domain.models.dataset import Dataset
 from rde.domain.models.variable import Variable, VariableRole, VariableType
 
 
+MIN_METHOD_ANALYSIS_FLOOR = 4
+ACADEMIC_ANALYSIS_TARGET = 6
+PRODUCTION_ANALYSIS_TARGET = 8
+
+
 GROUP_KEYWORDS = (
     "group",
     "arm",
@@ -241,6 +246,9 @@ class EnrichmentRound:
 class PlanMethodologyReview:
     status: str
     recommended_analysis_floor: int
+    academic_analysis_target: int
+    production_analysis_target: int
+    completeness_tier: str
     candidate_pool_size: int
     requested_analysis_budget: int
     soft_analysis_budget: int
@@ -259,6 +267,9 @@ class PlanMethodologyReview:
         return {
             "status": self.status,
             "recommended_analysis_floor": self.recommended_analysis_floor,
+            "academic_analysis_target": self.academic_analysis_target,
+            "production_analysis_target": self.production_analysis_target,
+            "completeness_tier": self.completeness_tier,
             "candidate_pool_size": self.candidate_pool_size,
             "requested_analysis_budget": self.requested_analysis_budget,
             "soft_analysis_budget": self.soft_analysis_budget,
@@ -523,6 +534,16 @@ class AutonomousEDAPlanner:
             has_repeated=repeated_cluster is not None,
             has_cusum=has_cusum,
         )
+        academic_target = self._target_analysis_floor(
+            recommended_floor=recommended_floor,
+            candidate_pool_size=len(candidate_pool),
+            target="academic",
+        )
+        production_target = self._target_analysis_floor(
+            recommended_floor=recommended_floor,
+            candidate_pool_size=len(candidate_pool),
+            target="production",
+        )
         checks = self._materialize_review_checks(
             draft_families=selected_families,
             final_families=selected_families,
@@ -547,6 +568,14 @@ class AutonomousEDAPlanner:
             warnings.append(
                 f"Submitted plan has {len(selected_families)} analyses, below the methodology floor {recommended_floor}."
             )
+        elif len(selected_families) < academic_target:
+            warnings.append(
+                f"Submitted plan clears the minimum floor but is below the academic-ready target {academic_target}."
+            )
+        elif len(selected_families) < production_target:
+            warnings.append(
+                f"Submitted plan is academically complete but below the production-ready target {production_target}."
+            )
         if soft_budget > requested_budget:
             warnings.append(
                 f"A reviewed greedy expansion would likely grow this plan from {requested_budget} to about {soft_budget} analyses to preserve additional EDA branches."
@@ -557,6 +586,14 @@ class AutonomousEDAPlanner:
             )
 
         missing_required = any(check.status == "missing" for check in checks)
+        completeness_tier = self._plan_completeness_tier(
+            candidate_pool_size=len(candidate_pool),
+            final_analysis_count=len(selected_families),
+            recommended_floor=recommended_floor,
+            academic_target=academic_target,
+            production_target=production_target,
+            has_missing_checks=missing_required,
+        )
         status = "pass"
         if missing_required or len(selected_families) < recommended_floor:
             status = "needs_override"
@@ -564,6 +601,9 @@ class AutonomousEDAPlanner:
         return PlanMethodologyReview(
             status=status,
             recommended_analysis_floor=recommended_floor,
+            academic_analysis_target=academic_target,
+            production_analysis_target=production_target,
+            completeness_tier=completeness_tier,
             candidate_pool_size=len(candidate_pool),
             requested_analysis_budget=requested_budget,
             soft_analysis_budget=soft_budget,
@@ -1127,6 +1167,16 @@ class AutonomousEDAPlanner:
             has_repeated=repeated_cluster is not None,
             has_cusum=has_cusum,
         )
+        academic_target = self._target_analysis_floor(
+            recommended_floor=recommended_floor,
+            candidate_pool_size=len(candidate_pool),
+            target="academic",
+        )
+        production_target = self._target_analysis_floor(
+            recommended_floor=recommended_floor,
+            candidate_pool_size=len(candidate_pool),
+            target="production",
+        )
         warnings: list[str] = []
         if max_analyses < recommended_floor:
             warnings.append(
@@ -1229,8 +1279,25 @@ class AutonomousEDAPlanner:
                 repaired_analytical=final_analytical,
             )
         )
+        has_missing_checks = any(check.status == "missing" for check in checks)
+        completeness_tier = self._plan_completeness_tier(
+            candidate_pool_size=len(candidate_pool),
+            final_analysis_count=len(selected),
+            recommended_floor=recommended_floor,
+            academic_target=academic_target,
+            production_target=production_target,
+            has_missing_checks=has_missing_checks,
+        )
+        if not has_missing_checks and len(selected) >= recommended_floor and len(selected) < academic_target:
+            warnings.append(
+                f"Review repaired this plan to minimum completeness, but academic-ready coverage would target about {academic_target} analyses."
+            )
+        elif not has_missing_checks and len(selected) >= academic_target and len(selected) < production_target:
+            warnings.append(
+                f"Review achieved academic-ready coverage; production-ready planning would target about {production_target} analyses."
+            )
         status = "pass"
-        if any(check.status == "missing" for check in checks):
+        if has_missing_checks:
             status = "budget_limited" if max_analyses < recommended_floor else "partial"
         elif repair_actions:
             status = "repaired"
@@ -1238,6 +1305,9 @@ class AutonomousEDAPlanner:
         return selected, PlanMethodologyReview(
             status=status,
             recommended_analysis_floor=recommended_floor,
+            academic_analysis_target=academic_target,
+            production_analysis_target=production_target,
+            completeness_tier=completeness_tier,
             candidate_pool_size=len(candidate_pool),
             requested_analysis_budget=max_analyses,
             soft_analysis_budget=soft_budget,
@@ -1345,8 +1415,39 @@ class AutonomousEDAPlanner:
             raw_floor += 1
         if has_cusum:
             raw_floor += 1
-        baseline_floor = min(candidate_pool_size, 3)
+        baseline_floor = min(candidate_pool_size, MIN_METHOD_ANALYSIS_FLOOR)
         return min(candidate_pool_size, max(raw_floor, baseline_floor))
+
+    def _target_analysis_floor(
+        self,
+        *,
+        recommended_floor: int,
+        candidate_pool_size: int,
+        target: str,
+    ) -> int:
+        if target == "production":
+            baseline = PRODUCTION_ANALYSIS_TARGET
+        else:
+            baseline = ACADEMIC_ANALYSIS_TARGET
+        return min(candidate_pool_size, max(recommended_floor, baseline))
+
+    def _plan_completeness_tier(
+        self,
+        *,
+        candidate_pool_size: int,
+        final_analysis_count: int,
+        recommended_floor: int,
+        academic_target: int,
+        production_target: int,
+        has_missing_checks: bool,
+    ) -> str:
+        if has_missing_checks or final_analysis_count < recommended_floor:
+            return "underpowered"
+        if candidate_pool_size >= PRODUCTION_ANALYSIS_TARGET and final_analysis_count >= production_target:
+            return "production_ready"
+        if final_analysis_count >= academic_target:
+            return "academic_ready"
+        return "minimum_complete"
 
     def _soft_analysis_budget(
         self,

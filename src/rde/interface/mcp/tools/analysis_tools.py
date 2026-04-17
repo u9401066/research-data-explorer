@@ -11,6 +11,20 @@ from pathlib import Path
 from typing import Any
 
 
+def _sanitize_analysis_frame(
+    df: Any,
+    variables: list[str] | tuple[str, ...],
+) -> tuple[Any, list[str], str | None]:
+    from rde.domain.services.numeric_plausibility import (
+        apply_numeric_plausibility_filters,
+        format_plausibility_markdown,
+        summarize_plausibility_findings,
+    )
+
+    cleaned_df, findings = apply_numeric_plausibility_filters(df, list(variables))
+    return cleaned_df, format_plausibility_markdown(findings), summarize_plausibility_findings(findings)
+
+
 def _normalize_analysis_type(analysis_type: str) -> str:
     """Normalize analysis type names for filenames and routing summaries."""
     return analysis_type.lower().replace("-", "_").replace(" ", "_")
@@ -679,10 +693,14 @@ def register_analysis_tools(server: Any) -> None:
 
             engine = ScipyStatisticalEngine()
             use_case = CompareGroupsUseCase(engine)
+            analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
+                entry.dataframe,
+                [*outcome_variables, group_variable],
+            )
 
             result = use_case.execute(
                 dataset=entry.dataset,
-                raw_data=entry.dataframe,
+                raw_data=analysis_df,
                 outcome_variables=outcome_variables,
                 group_variable=group_variable,
                 is_paired=is_paired,
@@ -693,7 +711,7 @@ def register_analysis_tools(server: Any) -> None:
             lines = [f"# 📊 組間比較 — by `{group_variable}`\n"]
 
             # S-008: Sample balance check
-            df = entry.dataframe
+            df = analysis_df
             group_counts = df[group_variable].value_counts()
             min_n = group_counts.min()
             max_n = group_counts.max()
@@ -751,12 +769,20 @@ def register_analysis_tools(server: Any) -> None:
                 for w in result.warnings:
                     lines.append(f"- {w}")
 
+            if plausibility_notes:
+                lines.append("\n## 資料合理性防護")
+                for note in plausibility_notes:
+                    lines.append(f"- {note}")
+
             # H-009
             _auto_log_decision(
                 "compare_groups",
                 {"outcome_variables": outcome_variables, "group_variable": group_variable},
                 "組間比較分析",
-                f"{len(result.tests)} tests, {len(result.significant_tests)} significant",
+                (
+                    f"{len(result.tests)} tests, {len(result.significant_tests)} significant"
+                    + (f"; {plausibility_summary}" if plausibility_summary else "")
+                ),
             )
 
             return "\n".join(lines)
@@ -820,7 +846,12 @@ def register_analysis_tools(server: Any) -> None:
             if len(numeric_cols) < 2:
                 return fmt_error("需要至少 2 個數值變數進行相關性分析。")
 
-            corr = df[numeric_cols].corr()
+            analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
+                df,
+                numeric_cols,
+            )
+
+            corr = analysis_df[numeric_cols].corr()
 
             lines = ["# 📊 相關性矩陣\n"]
 
@@ -832,19 +863,27 @@ def register_analysis_tools(server: Any) -> None:
             lines.append(fmt_table(header, rows))
 
             # S-007: Collinearity check (delegated to domain service)
-            report = check_collinearity(df, numeric_cols)
+            report = check_collinearity(analysis_df, numeric_cols)
             if report.has_collinearity:
                 lines.append("\n## ⚠️ [S-007] 高共線性")
                 for w in report.format_warnings():
                     lines.append(f"- {w}")
                 lines.append("\n建議: 考慮移除一個變數或使用 VIF 進一步評估。")
 
+            if plausibility_notes:
+                lines.append("\n## 資料合理性防護")
+                for note in plausibility_notes:
+                    lines.append(f"- {note}")
+
             # H-009
             _auto_log_decision(
                 "correlation_matrix",
                 {"variables": numeric_cols},
                 "相關性矩陣分析",
-                f"{len(numeric_cols)} vars, {len(report.pairs)} collinear pairs",
+                (
+                    f"{len(numeric_cols)} vars, {len(report.pairs)} collinear pairs"
+                    + (f"; {plausibility_summary}" if plausibility_summary else "")
+                ),
             )
 
             return "\n".join(lines)
@@ -912,8 +951,13 @@ def register_analysis_tools(server: Any) -> None:
             else:
                 cols = [c for c in df.columns if c != group_variable]
 
+            analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
+                df,
+                [*cols, group_variable],
+            )
+
             engine = ScipyStatisticalEngine()
-            result = engine.generate_table_one(df, group_variable, cols)
+            result = engine.generate_table_one(analysis_df, group_variable, cols)
 
             if "error" in result:
                 return fmt_error(result["error"])
@@ -948,6 +992,11 @@ def register_analysis_tools(server: Any) -> None:
                 f"\n- **類別變數:** {result.get('n_categorical', 0)}"
             )
 
+            if plausibility_notes:
+                lines.append("\n## 資料合理性防護")
+                for note in plausibility_notes:
+                    lines.append(f"- {note}")
+
             table_one_content = "\n".join(lines)
             store = ArtifactStore(project.artifacts_dir)
             table_one_md_path = store.save(
@@ -975,7 +1024,10 @@ def register_analysis_tools(server: Any) -> None:
                 "generate_table_one",
                 {"group_variable": group_variable, "variables": cols},
                 "生成 Table 1 (基線特徵表)",
-                f"Table 1: {result.get('n_variables', len(cols))} variables",
+                (
+                    f"Table 1: {result.get('n_variables', len(cols))} variables"
+                    + (f"; {plausibility_summary}" if plausibility_summary else "")
+                ),
                 artifacts=[str(table_one_md_path)],
             )
 
@@ -1096,7 +1148,12 @@ def register_analysis_tools(server: Any) -> None:
 
             config["variables"] = list(dict.fromkeys(config["variables"]))
 
-            result = delegator.run_analysis(entry.dataframe, analysis_type, config)
+            analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
+                entry.dataframe,
+                config["variables"],
+            )
+
+            result = delegator.run_analysis(analysis_df, analysis_type, config)
 
             source = result["source"]
             analysis_result = result["result"]
@@ -1117,6 +1174,10 @@ def register_analysis_tools(server: Any) -> None:
                 artifact_path=artifact_path,
                 automl_available=delegator.automl_available,
             )
+            if plausibility_notes:
+                rendered_output += "\n\n## 資料合理性防護\n" + "\n".join(
+                    f"- {note}" for note in plausibility_notes
+                )
             markdown_artifact_path = _save_advanced_analysis_markdown_artifact(
                 project,
                 analysis_type=analysis_type,
@@ -1141,7 +1202,10 @@ def register_analysis_tools(server: Any) -> None:
                     ],
                 },
                 f"進階分析: {analysis_type}",
-                f"source={source}; {decision_summary}",
+                (
+                    f"source={source}; {decision_summary}"
+                    + (f"; {plausibility_summary}" if plausibility_summary else "")
+                ),
                 artifacts=[artifact_path.name, markdown_artifact_path.name],
             )
 
@@ -1212,8 +1276,12 @@ def register_analysis_tools(server: Any) -> None:
             from rde.infrastructure.adapters import ScipyStatisticalEngine
 
             engine = ScipyStatisticalEngine()
-            result = engine.run_test(
+            analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
                 entry.dataframe,
+                var_list,
+            )
+            result = engine.run_test(
+                analysis_df,
                 "Friedman test",
                 var_list,
                 alpha=alpha,
@@ -1306,12 +1374,17 @@ def register_analysis_tools(server: Any) -> None:
                     f"進行 Bonferroni 校正 (α = {alpha / len(result.get('post_hoc', [1])):.4f})。"
                 )
 
+            if plausibility_notes:
+                lines.append("\n## 資料合理性防護")
+                for note in plausibility_notes:
+                    lines.append(f"- {note}")
+
             # H-009
             _auto_log_decision(
                 "run_repeated_measures",
                 {"variables": var_list, "alpha": alpha},
                 f"Friedman 檢定: {len(var_list)} 個重複測量時間點",
-                f"χ²={stat:.3f}, p={p:.6f}, W={w:.3f}",
+                f"χ²={stat:.3f}, p={p:.6f}, W={w:.3f}" + (f"; {plausibility_summary}" if plausibility_summary else ""),
             )
 
             return "\n".join(lines)

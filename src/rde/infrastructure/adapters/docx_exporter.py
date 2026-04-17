@@ -113,12 +113,11 @@ class DocxExporter(DocumentExporterPort):
             # Fallback: save HTML so user can open in browser → Print to PDF
             html_path = output_path.with_suffix(".html")
             html_path.write_text(html_content, encoding="utf-8")
-            raise ImportError(
-                f"xhtml2pdf 未安裝，無法直接生成 PDF。"
-                f"已匯出 HTML 至 {html_path}，"
-                f"可用瀏覽器開啟後列印為 PDF。\n"
-                f"安裝方式: pip install xhtml2pdf"
+            logger.warning(
+                "xhtml2pdf unavailable; exported HTML fallback instead of PDF: %s",
+                html_path,
             )
+            return html_path
 
     # ── Private helpers ──────────────────────────────────────────────
 
@@ -313,6 +312,26 @@ class DocxExporter(DocumentExporterPort):
         """Add a structured dict table to the Word document."""
         if not tbl_data:
             return
+        if isinstance(tbl_data.get("headers"), list) and isinstance(tbl_data.get("rows"), list):
+            headers = [str(value) for value in tbl_data.get("headers", [])]
+            rows_data = [list(row) for row in tbl_data.get("rows", [])]
+            if not headers:
+                return
+
+            table = doc.add_table(rows=1 + len(rows_data), cols=len(headers))
+            table.style = self.TABLE_STYLE
+
+            for j, header in enumerate(headers):
+                table.rows[0].cells[j].text = header
+
+            for i, row in enumerate(rows_data):
+                padded = [str(value) for value in row] + [""] * (len(headers) - len(row))
+                for j, value in enumerate(padded[: len(headers)]):
+                    table.rows[i + 1].cells[j].text = value
+
+            doc.add_paragraph()
+            return
+
         headers = list(tbl_data.keys())
         first_vals = tbl_data[headers[0]]
         if isinstance(first_vals, dict):
@@ -463,6 +482,25 @@ class DocxExporter(DocumentExporterPort):
         """Convert a dict-of-dicts table to HTML table string."""
         if not tbl:
             return ""
+        if isinstance(tbl.get("headers"), list) and isinstance(tbl.get("rows"), list):
+            headers = [str(value) for value in tbl.get("headers", [])]
+            rows = [list(row) for row in tbl.get("rows", [])]
+            if not headers:
+                return ""
+
+            lines = ["<table>", "<tr>"]
+            for header in headers:
+                lines.append(f"<th>{header}</th>")
+            lines.append("</tr>")
+            for row in rows:
+                padded = [str(value) for value in row] + [""] * (len(headers) - len(row))
+                lines.append("<tr>")
+                for value in padded[: len(headers)]:
+                    lines.append(f"<td>{value}</td>")
+                lines.append("</tr>")
+            lines.append("</table>")
+            return "\n".join(lines)
+
         headers = list(tbl.keys())
         first_vals = tbl[headers[0]]
         if isinstance(first_vals, dict):
