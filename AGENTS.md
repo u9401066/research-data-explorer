@@ -1,7 +1,7 @@
 # Research Data Explorer — Agents Guide
 
 > 本文件指引 VS Code Copilot Agent 如何使用 RDE 的工具與工作流程。
-> Architecture: DDD (Domain-Driven Design) | Pipeline: 11-Phase Auditable EDA
+> Architecture: DDD (Domain-Driven Design) | Pipeline: 13-Phase Auditable EDA
 
 > 具體可執行控制契約以 [.github/agent-control.yaml](.github/agent-control.yaml) 為準；若本文件與程式行為不同，以 control manifest 與測試為準。
 
@@ -19,18 +19,18 @@
 ```text
 用戶: 「我有一個 CSV 檔案，想看看裡面有什麼」
 Agent:
-  Phase 0 → init_project("exploratory_analysis")
-  Phase 1 → run_intake("rawdata/")        # 格式+大小+PII 檢查；H-004 預設阻擋
-  Phase 2 → build_schema()                 # 完整 schema registry
-  Phase 3 → align_concept(confirm=true)    # 研究問題 → 變數映射 → 用戶確認
-  Phase 3.5 → propose_analysis_plan()      # greedy 候選分析 + 圖表 bundle（不鎖定）
-  Phase 4 → register_analysis_plan(confirm=true)  # 分析計畫（用戶確認後鎖定）
-  Phase 5 → check_readiness()              # 前提檢查
-  Phase 6 → execute analysis tools         # 按計畫執行
-  Phase 7 → collect_results()             # 結果彙整
-  Phase 8 → assemble_report()             # 報告組裝
-  Phase 9 → run_audit()                   # 審計
-  Phase 10 → auto_improve()              # 自動改善
+  Phase 0  → init_project("exploratory_analysis")
+  Phase 1  → run_intake("rawdata/")        # 格式+大小+PII 檢查；H-004 預設阻擋
+  Phase 2  → build_schema()                 # 完整 schema registry
+  Phase 3  → align_concept(confirm=true)    # 研究問題 → 變數映射 → 用戶確認
+  Phase 4  → propose_analysis_plan()        # creative ideation: greedy 候選分析 + 圖表 bundle
+  Phase 5  → register_analysis_plan(confirm=true)  # plan completeness review → 鎖定
+  Phase 6  → check_readiness()              # 前提檢查
+  Phase 7  → execute analysis tools         # 按計畫執行
+  Phase 8  → collect_results()             # 結果彙整
+  Phase 9  → assemble_report()             # 報告組裝
+  Phase 10 → run_audit()                   # 審計
+  Phase 11 → auto_improve()                # 自動改善
 ```
 
 ## Available MCP Servers
@@ -74,18 +74,27 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 |------|---------|
 | `align_concept` | 研究問題 → schema 變數映射 → 用戶確認 |
 
-#### Phase 4: Plan Registration
+#### Phase 4: Creative Ideation
 | Tool | Purpose |
 |------|---------|
-| `propose_analysis_plan` | 根據 schema / roles / 研究問題，自主產生 greedy Phase 4 blueprint |
+| `propose_analysis_plan` | 根據 schema / roles / 研究問題，自主產生 greedy creative ideation blueprint |
+
+#### Phase 5: Plan Completeness Review
+| Tool | Purpose |
+|------|---------|
+| `register_analysis_plan` | methodology gate → 用戶確認 → 鎖定分析計畫 |
+
+#### Phase 6: Plan Registration
+| Tool | Purpose |
+|------|---------|
 | `register_analysis_plan` | 建立分析計畫+automl 指令預排 → 用戶確認 → 鎖定 |
 
-#### Phase 5: Pre-Exploration Check
+#### Phase 7: Pre-Exploration Check
 | Tool | Purpose |
 |------|---------|
 | `check_readiness` | 樣本量(H-003)+常態性(S-001)+共線性(S-007)+缺失模式(S-005) |
 
-#### Phase 6: Execute Exploration
+#### Phase 8: Execute Exploration
 | Tool | Purpose |
 |------|---------|
 | `suggest_cleaning` | 建議清理策略（缺失處理、異常值等） |
@@ -99,23 +108,23 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 | `create_visualization` | 生成圖表 |
 | `log_deviation` | 記錄計畫偏離（偏離計畫時必須呼叫！） |
 
-#### Phase 7: Collect Results
+#### Phase 9: Collect Results
 | Tool | Purpose |
 |------|---------|
 | `collect_results` | 彙整結果+標記可發表內容（PUBLISHABLE markers） |
 
-#### Phase 8: Report Assembly
+#### Phase 10: Report Assembly
 | Tool | Purpose |
 |------|---------|
 | `assemble_report` | 組裝完整 EDA 報告（含 decision log、deviation log） |
 | `export_report` | 匯出報告為 Word (.docx) 和/或 PDF（含嵌入圖表） |
 
-#### Phase 9: Audit Review
+#### Phase 11: Audit Review
 | Tool | Purpose |
 |------|---------|
 | `run_audit` | 計畫符合度+方法適當性+效果量完整性+PII 檢查 |
 
-#### Phase 10: Auto-Improve
+#### Phase 12: Auto-Improve
 | Tool | Purpose |
 |------|---------|
 | `auto_improve` | 根據審計自動改善 |
@@ -131,7 +140,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 
 ### automl-stat-mcp Tools (Delegated)
 
-> Phase 6 中按照 Phase 4 預排的 automl 指令序列執行。
+> Phase 8 中按照 Phase 6 預排的 automl 指令序列執行。
 
 | Tool | Purpose |
 |------|---------|
@@ -141,16 +150,16 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 | `run_analysis` | 執行統計分析 |
 | `generate_report` | 生成分析報告 |
 
-## 11-Phase Pipeline Workflow
+## 13-Phase Pipeline Workflow
 
 ### Phase Gate Rules
-- ⛔ **Phase 4 (Plan) 鎖定後**：Phase 6+ 的任何操作偏離計畫 → 必須 `log_deviation()`
+- ⛔ **Phase 6 (Plan) 鎖定後**：Phase 8+ 的任何操作偏離計畫 → 必須 `log_deviation()`
 - ⛔ **Artifact Gate**：前一 Phase 的 artifacts 必須存在才能進入下一 Phase
-- ⛔ **Decision Logging**：Phase 6 每個分析操作自動寫入 decision_log.jsonl
-- ⛔ **User Confirmation**：Phase 3 (概念對齊) 和 Phase 4 (計畫) 必須用戶確認
+- ⛔ **Decision Logging**：Phase 8 每個分析操作自動寫入 decision_log.jsonl
+- ⛔ **User Confirmation**：Phase 3 (概念對齊) 和 Phase 4 (創意發想) 和 Phase 5 (計畫完整性審查) 和 Phase 6 (計畫) 必須用戶確認
 - ⛔ **PII Default Block**：`load_dataset()` / `run_intake()` 遇到疑似 PII 時預設拒絕，僅可用 `allow_pii=true` 明確覆蓋
 
-### Standard Flow（完整 11-Phase）
+### Standard Flow（完整 13-Phase）
 
 ```text
 Phase 0: Project Setup
@@ -174,51 +183,56 @@ Phase 3: Concept–Schema Alignment
   └─ 研究問題 → 變數映射 → ⚠️ 用戶確認
   └─ → concept_alignment.md + variable_roles.json
 
-Phase 3.5: Greedy Plan Ideation
+Phase 4: Creative Ideation
   └─ propose_analysis_plan()
   └─ greedy candidate ranking + visualization bundle（不鎖定）
   └─ → greedy_analysis_candidates.json + greedy_analysis_candidates.md
 
-Phase 4: Analysis Plan Registration
+Phase 5: Plan Completeness Review
+  └─ register_analysis_plan(confirm=true)
+  └─ methodology gate → ⚠️ 用戶確認
+  └─ → analysis_plan_review.json + analysis_plan_review.md
+
+Phase 6: Plan Registration
   └─ register_analysis_plan(confirm=true)
   └─ 統計方法 + automl 指令 + α 值 + missing 策略
   └─ ⚠️ 用戶確認 → 🔒 計畫鎖定
   └─ → analysis_plan.yaml (LOCKED)
 
-Phase 5: Pre-Exploration Check
+Phase 7: Pre-Exploration Check
   └─ check_readiness()
   └─ [H-003] 樣本量  [S-001] 常態性  [S-005] 缺失模式  [S-007] VIF
   └─ 如需調整 → log_deviation() → ⚠️ 用戶確認
   └─ → readiness_checklist.json
 
-Phase 6: Execute Exploration
+Phase 8: Execute Exploration
   └─ apply_cleaning()
   └─ generate_table_one()
   └─ compare_groups() × N
   └─ analyze_variable() × N
   └─ correlation_matrix()
-  └─ automl-stat-mcp.run_analysis()    # 按 Phase 4 預排指令
+  └─ automl-stat-mcp.run_analysis()    # 按 Phase 6 預排指令
   └─ [S-002] 多重比較  [S-009] Effect size  [S-010] Power
   └─ 每步自動寫入 → decision_log.jsonl
   └─ → execution artifacts + figures/
 
-Phase 7: Collect Results
+Phase 9: Collect Results
   └─ collect_results()
   └─ 標記 PUBLISHABLE items
   └─ 檢查 plan coverage
   └─ → results_summary.json
 
-Phase 8: Report Assembly
+Phase 10: Report Assembly
   └─ assemble_report()
   └─ [H-005] 報告完整性  [H-006] 敏感資訊清除
   └─ → eda_report.md (含 Appendix: decision_log + deviation_log)
 
-Phase 9: Audit Review
+Phase 11: Audit Review
   └─ run_audit()
   └─ 計畫符合度 + 方法適當性 + 偏離合理性 + 再現性
   └─ → audit_report.json (A/B/C/D/F 評分)
 
-Phase 10: Auto-Improve
+Phase 12: Auto-Improve
   └─ auto_improve()            # 根據 audit 自動修正
   └─ export_handoff()          # 產出 handoff package
   └─ → final_report.md + handoff_package/
@@ -228,7 +242,7 @@ Phase 10: Auto-Improve
 
 ```text
 init_project → run_intake → build_schema → profile_dataset → assemble_report
-(跳過 Phase 3-5, 7, 9-10；報告標記為 "Quick Explore — Not Audited")
+(跳過 Phase 3-7, 9, 11-12；報告標記為 "Quick Explore — Not Audited")
 ```
 
 ### Guided Comparison Flow（用戶想做組間比較）
@@ -278,10 +292,10 @@ init_project → run_intake → build_schema → profile_dataset → assemble_re
 
 「我有資料想分析」         → 完整 Phase 0-10 流程
 「只想快速看概況」         → Quick Explore Flow
-「比較兩組差異」           → Phase 0-5 → compare_groups → Phase 7-10
-「做 Table 1」            → Phase 0-5 → generate_table_one → Phase 7-10
-「看相關性」               → Phase 0-5 → correlation_matrix → Phase 7-10
-「跑複雜統計模型」         → Phase 6 委派 automl-stat-mcp
+「比較兩組差異」           → Phase 0-5 → compare_groups → Phase 7-11
+「做 Table 1」            → Phase 0-5 → generate_table_one → Phase 7-11
+「看相關性」               → Phase 0-5 → correlation_matrix → Phase 7-11
+「跑複雜統計模型」         → Phase 8 委派 automl-stat-mcp
 「目前進度？」             → get_pipeline_status
 「決策紀錄？」             → get_decision_log
 「為什麼改了方法？」       → get_deviation_log

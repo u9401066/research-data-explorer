@@ -1,6 +1,6 @@
 # Research Data Explorer
 
-Research Data Explorer (RDE) is an 11-phase auditable EDA pipeline built as an MCP server for VS Code agents.
+Research Data Explorer (RDE) is a 13-phase auditable EDA pipeline built as an MCP server for VS Code agents.
 
 It is designed to constrain analysis behavior instead of letting an agent improvise freely. The repository combines:
 
@@ -31,7 +31,7 @@ RDE's value is not maximum method coverage. Its value is putting a narrower but 
 
 ![System Architecture](docs/figures/02-system-architecture.svg)
 
-### 11-Phase Workflow Detail
+### 13-Phase Workflow Detail
 
 ![Workflow Detail](docs/figures/03-workflow-detail.svg)
 
@@ -83,7 +83,7 @@ Important implementation entry points:
 - Advanced analysis delegation: [src/rde/infrastructure/adapters/analysis_delegator.py](src/rde/infrastructure/adapters/analysis_delegator.py)
 - Vendor gateway: [src/rde/infrastructure/adapters/automl_gateway.py](src/rde/infrastructure/adapters/automl_gateway.py)
 
-## 11-Phase Constrained Workflow
+## 13-Phase Constrained Workflow
 
 The intended execution order is:
 
@@ -211,7 +211,7 @@ This enables delegated analysis such as:
 If you want the agent to stay inside the governed workflow, ask for work in phase-oriented terms. For example:
 
 ```text
-I have a CSV file. Please use the full 11-phase auditable workflow.
+I have a CSV file. Please use the full 13-phase auditable workflow.
 Do not skip concept alignment or plan lock.
 Use run_advanced_analysis only when Phase 5 is complete.
 Log deviations if you need to change the plan.

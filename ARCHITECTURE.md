@@ -37,7 +37,7 @@ Interface (MCP tools) -> Application (Use Cases) -> Domain (Pure logic) <- Infra
 
 ## Workflow Contract
 
-The product behavior is governed by an 11-phase pipeline.
+The product behavior is governed by a 13-phase pipeline.
 
 - Phase 0-5 establish project state, schema, concept alignment, plan lock, and readiness.
 - Phase 6 executes analysis and writes decision logs.

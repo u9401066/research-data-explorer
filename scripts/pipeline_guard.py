@@ -23,13 +23,15 @@ PHASE_NAMES = [
     "phase_01_data_intake",
     "phase_02_schema_registry",
     "phase_03_concept_alignment",
-    "phase_04_plan_registration",
-    "phase_05_pre_explore_check",
-    "phase_06_execute_exploration",
-    "phase_07_collect_results",
-    "phase_08_report_assembly",
-    "phase_09_audit_review",
-    "phase_10_auto_improve",
+    "phase_04_creative_ideation",
+    "phase_05_plan_completeness_review",
+    "phase_06_plan_registration",
+    "phase_07_pre_explore_check",
+    "phase_08_execute_exploration",
+    "phase_09_collect_results",
+    "phase_10_report_assembly",
+    "phase_11_audit_review",
+    "phase_12_auto_improve",
 ]
 
 
@@ -57,17 +59,17 @@ def check_artifacts(project_dir: Path, target_phase: int) -> list[str]:
 
 
 def check_plan_lock(project_dir: Path, target_phase: int) -> list[str]:
-    """H-007: Verify plan is locked for Phase 6+."""
-    if target_phase < 6:
+    """H-007: Verify plan is locked for Phase 8+."""
+    if target_phase < 8:
         return []
 
-    plan_file = project_dir / "artifacts" / "phase_04_plan_registration" / "analysis_plan.yaml"
+    plan_file = project_dir / "artifacts" / "phase_06_plan_registration" / "analysis_plan.yaml"
     if not plan_file.exists():
-        return ["⛔ [H-007] Phase 6 需要鎖定的分析計畫，但 analysis_plan.yaml 不存在"]
+        return ["⛔ [H-007] Phase 8 需要鎖定的分析計畫，但 analysis_plan.yaml 不存在"]
 
     content = plan_file.read_text(encoding="utf-8")
     if "locked: true" not in content.lower() and "status: locked" not in content.lower():
-        return ["⚠️ [H-007] 分析計畫尚未鎖定。Phase 6 前必須鎖定計畫。"]
+        return ["⚠️ [H-007] 分析計畫尚未鎖定。Phase 8 前必須鎖定計畫。"]
 
     return []
 

@@ -1,7 +1,7 @@
 """Project — Aggregate Root.
 
 An EDA project that tracks the overall exploration session,
-mapping to the 11-Phase Auditable EDA Pipeline.
+mapping to the 13-Phase Auditable EDA Pipeline.
 """
 
 from __future__ import annotations
@@ -14,20 +14,22 @@ from typing import Any
 
 
 class ProjectStatus(Enum):
-    """Project lifecycle states (maps to 11-Phase pipeline)."""
+    """Project lifecycle states (maps to 13-Phase pipeline)."""
 
     CREATED = "created"
     PROJECT_SETUP = "phase_00_project_setup"
     DATA_INTAKE = "phase_01_data_intake"
     SCHEMA_REGISTRY = "phase_02_schema_registry"
     CONCEPT_ALIGNMENT = "phase_03_concept_alignment"
-    PLAN_REGISTRATION = "phase_04_plan_registration"
-    PRE_EXPLORE_CHECK = "phase_05_pre_explore_check"
-    EXECUTE_EXPLORATION = "phase_06_execute_exploration"
-    COLLECT_RESULTS = "phase_07_collect_results"
-    REPORT_ASSEMBLY = "phase_08_report_assembly"
-    AUDIT_REVIEW = "phase_09_audit_review"
-    AUTO_IMPROVE = "phase_10_auto_improve"
+    CREATIVE_IDEATION = "phase_04_creative_ideation"
+    PLAN_COMPLETENESS_REVIEW = "phase_05_plan_completeness_review"
+    PLAN_REGISTRATION = "phase_06_plan_registration"
+    PRE_EXPLORE_CHECK = "phase_07_pre_explore_check"
+    EXECUTE_EXPLORATION = "phase_08_execute_exploration"
+    COLLECT_RESULTS = "phase_09_collect_results"
+    REPORT_ASSEMBLY = "phase_10_report_assembly"
+    AUDIT_REVIEW = "phase_11_audit_review"
+    AUTO_IMPROVE = "phase_12_auto_improve"
     COMPLETED = "completed"
 
 

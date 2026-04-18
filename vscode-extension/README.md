@@ -11,7 +11,7 @@ This extension is not a universal statistical autopilot. It is best viewed as a 
 
 ## Features
 
-- 🔍 **11-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
+- 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
 - 📊 **31 MCP Tools** — 資料載入、greedy plan ideation、描述統計、分組比較、Table 1、進階分析
 - 🧪 **automl-stat-mcp 委派** — PSM, Survival, ROC, Power Analysis 自動委派
 - 📄 **報告匯出** — Word/PDF 匯出
@@ -144,7 +144,7 @@ cd vendor/automl-stat-mcp && docker compose up -d
 Capability → Skill → MCP Tool
 ```
 
-### 11-Phase Pipeline
+### 13-Phase Pipeline
 
 | Phase | 名稱 | 說明 |
 | ------- | ------ | ------ |

@@ -1,4 +1,4 @@
-"""EDA Pipeline — 11-Phase Auditable state machine.
+"""EDA Pipeline — 13-Phase Auditable state machine.
 
 Orchestrates the full EDA workflow with audit trail,
 tracking state transitions and enforcing phase ordering constraints.
@@ -14,19 +14,21 @@ from typing import Any
 
 
 class PipelinePhase(Enum):
-    """The 11 phases of the auditable EDA pipeline."""
+    """The 13 phases of the auditable EDA pipeline."""
 
     PROJECT_SETUP = "phase_00_project_setup"
     DATA_INTAKE = "phase_01_data_intake"
     SCHEMA_REGISTRY = "phase_02_schema_registry"
     CONCEPT_ALIGNMENT = "phase_03_concept_alignment"
-    PLAN_REGISTRATION = "phase_04_plan_registration"
-    PRE_EXPLORE_CHECK = "phase_05_pre_explore_check"
-    EXECUTE_EXPLORATION = "phase_06_execute_exploration"
-    COLLECT_RESULTS = "phase_07_collect_results"
-    REPORT_ASSEMBLY = "phase_08_report_assembly"
-    AUDIT_REVIEW = "phase_09_audit_review"
-    AUTO_IMPROVE = "phase_10_auto_improve"
+    CREATIVE_IDEATION = "phase_04_creative_ideation"
+    PLAN_COMPLETENESS_REVIEW = "phase_05_plan_completeness_review"
+    PLAN_REGISTRATION = "phase_06_plan_registration"
+    PRE_EXPLORE_CHECK = "phase_07_pre_explore_check"
+    EXECUTE_EXPLORATION = "phase_08_execute_exploration"
+    COLLECT_RESULTS = "phase_09_collect_results"
+    REPORT_ASSEMBLY = "phase_10_report_assembly"
+    AUDIT_REVIEW = "phase_11_audit_review"
+    AUTO_IMPROVE = "phase_12_auto_improve"
 
 
 PHASE_ORDER = list(PipelinePhase)
@@ -34,6 +36,8 @@ PHASE_ORDER = list(PipelinePhase)
 # Phases that can be skipped in "Quick Explore" mode
 OPTIONAL_PHASES = {
     PipelinePhase.CONCEPT_ALIGNMENT,
+    PipelinePhase.CREATIVE_IDEATION,
+    PipelinePhase.PLAN_COMPLETENESS_REVIEW,
     PipelinePhase.PLAN_REGISTRATION,
     PipelinePhase.PRE_EXPLORE_CHECK,
     PipelinePhase.COLLECT_RESULTS,
@@ -46,7 +50,9 @@ PREREQUISITES: dict[PipelinePhase, set[PipelinePhase]] = {
     PipelinePhase.DATA_INTAKE: {PipelinePhase.PROJECT_SETUP},
     PipelinePhase.SCHEMA_REGISTRY: {PipelinePhase.DATA_INTAKE},
     PipelinePhase.CONCEPT_ALIGNMENT: {PipelinePhase.SCHEMA_REGISTRY},
-    PipelinePhase.PLAN_REGISTRATION: {PipelinePhase.CONCEPT_ALIGNMENT},
+    PipelinePhase.CREATIVE_IDEATION: {PipelinePhase.CONCEPT_ALIGNMENT},
+    PipelinePhase.PLAN_COMPLETENESS_REVIEW: {PipelinePhase.CREATIVE_IDEATION},
+    PipelinePhase.PLAN_REGISTRATION: {PipelinePhase.PLAN_COMPLETENESS_REVIEW},
     PipelinePhase.PRE_EXPLORE_CHECK: {PipelinePhase.PLAN_REGISTRATION},
     PipelinePhase.EXECUTE_EXPLORATION: {PipelinePhase.PRE_EXPLORE_CHECK},
     PipelinePhase.COLLECT_RESULTS: {PipelinePhase.EXECUTE_EXPLORATION},
@@ -58,6 +64,8 @@ PREREQUISITES: dict[PipelinePhase, set[PipelinePhase]] = {
 # Phases that require user confirmation before completion
 USER_CONFIRMATION_REQUIRED = {
     PipelinePhase.CONCEPT_ALIGNMENT,
+    PipelinePhase.CREATIVE_IDEATION,
+    PipelinePhase.PLAN_COMPLETENESS_REVIEW,
     PipelinePhase.PLAN_REGISTRATION,
 }
 
@@ -67,6 +75,19 @@ REQUIRED_ARTIFACTS: dict[PipelinePhase, list[str]] = {
     PipelinePhase.DATA_INTAKE: ["intake_report.json"],
     PipelinePhase.SCHEMA_REGISTRY: ["schema.json"],
     PipelinePhase.CONCEPT_ALIGNMENT: ["concept_alignment.md", "variable_roles.json"],
+    PipelinePhase.CREATIVE_IDEATION: [
+        "greedy_analysis_candidates.json",
+        "greedy_analysis_candidates.md",
+        "greedy_execution_schedule.json",
+        "greedy_execution_schedule.md",
+        "greedy_plan_enrichment.json",
+        "greedy_plan_enrichment.md",
+        "greedy_statsmodels_base_analysis.py",
+    ],
+    PipelinePhase.PLAN_COMPLETENESS_REVIEW: [
+        "analysis_plan_review.json",
+        "analysis_plan_review.md",
+    ],
     PipelinePhase.PLAN_REGISTRATION: ["analysis_plan.yaml"],
     PipelinePhase.PRE_EXPLORE_CHECK: ["readiness_checklist.json"],
     PipelinePhase.EXECUTE_EXPLORATION: ["decision_log.jsonl"],
@@ -92,7 +113,7 @@ class PhaseResult:
 
 @dataclass
 class PipelineState:
-    """Tracks the current state of the 11-Phase Auditable EDA pipeline."""
+    """Tracks the current state of the 13-Phase Auditable EDA pipeline."""
 
     project_id: str
     current_phase: PipelinePhase | None = None
@@ -132,13 +153,13 @@ class PipelineState:
             if result is not None and not result.user_confirmed:
                 return False, f"Phase '{req_phase.value}' requires explicit user confirmation"
 
-        # Phase 6+ requires locked plan (unless quick explore)
+        # Phase 8+ requires locked plan (unless quick explore)
         if (
             phase == PipelinePhase.EXECUTE_EXPLORATION
             and not self.plan_locked
             and not self.is_quick_explore
         ):
-            return False, "Analysis plan must be locked (Phase 4) before execution"
+            return False, "Analysis plan must be locked (Phase 6) before execution"
 
         return True, ""
 
