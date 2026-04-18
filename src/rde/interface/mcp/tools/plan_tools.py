@@ -176,7 +176,7 @@ def _render_greedy_plan_markdown(
             lines.append(f"  - rationale: {round_info.get('rationale', '')}")
 
     if schedule:
-        lines.append("\n## Phase 6 Execution Schedule")
+        lines.append("\n## Phase 8 Execution Schedule")
         for step in schedule:
             depends_on = ", ".join(step.get("depends_on", [])) or "(none)"
             lines.append(
@@ -284,7 +284,7 @@ def _render_methodology_review_markdown(review: dict[str, Any]) -> str:
 
 
 def _render_execution_schedule_markdown(schedule: list[dict[str, Any]]) -> str:
-    lines = ["# ▶️ Phase 6 Execution Schedule\n"]
+    lines = ["# ▶️ Phase 8 Execution Schedule\n"]
     lines.append(f"- **steps:** {len(schedule)}")
 
     if not schedule:
@@ -500,15 +500,15 @@ def register_plan_tools(server: Any) -> None:
         include_advanced: bool = True,
         include_visualizations: bool = True,
     ) -> str:
-        """產生 greedy autonomous EDA 候選計畫（Phase 3.5）。
+        """產生 greedy autonomous EDA 候選計畫（Phase 4 — Creative Ideation）。
 
         在 Phase 3 已確認後，根據 schema、variable roles 與研究問題，
-        用 deterministic greedy heuristic 產生一份「可直接送入 Phase 4」的
+        用 deterministic greedy heuristic 產生一份「可直接送入 Phase 5」的
         blueprint，協助 agent 更自主地驅動 EDA。
 
         此工具包含內部 methodology review + repair，會先產生 draft，再補足缺失的分析家族。
         `max_analyses` 是初始 greedy budget，不是硬性上限；若 review 認為應保留延伸 EDA 路線，
-        planner 會產生 soft-budget expansion 與 Phase 6 execution schedule。
+        planner 會產生 soft-budget expansion 與 Phase 8 execution schedule。
         另外可用 `enrich_rounds` 讓 planner 在 reviewed blueprint 後再多跑幾輪 enrich，
         每輪都只補少量新 branch，避免一次暴衝失控。
         這個工具不會鎖定計畫；真正鎖定仍需 `register_analysis_plan(confirm=true)`。
@@ -544,7 +544,7 @@ def register_plan_tools(server: Any) -> None:
         )
 
         ok, msg, project, entry = ensure_phase_ready(
-            PipelinePhase.PLAN_REGISTRATION,
+            PipelinePhase.CREATIVE_IDEATION,
             project_id=project_id,
             dataset_id=dataset_id,
             require_dataset=True,
@@ -577,41 +577,41 @@ def register_plan_tools(server: Any) -> None:
             proposal_dict = proposal.to_dict()
             store = ArtifactStore(project.artifacts_dir)
             json_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_analysis_candidates.json",
                 proposal_dict,
             )
             review_dict = proposal_dict.get("review") or {}
             review_json_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_analysis_review.json",
                 review_dict,
             )
             review_md_content = _render_methodology_review_markdown(review_dict)
             review_md_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_analysis_review.md",
                 review_md_content,
             )
             schedule = proposal_dict.get("execution_schedule", [])
             schedule_json_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_execution_schedule.json",
                 schedule,
             )
             schedule_md_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_execution_schedule.md",
                 _render_execution_schedule_markdown(schedule),
             )
             enrichment_rounds_payload = proposal_dict.get("enrichment_rounds", [])
             enrich_json_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_plan_enrichment.json",
                 enrichment_rounds_payload,
             )
             enrich_md_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_plan_enrichment.md",
                 _render_plan_enrichment_markdown(enrichment_rounds_payload),
             )
@@ -625,7 +625,7 @@ def register_plan_tools(server: Any) -> None:
                 research_question=project.research_question or "",
             )
             script_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_statsmodels_base_analysis.py",
                 script_content,
             )
@@ -634,7 +634,7 @@ def register_plan_tools(server: Any) -> None:
                 artifact_json=str(json_path),
                 artifact_md=str(
                     store.get_path(
-                        PipelinePhase.PLAN_REGISTRATION,
+                        PipelinePhase.CREATIVE_IDEATION,
                         "greedy_analysis_candidates.md",
                     )
                 ),
@@ -648,7 +648,7 @@ def register_plan_tools(server: Any) -> None:
                 script_path=str(script_path),
             )
             md_path = store.save(
-                PipelinePhase.PLAN_REGISTRATION,
+                PipelinePhase.CREATIVE_IDEATION,
                 "greedy_analysis_candidates.md",
                 content,
             )
@@ -685,7 +685,7 @@ def register_plan_tools(server: Any) -> None:
         allow_methodology_override: bool = False,
         confirm: bool = False,
     ) -> str:
-        """註冊分析計畫（Phase 4 — Pre-registration）。
+        """註冊分析計畫（Phase 6 — Plan Registration）。
 
         ⚠️ 確認後計畫將被鎖定 (H-007)，後續偏離會自動偵測並記錄。
         每項分析需指定 type、variables、rationale。
@@ -728,7 +728,7 @@ def register_plan_tools(server: Any) -> None:
 
         if not confirm:
             return fmt_error(
-                "Phase 4 需要明確用戶確認才能鎖定分析計畫。",
+                "Phase 5 需要明確用戶確認才能鎖定分析計畫。",
                 suggestion="以 `confirm=true` 重新呼叫 register_analysis_plan()。",
             )
 
@@ -968,7 +968,7 @@ def register_plan_tools(server: Any) -> None:
                 f"{script_text}"
                 f"{analyses_text}\n"
                 f"⚠️ Phase 6+ 操作偏離此計畫時，必須呼叫 `log_deviation()` 記錄。\n\n"
-                f"**下一步:** 使用 `check_readiness()` 執行準備度檢查 (Phase 5)。"
+                f"**下一步:** 使用 `check_readiness()` 執行準備度檢查 (Phase 7)。"
             )
 
         except Exception as e:
