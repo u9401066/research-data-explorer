@@ -4,6 +4,9 @@ Use RDE as a 13-phase auditable EDA harness, not as an ad hoc notebook.
 
 ## Operating Contract
 
+- The VSIX path is local-first for non-data-scientists: a user should not need Docker or analysis code to complete the core report flow.
+- Treat automl-stat-mcp as optional. Use local-lite fallbacks for adjusted models, ROC/AUC, basic power, Kaplan-Meier, and lightweight propensity scoring when Docker is unavailable.
+- Check `report_readiness.core_goal_audit`; `core_goal:*` gaps mean the run is not production-ready.
 - Follow `.github/agent-control.yaml` when it is present in the workspace.
 - Use the RDE MCP tools for dataset intake, schema, planning, execution, reporting, audit, and handoff.
 - Treat Phase 3 concept alignment, Phase 5 plan completeness review, and Phase 6 plan lock as explicit confirmation gates.

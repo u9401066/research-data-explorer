@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "13-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {
@@ -145,12 +145,12 @@
         "rde.automlEndpoint": {
           "type": "string",
           "default": "http://localhost:8002",
-          "description": "automl-stat-mcp service endpoint for advanced analysis delegation."
+          "description": "Optional automl-stat-mcp service endpoint for heavy advanced analysis delegation."
         },
         "rde.automlAutoCheck": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically check automl-stat-mcp Docker service availability on startup."
+          "description": "Automatically check optional automl-stat-mcp service availability on startup. The core report flow still works without Docker."
         }
       }
     }

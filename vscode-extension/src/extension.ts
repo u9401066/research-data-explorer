@@ -20,7 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Step 1.5: Marketplace mode auto-installs required persistent tool binaries
     await ensureMarketplaceToolsReady(context);
 
-    // Step 1.6: Check automl-stat-mcp Docker service availability (non-blocking)
+    // Step 1.6: Check optional automl-stat-mcp availability (non-blocking)
     if (vscode.workspace.getConfiguration('rde').get<boolean>('automlAutoCheck', true)) {
         await checkAutomlAvailability(context);
     }
@@ -59,15 +59,15 @@ export async function activate(context: vscode.ExtensionContext) {
             outputChannel.show();
             await checkAutomlAvailability(context);
             if (automlServiceAvailable) {
-                vscode.window.showInformationMessage('✅ automl-stat-mcp 服務正常運行中！進階分析（PSM、Survival、ROC 等）將自動委派。');
+                vscode.window.showInformationMessage('✅ automl-stat-mcp 服務正常運行中；重型進階分析會自動委派。');
             } else {
-                const choice = await vscode.window.showWarningMessage(
-                    'automl-stat-mcp 未偵測到。進階分析將使用本地引擎（部分分析不支援）。',
-                    '查看啟動說明',
+                const choice = await vscode.window.showInformationMessage(
+                    'automl-stat-mcp 未偵測到；RDE 仍會使用 local-lite 完成核心報告流程。Docker 只在重型 vendor workflow 需要。',
+                    '查看可選啟動說明',
                     '關閉'
                 );
-                if (choice === '查看啟動說明') {
-                    outputChannel.appendLine('\n=== automl-stat-mcp 啟動方式 ===');
+                if (choice === '查看可選啟動說明') {
+                    outputChannel.appendLine('\n=== automl-stat-mcp 可選啟動方式 ===');
                     outputChannel.appendLine('cd vendor/automl-stat-mcp && docker compose up -d');
                     outputChannel.appendLine('服務端口: stats-service=8003, automl-service=8001');
                     outputChannel.appendLine('================================\n');
@@ -99,11 +99,11 @@ async function checkAutomlAvailability(context: vscode.ExtensionContext): Promis
 
     if (statsAvailable) {
         automlServiceAvailable = true;
-        log('automl-stat-mcp is available — advanced analyses will be delegated');
+        log('automl-stat-mcp is available — heavy advanced analyses will be delegated');
     } else {
         automlServiceAvailable = false;
-        log('automl-stat-mcp not detected — advanced analyses will fall back to local engine');
-        log('To enable: cd vendor/automl-stat-mcp && docker compose up -d');
+        log('automl-stat-mcp not detected — core report flow will use local-lite analysis');
+        log('Optional heavy engine: cd vendor/automl-stat-mcp && docker compose up -d');
     }
 
     context.globalState.update('automlAvailable', automlServiceAvailable);

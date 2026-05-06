@@ -40,4 +40,10 @@ Quick Explore may skip Phase 3-7 and Phase 9/11/12 only when the final report is
 
 ## automl-stat-mcp Delegation
 
-Use automl-stat-mcp for advanced analyses such as PSM, survival analysis, ROC/AUC, advanced power analysis, regression/GLM, and machine learning. If the service is unavailable, fall back to local analysis only when the report and decision log state the limitation.
+automl-stat-mcp is optional for heavy vendor workflows. If the service is unavailable, `run_advanced_analysis` should use local-lite statsmodels/scipy support for adjusted models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, Cox regression when feasible, and lightweight propensity scoring. Only AutoML and vendor-only workflows should require an explicit optional automl setup note.
+
+The report and decision log must state the executed source (`local`, `local-lite`, or `automl-stat-mcp`).
+
+## Core Goal Readiness
+
+`report_readiness.core_goal_audit` is a cross-phase production-readiness contract. Missing data understanding, planning, readiness, reproducibility, execution/interpretation, completeness, report generation, no-code operation, or agent-friendly harness support must be surfaced as `core_goal:*` gaps.

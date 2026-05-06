@@ -9,11 +9,19 @@ This extension is not a universal statistical autopilot. It is best viewed as a 
 - if you only want generic automatic analysis summaries, other general-purpose auto-analysis tools may be a better fit
 - the main value here is auditability, plan lock, reproducibility, and handoff packaging
 
+## Core Product Contract
+
+The VSIX path is local-first for non-data-scientists. A user should be able to install the extension, point an agent at a new real dataset, and get a governed report without installing Docker or writing analysis code.
+
+RDE therefore treats automl-stat-mcp as optional. The built-in MCP server can complete the core workflow with local statistics, local-lite adjusted models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, and lightweight propensity scoring. Docker-backed automl-stat-mcp remains useful for heavier vendor workflows such as full matching/weighting, deeper survival methods, and AutoML training.
+
+`report_readiness` and `run_audit` explicitly check the core goal: data understanding, analysis planning, data correctness, reproducible exploration, analysis execution and interpretation, report generation, no-code operation, and agent-friendly harness artifacts.
+
 ## Features
 
 - 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
 - 📊 **32 MCP Tools** — 資料載入、greedy plan ideation、描述統計、分組比較、Table 1、進階分析
-- 🧪 **automl-stat-mcp 委派** — PSM, Survival, ROC, Power Analysis 自動委派
+- 🧪 **local-lite + optional automl-stat-mcp** — no-Docker adjusted models / ROC / power, with optional heavy delegation
 - 📄 **報告匯出** — Word/PDF 匯出
 - 🔒 **品質把關** — Hard Constraints (H-001~H-010) + Soft Constraints (S-001~S-012)
 - 💬 **Chat Participant** — @rde 自然語言互動
@@ -74,7 +82,7 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 
 ### automl-stat-mcp 是可選的
 
-**不安裝 automl-stat-mcp 也能正常使用 RDE！** 基礎統計分析由本地 ScipyEngine 處理。
+**不安裝 automl-stat-mcp 也能正常使用 RDE！** 基礎統計由本地 ScipyEngine 處理，調整模型、ROC/AUC、基本 power、Kaplan-Meier 與輕量 propensity scoring 由 local-lite statsmodels/scipy fallback 處理。
 
 也要誠實說明：即使安裝了 `automl-stat-mcp`，也不代表所有特殊分析方法都會自動可用。超出目前委派契約的分析仍可能需要手動處理或額外整合。
 
@@ -83,6 +91,9 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 ```bash
 # 在專案根目錄
 cd vendor/automl-stat-mcp && docker compose up -d
+
+# Optional: VSIX users can complete the core report path without Docker.
+# RDE falls back to local-lite advanced analysis when automl is unavailable.
 ```
 
 ### 行為邏輯

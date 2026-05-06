@@ -8,7 +8,7 @@ It is designed to constrain analysis behavior instead of letting an agent improv
 - explicit user confirmation for concept alignment and plan locking
 - append-only decision and deviation logs
 - hard and soft statistical constraints
-- delegated heavy analysis through automl-stat-mcp
+- local-lite advanced analysis for no-Docker VSIX runs, with optional delegated heavy analysis through automl-stat-mcp
 
 More honestly, the positioning is this:
 
@@ -18,6 +18,18 @@ More honestly, the positioning is this:
 - and if the goal is only generic one-shot auto-analysis, other more general-purpose MCP or agent tools already exist in the ecosystem
 
 RDE's value is not maximum method coverage. Its value is putting a narrower but trusted method pool inside an auditable, reviewable, handoff-ready workflow.
+
+## Product Doctrine
+
+RDE is built for non-data-scientists who can bring real data but may not know which analyses to run, how to combine methods, or how to code the analysis. The harness therefore has to help an agent:
+
+1. understand the data through intake, profiling, schema, quality, and PII checks
+2. plan analyses from the research question and detected variable roles
+3. execute reproducible exploration with decision and deviation logs
+4. run and interpret analysis results, including adjusted local models when Docker is not available
+5. produce a report package that can be audited, improved, exported, and handed off
+
+`report_readiness` and `run_audit` now evaluate this core goal explicitly. Missing artifacts for data understanding, planning, readiness, execution, traceability, report generation, or agent-friendly/no-code operation are reported as `core_goal:*` readiness gaps instead of being treated as a finished report.
 
 繁體中文完整說明請見 [README.zh-TW.md](README.zh-TW.md).
 
@@ -54,6 +66,7 @@ The core governance documents are:
 - [.github/copilot-instructions.md](.github/copilot-instructions.md)
 - [SPEC.md](SPEC.md)
 - [CONSTITUTION.md](CONSTITUTION.md)
+- [docs/product-doctrine.md](docs/product-doctrine.md)
 - [.github/agent-control.yaml](.github/agent-control.yaml)
 
 Editor and collaboration support files are also provided:
@@ -174,7 +187,11 @@ Run the server:
 python3 -m rde
 ```
 
-### 2. Start automl-stat-mcp when you need delegated heavy analysis
+### 2. Optional: start automl-stat-mcp for delegated heavy analysis
+
+VSIX users do not need Docker to complete the governed EDA path. RDE can run standard statistics plus local-lite adjusted models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, and lightweight propensity scoring through Python dependencies bundled with the project.
+
+Start automl-stat-mcp only when you need heavier vendor workflows, such as full propensity matching/weighting, deeper survival workflows, or AutoML training jobs.
 
 ```bash
 cd vendor/automl-stat-mcp
@@ -191,6 +208,8 @@ This enables delegated analysis such as:
 
 ### 3. Suggested VS Code MCP configuration
 
+The minimal no-Docker configuration only registers RDE:
+
 ```json
 {
   "servers": {
@@ -198,7 +217,16 @@ This enables delegated analysis such as:
       "type": "stdio",
       "command": "python3",
       "args": ["-m", "rde"]
-    },
+    }
+  }
+}
+```
+
+Add the optional vendor server only after automl-stat-mcp is running:
+
+```json
+{
+  "servers": {
     "automl-stat-mcp": {
       "type": "sse",
       "url": "http://localhost:8002/sse"
@@ -346,8 +374,8 @@ At the moment, method coverage is best understood in layers:
 
 - the Phase 8 user-facing layer exposes 6 main analysis entrypoints plus 1 visualization entrypoint: `compare_groups`, `analyze_variable`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures`, and `create_visualization`
 - the Phase 4 analysis plan schema currently allows 16 analysis types
-- the local Scipy engine declares 16 capabilities in the manifest
-- the delegated automl layer declares 10 advanced capabilities in the manifest
+- the local Scipy/tableone/local-lite layer declares core and no-Docker advanced capabilities in the manifest
+- the optional delegated automl layer declares heavy advanced capabilities in the manifest
 
 These numbers should not be added together directly because they represent different layers: user entrypoints, plan types, local engine capabilities, and delegated capabilities. There is overlap, aliasing, and abstraction between them.
 

@@ -21,7 +21,19 @@ Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← In
 
 - **32 MCP tools** across 7 tool files
 - **13-Phase Pipeline** with Hard/Soft constraints
-- **automl-stat-mcp** delegation via AnalysisDelegator
+- **local-first AnalysisDelegator** with local-lite statsmodels/scipy fallback and optional automl-stat-mcp delegation
+
+## Core Product Contract
+
+RDE serves non-data-scientists who bring real datasets but may not know which analyses to run, how to combine methods, or how to code the analysis. Agents must help the user complete:
+
+1. data understanding
+2. analysis planning
+3. reproducible exploration
+4. analysis execution and plain-language interpretation
+5. report generation, audit, improvement, export, and handoff
+
+`report_readiness` and `run_audit` enforce this contract with `core_goal:*` gaps. Do not call a report production-ready if intake/schema, concept alignment, plan review/lock, readiness checks, decision logs, collected results, and report deliverables are missing.
 
 ## 可用 MCP Servers
 
@@ -31,6 +43,8 @@ Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← In
 ### 2. automl-stat-mcp (Execution Engine)
 重量級統計分析引擎。透過 Docker 服務運行（localhost:8002）。
 RDE 透過 `AnalysisDelegator` 自動委派。
+
+automl-stat-mcp is optional. VSIX users can complete the core report flow through local-lite fallback when Docker is unavailable.
 
 ### 3. Zotero + PubMed MCP
 文獻搜尋與管理。See Zotero workflow below.
@@ -46,7 +60,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 | 「只想看概況」 | Quick Explore |
 | 「比較兩組差異」 | Phase 0-7 → compare_groups → Phase 9-12 |
 | 「做 Table 1」 | Phase 0-7 → generate_table_one → Phase 9-12 |
-| 「跑進階分析」 | Phase 6: run_advanced_analysis（自動委派 automl） |
+| 「跑進階分析」 | Phase 8: `run_advanced_analysis`（automl 可用時委派，否則 local-lite fallback） |
 | 「目前進度？」 | get_pipeline_status |
 | 「產出報告」 | Phase 8 assemble_report |
 | 「匯出 Word/PDF」 | Phase 8 export_report |
@@ -86,7 +100,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 
 ## automl-stat-mcp 委派邏輯
 
-進階分析自動委派給 automl（如服務可用），否則降級為本地引擎：
+進階分析會在 automl 可用時委派；不可用時先降級為 local-lite / 本地引擎：
 
 | 分析 | 引擎 | 端點 |
 |------|------|------|

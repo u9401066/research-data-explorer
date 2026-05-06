@@ -7,6 +7,12 @@
 
 ## Core Philosophy
 
+> **核心產品契約：RDE 是給非資料科學家用的 agent harness，不是只產生漂亮摘要的黑箱。**
+
+- 使用者可能不知道要跑什麼分析、不知道怎樣組合方法、也不會寫分析程式；Agent 必須協助完成資料理解、分析規劃、可重現探索、結果解釋與完整報告。
+- `report_readiness` 與 `run_audit` 會以 `core_goal:*` 缺口檢查這份契約；缺少 intake/schema、concept alignment、plan review/lock、readiness、decision log、results、report deliverables 時，不可宣稱 production-ready。
+- automl-stat-mcp 是可選重型引擎，不是 VSIX 完成核心報告的必要條件；Docker 不可用時，Phase 8 應使用 local-lite 調整模型、ROC/AUC、基本 power、Kaplan-Meier 與輕量 propensity scoring。
+
 > **Agent 不是黑箱做探索，是用工具詳細記錄並經得起審視。**
 
 - 每個分析決策寫入 `decision_log.jsonl`（append-only）

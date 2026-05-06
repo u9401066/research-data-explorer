@@ -125,12 +125,12 @@ delegation:
   description: >-
     RDE routes analysis via AnalysisDelegator. Heavy analyses
     (propensity, survival, ROC, logistic, automl) are sent to
-    automl-stat-mcp when available; otherwise fall back to local
-    ScipyStatisticalEngine. Basic analyses (t-test, chi-square,
-    correlation, table_one) always run locally.
+    automl-stat-mcp when available; otherwise fall back to local-lite
+    statsmodels/scipy implementations where possible. Basic analyses
+    (t-test, chi-square, correlation, table_one) always run locally.
 
   local_engine:
-    name: ScipyStatisticalEngine
+    name: ScipyStatisticalEngine + local-lite statsmodels/scipy
     capabilities:
       - t_test
       - mann_whitney
@@ -147,6 +147,15 @@ delegation:
       - tukey_hsd
       - wilcoxon
       - point_biserial
+      - logistic_regression
+      - multiple_regression
+      - glm
+      - roc_auc
+      - power_analysis_advanced
+      - kaplan_meier
+      - survival_analysis
+      - cox_regression
+      - propensity_score_lightweight
 
   automl_engine:
     name: automl-stat-mcp
@@ -167,10 +176,35 @@ delegation:
     startup: cd vendor/automl-stat-mcp && docker compose up -d
 
   fallback_behavior: >-
-    When automl is unavailable, run_advanced_analysis attempts
-    local ScipyEngine. If the local engine doesn't support the
-    analysis type, it returns a descriptive error and suggests
-    starting automl.
+    When automl is unavailable, run_advanced_analysis attempts local-lite
+    implementations for adjusted models, ROC/AUC, basic power analysis,
+    Kaplan-Meier summaries, Cox regression, and lightweight propensity
+    scoring. Only unsupported heavy AutoML/vendor workflows return a
+    descriptive error and suggest starting automl.
+
+core_goal_contract:
+  audience: non_data_scientists
+  description: >-
+    The harness must let agents help users who do not know which analyses
+    to run, how to combine methods, or how to code analysis produce a
+    complete, auditable report from real user datasets.
+  readiness_gap_prefix: core_goal
+  checked_by:
+    - collect_results.report_readiness
+    - assemble_report
+    - export_report
+    - run_audit
+    - auto_improve
+  required_capabilities:
+    - data_understanding
+    - analysis_planning
+    - data_correctness
+    - reproducible_exploration
+    - analysis_execution_interpretation
+    - analysis_completeness
+    - report_generation
+    - no_code_operation
+    - agent_friendly_harness
 
 # ── Pre-Commit Hooks ────────────────────────────────────────────────
 pre_commit_hooks:

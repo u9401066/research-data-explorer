@@ -113,6 +113,20 @@ Agent 必須在結果中顯示校正前後的 p 值。
 | AutoML 建模 | `run_automl` |
 | 多重迴歸 | `regression_analysis` |
 
+### local-lite fallback
+
+automl-stat-mcp 不可用時，`run_advanced_analysis` 應先使用 local-lite statsmodels/scipy fallback（支援時），並把來源寫入 artifact。Docker 只應是 heavy vendor workflow 的可選啟動項。
+
+| 分析類型 | local-lite engine |
+| ---- | ---- |
+| Logistic regression | statsmodels.Logit |
+| Multiple regression / GLM | statsmodels.OLS / GLM |
+| ROC/AUC | rank-based local AUC |
+| Basic power analysis | statsmodels.stats.power |
+| Kaplan-Meier | local summary |
+| Cox regression | statsmodels.PHReg |
+| Lightweight propensity scoring | statsmodels.Logit |
+
 ### 本地處理的分析
 
 | 分析類型 | 本地工具 |
@@ -130,6 +144,6 @@ Agent 必須在結果中顯示校正前後的 p 值。
 if automl_gateway.is_available():
     → 委派給 automl-stat-mcp
 else:
-    → ScipyStatisticalEngine 處理
-    → 如為進階分析 → 告知用戶 automl 不可用
+    → 先用 ScipyStatisticalEngine / local-lite fallback
+    → 只有 heavy AutoML/vendor-only workflow 才提示 automl 是可選啟動項
 ```

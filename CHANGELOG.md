@@ -6,6 +6,20 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-05-06
+
+### 0.4.6 Added
+
+- Core product doctrine for non-data-scientist workflows, including explicit `core_goal:*` readiness gaps for data understanding, planning, reproducibility, execution/interpretation, report generation, no-code operation, and agent-friendly harness coverage.
+- Local-lite advanced analysis fallback for VSIX/no-Docker usage: logistic regression, multiple regression/GLM, ROC/AUC, basic power analysis, Kaplan-Meier summaries, Cox regression when feasible, and lightweight propensity scoring.
+- Product and agent documentation covering 13-phase granularity, subagent usage boundaries, hooks/workflows/instructions, multi-platform VSIX behavior, and optional automl-stat-mcp positioning.
+
+### 0.4.6 Fixed
+
+- `report_readiness`, `assemble_report`, `export_report`, `run_audit`, and `auto_improve` now treat missing core workflow artifacts as production-readiness blockers instead of relying only on publication bundle checks.
+- VSIX automl status messaging now describes automl-stat-mcp as an optional heavy engine and no longer implies Docker is required for the core complete-report flow.
+- Advanced-analysis output no longer prompts users to start Docker when a local-lite analysis completed successfully.
+
 ## [0.4.5] - 2026-05-06
 
 ### 0.4.5 Added
