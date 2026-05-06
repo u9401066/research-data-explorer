@@ -527,7 +527,6 @@ def register_plan_tools(server: Any) -> None:
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
-            ensure_dataset,
         )
         from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.application.pipeline import PipelinePhase

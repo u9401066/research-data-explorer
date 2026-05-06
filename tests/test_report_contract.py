@@ -415,7 +415,7 @@ def test_build_phase10_source_markdown_includes_table_gallery_and_relative_paths
     assert "## Figure Gallery" in rendered
     assert "../../figures/crbd_by_precedex.png" in rendered
     assert "### Figure 2. 年齡分布（描述性）" in rendered
-    assert "../phase_07_collect_results/results_summary.json" in rendered
+    assert "../phase_09_collect_results/results_summary.json" in rendered
     assert str(project.output_dir) not in rendered
     assert rendered.count("- 摘要") == 1
 

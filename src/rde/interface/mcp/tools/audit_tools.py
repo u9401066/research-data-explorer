@@ -728,7 +728,7 @@ def register_audit_tools(server: Any) -> None:
                 "project_name": project.name,
                 "exported_at": __import__("datetime").datetime.now().isoformat(),
                 "files": included_files,
-                "source": "RDE 11-Phase Auditable EDA Pipeline",
+                "source": "RDE 13-Phase Auditable EDA Pipeline",
                 "target": "med-paper-assistant",
             }
             manifest_path = handoff_dir / "handoff_manifest.json"
@@ -923,8 +923,8 @@ def _relative_project_path(path: Path, project: Any) -> str:
 
 
 def _relative_phase10_path(path: Path, project: Any) -> str:
-    phase10_dir = (project.artifacts_dir / "phase_10_auto_improve").resolve()
-    return Path(relpath(path.resolve(), phase10_dir)).as_posix()
+    phase12_dir = (project.artifacts_dir / "phase_12_auto_improve").resolve()
+    return Path(relpath(path.resolve(), phase12_dir)).as_posix()
 
 
 def _extract_heading_one_title(markdown: str) -> str | None:
@@ -1163,7 +1163,7 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
 
     final_markdown = store.load(PipelinePhase.AUTO_IMPROVE, "final_report.md")
     if not final_markdown:
-        raise ValueError("找不到 phase_10_auto_improve/final_report.md")
+        raise ValueError("找不到 phase_12_auto_improve/final_report.md")
 
     normalized_markdown = _normalize_project_paths(str(final_markdown), project)
     inferred_title, preamble_lines, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
@@ -1314,7 +1314,7 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
 
     report.metadata.update(
         {
-            "phase": "phase_10_auto_improve",
+            "phase": "phase_12_auto_improve",
             "source_markdown": _relative_project_path(
                 store.get_path(PipelinePhase.AUTO_IMPROVE, "final_report.md"), project
             ),

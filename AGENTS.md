@@ -37,7 +37,7 @@ Agent:
 
 ### 1. research-data-explorer (RDE)
 
-EDA 編排層。管理 11-Phase Pipeline、審計鏈、決策日誌。
+EDA 編排層。管理 13-Phase Pipeline、審計鏈、決策日誌。
 
 **DDD Namespace**: `src/rde/interface/mcp/tools/`
 
@@ -330,5 +330,5 @@ Agent 應該在回覆時引用具體的 artifact：
 ## Operational Notes
 
 - 測試命令以 `python3 -m pytest -q` 為準
-- decision/deviation log 的實體路徑在 `artifacts/phase_06_execute_exploration/`
+- decision/deviation log 的實體路徑在 `artifacts/phase_08_execute_exploration/`
 - 圖表匯出與 handoff 以專案自己的 `figures/` 目錄為準，不使用全域共享圖檔目錄

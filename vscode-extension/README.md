@@ -12,7 +12,7 @@ This extension is not a universal statistical autopilot. It is best viewed as a 
 ## Features
 
 - 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
-- 📊 **31 MCP Tools** — 資料載入、greedy plan ideation、描述統計、分組比較、Table 1、進階分析
+- 📊 **32 MCP Tools** — 資料載入、greedy plan ideation、描述統計、分組比較、Table 1、進階分析
 - 🧪 **automl-stat-mcp 委派** — PSM, Survival, ROC, Power Analysis 自動委派
 - 📄 **報告匯出** — Word/PDF 匯出
 - 🔒 **品質把關** — Hard Constraints (H-001~H-010) + Soft Constraints (S-001~S-012)
@@ -160,11 +160,11 @@ Capability → Skill → MCP Tool
 | 9 | Audit | 審計 |
 | 10 | Improve | 自我改善 |
 
-### MCP Tools (31)
+### MCP Tools (32)
 
 自動註冊 MCP Server:
 
-- **Research Data Explorer** — 31 工具 (project, discovery, profiling, plan, analysis, report, audit)
+- **Research Data Explorer** — 32 工具 (project, discovery, profiling, plan, analysis, report, audit)
 
 ### Bundled Skills (8)
 

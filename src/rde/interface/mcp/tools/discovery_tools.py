@@ -53,7 +53,6 @@ def register_discovery_tools(server: Any) -> None:
             fmt_error,
             fmt_table,
         )
-        from rde.interface.mcp.tools._shared.project_context import link_dataset_to_project
         from pathlib import Path
 
         log_tool_call("scan_data_folder", {"directory": directory})

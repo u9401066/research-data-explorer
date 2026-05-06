@@ -603,7 +603,6 @@ def register_report_tools(server: Any) -> None:
         assert project is not None
 
         try:
-            from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase
             from rde.application.use_cases.generate_report import GenerateReportUseCase
             from rde.application.use_cases.export_report import ExportReportUseCase
@@ -611,7 +610,6 @@ def register_report_tools(server: Any) -> None:
             from rde.infrastructure.adapters.docx_exporter import DocxExporter
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
-            session = get_session()
             store = ArtifactStore(project.artifacts_dir)
 
             # H-008: Phase 8 must be done

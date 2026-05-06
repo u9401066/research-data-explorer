@@ -1,7 +1,7 @@
 # Copilot Instructions for Research Data Explorer
 
 > 此檔案指引 Copilot Agent 在 RDE 專案中的行為規範。
-> Architecture: DDD | Pipeline: 11-Phase Auditable EDA
+> Architecture: DDD | Pipeline: 13-Phase Auditable EDA
 
 > 若與實際程式行為或測試不一致，請以 [agent-control.yaml](agent-control.yaml) 與 `python3 -m pytest -q` 的測試結果為準。
 
@@ -19,14 +19,14 @@
 Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← Infrastructure (Adapters)
 ```
 
-- **31 MCP tools** across 7 tool files
-- **11-Phase Pipeline** with Hard/Soft constraints
+- **32 MCP tools** across 7 tool files
+- **13-Phase Pipeline** with Hard/Soft constraints
 - **automl-stat-mcp** delegation via AnalysisDelegator
 
 ## 可用 MCP Servers
 
 ### 1. Research Data Explorer (RDE)
-11-Phase Auditable EDA Pipeline。管理資料探索、統計分析、審計鏈。
+13-Phase Auditable EDA Pipeline。管理資料探索、統計分析、審計鏈。
 
 ### 2. automl-stat-mcp (Execution Engine)
 重量級統計分析引擎。透過 Docker 服務運行（localhost:8002）。
@@ -114,7 +114,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 - Phase 3 `align_concept()` 與 Phase 4 `register_analysis_plan()` 都需要 `confirm=true` 才算解除下一階段 gate
 - 若使用者要 agent 自主規劃 EDA，或尚未提供明確分析清單，應先用 `propose_analysis_plan()` 產生 greedy blueprint，再進入 Phase 4 鎖定
 - `load_dataset()` / `run_intake()` 偵測疑似 PII 時預設拒絕；只有 `allow_pii=true` 可覆蓋，而且回覆中必須明確警告
-- `decision_log.jsonl` 與 `deviation_log.jsonl` 位於 `artifacts/phase_06_execute_exploration/`
+- `decision_log.jsonl` 與 `deviation_log.jsonl` 位於 `artifacts/phase_08_execute_exploration/`
 - 測試與回歸驗證請使用 `python3 -m pytest -q`
 
 ## Quality Layers

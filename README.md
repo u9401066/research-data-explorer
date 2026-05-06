@@ -416,7 +416,7 @@ At the time of writing:
 
 Example fallback artifact:
 
-- [data/projects/12aafc56/artifacts/phase_06_execute_exploration/advanced_analysis_automl.json](data/projects/12aafc56/artifacts/phase_06_execute_exploration/advanced_analysis_automl.json)
+- [data/projects/12aafc56/artifacts/phase_08_execute_exploration/advanced_analysis_automl.json](data/projects/12aafc56/artifacts/phase_08_execute_exploration/advanced_analysis_automl.json)
 
 ## Repository Layout
 

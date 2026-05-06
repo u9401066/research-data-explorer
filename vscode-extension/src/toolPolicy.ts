@@ -28,6 +28,7 @@ export const RDE_MCP_TOOL_NAMES = [
     'export_report',
     'run_audit',
     'auto_improve',
+    'export_final_report',
     'export_handoff',
     'verify_audit_trail',
 ] as const;
@@ -77,6 +78,7 @@ export const TOOL_GROUPS = {
         'assemble_report',
         'create_visualization',
         'export_report',
+        'export_final_report',
         'export_handoff',
     ],
     audit: [
@@ -85,6 +87,7 @@ export const TOOL_GROUPS = {
         'get_deviation_log',
         'run_audit',
         'auto_improve',
+        'export_final_report',
         'verify_audit_trail',
         'log_deviation',
     ],
@@ -99,7 +102,7 @@ export const NO_RDE_TOOL_CALL_MESSAGE =
     '⚠️ 本次回應沒有呼叫任何 RDE MCP 工具，因此未執行受治理的 EDA 流程。請確認 MCP server 可用後再試。';
 
 export const FULL_REPORT_CHAT_QUERY =
-    '@rde /fullreport 請使用完整 11-Phase auditable workflow，從專案建立、資料收件、raw structure gate、schema、concept alignment、greedy plan proposal、plan lock、readiness、分析、collect_results、assemble_report、run_audit 到 auto_improve，產出完整分析報告。';
+    '@rde /fullreport 請使用完整 13-Phase auditable workflow，從專案建立、資料收件、raw structure gate、schema、concept alignment、greedy plan proposal、plan completeness review、plan lock、readiness、分析、collect_results、assemble_report、run_audit 到 auto_improve/export_final_report，產出完整分析報告。';
 
 export interface ToolInfoLike {
     name: string;
@@ -149,16 +152,16 @@ export function buildToolRetryInstruction(
 
 export function buildPipelineExecutionPrompt(userPrompt: string, edaSkill: string | null): string {
     const preamble = [
-        'You are executing the RDE 11-Phase Auditable EDA Pipeline through MCP tools.',
+        'You are executing the RDE 13-Phase Auditable EDA Pipeline through MCP tools.',
         'This is an execution request, not a documentation request.',
         'You may only use RDE MCP tools. Do not use generic workspace, code, file, terminal, or search tools to perform the analysis.',
         '',
         'Mandatory execution rules:',
         '1. Start by understanding current project state and pipeline status using get_pipeline_status() or init_project() when no project exists.',
-        '2. Follow the 11-Phase Pipeline: Setup → Intake → Schema → Concept → (optional greedy plan proposal) → Plan → Pre-check → Execute → Collect → Report → Audit → Improve.',
+        '2. Follow the 13-Phase Pipeline: Setup → Intake → Schema → Concept → Creative Ideation → Plan Completeness Review → Plan Registration → Pre-check → Execute → Collect → Report → Audit → Improve.',
         '3. Respect Hard Constraints (H-001 to H-010): file size, format, sample size, PII, artifact gate, plan lock, etc.',
         '4. Note Soft Constraints (S-001 to S-012): normality, multiple comparisons, sensitivity analysis, etc.',
-        '5. All Phase 6 analysis decisions are automatically logged (H-009).',
+        '5. All Phase 8 analysis decisions are automatically logged (H-009).',
         '6. If the user wants autonomous EDA or did not specify a precise Phase 4 analysis list, call propose_analysis_plan() after Phase 3 to generate a greedy blueprint before plan lock.',
         '7. If Phase 3 or Phase 4 needs confirmation, stop and ask through the tool result rather than guessing.',
         '8. If the request cannot be completed with an RDE MCP tool, report the blocker instead of answering from general knowledge.',
