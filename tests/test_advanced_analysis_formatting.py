@@ -174,6 +174,29 @@ def test_format_advanced_analysis_output_renders_generic_async_job(tmp_path: Pat
     assert str(artifact_path) in rendered
 
 
+def test_format_advanced_analysis_output_does_not_prompt_docker_for_local_lite(
+    tmp_path: Path,
+) -> None:
+    artifact_path = tmp_path / "advanced_analysis_logistic_regression.json"
+    rendered = _format_advanced_analysis_output(
+        analysis_type="logistic_regression",
+        source="local-lite (statsmodels)",
+        analysis_result={
+            "analysis_type": "logistic_regression",
+            "engine": "statsmodels.Logit",
+            "target": "outcome",
+            "covariates": ["age", "severity"],
+            "nobs": 20,
+            "interpretation": "Adjusted model completed locally.",
+        },
+        artifact_path=artifact_path,
+        automl_available=False,
+    )
+
+    assert "local-lite (statsmodels)" in rendered
+    assert "docker compose" not in rendered
+
+
 def test_format_advanced_analysis_output_for_learning_curve_cusum(tmp_path: Path) -> None:
     artifact_path = tmp_path / "advanced_analysis_learning_curve_cusum.json"
     rendered = _format_advanced_analysis_output(

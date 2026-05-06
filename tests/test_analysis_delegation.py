@@ -58,20 +58,79 @@ def test_scipy_engine_accepts_normalized_test_aliases() -> None:
     assert "p_value" in result
 
 
-def test_delegator_returns_descriptive_error_when_local_fallback_cannot_run() -> None:
-    df = pd.DataFrame({"outcome": [0, 1, 0, 1], "age": [60, 55, 70, 50]})
+def test_delegator_runs_local_logistic_regression_without_automl() -> None:
+    df = pd.DataFrame(
+        {
+            "outcome": [0, 0, 0, 0, 1, 1, 1, 1],
+            "age": [35, 42, 48, 55, 58, 63, 69, 74],
+            "severity": [1, 2, 2, 3, 2, 3, 4, 4],
+        }
+    )
     delegator = AnalysisDelegator()
     delegator._automl_available = False
 
     result = delegator.run_analysis(
         df,
         "logistic_regression",
-        {"variables": ["outcome", "age"], "target": "outcome"},
+        {"target": "outcome", "covariates": ["age", "severity"]},
     )
 
-    assert result["source"] == "local (ScipyStatisticalEngine)"
-    assert "does not support 'logistic_regression'" in result["result"]["error"]
-    assert "docker compose up -d" in result["result"]["suggestion"]
+    assert result["source"] == "local-lite (statsmodels)"
+    assert result["result"]["analysis_type"] == "logistic_regression"
+    assert result["result"]["engine"] == "statsmodels.Logit"
+    assert result["result"]["nobs"] == 8
+    assert "odds_ratios" in result["result"]
+    assert "interpretation" in result["result"]
+
+
+def test_delegator_runs_local_roc_auc_without_automl() -> None:
+    df = pd.DataFrame(
+        {
+            "outcome": [0, 0, 1, 1, 0, 1],
+            "score": [0.1, 0.3, 0.8, 0.9, 0.2, 0.7],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "roc_auc",
+        {"target": "outcome", "score_variable": "score"},
+    )
+
+    assert result["source"] == "local-lite (scipy)"
+    assert result["result"]["analysis_type"] == "roc_auc"
+    assert result["result"]["auc"] == 1.0
+    assert "interpretation" in result["result"]
+
+
+def test_delegator_runs_local_power_analysis_without_automl() -> None:
+    df = pd.DataFrame({"placeholder": [1]})
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "power_analysis_advanced",
+        {"test_type": "ttest", "effect_size": 0.5, "nobs1": 64, "alpha": 0.05},
+    )
+
+    assert result["source"] == "local-lite (statsmodels)"
+    assert result["result"]["analysis_type"] == "power_analysis"
+    assert result["result"]["test_type"] == "ttest"
+    assert 0 < result["result"]["power"] < 1
+
+
+def test_delegator_capabilities_distinguish_local_lite_from_automl_required() -> None:
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    capabilities = delegator.get_capabilities()
+
+    assert capabilities["logistic_regression"] == "local-lite"
+    assert capabilities["roc_auc"] == "local-lite"
+    assert capabilities["automl"] == "automl required"
 
 
 def test_automl_gateway_routes_logistic_regression_with_analysis_type(monkeypatch) -> None:

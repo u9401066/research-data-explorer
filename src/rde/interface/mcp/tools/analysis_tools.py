@@ -284,7 +284,11 @@ def _format_advanced_analysis_output(
     if artifact_path is not None:
         lines.append(f"\n**Artifact:** {artifact_path}")
 
-    if not automl_available and source.startswith("local"):
+    if (
+        not automl_available
+        and source.startswith("local")
+        and not source.startswith("local-lite")
+    ):
         lines.append(
             "\n💡 **提示:** automl-stat-mcp 未啟動或不可用；"
             "目前使用本地 fallback，引擎能力可能受限。"
@@ -1056,7 +1060,7 @@ def register_analysis_tools(server: Any) -> None:
 
         支援: propensity_score, survival_analysis, roc_auc,
         logistic_regression, multiple_regression, power_analysis_advanced。
-        automl 不可用時自動降級為本地 ScipyStatisticalEngine。
+        automl 不可用時自動降級為 local-lite statsmodels/scipy fallback（支援時）。
         H-009 自動記錄 + S-011 偏離自動偵測。
 
         Args:
