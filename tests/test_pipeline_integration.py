@@ -566,6 +566,103 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
     assert "100% (4/4)" in collect_output
 
 
+def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    staged_csv = raw_dir / FIXTURE_CSV.name
+    shutil.copy2(FIXTURE_CSV, staged_csv)
+
+    async def run_flow() -> Project:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "mcp-planning-contract",
+                "data_dir": str(raw_dir),
+                "research_question": "Do iris species differ in petal length?",
+            },
+        )
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool(
+            "build_schema",
+            {
+                "dataset_id": dataset_id,
+                "project_id": project.id,
+            },
+        )
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "research_question": "Do iris species differ in petal length?",
+                "variable_roles": {
+                    "group": "species",
+                    "outcome": ["petal_length"],
+                },
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 4,
+            },
+        )
+        await server.call_tool(
+            "register_analysis_plan",
+            {
+                "project_id": project.id,
+                "analyses": [
+                    {
+                        "type": "generate_table_one",
+                        "variables": ["species", "sepal_length", "petal_length"],
+                        "rationale": "paper-ready baseline table",
+                    },
+                    {
+                        "type": "compare_groups",
+                        "variables": ["species", "petal_length"],
+                        "rationale": "compare outcome by species",
+                    },
+                    {
+                        "type": "descriptive",
+                        "variables": ["petal_length"],
+                        "rationale": "describe primary outcome",
+                    },
+                    {
+                        "type": "visualization",
+                        "variables": ["species", "petal_length"],
+                        "plot_type": "boxplot",
+                        "rationale": "visualize group contrast",
+                    },
+                ],
+                "allow_methodology_override": True,
+                "confirm": True,
+            },
+        )
+        return project
+
+    project = asyncio.run(run_flow())
+    session = get_session()
+    pipeline = session.get_pipeline(project.id)
+    store = ArtifactStore(project.artifacts_dir)
+
+    assert PipelinePhase.CREATIVE_IDEATION in pipeline.completed_phases
+    assert PipelinePhase.PLAN_COMPLETENESS_REVIEW in pipeline.completed_phases
+    assert PipelinePhase.PLAN_REGISTRATION in pipeline.completed_phases
+    assert pipeline.plan_locked is True
+    assert store.exists(PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json")
+    assert store.exists(PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json")
+    assert store.exists(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+
+
 def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 
@@ -840,8 +937,8 @@ def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
 
     assert "rehydrated-project" in output
     assert "🔒 已鎖定" in output
-    assert "phase_04_plan_registration" in output
-    assert "phase_05_pre_explore_check" in output
+    assert "phase_06_plan_registration" in output
+    assert "phase_04_creative_ideation" in output
 
 
 def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
@@ -935,7 +1032,7 @@ def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
     output = asyncio.run(run_flow())
     repaired = repo.load_project(project.id)
 
-    assert "phase_10_auto_improve" in output
+    assert "phase_12_auto_improve" in output
     assert repaired.status == ProjectStatus.AUTO_IMPROVE
     assert ProjectStatus.AUTO_IMPROVE in repaired.completed_phases
     assert ProjectStatus.COLLECT_RESULTS in repaired.completed_phases

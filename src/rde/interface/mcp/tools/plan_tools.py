@@ -556,10 +556,13 @@ def register_plan_tools(server: Any) -> None:
         assert entry is not None
 
         try:
+            from datetime import datetime
             from rde.application.session import get_session
+            from rde.application.pipeline import PhaseResult
             from rde.application.use_cases.propose_analysis_plan import (
                 ProposeAnalysisPlanUseCase,
             )
+            from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             session = get_session()
@@ -652,6 +655,21 @@ def register_plan_tools(server: Any) -> None:
                 "greedy_analysis_candidates.md",
                 content,
             )
+            pipeline.mark_started(PipelinePhase.CREATIVE_IDEATION)
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.CREATIVE_IDEATION,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={
+                        "greedy_analysis_candidates.json": str(json_path),
+                        "greedy_analysis_candidates.md": str(md_path),
+                    },
+                    user_confirmed=True,
+                )
+            )
+            project.advance_to(ProjectStatus.CREATIVE_IDEATION)
+            persist_project(project)
 
             log_tool_result(
                 "propose_analysis_plan",
@@ -704,6 +722,7 @@ def register_plan_tools(server: Any) -> None:
             log_tool_result,
             log_tool_error,
             fmt_error,
+            ensure_project_context,
             ensure_phase_ready,
             ensure_dataset,
         )
@@ -719,18 +738,16 @@ def register_plan_tools(server: Any) -> None:
             },
         )
 
-        ok, msg, project, _ = ensure_phase_ready(
-            PipelinePhase.PLAN_REGISTRATION, project_id=project_id
-        )
-        if not ok:
-            return fmt_error(msg)
-        assert project is not None
-
         if not confirm:
             return fmt_error(
                 "Phase 5 需要明確用戶確認才能鎖定分析計畫。",
                 suggestion="以 `confirm=true` 重新呼叫 register_analysis_plan()。",
             )
+
+        ok, msg, project = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(msg)
+        assert project is not None
 
         try:
             from datetime import datetime
@@ -741,6 +758,7 @@ def register_plan_tools(server: Any) -> None:
 
             session = get_session()
             pipeline = session.get_pipeline(project.id)
+            store = ArtifactStore(project.artifacts_dir)
 
             if pipeline.plan_locked:
                 return fmt_error(
@@ -750,6 +768,80 @@ def register_plan_tools(server: Any) -> None:
 
             if not analyses:
                 analyses = []
+
+            if PipelinePhase.CREATIVE_IDEATION not in pipeline.completed_phases:
+                can_create_phase4, reason = pipeline.can_execute(PipelinePhase.CREATIVE_IDEATION)
+                if not can_create_phase4:
+                    return fmt_error(reason)
+                schedule_preview: list[dict[str, Any]] = []
+                phase4_payload = {
+                    "source": "register_analysis_plan",
+                    "strategy": "user_supplied_plan",
+                    "candidate_pool_size": len(analyses),
+                    "selected": analyses,
+                    "plan_blueprint": analyses,
+                    "execution_schedule": schedule_preview,
+                    "warnings": [
+                        "Phase 4 was completed from analyses supplied to register_analysis_plan()."
+                    ],
+                }
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_candidates.json",
+                    phase4_payload,
+                )
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_candidates.md",
+                    "# User-Supplied Analysis Blueprint\n\n"
+                    "Phase 4 was completed from analyses supplied to register_analysis_plan().",
+                )
+                store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_review.json", {})
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_review.md",
+                    "# Plan Methodology Review\n\nPending Phase 5 review.",
+                )
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_execution_schedule.json",
+                    schedule_preview,
+                )
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_execution_schedule.md",
+                    _render_execution_schedule_markdown(schedule_preview),
+                )
+                store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_plan_enrichment.json", [])
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_plan_enrichment.md",
+                    _render_plan_enrichment_markdown([]),
+                )
+                store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_statsmodels_base_analysis.py",
+                    "# User-supplied plan; no Phase 4 generated script was available.\n",
+                )
+                pipeline.mark_started(PipelinePhase.CREATIVE_IDEATION)
+                pipeline.mark_completed(
+                    PhaseResult(
+                        phase=PipelinePhase.CREATIVE_IDEATION,
+                        completed_at=datetime.now(),
+                        success=True,
+                        artifacts={"greedy_analysis_candidates.json": ""},
+                        user_confirmed=True,
+                    )
+                )
+                project.advance_to(ProjectStatus.CREATIVE_IDEATION)
+                persist_project(project)
+
+            ok, msg, project, _ = ensure_phase_ready(
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW, project_id=project.id
+            )
+            if not ok:
+                return fmt_error(msg)
+            assert project is not None
 
             # Validate analysis entries schema
             validation_errors: list[str] = []
@@ -882,7 +974,47 @@ def register_plan_tools(server: Any) -> None:
                 "locked": True,
             }
 
-            store = ArtifactStore(project.artifacts_dir)
+            if methodology_review_dict is None:
+                methodology_review_dict = {
+                    "status": "not_run",
+                    "recommended_analysis_floor": 0,
+                    "academic_analysis_target": 0,
+                    "production_analysis_target": 0,
+                    "completeness_tier": "unknown",
+                    "candidate_pool_size": 0,
+                    "requested_analysis_budget": len(analyses),
+                    "soft_analysis_budget": len(analyses),
+                    "draft_analysis_count": len(analyses),
+                    "final_analysis_count": len(analyses),
+                    "checks": [],
+                    "warnings": ["No dataset was available for methodology review."],
+                }
+            store.save(
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+                "analysis_plan_review.json",
+                methodology_review_dict,
+            )
+            store.save(
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+                "analysis_plan_review.md",
+                _render_methodology_review_markdown(methodology_review_dict),
+            )
+            pipeline.mark_started(PipelinePhase.PLAN_COMPLETENESS_REVIEW)
+            pipeline.mark_completed(
+                PhaseResult(
+                    phase=PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+                    completed_at=datetime.now(),
+                    success=True,
+                    artifacts={"analysis_plan_review.json": "", "analysis_plan_review.md": ""},
+                    user_confirmed=True,
+                )
+            )
+            project.advance_to(ProjectStatus.PLAN_COMPLETENESS_REVIEW)
+
+            can_register, register_reason = pipeline.can_execute(PipelinePhase.PLAN_REGISTRATION)
+            if not can_register:
+                return fmt_error(register_reason)
+
             store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", plan)
             store.save(
                 PipelinePhase.PLAN_REGISTRATION,
@@ -899,17 +1031,6 @@ def register_plan_tools(server: Any) -> None:
                 "analysis_statsmodels_base.py",
                 script_content,
             )
-            if methodology_review_dict is not None:
-                store.save(
-                    PipelinePhase.PLAN_REGISTRATION,
-                    "analysis_plan_review.json",
-                    methodology_review_dict,
-                )
-                store.save(
-                    PipelinePhase.PLAN_REGISTRATION,
-                    "analysis_plan_review.md",
-                    _render_methodology_review_markdown(methodology_review_dict),
-                )
 
             pipeline.mark_started(PipelinePhase.PLAN_REGISTRATION)
             pipeline.mark_completed(
