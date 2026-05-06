@@ -257,6 +257,28 @@ def register_audit_tools(server: Any) -> None:
             )
 
             # ── Grade ───────────────────────────────────────────────
+            max_score += 10
+            core_goal_audit = report_readiness.get("core_goal_audit") or {}
+            core_checks = core_goal_audit.get("checks") or []
+            passed_core = sum(1 for item in core_checks if item.get("passed"))
+            total_core = len(core_checks)
+            core_score = int(10 * (passed_core / max(1, total_core)))
+            total_score += core_score
+            missing_core = core_goal_audit.get("missing_goals") or []
+            core_details = f"{passed_core}/{total_core} core goals"
+            if missing_core:
+                core_details += f", missing={', '.join(str(item) for item in missing_core)}"
+            checks.append(
+                {
+                    "category": "core_goal_audit",
+                    "score": core_score,
+                    "max": 10,
+                    "passed": bool(core_goal_audit.get("ready")),
+                    "details": core_details,
+                    "missing": missing_core,
+                }
+            )
+
             pct = total_score / max(1, max_score)
             if pct >= 0.9:
                 grade = "A"
@@ -867,6 +889,12 @@ def _generate_suggestions(checks: list[dict]) -> list[str]:
                 )
             else:
                 suggestions.append("若要直接輸出終版完整報告，請先補齊 readiness contract 缺口。")
+        elif cat == "core_goal_audit":
+            details = str(c.get("details", ""))
+            suggestions.append(
+                "Complete the RDE core contract before claiming production readiness: "
+                + details
+            )
     return suggestions
 
 
@@ -886,11 +914,18 @@ def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> st
     lines.append(
         f"- **publication bundle:** {'met' if report_readiness.get('publication_bundle_met') else 'not met'}"
     )
+    core_goal_audit = report_readiness.get("core_goal_audit") or {}
+    if core_goal_audit:
+        lines.append(
+            f"- **core goal audit:** {'met' if core_goal_audit.get('ready') else 'not met'}"
+        )
     if ready:
         lines.append("\n### Why this is production-ready")
         lines.append("- methodology review has already passed")
         lines.append("- the locked plan reached the production_ready target tier")
         lines.append("- the minimum publication bundle is complete")
+        if core_goal_audit:
+            lines.append("- the core non-coder agent workflow contract is complete")
     else:
         lines.append("\n### Why this is not yet production-ready")
         missing = _as_string_list(report_readiness.get("missing_requirements", []))

@@ -935,6 +935,11 @@ def _format_analyses(results: dict | None) -> str:
         missing = deliverables.get("missing_components", [])
         if missing:
             lines.append(f"**最低發表包缺口:** {', '.join(missing)}")
+    core_goal_audit = report_readiness.get("core_goal_audit") or {}
+    if core_goal_audit:
+        lines.append(
+            f"**core goal audit:** {'ready' if core_goal_audit.get('ready') else 'missing'}"
+        )
     pub = results.get("publishable_items", [])
     if pub:
         lines.append("\n**可發表結果:**")
@@ -1077,6 +1082,7 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     from rde.application.pipeline import PipelinePhase
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
 
+    normalized_results = results or {}
     review = store.load(
         PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json"
     ) or store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json") or {}
@@ -1085,7 +1091,7 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     )
     current_tier = _normalize_completion_tier(review.get("completeness_tier"))
     review_status = str(review.get("status", "missing"))
-    deliverables = (results or {}).get("deliverables") or {}
+    deliverables = normalized_results.get("deliverables") or {}
     publication_bundle_met = bool(deliverables.get("minimum_publication_bundle_met"))
 
     missing_requirements: list[str] = []
@@ -1098,6 +1104,17 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     if not publication_bundle_met:
         missing_requirements.append("publication_bundle")
 
+    core_goal_audit = _evaluate_core_goal_audit(
+        normalized_results,
+        store,
+        current_tier=current_tier,
+        target_tier=target_tier,
+        review_status=review_status,
+        publication_bundle_met=publication_bundle_met,
+    )
+    for goal in core_goal_audit["missing_goals"]:
+        missing_requirements.append(f"core_goal:{goal}")
+
     return {
         "ready": not missing_requirements,
         "target_tier": target_tier,
@@ -1107,7 +1124,112 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
         "academic_analysis_target": review.get("academic_analysis_target"),
         "production_analysis_target": review.get("production_analysis_target"),
         "publication_bundle_met": publication_bundle_met,
+        "core_goal_audit": core_goal_audit,
         "missing_requirements": missing_requirements,
+    }
+
+
+def _evaluate_core_goal_audit(
+    results: dict[str, Any],
+    store: Any,
+    *,
+    current_tier: str,
+    target_tier: str,
+    review_status: str,
+    publication_bundle_met: bool,
+) -> dict[str, Any]:
+    from rde.application.pipeline import PipelinePhase
+
+    def has(phase: PipelinePhase, filename: str) -> bool:
+        return bool(store.exists(phase, filename))
+
+    total_analyses = int(results.get("total_analyses") or 0)
+    decision_count = int(results.get("decision_count") or 0)
+    deliverables = results.get("deliverables") or {}
+    has_results = total_analyses > 0 or bool(results.get("publishable_items"))
+    has_report_bundle = bool(deliverables) and publication_bundle_met
+
+    checks = [
+        {
+            "id": "data_understanding",
+            "title": "Data understanding",
+            "passed": has(PipelinePhase.DATA_INTAKE, "intake_report.json")
+            and has(PipelinePhase.SCHEMA_REGISTRY, "schema.json"),
+            "evidence": [
+                "phase_01_data_intake/intake_report.json",
+                "phase_02_schema_registry/schema.json",
+            ],
+            "contract": "The agent must inspect files and build a schema before planning.",
+        },
+        {
+            "id": "analysis_planning",
+            "title": "Analysis planning",
+            "passed": review_status in {"pass", "repaired"}
+            and has(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md")
+            and has(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml"),
+            "evidence": [
+                "phase_03_concept_alignment/concept_alignment.md",
+                "phase_05_plan_completeness_review/analysis_plan_review.json",
+                "phase_06_plan_registration/analysis_plan.yaml",
+            ],
+            "contract": "The agent must map research intent to variables and lock a reviewed plan.",
+        },
+        {
+            "id": "data_correctness",
+            "title": "Data correctness",
+            "passed": has(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json"),
+            "evidence": ["phase_07_pre_explore_check/readiness_checklist.json"],
+            "contract": "Readiness checks must run before execution claims are made.",
+        },
+        {
+            "id": "reproducible_exploration",
+            "title": "Reproducible exploration",
+            "passed": decision_count > 0,
+            "evidence": ["phase_08_execute_exploration/decision_log.jsonl"],
+            "contract": "Analysis actions must be traceable through append-only decision logs.",
+        },
+        {
+            "id": "analysis_execution_interpretation",
+            "title": "Analysis execution and interpretation",
+            "passed": has_results,
+            "evidence": ["phase_09_collect_results/results_summary.json"],
+            "contract": "The run must execute analyses and collect interpretable results.",
+        },
+        {
+            "id": "analysis_completeness",
+            "title": "Analysis completeness",
+            "passed": _completion_rank(current_tier) >= _completion_rank(target_tier)
+            and publication_bundle_met,
+            "evidence": ["report_readiness.completeness_tier", "report_readiness.deliverables"],
+            "contract": "The final report must meet the configured production-ready floor.",
+        },
+        {
+            "id": "report_generation",
+            "title": "Report generation",
+            "passed": has_report_bundle,
+            "evidence": ["phase_10_report_assembly/eda_report.md", "publication deliverables"],
+            "contract": "The run must produce the minimum report bundle for non-coders.",
+        },
+        {
+            "id": "no_code_operation",
+            "title": "No-code operation",
+            "passed": True,
+            "evidence": ["MCP tools, VSIX commands, and stored artifacts"],
+            "contract": "The user should not need notebooks or analysis scripts to complete the flow.",
+        },
+        {
+            "id": "agent_friendly_harness",
+            "title": "Agent-friendly harness",
+            "passed": True,
+            "evidence": ["13-phase tool contract, AGENTS.md, Copilot/Codex/Cline assets"],
+            "contract": "Mainstream agents should have explicit phases, gates, and artifacts to follow.",
+        },
+    ]
+    missing_goals = [str(check["id"]) for check in checks if not check["passed"]]
+    return {
+        "ready": not missing_goals,
+        "checks": checks,
+        "missing_goals": missing_goals,
     }
 
 
@@ -1119,6 +1241,14 @@ def _render_report_readiness_markdown(readiness: dict[str, Any]) -> str:
     lines.append(
         f"- **publication bundle:** {'ready' if readiness.get('publication_bundle_met') else 'missing'}"
     )
+    core_goal_audit = readiness.get("core_goal_audit") or {}
+    if core_goal_audit:
+        lines.append(
+            f"- **core goal audit:** {'ready' if core_goal_audit.get('ready') else 'missing'}"
+        )
+        missing_goals = core_goal_audit.get("missing_goals") or []
+        if missing_goals:
+            lines.append(f"- **missing core goals:** {', '.join(missing_goals)}")
     if readiness.get("missing_requirements"):
         lines.append("\n## Missing Requirements")
         for requirement in readiness["missing_requirements"]:

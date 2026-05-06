@@ -261,9 +261,28 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
             "production_analysis_target": 8,
         },
     )
+    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"loaded_file": "demo.csv"})
+    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": [{"name": "age"}]})
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "concept_alignment.md",
+        "# Concept\n",
+    )
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        {"analyses": [{"type": "generate_table_one"}]},
+    )
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {"all_passed": True, "checks": [{"id": "H-003", "passed": True}]},
+    )
 
     readiness = _evaluate_report_readiness(
         {
+            "total_analyses": 4,
+            "decision_count": 4,
             "deliverables": {
                 "minimum_publication_bundle_met": True,
             }
@@ -273,6 +292,59 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
 
     assert readiness["ready"] is True
     assert readiness["target_tier"] == "production_ready"
+    assert readiness["core_goal_audit"]["ready"] is True
+    assert {
+        check["id"] for check in readiness["core_goal_audit"]["checks"] if check["passed"]
+    } >= {
+        "data_understanding",
+        "analysis_planning",
+        "reproducible_exploration",
+        "analysis_execution_interpretation",
+        "report_generation",
+        "no_code_operation",
+        "agent_friendly_harness",
+    }
+
+
+def test_evaluate_report_readiness_blocks_when_core_goal_artifacts_are_missing(
+    tmp_path: Path,
+) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+        "analysis_plan_review.json",
+        {
+            "status": "pass",
+            "completeness_tier": "production_ready",
+        },
+    )
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 0,
+            "decision_count": 0,
+            "deliverables": {
+                "minimum_publication_bundle_met": True,
+            },
+        },
+        store,
+    )
+
+    assert readiness["ready"] is False
+    assert readiness["core_goal_audit"]["ready"] is False
+    assert any(
+        item.startswith("core_goal:data_understanding")
+        for item in readiness["missing_requirements"]
+    )
+    assert any(
+        item.startswith("core_goal:analysis_execution_interpretation")
+        for item in readiness["missing_requirements"]
+    )
 
 
 def test_build_phase10_export_report_includes_table_and_figures(tmp_path: Path) -> None:
