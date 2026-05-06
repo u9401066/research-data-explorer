@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 # Column name patterns that suggest PII (Hook H-004)
 PII_PATTERNS = list(DEFAULT_HEURISTIC_POLICY.classification.pii_patterns)
+PII_VALUE_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in DEFAULT_HEURISTIC_POLICY.classification.pii_value_patterns
+]
 
 # Column name patterns that strongly suggest ID columns
 ID_NAME_PATTERNS = re.compile(
@@ -51,7 +55,11 @@ class VariableClassifier:
     ) -> Variable:
         """Classify a variable and return a Variable entity."""
         variable_type = self._infer_type(dtype, n_unique, n_total, name, sample_values)
-        is_pii = self._check_pii(name)
+        pii_reasons = self._pii_reasons(name, sample_values or [])
+        is_pii = bool(pii_reasons)
+        extra: dict[str, Any] = {"total_count": n_total}
+        if pii_reasons:
+            extra["pii_detection"] = pii_reasons
 
         return Variable(
             name=name,
@@ -59,7 +67,7 @@ class VariableClassifier:
             variable_type=variable_type,
             n_unique=n_unique,
             is_pii_suspect=is_pii,
-            extra={"total_count": n_total},
+            extra=extra,
         )
 
     def _infer_type(
@@ -159,7 +167,34 @@ class VariableClassifier:
             >= DEFAULT_HEURISTIC_POLICY.classification.sample_match_ratio_threshold
         )
 
-    def _check_pii(self, name: str) -> bool:
+    def _check_pii(self, name: str, sample_values: list[Any] | None = None) -> bool:
         """Hook H-004: flag potential PII columns."""
+        return bool(self._pii_reasons(name, sample_values or []))
+
+    def _pii_reasons(self, name: str, sample_values: list[Any]) -> list[str]:
+        """Hook H-004: flag name-based and value-level PII signals."""
+        reasons: list[str] = []
         name_lower = name.lower().replace("_", "").replace("-", "").replace(" ", "")
-        return any(pattern in name_lower for pattern in PII_PATTERNS)
+        if any(pattern in name_lower for pattern in PII_PATTERNS):
+            reasons.append("name_pattern")
+
+        valid = [
+            str(value).strip()
+            for value in sample_values
+            if value is not None and str(value).strip()
+        ]
+        if not valid:
+            return reasons
+
+        matches = 0
+        for value in valid:
+            if any(pattern.search(value) for pattern in PII_VALUE_PATTERNS):
+                matches += 1
+
+        policy = DEFAULT_HEURISTIC_POLICY.classification
+        if matches >= policy.pii_value_sample_min_matches and matches / len(valid) >= min(
+            1.0, policy.pii_value_sample_ratio_threshold
+        ):
+            reasons.append("value_pattern")
+
+        return reasons

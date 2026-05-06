@@ -6,7 +6,7 @@ from rde.domain.models.report import REQUIRED_SECTIONS
 from rde.domain.policies import DEFAULT_HEURISTIC_POLICY
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.services.collinearity_checker import check_collinearity
-from rde.domain.services.variable_classifier import PII_PATTERNS, VariableClassifier
+from rde.domain.services.variable_classifier import PII_PATTERNS, PII_VALUE_PATTERNS, VariableClassifier
 
 
 def test_report_required_sections_are_driven_by_policy() -> None:
@@ -17,7 +17,39 @@ def test_variable_classifier_uses_policy_backed_pii_patterns() -> None:
     classifier = VariableClassifier()
 
     assert tuple(PII_PATTERNS) == DEFAULT_HEURISTIC_POLICY.classification.pii_patterns
+    assert tuple(pattern.pattern for pattern in PII_VALUE_PATTERNS) == (
+        DEFAULT_HEURISTIC_POLICY.classification.pii_value_patterns
+    )
     assert classifier._check_pii("patient_name") is True
+
+
+def test_variable_classifier_flags_value_level_pii_when_column_name_is_generic() -> None:
+    classifier = VariableClassifier()
+
+    variable = classifier.classify(
+        name="contact_value",
+        dtype="object",
+        n_unique=3,
+        n_total=3,
+        sample_values=["alpha@example.org", "beta@example.org", "gamma@example.org"],
+    )
+
+    assert variable.is_pii_suspect is True
+    assert "value_pattern" in variable.extra["pii_detection"]
+
+
+def test_variable_classifier_does_not_treat_regular_dates_as_phone_numbers() -> None:
+    classifier = VariableClassifier()
+
+    variable = classifier.classify(
+        name="visit_date",
+        dtype="object",
+        n_unique=3,
+        n_total=3,
+        sample_values=["2026-03-01", "2026-03-02", "2026-03-03"],
+    )
+
+    assert variable.is_pii_suspect is False
 
 
 def test_collinearity_checker_uses_policy_threshold_by_default() -> None:

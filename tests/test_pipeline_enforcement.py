@@ -4,6 +4,7 @@ from pathlib import Path
 from rde.application.decision_logger import DecisionLogger
 from rde.application.pipeline import PhaseResult, PipelinePhase, PipelineState
 from rde.domain.models.project import Project
+from rde.domain.policies.hard_constraints import HardConstraints
 from rde.interface.mcp.tools.discovery_tools import _pii_gate_message
 
 
@@ -49,12 +50,12 @@ def test_later_phase_attempts_surface_unconfirmed_alignment_before_missing_prere
     assert "requires explicit user confirmation" in reason
 
 
-def test_decision_logger_writes_into_phase06_artifact_dir(tmp_path: Path) -> None:
+def test_decision_logger_writes_into_phase08_artifact_dir(tmp_path: Path) -> None:
     artifacts_dir = tmp_path / "artifacts"
     logger = DecisionLogger(artifacts_dir)
 
     logger.log_decision(
-        phase="phase_06",
+        phase=PipelinePhase.EXECUTE_EXPLORATION.value,
         action="compare_groups",
         tool_used="compare_groups",
         parameters={"outcome": ["x"]},
@@ -65,6 +66,31 @@ def test_decision_logger_writes_into_phase06_artifact_dir(tmp_path: Path) -> Non
     expected = artifacts_dir / PipelinePhase.EXECUTE_EXPLORATION.value / "decision_log.jsonl"
     assert expected.exists()
     assert logger.read_decisions()[0]["action"] == "compare_groups"
+    assert logger.read_decisions()[0]["phase"] == PipelinePhase.EXECUTE_EXPLORATION.value
+
+
+def test_audit_hard_constraints_follow_13_phase_indices() -> None:
+    plan_registration_without_lock = HardConstraints.h007_plan_lock_enforcement(
+        plan_locked=False,
+        phase_index=6,
+    )
+    execution_without_lock = HardConstraints.h007_plan_lock_enforcement(
+        plan_locked=False,
+        phase_index=8,
+    )
+    readiness_without_decision_log = HardConstraints.h009_decision_logging_required(
+        phase_index=7,
+        has_decision_log=False,
+    )
+    execution_without_decision_log = HardConstraints.h009_decision_logging_required(
+        phase_index=8,
+        has_decision_log=False,
+    )
+
+    assert plan_registration_without_lock.passed is True
+    assert execution_without_lock.passed is False
+    assert readiness_without_decision_log.passed is True
+    assert execution_without_decision_log.passed is False
 
 
 def test_failed_prerequisite_blocks_next_phase() -> None:

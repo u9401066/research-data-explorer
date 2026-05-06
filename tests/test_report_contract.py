@@ -215,7 +215,7 @@ def test_evaluate_report_readiness_blocks_academic_only_plan_from_production_rep
 
     store = ArtifactStore(project.artifacts_dir)
     store.save(
-        PipelinePhase.PLAN_REGISTRATION,
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW,
         "analysis_plan_review.json",
         {
             "status": "pass",
@@ -251,7 +251,7 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
 
     store = ArtifactStore(project.artifacts_dir)
     store.save(
-        PipelinePhase.PLAN_REGISTRATION,
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW,
         "analysis_plan_review.json",
         {
             "status": "repaired",

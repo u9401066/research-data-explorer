@@ -167,6 +167,14 @@ class ClassificationHeuristics:
         "生日",
         "出生",
     )
+    pii_value_patterns: tuple[str, ...] = (
+        r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+        r"\b\d{3}-\d{2}-\d{4}\b",
+        r"\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]\d{4}\b",
+        r"\b[A-Z][12]\d{8}\b",
+    )
+    pii_value_sample_min_matches: int = 1
+    pii_value_sample_ratio_threshold: float = 0.2
     numeric_continuous_unique_ratio_threshold: float = 0.05
     numeric_ordinal_unique_max: int = 10
     string_categorical_unique_max: int = 20

@@ -1,6 +1,6 @@
-"""Analysis Tools — Phase 6 (Execute) & Phase 7 (Collect).
+"""Analysis Tools — Phase 8 (Execute Exploration).
 
-All Phase 6 tools auto-log decisions (H-009 enforced).
+All Phase 8 tools auto-log decisions (H-009 enforced).
 Soft constraints S-001, S-002, S-003, S-004, S-006, S-007, S-008, S-009, S-010 wired.
 All tools return markdown strings.
 """
@@ -99,7 +99,7 @@ def _save_advanced_analysis_artifact(
     config: dict[str, Any],
     analysis_result: Any,
 ) -> Path:
-    """Persist Phase 6 advanced analysis payload for audit and reporting."""
+    """Persist Phase 8 advanced analysis payload for audit and reporting."""
     from rde.application.pipeline import PipelinePhase
     from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -134,7 +134,7 @@ def _save_advanced_analysis_markdown_artifact(
     analysis_result: Any,
     content: str,
 ) -> Path:
-    """Persist the rendered Phase 6 advanced-analysis markdown for reports/handoff."""
+    """Persist the rendered Phase 8 advanced-analysis markdown for reports/handoff."""
     from rde.application.pipeline import PipelinePhase
     from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -301,12 +301,13 @@ def _auto_log_decision(
     result_summary: str,
     artifacts: list[str] | None = None,
 ) -> None:
-    """H-009: Auto-enforce decision logging for every Phase 6 operation.
+    """H-009: Auto-enforce decision logging for every Phase 8 operation.
 
     Also checks plan adherence (H-007/S-011): if the operation is not
     in the locked analysis plan, auto-logs a deviation entry.
     """
     from rde.application.session import get_session
+    from rde.application.pipeline import PipelinePhase
     from rde.interface.mcp.tools._shared.project_context import (
         compute_phase6_progress,
         mark_phase6_complete_if_ready,
@@ -318,7 +319,7 @@ def _auto_log_decision(
     pipeline = session.get_pipeline(project.id)
     logger = session.get_logger(project.id)
     logger.log_decision(
-        phase="phase_06",
+        phase=PipelinePhase.EXECUTE_EXPLORATION.value,
         action=tool_name,
         tool_used=tool_name,
         parameters=parameters,
@@ -346,7 +347,7 @@ def _auto_log_decision(
         in_plan, deviation_msg = check_plan_adherence(project, tool_name, parameters)
         if not in_plan:
             logger.log_deviation(
-                phase="phase_06",
+                phase=PipelinePhase.EXECUTE_EXPLORATION.value,
                 planned_action="(按分析計畫執行)",
                 actual_action=f"{tool_name}({parameters})",
                 reason=f"[S-011 自動偵測] {deviation_msg}",

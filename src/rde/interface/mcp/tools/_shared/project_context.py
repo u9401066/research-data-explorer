@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import math
+from pathlib import Path
 
 from rde.application.pipeline import (
     PREREQUISITES,
@@ -13,6 +14,7 @@ from rde.application.pipeline import (
     PipelineState,
 )
 from rde.application.session import get_session, DatasetEntry
+from rde.domain.models.dataset import Dataset, DatasetMetadata
 from rde.domain.models.project import Project
 from rde.domain.models.project import ProjectStatus
 from rde.domain.policies.hard_constraints import HardConstraints
@@ -98,6 +100,45 @@ def link_dataset_to_project(project: Project, dataset_id: str) -> None:
         persist_project(project)
 
 
+def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> DatasetEntry | None:
+    """Reload a project-bound dataset from intake artifacts after MCP session reset."""
+    store = ArtifactStore(project.artifacts_dir)
+    intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+    if not isinstance(intake, dict) or intake.get("dataset_id") != dataset_id:
+        return None
+
+    loaded_file = intake.get("loaded_file")
+    if not isinstance(loaded_file, str) or not loaded_file.strip():
+        return None
+
+    candidates: list[Path] = []
+    directory = intake.get("directory")
+    if isinstance(directory, str) and directory.strip():
+        candidates.append(Path(directory).expanduser() / loaded_file)
+    candidates.append(project.data_dir / loaded_file)
+
+    data_path = next((path for path in candidates if path.exists()), None)
+    if data_path is None:
+        return None
+
+    from rde.application.session import DatasetEntry as SessionDatasetEntry
+    from rde.infrastructure.adapters import PandasLoader
+
+    metadata = DatasetMetadata(
+        file_path=data_path,
+        file_format=data_path.suffix.lstrip(".").lower(),
+        file_size_bytes=data_path.stat().st_size,
+    )
+    dataframe, variables, row_count, report = PandasLoader().load(metadata)
+    dataset = Dataset(id=dataset_id, metadata=metadata)
+    dataset.mark_loaded(variables, row_count)
+    dataset.tags["normalization_report"] = report.as_dict()
+
+    session = get_session()
+    session.register_dataset(dataset, dataframe)
+    return SessionDatasetEntry(dataset=dataset, dataframe=dataframe)
+
+
 def ensure_dataset(
     dataset_id: str | None = None,
     *,
@@ -129,6 +170,10 @@ def ensure_dataset(
         entry = session.get_dataset_entry(resolved_dataset_id)
         return True, f"資料集: {resolved_dataset_id}", entry
     except KeyError:
+        if project is not None:
+            entry = _rehydrate_dataset_from_project(project, resolved_dataset_id)
+            if entry is not None:
+                return True, f"鞈??? {resolved_dataset_id} (rehydrated)", entry
         available = project_dataset_ids(project)
         return False, f"資料集 '{resolved_dataset_id}' 不存在。可用: {available}", None
 
@@ -185,7 +230,7 @@ def ensure_minimum_sample_size(
     return check.passed, check.message
 
 
-PHASE6_PROGRESS_FILENAME = "phase_06_progress.json"
+PHASE6_PROGRESS_FILENAME = "phase_08_progress.json"
 PHASE6_REQUIRED_COVERAGE = 0.8
 PHASE6_MIN_EXECUTIONS_NO_PLAN = 2
 
@@ -201,14 +246,16 @@ def _extract_planned_analyses(plan: dict | None) -> list:
 
 
 def compute_phase6_progress(project: Project) -> dict[str, object]:
-    """Compute how far Phase 6 has progressed relative to the locked plan."""
+    """Compute how far Phase 8 execution has progressed relative to the locked plan."""
     session = get_session()
     logger = session.get_logger(project.id)
     decision_count = logger.decision_count
     dataset_ids = project_dataset_ids(project)
-    analysis_result_count = sum(
-        len(session.get_dataset_entry(did).analysis_results) for did in dataset_ids
-    )
+    analysis_result_count = 0
+    for did in dataset_ids:
+        ok, _, entry = ensure_dataset(did, project=project)
+        if ok and entry is not None:
+            analysis_result_count += len(entry.analysis_results)
     executed = max(decision_count, analysis_result_count)
 
     store = ArtifactStore(project.artifacts_dir)
@@ -244,7 +291,7 @@ def save_phase6_progress(
     *,
     last_action: dict | None = None,
 ) -> tuple[dict[str, object], str]:
-    """Persist the latest Phase 6 progress snapshot."""
+    """Persist the latest Phase 8 execution progress snapshot."""
     store = ArtifactStore(project.artifacts_dir)
     snapshot = dict(progress)
     snapshot["timestamp"] = datetime.now().isoformat()
@@ -262,7 +309,7 @@ def mark_phase6_complete_if_ready(
     *,
     force: bool = False,
 ) -> bool:
-    """Mark Phase 6 as completed when ready or forced."""
+    """Mark Phase 8 execution as completed when ready or forced."""
     from rde.application.pipeline import PipelinePhase
 
     if PipelinePhase.EXECUTE_EXPLORATION in pipeline.completed_phases:
@@ -290,19 +337,19 @@ def mark_phase6_complete_if_ready(
 
 
 def format_phase6_gate_message(progress: dict[str, object]) -> str:
-    """Build a user-facing message for insufficient Phase 6 progress."""
+    """Build a user-facing message for insufficient Phase 8 execution progress."""
     planned = progress.get("planned_analyses", 0) or 0
     executed = progress.get("executed_analyses", 0) or 0
     coverage = progress.get("coverage", 0.0) or 0.0
     required_exec = progress.get("required_executions", 0) or 0
     if planned:
         return (
-            f"Phase 6 尚未達到完成門檻：計畫 {planned} 項，已執行 {executed} 項 "
+            f"Phase 8 尚未達到完成門檻：計畫 {planned} 項，已執行 {executed} 項 "
             f"(覆蓋率 {coverage:.0%}，需至少完成 {required_exec} 項或覆蓋率 "
             f"{PHASE6_REQUIRED_COVERAGE:.0%})"
         )
     return (
-        f"Phase 6 仍在進行：已執行 {executed} 項分析，需至少 {required_exec} 項後才能收斂 "
+        f"Phase 8 仍在進行：已執行 {executed} 項分析，需至少 {required_exec} 項後才能收斂 "
         "(無鎖定計畫時預設門檻 = 2)"
     )
 
@@ -312,7 +359,7 @@ def check_plan_adherence(
     tool_name: str,
     parameters: dict,
 ) -> tuple[bool, str | None]:
-    """Check if the current Phase 6 operation matches the locked analysis plan.
+    """Check if the current Phase 8 operation matches the locked analysis plan.
 
     Returns (is_in_plan, deviation_reason_or_none).
     If the plan has no analyses listed, or Phase 4 was skipped, returns (True, None).

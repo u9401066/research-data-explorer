@@ -123,15 +123,15 @@ class HardConstraints:
 
     @staticmethod
     def h007_plan_lock_enforcement(plan_locked: bool, phase_index: int) -> PolicyResult:
-        """H-007: Phase 6+ requires a locked analysis plan."""
-        # Phase 6 (EXECUTE_EXPLORATION) index = 6
-        if phase_index >= 6 and not plan_locked:
+        """H-007: Phase 8+ execution requires a locked Phase 6 analysis plan."""
+        # Phase 8 (EXECUTE_EXPLORATION) index = 8 in the 13-phase workflow.
+        if phase_index >= 8 and not plan_locked:
             return PolicyResult(
                 passed=False,
                 constraint_id="H-007",
                 level=ConstraintLevel.HARD,
                 message="Cannot execute exploration without a locked analysis plan.",
-                suggestion="Complete Phase 4 (Plan Registration) to lock the plan.",
+                suggestion="Complete Phase 6 (Plan Registration) to lock the plan.",
             )
         return PolicyResult(
             passed=True,
@@ -160,9 +160,9 @@ class HardConstraints:
 
     @staticmethod
     def h009_decision_logging_required(phase_index: int, has_decision_log: bool) -> PolicyResult:
-        """H-009: Phase 6 operations must produce decision log entries."""
-        # Only enforced during/after Phase 6
-        if phase_index >= 6 and not has_decision_log:
+        """H-009: Phase 8 operations must produce decision log entries."""
+        # Only enforced during/after Phase 8 execution.
+        if phase_index >= 8 and not has_decision_log:
             return PolicyResult(
                 passed=False,
                 constraint_id="H-009",

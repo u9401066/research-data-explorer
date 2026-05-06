@@ -1,7 +1,7 @@
 """Decision Logger — Append-only audit trail for the EDA pipeline.
 
 Provides two append-only JSONL logs:
-  - decision_log.jsonl: Records every analysis decision during Phase 6
+  - decision_log.jsonl: Records every analysis decision during Phase 8
   - deviation_log.jsonl: Records deviations from the registered plan
 
 Both logs are append-only (H-010 enforced).

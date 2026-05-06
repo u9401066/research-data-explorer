@@ -100,7 +100,7 @@ def _render_greedy_plan_markdown(
     review = proposal.get("review") or {}
     warnings = proposal.get("warnings", [])
     coverage = proposal.get("coverage_tags", [])
-    lines = ["# 🧭 Greedy Autonomous EDA Proposal (Phase 3.5)\n"]
+    lines = ["# 🧭 Greedy Autonomous EDA Proposal (Phase 4)\n"]
     lines.append(f"- **策略:** {proposal.get('strategy', 'greedy_coverage_under_budget')}")
     lines.append(f"- **資料集:** `{proposal.get('dataset_id', '')}`")
     lines.append(f"- **研究問題:** {proposal.get('research_question') or '(未指定)'}")
@@ -1128,6 +1128,7 @@ def register_plan_tools(server: Any) -> None:
         assert project is not None
 
         try:
+            import pandas as pd
             from datetime import datetime
             from rde.application.session import get_session
             from rde.application.pipeline import (
@@ -1204,6 +1205,8 @@ def register_plan_tools(server: Any) -> None:
                 PipelinePhase.DATA_INTAKE,
                 PipelinePhase.SCHEMA_REGISTRY,
                 PipelinePhase.CONCEPT_ALIGNMENT,
+                PipelinePhase.CREATIVE_IDEATION,
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW,
                 PipelinePhase.PLAN_REGISTRATION,
             ]
             for phase in prereq_phases:
@@ -1223,11 +1226,34 @@ def register_plan_tools(server: Any) -> None:
 
             # S-001: Normality hint
             if dataset_ok and dataset_entry is not None:
+                df = dataset_entry.dataframe
                 continuous = [
                     v.name
                     for v in dataset_entry.dataset.variables
                     if v.variable_type.value == "continuous"
                 ]
+                normality_details: list[str] = []
+                for variable in continuous[:10]:
+                    if variable not in df.columns:
+                        continue
+                    series = pd.to_numeric(df[variable], errors="coerce").dropna()
+                    n_obs = int(series.shape[0])
+                    if n_obs < 3:
+                        normality_details.append(f"{variable}: n={n_obs} too small")
+                        continue
+                    if n_obs > 5000:
+                        normality_details.append(f"{variable}: n={n_obs} too large for Shapiro preview")
+                        continue
+                    try:
+                        from scipy import stats
+
+                        _, p_value = stats.shapiro(series)
+                        label = "normality plausible" if p_value >= 0.05 else "non-normal"
+                        normality_details.append(
+                            f"{variable}: Shapiro-Wilk p={p_value:.4g} ({label})"
+                        )
+                    except Exception as exc:
+                        normality_details.append(f"{variable}: normality preview failed ({exc})")
                 checks.append(
                     {
                         "id": "S-001",
@@ -1236,6 +1262,8 @@ def register_plan_tools(server: Any) -> None:
                         "detail": f"有 {len(continuous)} 個連續變數，建議執行常態性檢定",
                     }
                 )
+                if normality_details:
+                    checks[-1]["detail"] = "; ".join(normality_details)
 
             # S-005: Missing pattern analysis
             if dataset_ok and dataset_entry is not None:
@@ -1326,7 +1354,7 @@ def register_plan_tools(server: Any) -> None:
 
             log_tool_result("check_readiness", f"passed={all_passed}")
 
-            status = "✅ 準備就緒，可進入 Phase 6" if all_passed else "❌ 尚有未通過的檢查項目"
+            status = "✅ 準備就緒，可進入 Phase 8" if all_passed else "❌ 尚有未通過的檢查項目"
 
             return f"# 🔍 準備度檢查 (Phase 5)\n\n{checks_text}\n\n**結果:** {status}"
 

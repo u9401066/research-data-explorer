@@ -1,7 +1,7 @@
 """CollinearityChecker — Domain Service.
 
 Centralized S-007 collinearity detection.
-Used by both check_readiness (Phase 5) and correlation_matrix (Phase 6).
+Used by both check_readiness (Phase 7) and correlation_matrix (Phase 8).
 """
 
 from __future__ import annotations

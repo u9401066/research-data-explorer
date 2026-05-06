@@ -271,7 +271,7 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
     )
     session.get_dataset_entry(dataset.id).analysis_results.append(compare_result)
     logger.log_decision(
-        phase="phase_06",
+        phase=PipelinePhase.EXECUTE_EXPLORATION.value,
         action="compare_groups",
         tool_used="compare_groups",
         parameters={
@@ -283,7 +283,7 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
         artifacts=["compare_groups.json"],
     )
     logger.log_deviation(
-        phase="phase_06",
+        phase=PipelinePhase.EXECUTE_EXPLORATION.value,
         planned_action="compare_groups",
         actual_action="compare_groups + correlation review",
         reason="integration coverage",
@@ -520,7 +520,7 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
         )
         assert PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases
         early_collect = await server.call_tool("collect_results", {"project_id": project.id})
-        assert "Phase 6" in _textify(early_collect)
+        assert "Phase 8" in _textify(early_collect)
         assert PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases
         await server.call_tool(
             "compare_groups",
@@ -872,8 +872,72 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
     assert "n = 12" in readiness_output
     assert "n = 5" not in readiness_output
     assert "無 PII" in readiness_output
+    assert "Shapiro-Wilk" in readiness_output
     assert persisted.dataset_ids == project.dataset_ids
     assert len(persisted.dataset_ids) == 1
+
+
+def test_project_bound_dataset_rehydrates_after_session_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    staged_csv = raw_dir / FIXTURE_CSV.name
+    shutil.copy2(FIXTURE_CSV, staged_csv)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+
+    async def run_flow() -> tuple[str, str]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "rehydrate-bound-dataset",
+                "data_dir": str(raw_dir),
+            },
+        )
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool(
+            "build_schema",
+            {
+                "dataset_id": dataset_id,
+                "project_id": project.id,
+            },
+        )
+        return project.id, dataset_id
+
+    project_id, dataset_id = asyncio.run(run_flow())
+
+    import rde.application.session as session_module
+    from rde.interface.mcp.tools._shared.project_context import (
+        ensure_dataset,
+        ensure_project_context,
+    )
+
+    session_module._session = None
+    ok, message, project = ensure_project_context(project_id)
+    assert ok, message
+    assert project is not None
+
+    ok, message, entry = ensure_dataset(project=project)
+
+    assert ok, message
+    assert entry is not None
+    assert entry.dataset.id == dataset_id
+    assert entry.dataset.row_count == 12
+    assert list(entry.dataframe.columns) == [
+        "sepal_length",
+        "sepal_width",
+        "petal_length",
+        "petal_width",
+        "species",
+    ]
 
 
 def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(

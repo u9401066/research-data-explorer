@@ -1,4 +1,4 @@
-"""Report Tools — Phase 7 (Collect Results) & Phase 8 (Report Assembly).
+"""Report Tools — Phase 9 (Collect Results) & Phase 10 (Report Assembly).
 
 Collects results from previous phases, assembles the EDA report,
 and provides visualization creation.
@@ -27,14 +27,14 @@ def register_report_tools(server: Any) -> None:
 
     @server.tool()
     def collect_results(project_id: str | None = None, force: bool = False) -> str:
-        """彙整 Phase 6 的所有分析結果，標記可發表內容 (Phase 7)。
+        """彙整 Phase 8 的所有分析結果，標記可發表內容 (Phase 9)。
 
         掃描已完成的分析，生成 results_summary.json。
         標記統計顯著的結果為 PUBLISHABLE，並建議敏感度分析 (S-012)。
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
-            force: 是否強制在未達 Phase 6 覆蓋率時收斂（會記錄偏離）
+            force: 是否強制在未達 Phase 8 覆蓋率時收斂（會記錄偏離）
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -42,6 +42,7 @@ def register_report_tools(server: Any) -> None:
             fmt_error,
             ensure_phase_ready,
             ensure_project_context,
+            ensure_dataset,
         )
         from rde.interface.mcp.tools._shared.project_context import (
             compute_phase6_progress,
@@ -71,7 +72,7 @@ def register_report_tools(server: Any) -> None:
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
 
-            # Gate Phase 7 on sufficient Phase 6 coverage
+            # Gate Phase 9 on sufficient Phase 8 coverage
             progress = compute_phase6_progress(project)
             progress, progress_path = save_phase6_progress(project, progress)
             if PipelinePhase.EXECUTE_EXPLORATION not in pipeline.completed_phases:
@@ -80,13 +81,13 @@ def register_report_tools(server: Any) -> None:
                 elif not force:
                     return fmt_error(
                         format_phase6_gate_message(progress),
-                        suggestion="請依分析計畫持續進行 Phase 6，或在說明下使用 force=true。",
+                        suggestion="請依分析計畫持續進行 Phase 8，或在說明下使用 force=true。",
                     )
                 else:
                     logger.log_deviation(
-                        phase="phase_06",
+                        phase=PipelinePhase.EXECUTE_EXPLORATION.value,
                         planned_action="完成已鎖定計畫後再收斂",
-                        actual_action="force=true 提早收斂 Phase 6",
+                        actual_action="force=true 提早收斂 Phase 8",
                         reason="[S-011] 未達計畫覆蓋率即進入 Phase 7",
                         impact_assessment="請在審計時確認未完成的分析是否關鍵",
                     )
@@ -102,9 +103,13 @@ def register_report_tools(server: Any) -> None:
             datasets = project_dataset_ids(project)
             all_results: list[dict] = []
             publishable: list[dict] = []
+            unavailable_datasets: list[dict[str, str]] = []
 
             for ds_id in datasets:
-                entry = session.get_dataset_entry(ds_id)
+                ok_dataset, dataset_msg, entry = ensure_dataset(ds_id, project=project)
+                if not ok_dataset or entry is None:
+                    unavailable_datasets.append({"dataset_id": ds_id, "reason": dataset_msg})
+                    continue
                 for result in entry.analysis_results:
                     result_dict = {
                         "dataset_id": ds_id,
@@ -173,6 +178,7 @@ def register_report_tools(server: Any) -> None:
                 "plan_coverage": plan_coverage,
                 "decision_count": len(decisions),
                 "deviation_count": len(deviations),
+                "unavailable_datasets": unavailable_datasets,
                 "phase6_progress": progress,
                 "deliverables": deliverables,
                 "report_readiness": report_readiness,
@@ -211,7 +217,7 @@ def register_report_tools(server: Any) -> None:
                 )
             else:
                 lines.append(
-                    f"- **Phase 6 進度:** 已執行 {progress.get('executed_analyses', 0)} 項 "
+                    f"- **Phase 8 進度:** 已執行 {progress.get('executed_analyses', 0)} 項 "
                     f"(門檻: {progress.get('required_executions')})"
                 )
 
@@ -263,7 +269,7 @@ def register_report_tools(server: Any) -> None:
         title: str = "EDA Report",
         allow_incomplete: bool = False,
     ) -> str:
-        """組裝完整 EDA 報告 (Phase 8)。
+        """組裝完整 EDA 報告 (Phase 10)。
 
         從各 Phase 的 artifacts 組裝報告，含附錄 (decision_log, deviation_log)。
         執行 H-005 (報告完整性) 和 H-006 (輸出清毒)。
@@ -572,7 +578,7 @@ def register_report_tools(server: Any) -> None:
         """匯出 EDA 報告為 Word (.docx) 或 PDF 格式。
 
         自動嵌入圖表和統計表格到文件中。
-        需先完成 assemble_report (Phase 8)。
+        需先完成 assemble_report (Phase 10)。
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
@@ -612,9 +618,9 @@ def register_report_tools(server: Any) -> None:
 
             store = ArtifactStore(project.artifacts_dir)
 
-            # H-008: Phase 8 must be done
+            # H-008: Phase 10 report assembly must be done
             if not store.exists(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"):
-                return fmt_error("[H-008] 報告尚未組裝。請先執行 `assemble_report()` (Phase 8)。")
+                return fmt_error("[H-008] 報告尚未組裝。請先執行 `assemble_report()` (Phase 10)。")
 
             # Rebuild EDAReport from artifacts (same logic as assemble_report)
             artifacts: dict[str, str] = {}
@@ -878,7 +884,7 @@ def _render_markdown_table(rows: list[list[str]]) -> str:
 
 
 def _load_phase6_markdown_bundle(store: Any, prefix: str) -> str | None:
-    """Load and concatenate optional Phase 6 markdown artifacts by filename prefix."""
+    """Load and concatenate optional Phase 8 markdown artifacts by filename prefix."""
     from rde.application.pipeline import PipelinePhase
 
     filenames = [
@@ -1071,7 +1077,9 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     from rde.application.pipeline import PipelinePhase
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
 
-    review = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json") or {}
+    review = store.load(
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json"
+    ) or store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json") or {}
     target_tier = _normalize_completion_tier(
         DEFAULT_HEURISTIC_POLICY.reporting.default_completion_target
     )

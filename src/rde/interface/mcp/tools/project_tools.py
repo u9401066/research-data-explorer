@@ -200,7 +200,7 @@ def register_project_tools(server: Any) -> None:
             required = progress.get("required_executions", 0) or 0
             coverage = progress.get("coverage", 0.0) or 0.0
             ready = progress.get("ready", False)
-            lines.append("\n## Phase 6 進度")
+            lines.append("\n## Phase 8 進度")
             if planned:
                 lines.append(
                     f"- {executed}/{planned}，覆蓋率 {coverage:.0%} "
@@ -222,7 +222,7 @@ def register_project_tools(server: Any) -> None:
     def get_decision_log(project_id: str | None = None) -> str:
         """查詢分析決策紀錄（decision_log.jsonl）。
 
-        Phase 6 的每一步操作都會自動寫入 decision_log（H-009 強制）。
+        Phase 8 的每一步操作都會自動寫入 decision_log（H-009 強制）。
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
@@ -246,7 +246,7 @@ def register_project_tools(server: Any) -> None:
         decisions = logger.read_decisions()
 
         if not decisions:
-            return f"📋 **{project.name}** — 決策紀錄: 0 筆\n\n(Phase 6 尚未執行任何分析)"
+            return f"📋 **{project.name}** — 決策紀錄: 0 筆\n\n(Phase 8 尚未執行任何分析)"
 
         lines = [f"# 📋 決策紀錄 — {project.name}\n", f"共 {len(decisions)} 筆\n"]
         for i, d in enumerate(decisions, 1):
@@ -266,7 +266,7 @@ def register_project_tools(server: Any) -> None:
     def get_deviation_log(project_id: str | None = None) -> str:
         """查詢計畫偏離紀錄（deviation_log.jsonl）。
 
-        Phase 6+ 偏離已鎖定計畫時，系統自動偵測並記錄；也可手動呼叫 log_deviation()。
+        Phase 8+ 偏離已鎖定計畫時，系統自動偵測並記錄；也可手動呼叫 log_deviation()。
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
@@ -311,9 +311,9 @@ def register_project_tools(server: Any) -> None:
         reason: str = "",
         impact_assessment: str = "",
     ) -> str:
-        """記錄計畫偏離（Phase 6+ 偏離已鎖定計畫時呼叫）。
+        """記錄計畫偏離（Phase 8+ 偏離已鎖定計畫時呼叫）。
 
-        Phase 6 的工具現在會自動偵測偏離並記錄（S-011），
+        Phase 8 的工具現在會自動偵測偏離並記錄（S-011），
         但如需補充說明或主動記錄，仍可手動呼叫此工具。
 
         Args:
@@ -349,11 +349,12 @@ def register_project_tools(server: Any) -> None:
 
         try:
             from rde.application.session import get_session
+            from rde.application.pipeline import PipelinePhase
 
             logger = get_session().get_logger(project.id)
 
             entry = logger.log_deviation(
-                phase="phase_06",
+                phase=PipelinePhase.EXECUTE_EXPLORATION.value,
                 planned_action=planned_action,
                 actual_action=actual_action,
                 reason=reason,
