@@ -4,7 +4,7 @@ AKI Biomarker Analysis — Full EDA Pipeline
 Study: Urinary biomarkers for subclinical AKI after controlled hypotension
          during orthognathic surgery
 
-This script runs a complete 11-Phase-like analysis directly.
+This script runs a complete 13-Phase-like analysis directly.
 """
 
 from __future__ import annotations
@@ -554,7 +554,7 @@ def main():
     report.append("title: AKI Biomarker EDA Report")
     report.append(f"date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     report.append(f"subjects: {len(df)}")
-    report.append("pipeline: RDE 11-Phase (Direct Execution)")
+    report.append("pipeline: RDE 13-Phase (Direct Execution)")
     report.append("---\n")
 
     # 1) Table 1

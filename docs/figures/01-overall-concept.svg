@@ -46,7 +46,7 @@
   <!-- Central core -->
   <rect x="320" y="105" width="360" height="130" rx="20" fill="url(#coreGrad)" filter="url(#shadowLg)"/>
   <text x="500" y="148" text-anchor="middle" font-size="22" font-weight="700" fill="#fff">Research Data Explorer</text>
-  <text x="500" y="175" text-anchor="middle" font-size="13" fill="#dbeafe">11-Phase Auditable EDA Pipeline</text>
+  <text x="500" y="175" text-anchor="middle" font-size="13" fill="#dbeafe">13-Phase Auditable EDA Pipeline</text>
   <text x="500" y="196" text-anchor="middle" font-size="13" fill="#dbeafe">MCP Server + VS Code Agent Mode</text>
   <text x="500" y="217" text-anchor="middle" font-size="12" fill="#93c5fd">v0.4.3 · Python 3.10+ · DDD Architecture</text>
 
@@ -123,7 +123,7 @@
   <g>
     <rect x="370" y="510" width="170" height="60" rx="10" fill="url(#pillGrad1)" stroke="#60a5fa" stroke-width="1.5"/>
     <text x="455" y="535" text-anchor="middle" font-size="13" font-weight="600" fill="#1d4ed8">RDE MCP Server</text>
-    <text x="455" y="554" text-anchor="middle" font-size="10" fill="#3b82f6">11-Phase Pipeline</text>
+    <text x="455" y="554" text-anchor="middle" font-size="10" fill="#3b82f6">13-Phase Pipeline</text>
   </g>
 
   <!-- Arrow -->

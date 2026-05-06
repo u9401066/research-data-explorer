@@ -50,14 +50,26 @@ align_concept(research_question, variable_roles, confirm=true)
 ```
 **Agent 必須：** 向用戶展示對齊結果，等待確認。
 
-### Phase 4: Analysis Plan Registration ⚠️ 用戶必須確認 → 🔒 鎖定
+### Phase 4: Creative Ideation ⚠️ 用戶必須確認
+```
+propose_analysis_plan()
+→ greedy_analysis_candidates.json + greedy_analysis_candidates.md
+```
+
+### Phase 5: Plan Completeness Review ⚠️ 用戶必須確認
+```
+register_analysis_plan(confirm=true)
+→ analysis_plan_review.json + analysis_plan_review.md
+```
+
+### Phase 6: Plan Registration ⚠️ 用戶必須確認 → 🔒 鎖定
 ```
 register_analysis_plan(confirm=true)
 → analysis_plan.yaml (LOCKED after confirmation)
 ```
 **Agent 必須：** 展示完整計畫（方法、α 值、missing 策略），等待確認後鎖定。
 
-### Phase 5: Pre-Exploration Check
+### Phase 7: Pre-Exploration Check
 ```
 check_readiness()
 　├ [H-003] 樣本量 ≥ 10
@@ -68,7 +80,7 @@ check_readiness()
 ```
 **如需調整方法：** `log_deviation()` → 告知用戶。
 
-### Phase 6: Execute Exploration 🔒 計畫鎖定中
+### Phase 8: Execute Exploration 🔒 計畫鎖定中
 ```
 apply_cleaning()
 generate_table_one()
@@ -80,25 +92,25 @@ correlation_matrix()
 ```
 **偏離計畫時：** 必須 `log_deviation()` 並說明理由。
 
-### Phase 7: Collect Results
+### Phase 9: Collect Results
 ```
 collect_results()
 → results_summary.json (含 PUBLISHABLE markers)
 ```
 
-### Phase 8: Report Assembly
+### Phase 10: Report Assembly
 ```
 assemble_report()
 → eda_report.md (含 decision_log + deviation_log appendix)
 ```
 
-### Phase 9: Audit Review
+### Phase 11: Audit Review
 ```
 run_audit()
 → audit_report.json (A/B/C/D/F 評分)
 ```
 
-### Phase 10: Auto-Improve
+### Phase 12: Auto-Improve
 ```
 auto_improve()     # 根據 audit 自動修正
 export_handoff()   # 產出 handoff package → med-paper-assistant
@@ -109,9 +121,9 @@ export_handoff()   # 產出 handoff package → med-paper-assistant
 | 檢查點 | 規則 | 後果 |
 |--------|------|------|
 | Phase 3 | 用戶確認 | 未確認不能進 Phase 4 |
-| Phase 4 | 用戶確認 + 鎖定 | 未鎖定不能進 Phase 6 |
-| Phase 6 偏離 | 必須 log_deviation | 審計時扣分 |
-| Phase 8 報告 | H-005 完整性 + H-006 路徑清除 | 不完整或有敏感路徑則失敗 |
+| Phase 4/5/6 | 用戶確認 + 鎖定 | 未鎖定不能進 Phase 8 |
+| Phase 8 偏離 | 必須 log_deviation | 審計時扣分 |
+| Phase 10 報告 | H-005 完整性 + H-006 路徑清除 | 不完整或有敏感路徑則失敗 |
 | Any Phase | H-008 artifact gate | 前一 Phase 未完成不能跳過 |
 
 ## 快速路徑

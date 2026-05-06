@@ -45,7 +45,7 @@ RDE addresses that by enforcing:
 2. Intake validation before loading data
 3. Schema registration before planning
 4. User-confirmed concept alignment before plan registration
-5. User-confirmed plan lock before Phase 6 execution
+5. User-confirmed plan lock in Phase 6 before Phase 8 execution
 6. Audit-ready artifacts for every major phase
 
 The core governance documents are:
@@ -91,14 +91,15 @@ The intended execution order is:
 2. Phase 1: `run_intake`
 3. Phase 2: `build_schema`, `profile_dataset`
 4. Phase 3: `align_concept(confirm=true)`
-5. Phase 3.5: `propose_analysis_plan()`
-6. Phase 4: `register_analysis_plan(confirm=true)`
-7. Phase 5: `check_readiness`
-8. Phase 6: analysis tools such as `compare_groups`, `correlation_matrix`, `run_advanced_analysis`
-9. Phase 7: `collect_results`
-10. Phase 8: `assemble_report`
-11. Phase 9: `run_audit`
-12. Phase 10: `auto_improve`, `export_handoff`, `verify_audit_trail`
+5. Phase 4: `propose_analysis_plan()`
+6. Phase 5: `register_analysis_plan(confirm=true)` methodology review
+7. Phase 6: `register_analysis_plan(confirm=true)` locked plan registration
+8. Phase 7: `check_readiness`
+9. Phase 8: analysis tools such as `compare_groups`, `correlation_matrix`, `run_advanced_analysis`
+10. Phase 9: `collect_results`
+11. Phase 10: `assemble_report`
+12. Phase 11: `run_audit`
+13. Phase 12: `auto_improve`, `export_handoff`, `verify_audit_trail`
 
 ### Hard Constraints
 
@@ -110,7 +111,7 @@ The workflow is not advisory only. These constraints are enforced by code and pi
 - H-004: PII detection blocks loading by default
 - H-005: report integrity checks before final reporting
 - H-006: output sanitization
-- H-007: Phase 6 requires a locked plan
+- H-007: Phase 8 execution requires a locked Phase 6 plan
 - H-008: artifact gate between phases
 - H-009: decision logging during exploration
 - H-010: append-only decision and deviation logs
@@ -155,7 +156,7 @@ In practice, this repo limits an agent in four layers:
 4. Audit layer
    - [src/rde/application/decision_logger.py](src/rde/application/decision_logger.py) keeps append-only logs for decisions and deviations
 
-This means an agent cannot legitimately execute a Phase 6 analysis path without the expected upstream artifacts and confirmations.
+This means an agent cannot legitimately execute a Phase 8 analysis path without the expected upstream artifacts and confirmations.
 
 ## Using MCP Effectively
 
@@ -213,7 +214,7 @@ If you want the agent to stay inside the governed workflow, ask for work in phas
 ```text
 I have a CSV file. Please use the full 13-phase auditable workflow.
 Do not skip concept alignment or plan lock.
-Use run_advanced_analysis only when Phase 5 is complete.
+Use run_advanced_analysis only when Phase 7 is complete.
 Log deviations if you need to change the plan.
 ```
 
@@ -229,7 +230,7 @@ For a fully constrained run:
 6. `propose_analysis_plan()`
 7. `register_analysis_plan(confirm=true)`
 8. `check_readiness`
-9. phase-6 analysis tools
+9. phase-8 analysis tools
 10. `collect_results`
 11. `assemble_report`
 12. `run_audit`
@@ -251,9 +252,9 @@ This is the point where a research question becomes an auditable analysis contra
 
 `register_analysis_plan(confirm=true)` should then lock the allowed analysis families, variables, and fallback rules rather than only storing a loose checklist.
 
-If you want the agent to drive EDA more autonomously, the repo now provides `propose_analysis_plan()` between Phase 3 and Phase 4. It no longer behaves as a bare greedy sorter only. It now produces a draft candidate set, runs an internal methodology review / repair pass, expands beyond the initial budget when that preserves promising EDA branches, and then emits a reviewed blueprint plus a visualization bundle and Phase 6 execution schedule that can be passed into `register_analysis_plan()`. The point is not to bypass human confirmation; the point is to make autonomous ideation itself auditable, repairable, and lockable.
+If you want the agent to drive EDA more autonomously, the repo now provides `propose_analysis_plan()` as Phase 4. It no longer behaves as a bare greedy sorter only. It now produces a draft candidate set, runs an internal methodology review / repair pass, expands beyond the initial budget when that preserves promising EDA branches, and then emits a reviewed blueprint plus a visualization bundle and Phase 8 execution schedule that can be passed into `register_analysis_plan()`. The point is not to bypass human confirmation; the point is to make autonomous ideation itself auditable, repairable, and lockable.
 
-`register_analysis_plan(confirm=true)` now also performs a methodology gate before lock. If the submitted plan is obviously under-scoped for the detected data structure, for example trying to stop after only a couple of analyses even though the dataset supports grouped comparisons, association screening, and adjusted modeling, Phase 4 now first auto-expands the plan with optional exploratory branches. Only if the reviewed plan is still too thin does it block the lock and push the agent back toward `propose_analysis_plan()`, unless `allow_methodology_override=true` is set explicitly. When the plan is locked, the repo also persists an execution schedule artifact so Phase 6 can follow the reviewed ordering instead of improvising from scratch.
+`register_analysis_plan(confirm=true)` now also performs a methodology gate before lock. If the submitted plan is obviously under-scoped for the detected data structure, for example trying to stop after only a couple of analyses even though the dataset supports grouped comparisons, association screening, and adjusted modeling, Phase 5 now first auto-expands the plan with optional exploratory branches. Only if the reviewed plan is still too thin does it block the lock and push the agent back toward `propose_analysis_plan()`, unless `allow_methodology_override=true` is set explicitly. When the plan is locked in Phase 6, the repo also persists an execution schedule artifact so Phase 8 can follow the reviewed ordering instead of improvising from scratch.
 
 Typical analysis options to place in the Phase 4 plan:
 
@@ -277,7 +278,7 @@ Analysis ideation usually needs more than one layer of reasoning. A practical or
 | Structure check | Is there a grouping variable, a time axis, repeated measures, or a clear outcome? Is the outcome continuous, binary, categorical, or time-to-event? | No comparator usually stays univariable; group leads to comparison; multivariable without a primary outcome leads to correlation; covariates or prediction needs modeling | `align_concept`, `check_readiness` |
 | Method selection | Is the question “what does this look like”, “is A different from B”, “do X and Y move together”, or “does the claim hold after adjustment”? | `analyze_variable`, `compare_groups`, `correlation_matrix`, `run_repeated_measures`, `run_advanced_analysis` | `register_analysis_plan` |
 | Figure planning | Which figure best supports the question: distribution, difference, relationship, or trajectory? | histogram / boxplot / violin / scatter / heatmap / line / paired / bar | `create_visualization` |
-| Governance lock | What is primary vs secondary, and what are alpha, missing-data, fallback, and required outputs? | Build an auditable contract before Phase 6 | `register_analysis_plan(confirm=true)`, `log_deviation` |
+| Governance lock | What is primary vs secondary, and what are alpha, missing-data, fallback, and required outputs? | Build an auditable contract before Phase 8 | `register_analysis_plan(confirm=true)`, `log_deviation` |
 
 A quick rule of thumb:
 
@@ -323,7 +324,7 @@ Question: Does success improve over trial order, and where does performance stab
 Suggested path: this is not a plain group comparison; Phase 4 should explicitly register `run_advanced_analysis(analysis_type="learning_curve_cusum")`.
 Figures: `line` for the raw trend, with the formal evidence coming from the CUSUM artifact.
 
-Without these two phases, a fully governed Phase 6 execution path is not really established. If the method changes later, the deviation should be logged explicitly.
+Without these planning phases, a fully governed Phase 8 execution path is not really established. If the method changes later, the deviation should be logged explicitly.
 
 ### When agents or subagents help
 
@@ -343,7 +344,7 @@ RDE is not designed to exhaustively run every statistical method in the library.
 
 At the moment, method coverage is best understood in layers:
 
-- the Phase 6 user-facing layer exposes 6 main analysis entrypoints plus 1 visualization entrypoint: `compare_groups`, `analyze_variable`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures`, and `create_visualization`
+- the Phase 8 user-facing layer exposes 6 main analysis entrypoints plus 1 visualization entrypoint: `compare_groups`, `analyze_variable`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures`, and `create_visualization`
 - the Phase 4 analysis plan schema currently allows 16 analysis types
 - the local Scipy engine declares 16 capabilities in the manifest
 - the delegated automl layer declares 10 advanced capabilities in the manifest
@@ -353,7 +354,7 @@ These numbers should not be added together directly because they represent diffe
 More importantly, the agent does not automatically run every possible method because:
 
 - `compare_groups` is already expected to choose an appropriate test based on data type, group structure, normality, and pairing, rather than running t-test, Mann-Whitney U, ANOVA, Kruskal-Wallis, chi-square, and Fisher all at once
-- Phase 3 and Phase 4 are meant to turn the research question into a governed contract before Phase 6 executes anything
+- Phase 3 through Phase 6 are meant to turn the research question into a governed contract before Phase 8 executes anything
 - blindly running every possible method would inflate multiple comparisons, method drift, false positives, and audit noise
 - in that sense, the system is intentionally selective, but only within the families that have actually been implemented, tested, and accepted by the plan schema; if a method family is not wired into the schema, delegator, or heuristics, it will not be adopted automatically in governed execution
 

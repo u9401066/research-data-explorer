@@ -64,7 +64,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 | H-006 | 輸出清除敏感路徑 | 自動清除 |
 | H-007 | Plan Lock | Phase 6+ 需鎖定計畫 |
 | H-008 | Artifact Gate | 前一 Phase 必須完成 |
-| H-009 | Decision Logging | Phase 6 自動記錄 |
+| H-009 | Decision Logging | Phase 8 自動記錄 |
 | H-010 | Append-Only Logs | decision/deviation log 不可修改 |
 
 ### 統計提醒 (Soft Constraints)

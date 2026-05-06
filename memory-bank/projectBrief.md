@@ -19,7 +19,7 @@ Research Data Explorer (RDE) 是 MCP + VS Code Agent 的完整工作流程系統
 2. **Pre-registration 精神** — 先制定計畫，鎖定後才執行
 3. **報告 ⊃ 論文** — 報告是完整探索記錄，作者從中提取可發表內容
 4. **DDD 架構** — Interface → Application → Domain ← Infrastructure
-5. **11-Phase Pipeline** — Phase 0-10，每步產出結構化 artifact
+5. **13-Phase Pipeline** — Phase 0-12，每步產出結構化 artifact
 
 ## Tool Chain
 
@@ -30,7 +30,7 @@ rawdata/ → [RDE] → 完整 EDA 報告 → [Med-Paper-Assistant] → 論文
 ## Repository
 
 - Python >=3.11, FastMCP
-- 31 MCP tools across 7 tool files
+- 32 MCP tools across 7 tool files
 - automl-stat-mcp as vendor submodule (Docker 獨立服務)
 - `.github/agent-control.yaml` 作為 agent workflow / gate / override / audit path 的 authoritative manifest
-- `propose_analysis_plan()` 讓 agent 在 Phase 3 後先做 greedy autonomous EDA ideation，再由 Phase 4 進行人工確認與 plan lock
+- `propose_analysis_plan()` 讓 agent 在 Phase 4 做 greedy autonomous EDA ideation，再經 Phase 5 review 與 Phase 6 plan lock

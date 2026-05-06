@@ -39,9 +39,10 @@ Interface (MCP tools) -> Application (Use Cases) -> Domain (Pure logic) <- Infra
 
 The product behavior is governed by a 13-phase pipeline.
 
-- Phase 0-5 establish project state, schema, concept alignment, plan lock, and readiness.
-- Phase 6 executes analysis and writes decision logs.
-- Phase 7-10 collect, report, audit, improve, and export.
+- Phase 0-3 establish project state, schema, and concept alignment.
+- Phase 4-7 generate candidates, review completeness, lock the plan, and check readiness.
+- Phase 8 executes analysis and writes decision logs.
+- Phase 9-12 collect, report, audit, improve, and export.
 
 The authoritative operational contract is `.github/agent-control.yaml`.
 

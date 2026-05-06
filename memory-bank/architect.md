@@ -2,7 +2,7 @@
 
 ## Overview
 
-RDE 採用 DDD (Domain-Driven Design) 四層架構，配合 11-Phase Auditable EDA Pipeline。
+RDE 採用 DDD (Domain-Driven Design) 四層架構，配合 13-Phase Auditable EDA Pipeline。
 
 ## Architecture
 
@@ -26,11 +26,11 @@ Interface (MCP tools) → Application (Use Cases, Pipeline) → Domain (Pure Log
 3. **Anti-Corruption Layer**: AutomlGateway 隔離 automl-stat-mcp API 概念
 4. **Pre-commit hooks**: 4 custom hooks 確保 decision log 完整性、PII 防護
 5. **Append-only logs**: decision_log.jsonl/deviation_log.jsonl 不可修改 (H-010)
-6. **Plan Lock**: Phase 4 鎖定分析計畫，Phase 6+ 偏離需記錄 (H-007)
+6. **Plan Lock**: Phase 6 鎖定分析計畫，Phase 8+ 偏離需記錄 (H-007)
 7. **Artifact Gate**: 前一 Phase artifact 必須存在才能進入下一 Phase (H-008)
 8. **Export 雙格式**: python-docx (Word) + xhtml2pdf (PDF)，嵌入圖表與表格
 9. **Authoritative Control Manifest**: `.github/agent-control.yaml` 為 agent workflow 的實作契約，文件與測試都需對齊
 10. **Phase-ready helper**: MCP tools 透過 shared helper 進行 gate / artifact / sample-size 驗證，避免各 tool 各自散落實作
-11. **Plan-aware execution**: Phase 6 decision logging 延伸為 auto deviation detection，將 S-011 轉為可執行治理機制
-12. **Autonomous ideation stays pre-lock**: greedy EDA 發想層以 `propose_analysis_plan()` 存在於 Phase 3 與 Phase 4 之間，只產生 blueprint，不直接繞過 user confirmation 或 plan lock
-13. **Methodology gate before lock**: Phase 3.5 先用 deterministic review / repair 補足缺失分析家族；Phase 4 再用 methodology gate 阻止 under-scoped plan 被直接鎖定，除非明示 override
+11. **Plan-aware execution**: Phase 8 decision logging 延伸為 auto deviation detection，將 S-011 轉為可執行治理機制
+12. **Autonomous ideation stays pre-lock**: greedy EDA 發想層以 Phase 4 `propose_analysis_plan()` 產生 blueprint，不直接繞過 user confirmation 或 plan lock
+13. **Methodology gate before lock**: Phase 5 先用 deterministic review / repair 補足缺失分析家族；Phase 6 再用 methodology gate 阻止 under-scoped plan 被直接鎖定，除非明示 override

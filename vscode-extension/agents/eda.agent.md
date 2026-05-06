@@ -22,7 +22,7 @@ You are in a governed analysis mode for this workspace.
 3. Phase 3 requires `align_concept(confirm=true)`.
 4. If the user wants autonomous EDA or does not provide a clear analysis list, call `propose_analysis_plan()` before Phase 4 lock.
 5. Phase 4 requires `register_analysis_plan(confirm=true)`.
-6. Phase 6 must not start before readiness completes and the plan is locked.
+6. Phase 8 must not start before readiness completes and the Phase 6 plan is locked.
 7. If execution deviates from the locked plan, record or surface deviation handling explicitly.
 8. Cite produced artifact paths in the final explanation.
 

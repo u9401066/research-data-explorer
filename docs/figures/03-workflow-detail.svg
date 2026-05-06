@@ -24,7 +24,7 @@
   <rect width="1100" height="920" rx="16" fill="url(#bg)"/>
 
   <!-- Title -->
-  <text x="550" y="40" text-anchor="middle" font-size="26" font-weight="700" fill="#1e293b">Research Data Explorer — 11-Phase 工作流程細部介紹</text>
+  <text x="550" y="40" text-anchor="middle" font-size="26" font-weight="700" fill="#1e293b">Research Data Explorer — 13-Phase 工作流程細部介紹</text>
   <text x="550" y="62" text-anchor="middle" font-size="12" fill="#64748b">Constrained Auditable EDA Pipeline · Each phase enforced by code, not just prompts</text>
 
   <!-- Legend -->
@@ -101,10 +101,10 @@
   <!-- Arrow right -->
   <line x1="364" y1="328" x2="394" y2="328" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 3.5 ============ -->
+  <!-- ============ PHASE 4 ============ -->
   <g filter="url(#s)" transform="translate(400, 268)">
     <rect width="310" height="120" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 3.5: AI 分析計畫提案</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 4: AI 分析計畫提案</text>
     <text x="16" y="44" font-size="11" fill="#334155">propose_analysis_plan()</text>
     <text x="16" y="62" font-size="9" fill="#64748b">• 候選分析方向生成</text>
     <text x="16" y="76" font-size="9" fill="#64748b">• 方法學內部審查 + 修復</text>
@@ -115,10 +115,10 @@
   <!-- Arrow right -->
   <line x1="714" y1="328" x2="744" y2="328" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 4 ============ -->
+  <!-- ============ PHASE 5/6 ============ -->
   <g filter="url(#s)" transform="translate(750, 268)">
     <rect width="310" height="120" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 4: 計畫鎖定 ✋🔒</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 5/6: 審查與計畫鎖定 ✋🔒</text>
     <text x="16" y="44" font-size="11" fill="#334155">register_analysis_plan(confirm=true)</text>
     <text x="16" y="62" font-size="9" fill="#64748b">• 方法學閘門：計畫太薄 → 自動擴充</text>
     <text x="16" y="76" font-size="9" fill="#64748b">• alpha / 多重比較 / 缺失值策略鎖定</text>
@@ -126,26 +126,26 @@
     <text x="16" y="106" font-size="9" fill="#64748b">📦 analysis_plan.yaml (locked) · execution_schedule</text>
   </g>
 
-  <!-- Arrow down from Phase 4 -->
+  <!-- Arrow down from Phase 5/6 -->
   <line x1="905" y1="392" x2="905" y2="424" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 5 ============ -->
+  <!-- ============ PHASE 7 ============ -->
   <g filter="url(#s)" transform="translate(750, 428)">
     <rect width="310" height="90" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 5: 就緒檢查 🔒</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#15803d">Phase 7: 就緒檢查 🔒</text>
     <text x="16" y="44" font-size="11" fill="#334155">check_readiness</text>
     <text x="16" y="62" font-size="9" fill="#64748b">• 驗證所有上游 artifacts 存在</text>
     <text x="16" y="76" font-size="9" fill="#64748b">• 計畫已鎖定 · Schema 已註冊</text>
-    <text x="16" y="86" font-size="8" fill="#dc2626">▼ H-007: 必須通過才能進入 Phase 6 · H-008: artifact gate</text>
+    <text x="16" y="86" font-size="8" fill="#dc2626">▼ H-007: 必須通過才能進入 Phase 8 · H-008: artifact gate</text>
   </g>
 
-  <!-- Arrow left from Phase 5 to Phase 6 -->
+  <!-- Arrow left from Phase 7 to Phase 8 -->
   <line x1="750" y1="473" x2="720" y2="473" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 6 ============ -->
+  <!-- ============ PHASE 8 ============ -->
   <g filter="url(#s)" transform="translate(30, 428)">
     <rect width="685" height="170" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#b45309">Phase 6: 分析執行 🔬</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#b45309">Phase 8: 分析執行 🔬</text>
     <text x="350" y="24" font-size="10" fill="#92400e">依照 execution_schedule 順序執行</text>
 
     <!-- Sub-tools grid -->
@@ -191,25 +191,25 @@
     <text x="16" y="160" font-size="8" fill="#dc2626">▼ H-009: 每次分析必須記錄決策 · H-010: append-only 日誌 · 方法由資料自動選擇，不盲目執行所有方法</text>
   </g>
 
-  <!-- Arrow down from Phase 6 -->
+  <!-- Arrow down from Phase 8 -->
   <line x1="370" y1="602" x2="370" y2="634" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 7 ============ -->
+  <!-- ============ PHASE 9 ============ -->
   <g filter="url(#s)" transform="translate(30, 638)">
     <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 7: 結果彙整</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 9: 結果彙整</text>
     <text x="16" y="44" font-size="11" fill="#334155">collect_results</text>
-    <text x="16" y="62" font-size="9" fill="#64748b">• 掃描所有 Phase 6 artifacts</text>
+    <text x="16" y="62" font-size="9" fill="#64748b">• 掃描所有 Phase 8 artifacts</text>
     <text x="16" y="76" font-size="9" fill="#64748b">📦 collected_results.json</text>
   </g>
 
   <!-- Arrow -->
   <line x1="264" y1="683" x2="294" y2="683" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 8 ============ -->
+  <!-- ============ PHASE 10 ============ -->
   <g filter="url(#s)" transform="translate(300, 638)">
     <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 8: 報告組裝</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 10: 報告組裝</text>
     <text x="16" y="44" font-size="11" fill="#334155">assemble_report</text>
     <text x="16" y="62" font-size="9" fill="#64748b">• DOCX / Markdown 報告產出</text>
     <text x="16" y="76" font-size="9" fill="#64748b">📦 report.docx · report_integrity_check</text>
@@ -219,10 +219,10 @@
   <!-- Arrow -->
   <line x1="534" y1="683" x2="564" y2="683" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 9 ============ -->
+  <!-- ============ PHASE 11 ============ -->
   <g filter="url(#s)" transform="translate(570, 638)">
     <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 9: 品質稽核</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 11: 品質稽核</text>
     <text x="16" y="44" font-size="11" fill="#334155">run_audit</text>
     <text x="16" y="62" font-size="9" fill="#64748b">• 計畫遵守度 / Artifact 完整性</text>
     <text x="16" y="76" font-size="9" fill="#64748b">📦 audit_report.json</text>
@@ -231,10 +231,10 @@
   <!-- Arrow -->
   <line x1="804" y1="683" x2="834" y2="683" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- ============ PHASE 10 ============ -->
+  <!-- ============ PHASE 12 ============ -->
   <g filter="url(#s)" transform="translate(840, 638)">
     <rect width="230" height="90" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.5"/>
-    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 10: 自動改善 + 交付</text>
+    <text x="16" y="24" font-size="13" font-weight="700" fill="#7e22ce">Phase 12: 自動改善 + 交付</text>
     <text x="16" y="44" font-size="11" fill="#334155">auto_improve · export_handoff</text>
     <text x="16" y="62" font-size="9" fill="#64748b">• verify_audit_trail</text>
     <text x="16" y="76" font-size="9" fill="#64748b">📦 handoff_package/ · audit_trail ✓</text>
@@ -267,7 +267,7 @@
     <text x="30" y="40" font-size="10" fill="#94a3b8">Agent 不盲目執行所有方法 — 由 Pipeline 依資料型別、研究問題自動選擇適合的統計方法，拒絕「想到就跑」的研究方式</text>
   </g>
 
-  <!-- Phase 6 delegation detail -->
+  <!-- Phase 8 delegation detail -->
   <g filter="url(#s)" transform="translate(830, 540)">
     <rect width="240" height="80" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
     <text x="16" y="22" font-size="10" font-weight="600" fill="#c2410c">委派路由決策</text>

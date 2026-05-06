@@ -1,7 +1,7 @@
 # Research Data Explorer — Constitution
 
 > 本文件定義 RDE 專案的核心原則與治理結構。所有 bylaws、skills、agent 行為均以此為最高準則。
-> Version: 0.2.0 | Architecture: DDD | Pipeline: 11-Phase Auditable EDA
+> Version: 0.2.0 | Architecture: DDD | Pipeline: 13-Phase Auditable EDA
 
 ## Article I: Mission
 
@@ -71,8 +71,8 @@ Interface → Application → Domain ← Infrastructure
 | 規則 | 層級 | 說明 |
 |------|------|------|
 | Phase Gate | Hard | 前一 Phase artifacts 必須存在才能進入下一 Phase |
-| Plan Lock | Hard | Phase 4 鎖定後，偏離必須記錄理由 |
-| Decision Log | Hard | Phase 6 每個分析操作必須寫入 log |
+| Plan Lock | Hard | Phase 6 鎖定後，Phase 8+ 偏離必須記錄理由 |
+| Decision Log | Hard | Phase 8 每個分析操作必須寫入 log |
 | Append-Only | Hard | decision_log 和 deviation_log 不可修改 |
 | User Confirm | Hard | Phase 3 和 Phase 4 必須用戶確認 |
 | Artifact Output | Hard | 每個 Phase 必須產出指定 artifacts |
@@ -109,7 +109,7 @@ Interface → Application → Domain ← Infrastructure
 - RDE 負責: orchestration, hooks, constraints, EDA step decomposition, **audit trail**
 - automl-stat-mcp 負責: 重量級統計分析、ML 訓練
 - 透過 `AutomlGateway` (Anti-Corruption Layer) 通訊，保持鬆耦合
-- automl 的操作指令在 Phase 4 預排，Phase 6 按計畫執行
+- automl 的操作指令在 Phase 6 預排，Phase 8 按計畫執行
 
 ### §2 與 med-paper-assistant 的契約
 

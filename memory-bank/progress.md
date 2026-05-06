@@ -1,8 +1,16 @@
-# Progress (Updated: 2026-03-28)
+# Progress (Updated: 2026-05-06)
+
+## MEM+ 2026-05-06
+
+- [x] Canonical 13-phase contract aligned across manifest, MCP runtime, tests, prompts, VSIX assets, AGENTS, SPEC, and memory docs.
+- [x] Phase 4/5/6 planning now emits separate greedy blueprint, methodology review, and locked plan artifacts.
+- [x] VSIX setup now scaffolds Copilot, Codex, and Cline harness assets.
+- [x] Runtime hardening added value-level PII detection, project-bound dataset rehydrate, Phase 4/5 readiness gates, Shapiro-Wilk preview, and Phase 5 methodology-review based report readiness.
+- [ ] Finish 0.4.5 release verification, push, and tag.
 
 ## Done
 
-- 新增 `propose_analysis_plan()` MCP tool，作為 Phase 3.5 greedy autonomous EDA layer
+- 新增 `propose_analysis_plan()` MCP tool，作為 Phase 4 greedy autonomous EDA layer
 - 新增 AutonomousEDAPlanner domain service 與 ProposeAnalysisPlanUseCase
 - 將 greedy plan ideation 接入 extension tool allowlist、strict agent prompt、workflow skill、README 與 agent-control manifest
 - 新增 autonomous planner tests，並驗證全 repo pytest 通過（57 passed, 4 skipped）

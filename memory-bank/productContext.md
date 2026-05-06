@@ -2,21 +2,21 @@
 
 ## Overview
 
-Research Data Explorer (RDE) — MCP Server 提供 11-Phase Auditable EDA Pipeline，結合 VS Code Agent (chatmodes + instructions + skills) 讓研究者透過自然語言完成資料分析。
+Research Data Explorer (RDE) — MCP Server 提供 13-Phase Auditable EDA Pipeline，結合 VS Code Agent (chatmodes + instructions + skills) 讓研究者透過自然語言完成資料分析。
 
 ## Core Features
 
-- **11-Phase Pipeline**: Project Setup → Data Intake → Schema → Concept Alignment → Greedy Plan Ideation → Plan → Precheck → Execute → Collect → Report → Audit → Auto-Improve
-- **31 MCP Tools**: 7 tool 檔案涵蓋 project/discovery/profiling/plan/analysis/report/audit
+- **13-Phase Pipeline**: Project Setup → Data Intake → Schema → Concept Alignment → Creative Ideation → Plan Completeness Review → Plan Registration → Precheck → Execute → Collect → Report → Audit → Auto-Improve
+- **32 MCP Tools**: 7 tool 檔案涵蓋 project/discovery/profiling/plan/analysis/report/audit
 - **Audit Trail**: decision_log.jsonl + deviation_log.jsonl (append-only)
 - **Hard Constraints** (H-001~H-010): 自動防呆（檔案大小、格式、PII、plan lock 等）
 - **Soft Constraints** (S-001~S-012): 統計提醒（常態性、多重比較、效果量等）
 - **automl-stat-mcp 委派**: 進階統計（PSM、survival、ROC）委派給 Docker 服務
 - **Export**: Word (.docx) + PDF 輸出含嵌入圖表
 - **Machine-readable governance**: `.github/agent-control.yaml` 定義 confirm flag、PII override、audit path、delegation、analysis plan schema
-- **Plan-aware execution**: Phase 6 工具會自動比對已鎖定 analysis_plan.yaml，偏離時自動寫入 deviation log
-- **Autonomous ideation**: `propose_analysis_plan()` 以 deterministic greedy heuristic 產生 ranked candidates + visualization bundle，輸出可直接送入 Phase 4 的 blueprint
-- **Methodology guardrails**: Phase 3.5 會先做 internal review + repair；Phase 4 對 under-scoped plan 預設拒絕鎖定，除非明確 override
+- **Plan-aware execution**: Phase 8 工具會自動比對 Phase 6 鎖定的 analysis_plan.yaml，偏離時自動寫入 deviation log
+- **Autonomous ideation**: `propose_analysis_plan()` 以 deterministic greedy heuristic 產生 ranked candidates + visualization bundle，輸出 Phase 4 creative ideation blueprint
+- **Methodology guardrails**: Phase 5 會先做 internal review + repair；Phase 6 對 under-scoped plan 預設拒絕鎖定，除非明確 override
 
 ## Technical Stack
 

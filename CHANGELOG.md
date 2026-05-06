@@ -6,6 +6,23 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-05-06
+
+### 0.4.5 Added
+
+- Canonical 13-phase harness alignment across MCP runtime, agent-control manifest, prompts, AGENTS/SPEC docs, memory bank, and VSIX runtime instructions.
+- VSIX workspace setup now scaffolds Copilot, Codex, and Cline assets, including root `AGENTS.md`, `.codex/skills`, and `.clinerules` rules/workflows.
+- VSIX release checks now include asset sync validation and bundled-tool install smoke testing.
+- Value-level PII detection now flags generic columns that contain email, phone, SSN-style, or national-ID-like sample values.
+
+### 0.4.5 Fixed
+
+- Phase 4/5/6 planning gates now produce distinct creative-ideation, plan-completeness-review, and locked-plan artifacts before readiness/execution.
+- Report readiness now reads `analysis_plan_review.json` from Phase 5, matching the canonical 13-phase artifact contract.
+- Project-bound datasets can now rehydrate from Phase 1 intake artifacts after MCP session reset.
+- Phase 7 readiness now checks Phase 4/5 artifacts and includes Shapiro-Wilk normality previews for continuous variables.
+- Decision and deviation log entries now identify Phase 8 execution rather than legacy Phase 6 execution.
+
 ## [0.4.4] - 2026-04-14
 
 ### 0.4.4 Fixed
@@ -17,7 +34,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### 0.4.3 Added
 
-- Three new SVG architecture figures under `docs/figures/` covering the overall concept, DDD system architecture, and the full 11-phase governed workflow.
+- Three new SVG architecture figures under `docs/figures/` covering the overall concept, DDD system architecture, and the then-current governed workflow.
 - Visual Overview sections in both `README.md` and `README.zh-TW.md` so the new diagrams are visible directly from the repository landing pages.
 
 ### 0.4.3 Fixed
@@ -45,7 +62,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 ### 0.4.0 Added
 
 - **Autonomous EDA Planner** (`AutonomousEDAPlanner`): greedy candidate ranking, multi-round plan enrichment, deterministic methodology review/repair, execution schedule generation, and `statsmodels`-centered baseline analysis script generation.
-- **`propose_analysis_plan()` MCP tool** (Phase 3.5): generates a pre-lock blueprint with ranked candidates, coverage tags, enrichment rounds, and a reviewable statsmodels script before Phase 4 plan registration.
+- **`propose_analysis_plan()` MCP tool**: generates a pre-lock blueprint with ranked candidates, coverage tags, enrichment rounds, and a reviewable statsmodels script before plan registration.
 - **`statsmodels>=0.14`** added as first-class local modeling dependency for OLS, logistic, GLM, ANOVA, and multiple-testing correction.
 - **Vendor integration overhaul**: `AutomlGateway` now targets the real `automl-stat-mcp` submit-based contract (`/analysis/submit`, `/propensity/submit`, `/survival/submit`, `/roc/submit`, `/power/submit`, `/train/automl`), with proper job-ID polling and fallback.
 - **Phase 6 `run_advanced_analysis()`** extended with `survival_analysis`, `roc_auc`, `power_analysis`, and `automl_training` parameter mappings for vendor delegation.

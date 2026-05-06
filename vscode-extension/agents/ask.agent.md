@@ -27,6 +27,6 @@ You answer questions about this repository with emphasis on governance, the 13-p
 ## RDE-specific reminders
 
 - Phase 3 and Phase 4 require explicit confirmation.
-- Phase 6 requires a locked plan and produces decision logging.
+- Phase 6 locks the plan; Phase 8 execution produces decision logging.
 - PII detection blocks intake or loading unless the override flag is explicit.
 - Heavy analysis may delegate to `automl-stat-mcp` and can fall back locally.
