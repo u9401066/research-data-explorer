@@ -125,6 +125,18 @@ class PipelineState:
 
     def can_execute(self, phase: PipelinePhase) -> tuple[bool, str]:
         """Check if a phase can be executed given prerequisites and artifact gate."""
+        # Surface missing confirmations from earlier gated phases before later
+        # prerequisite checks. This gives agents the actionable blocker instead
+        # of a downstream phase that cannot be reached yet.
+        target_index = PHASE_ORDER.index(phase)
+        for completed_phase, result in self.completed_phases.items():
+            if completed_phase not in USER_CONFIRMATION_REQUIRED:
+                continue
+            if PHASE_ORDER.index(completed_phase) >= target_index:
+                continue
+            if not result.user_confirmed:
+                return False, f"Phase '{completed_phase.value}' requires explicit user confirmation"
+
         # Check prerequisites
         required = PREREQUISITES.get(phase, set())
         if not self.is_quick_explore:

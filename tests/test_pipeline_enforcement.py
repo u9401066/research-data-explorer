@@ -7,7 +7,7 @@ from rde.domain.models.project import Project
 from rde.interface.mcp.tools.discovery_tools import _pii_gate_message
 
 
-def test_phase_four_requires_confirmed_alignment() -> None:
+def test_later_phase_attempts_surface_unconfirmed_alignment_before_missing_prerequisites() -> None:
     pipeline = PipelineState(project_id="proj-1")
     pipeline.mark_completed(
         PhaseResult(

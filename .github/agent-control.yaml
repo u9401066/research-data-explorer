@@ -21,7 +21,7 @@ phase_controls:
     next_phase_unblocked_only_when_confirmed: true
   plan_ideation:
     tool: propose_analysis_plan
-    phase: phase_04_plan_registration
+    phase: phase_04_creative_ideation
     requires_confirmed_phase_03: true
     strategy: greedy_coverage_under_budget
     includes_internal_review_and_repair: true
@@ -34,25 +34,31 @@ phase_controls:
       - greedy_analysis_review.md
       - greedy_execution_schedule.json
       - greedy_execution_schedule.md
-  plan_registration:
+  plan_completeness_review:
     tool: register_analysis_plan
-    phase: phase_04_plan_registration
+    phase: phase_05_plan_completeness_review
     requires_user_confirmation: true
     confirmation_flag: confirm
-    locks_plan_when_confirmed: true
+    locks_plan_when_confirmed: false
     methodology_review_applies_before_lock: true
     methodology_auto_expands_exploratory_branches_before_block: true
     methodology_override_flag: allow_methodology_override
     methodology_review_artifacts:
       - analysis_plan_review.json
       - analysis_plan_review.md
+  plan_registration:
+    tool: register_analysis_plan
+    phase: phase_06_plan_registration
+    requires_user_confirmation: true
+    confirmation_flag: confirm
+    locks_plan_when_confirmed: true
     execution_schedule_artifacts:
       - analysis_execution_schedule.json
       - analysis_execution_schedule.md
   execute_exploration:
-    phase: phase_06_execute_exploration
+    phase: phase_08_execute_exploration
     requires_locked_plan: true
-    requires_successful_phase_05: true
+    requires_successful_phase_07: true
     requires_decision_logging: true
 
 override_controls:
@@ -65,11 +71,11 @@ override_controls:
     user_visible_warning_required_on_override: true
 
 audit_contract:
-  decision_log_path: artifacts/phase_06_execute_exploration/decision_log.jsonl
-  deviation_log_path: artifacts/phase_06_execute_exploration/deviation_log.jsonl
-  phase_06_required_artifacts:
+  decision_log_path: artifacts/phase_08_execute_exploration/decision_log.jsonl
+  deviation_log_path: artifacts/phase_08_execute_exploration/deviation_log.jsonl
+  phase_08_required_artifacts:
     - decision_log.jsonl
-  phase_10_required_artifacts:
+  phase_12_required_artifacts:
     - final_report.md
 
 tool_expectations:
@@ -82,7 +88,7 @@ tool_expectations:
 plan_adherence:
   auto_detection: true
   mechanism: >-
-    Phase 6 tools (_auto_log_decision) auto-compare the current operation
+    Phase 8 tools (_auto_log_decision) auto-compare the current operation
     against analysis_plan.yaml. If tool+variables don't match any planned
     analysis, a deviation entry is auto-logged to deviation_log.jsonl.
   deviation_log_auto_populated: true
