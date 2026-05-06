@@ -31,7 +31,7 @@ def register_project_tools(server: Any) -> None:
         """建立新的 EDA 探索專案（Phase 0）。
 
         建立專案目錄結構，初始化 project.yaml，產生唯一 project_id。
-        這是 11-Phase Pipeline 的第一步。
+        這是 13-Phase Pipeline 的第一步。
 
         Args:
             name: 專案名稱，用於識別此次探索性分析（如 "sepsis_eda"、"aki_analysis"）
@@ -134,7 +134,7 @@ def register_project_tools(server: Any) -> None:
 
     @server.tool()
     def get_pipeline_status(project_id: str | None = None) -> str:
-        """查看目前分析專案的 11-Phase Pipeline 進度。
+        """查看目前分析專案的 13-Phase Pipeline 進度。
 
         顯示已完成階段、計畫鎖定狀態、已載入資料集數量。
 

@@ -248,7 +248,7 @@ init_project → run_intake → build_schema → profile_dataset → assemble_re
 ### Guided Comparison Flow（用戶想做組間比較）
 
 ```text
-完整 Phase 0-5 → generate_table_one + compare_groups → collect → report → audit
+完整 Phase 0-7 → generate_table_one + compare_groups → collect → report → audit
 ```
 
 ## Hook Reference
@@ -290,11 +290,11 @@ init_project → run_intake → build_schema → profile_dataset → assemble_re
 ```text
 用戶說什麼 → 你做什麼
 
-「我有資料想分析」         → 完整 Phase 0-10 流程
+「我有資料想分析」         → 完整 13-Phase 流程
 「只想快速看概況」         → Quick Explore Flow
-「比較兩組差異」           → Phase 0-5 → compare_groups → Phase 7-11
-「做 Table 1」            → Phase 0-5 → generate_table_one → Phase 7-11
-「看相關性」               → Phase 0-5 → correlation_matrix → Phase 7-11
+「比較兩組差異」           → Phase 0-7 → compare_groups → Phase 9-12
+「做 Table 1」            → Phase 0-7 → generate_table_one → Phase 9-12
+「看相關性」               → Phase 0-7 → correlation_matrix → Phase 9-12
 「跑複雜統計模型」         → Phase 8 委派 automl-stat-mcp
 「目前進度？」             → get_pipeline_status
 「決策紀錄？」             → get_decision_log

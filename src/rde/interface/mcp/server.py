@@ -2,7 +2,7 @@
 
 Registers all MCP tools and configures the server.
 Thin layer: receives tool calls, delegates to use cases.
-Tool groups organized around the 11-Phase Auditable EDA Pipeline.
+Tool groups organized around the 13-Phase Auditable EDA Pipeline.
 """
 
 from __future__ import annotations
@@ -34,10 +34,10 @@ def create_server():
     server = FastMCP(
         "research-data-explorer",
         instructions=(
-            "Research Data Explorer (RDE) — 11-Phase Auditable EDA Pipeline.\n"
+            "Research Data Explorer (RDE) — 13-Phase Auditable EDA Pipeline.\n"
             "使用此工具進行結構化、可審計的探索性資料分析。\n"
             "所有分析決策自動記錄 (H-009)，偏離計畫需明確記錄。\n"
-            "Pipeline: Phase 0 (Setup) → Phase 10 (Auto-Improve)。"
+            "Pipeline: Phase 0 (Setup) → Phase 12 (Auto-Improve)。"
         ),
     )
 
@@ -45,9 +45,9 @@ def create_server():
     register_project_tools(server)  # Phase 0: Project Setup
     register_discovery_tools(server)  # Phase 1-2: Data Intake & Schema
     register_profiling_tools(server)  # Phase 2: Schema Registry (profiling)
-    register_plan_tools(server)  # Phase 3-5: Concept, Plan, Pre-check
-    register_analysis_tools(server)  # Phase 6-7: Execute & Collect
-    register_report_tools(server)  # Phase 8: Report Assembly
-    register_audit_tools(server)  # Phase 9-10: Audit & Improve
+    register_plan_tools(server)  # Phase 3-7: Concept, Plan, Pre-check
+    register_analysis_tools(server)  # Phase 8-9: Execute & Collect
+    register_report_tools(server)  # Phase 10: Report Assembly
+    register_audit_tools(server)  # Phase 11-12: Audit & Improve
 
     return server

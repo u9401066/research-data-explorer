@@ -1,5 +1,5 @@
 ---
-description: "💻 RDE 實作者 — 依 DDD 與 11-phase workflow 實作功能，不破壞 phase gate、audit log 與 delegation contract。"
+description: "💻 RDE 實作者 — 依 DDD 與 13-phase workflow 實作功能，不破壞 phase gate、audit log 與 delegation contract。"
 model:
   - "GPT-5.4 (copilot)"
   - "Claude Sonnet 4.6 (copilot)"

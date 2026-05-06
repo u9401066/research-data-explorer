@@ -101,7 +101,7 @@ export const BUNDLED_SKILLS = [
  * Prompts bundled in the VSX extension.
  */
 export const BUNDLED_PROMPTS = [
-    'rde-phase-0-10',
+    'rde-13-phase',
     'rde-audit',
     'rde-code-review',
     'rde-pre-commit',
@@ -120,4 +120,12 @@ export const BUNDLED_AGENTS = [
     'eda',
     'orchestrator',
     'test-runner',
+] as const;
+
+/**
+ * Cline rules bundled in the VSX extension.
+ */
+export const BUNDLED_CLINE_RULES = [
+    '00-rde.md',
+    'workflows/rde-full-report.md',
 ] as const;

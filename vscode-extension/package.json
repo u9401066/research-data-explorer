@@ -1,7 +1,7 @@
 {
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
-  "description": "11-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
+  "description": "13-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
   "version": "0.4.4",
   "publisher": "u9401066",
   "license": "Apache-2.0",
@@ -44,7 +44,7 @@
         "id": "rde.assistant",
         "name": "rde",
         "fullName": "Research Data Explorer",
-        "description": "結構化、可審計的探索性資料分析 — 11-Phase Pipeline",
+        "description": "結構化、可審計的探索性資料分析 — 13-Phase Pipeline",
         "isSticky": true,
         "commands": [
           {
@@ -120,7 +120,7 @@
       },
       {
         "command": "rde.runPipeline",
-        "title": "Run Full Pipeline (Phase 0-10)",
+        "title": "Run Full Pipeline (13-Phase)",
         "category": "RDE"
       },
       {
@@ -163,6 +163,9 @@
     "watch": "node ./scripts/run-with-npm-node.cjs ./node_modules/typescript/bin/tsc -watch -p ./",
     "pretest": "node ./scripts/run-with-npm-node.cjs ./scripts/prepare-bundle.mjs && node ./scripts/run-with-npm-node.cjs ./node_modules/typescript/bin/tsc -p ./",
     "test": "node ./scripts/run-with-npm-node.cjs ./node_modules/vitest/vitest.mjs run",
+    "test:ci": "npm run compile && npm test",
+    "sync-assets:check": "node ./scripts/run-with-npm-node.cjs ./scripts/check-assets.mjs",
+    "test:install-smoke": "npm run prepare:bundle && node ./scripts/run-with-npm-node.cjs ./scripts/install-smoke.mjs",
     "test:watch": "node ./scripts/run-with-npm-node.cjs ./node_modules/vitest/vitest.mjs",
     "lint": "node ./scripts/run-with-npm-node.cjs ./node_modules/eslint/bin/eslint.js src --ext ts",
     "validate": "bash ./scripts/validate-build.sh || powershell -File ./scripts/validate-build.ps1",

@@ -39,7 +39,7 @@ done
 
 # ─── 2. Copy Prompts ───────────────────────────────────────────────────────────
 PROMPTS=(
-    "rde-phase-0-10"
+    "rde-13-phase"
     "rde-audit"
     "rde-code-review"
     "rde-pre-commit"

@@ -3,7 +3,7 @@
 These CANNOT be overridden by the user or Agent.
 They protect data integrity, privacy, and system stability.
 H-001~H-006: Original constraints
-H-007~H-010: Audit trail enforcement (11-Phase Pipeline)
+H-007~H-010: Audit trail enforcement (13-Phase Pipeline)
 """
 
 from __future__ import annotations
@@ -119,7 +119,7 @@ class HardConstraints:
             ),
         )
 
-    # ── Audit Trail Enforcement (11-Phase Pipeline) ──────────────────
+    # ── Audit Trail Enforcement (13-Phase Pipeline) ──────────────────
 
     @staticmethod
     def h007_plan_lock_enforcement(plan_locked: bool, phase_index: int) -> PolicyResult:

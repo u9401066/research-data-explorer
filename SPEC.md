@@ -183,18 +183,20 @@ data/projects/{slug}/
 │   ├── phase_01_data_intake/
 │   ├── phase_02_schema_registry/
 │   ├── phase_03_concept_alignment/
-│   ├── phase_04_plan_registration/
-│   ├── phase_05_pre_explore_check/
-│   ├── phase_06_execute_exploration/
-│   ├── phase_07_collect_results/
-│   ├── phase_08_report_assembly/
-│   ├── phase_09_audit_review/
-│   └── phase_10_auto_improve/
+│   ├── phase_04_creative_ideation/
+│   ├── phase_05_plan_completeness_review/
+│   ├── phase_06_plan_registration/
+│   ├── phase_07_pre_explore_check/
+│   ├── phase_08_execute_exploration/
+│   ├── phase_09_collect_results/
+│   ├── phase_10_report_assembly/
+│   ├── phase_11_audit_review/
+│   └── phase_12_auto_improve/
 └── figures/                  # 圖表產出
 
 Phase 6 append-only logs 實體位置：
-- `artifacts/phase_06_execute_exploration/decision_log.jsonl`
-- `artifacts/phase_06_execute_exploration/deviation_log.jsonl`
+- `artifacts/phase_08_execute_exploration/decision_log.jsonl`
+- `artifacts/phase_08_execute_exploration/deviation_log.jsonl`
 ```
 
 ---
@@ -416,8 +418,8 @@ sensitivity_analyses:
 
 **Decision Log 格式**（每一步 append）：
 ```jsonl
-{"timestamp":"2026-03-01T11:00:00","phase":6,"step":"6.3","action":"generate_table_one","method":"tableone","params":{"groupby":"mortality_30d","variables":["age","sex","sofa_score","cci_score"]},"result_ref":"artifacts/phase_06_execute_exploration/table_one.csv","decision":"Include all baseline variables per plan OBJ-002"}
-{"timestamp":"2026-03-01T11:05:00","phase":6,"step":"6.5","action":"compare_groups","method":"mann_whitney_u","params":{"var":"sofa_score","groups":"mortality_30d"},"result_ref":"artifacts/phase_06_execute_exploration/bivariate_results/sofa_score_vs_mortality.json","decision":"Mann-Whitney chosen because normality check failed (Phase 5 deviation)","effect_size":"r=0.42","p_value":0.00012}
+{"timestamp":"2026-03-01T11:00:00","phase":8,"step":"8.3","action":"generate_table_one","method":"tableone","params":{"groupby":"mortality_30d","variables":["age","sex","sofa_score","cci_score"]},"result_ref":"artifacts/phase_08_execute_exploration/table_one.csv","decision":"Include all baseline variables per plan OBJ-002"}
+{"timestamp":"2026-03-01T11:05:00","phase":8,"step":"8.5","action":"compare_groups","method":"mann_whitney_u","params":{"var":"sofa_score","groups":"mortality_30d"},"result_ref":"artifacts/phase_08_execute_exploration/bivariate_results/sofa_score_vs_mortality.json","decision":"Mann-Whitney chosen because normality check failed (Phase 7 deviation)","effect_size":"r=0.42","p_value":0.00012}
 ```
 
 ---

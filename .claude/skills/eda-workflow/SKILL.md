@@ -1,12 +1,12 @@
 ---
 name: eda-workflow
-description: "11-Phase Auditable EDA Pipeline orchestration. Use when user wants to explore data, run analysis, or asks about the pipeline. Triggers: EDA, 資料探索, 分析資料, pipeline, 11-phase, analyze, 探索."
+description: "13-Phase Auditable EDA Pipeline orchestration. Use when user wants to explore data, run analysis, or asks about the pipeline. Triggers: EDA, 資料探索, 分析資料, pipeline, 13-phase, analyze, 探索."
 ---
 
 # EDA Workflow Orchestrator
 
 ## 描述
-協調 RDE 11-Phase Auditable EDA Pipeline 的完整流程，確保每個 Phase Gate 正確通過。
+協調 RDE 13-Phase Auditable EDA Pipeline 的完整流程，確保每個 Phase Gate 正確通過。
 
 ## 觸發條件
 - 「我有資料想分析」「分析這個 CSV」「資料探索」「EDA」
@@ -128,7 +128,7 @@ export_handoff()   # 產出 handoff package → med-paper-assistant
 | 用戶意圖 | 走哪條路 |
 |----------|----------|
 | 「只想看概況」 | Phase 0→1→2 → profile → Quick Report |
-| 「比較兩組」 | 完整 Phase 0-5 → compare_groups → 7-10 |
-| 「做 Table 1」 | 完整 Phase 0-5 → generate_table_one → 7-10 |
+| 「比較兩組」 | 完整 Phase 0-7 → compare_groups → Phase 9-12 |
+| 「做 Table 1」 | 完整 Phase 0-7 → generate_table_one → Phase 9-12 |
 | 「讓 agent 自主規劃」 | Phase 0→1→2→3 → propose_analysis_plan → 4→10 |
-| 「完整分析」 | 完整 Phase 0-10 |
+| 「完整分析」 | 完整 13-Phase |

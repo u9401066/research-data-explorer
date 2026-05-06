@@ -1028,7 +1028,7 @@ def _build_appendix(logger: Any) -> str:
         lines.append("*No deviations from plan.*\n")
 
     lines.append("\n## Appendix C: Reproducibility\n")
-    lines.append("- **Pipeline:** RDE 11-Phase Auditable EDA")
+    lines.append("- **Pipeline:** RDE 13-Phase Auditable EDA")
     lines.append(f"- **Decision count:** {logger.decision_count}")
     lines.append(f"- **Deviation count:** {logger.deviation_count}")
 

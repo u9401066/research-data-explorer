@@ -44,8 +44,8 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 | 「我有資料想分析」 | 完整 Phase 0-12 |
 | 「幫我自己先規劃分析」 | Phase 0-3 → propose_analysis_plan → Phase 4-12 |
 | 「只想看概況」 | Quick Explore |
-| 「比較兩組差異」 | Phase 0-5 → compare_groups → 7-12 |
-| 「做 Table 1」 | Phase 0-5 → generate_table_one → 7-12 |
+| 「比較兩組差異」 | Phase 0-7 → compare_groups → Phase 9-12 |
+| 「做 Table 1」 | Phase 0-7 → generate_table_one → Phase 9-12 |
 | 「跑進階分析」 | Phase 8: run_advanced_analysis（自動委派 automl） |
 | 「目前進度？」 | get_pipeline_status |
 | 「產出報告」 | Phase 8 assemble_report |
@@ -125,7 +125,7 @@ RDE 透過 `AnalysisDelegator` 自動委派。
 | L2 Pipeline | ✅ | Phase Gate + Artifact Gate |
 | L3 Audit | ✅ | Decision Log + Audit Report |
 | L4 Bylaw | ✅ | .github/bylaws/ |
-| L5 Skill | ✅ | .claude/skills/ |
+| L5 Agent Assets | ✅ | .github/agents, .codex/skills, .clinerules |
 
 ## Zotero + PubMed MCP
 

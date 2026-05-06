@@ -114,13 +114,13 @@ cd vendor/automl-stat-mcp && docker compose up -d
 | ------ | ------ |
 | `RDE: Run Full Pipeline` | 直接啟動完整報告工作流，不是只看 pipeline 狀態 |
 | `RDE: Show Status` | 顯示擴充功能狀態 |
-| `RDE: Setup Workspace` | 設定 Skills/Prompts/Instructions |
+| `RDE: Setup Workspace` | 設定 Copilot/Codex/Cline skills、prompts、rules、instructions |
 
 ### Agent Mode 自然語言
 
 直接在 Agent Mode 輸入：
 
-- 「我有資料想分析」→ 完整 Phase 0-10
+- 「我有資料想分析」→ 完整 13-Phase
 - 「請幫我完成完整分析報告」→ `/fullreport`
 - 「只想看概況」→ Quick Explore
 - 「比較兩組差異」→ compare_groups

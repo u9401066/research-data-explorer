@@ -43,7 +43,7 @@ foreach ($skill in $Skills) {
 
 # ─── 2. Copy Prompts ───────────────────────────────────────────────────────────
 $Prompts = @(
-    "rde-phase-0-10"
+    "rde-13-phase"
     "rde-audit"
     "rde-code-review"
     "rde-pre-commit"

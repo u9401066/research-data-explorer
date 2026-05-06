@@ -3,7 +3,7 @@
 These are advisory. The Agent communicates them to the user,
 who can decide whether to follow the advice.
 S-001~S-010: Original statistical advisories
-S-011~S-012: Audit trail advisories (11-Phase Pipeline)
+S-011~S-012: Audit trail advisories (13-Phase Pipeline)
 """
 
 from __future__ import annotations
@@ -254,7 +254,7 @@ class SoftConstraints:
             message="Power consideration noted.",
         )
 
-    # ── Audit Trail Advisories (11-Phase Pipeline) ───────────────────
+    # ── Audit Trail Advisories (13-Phase Pipeline) ───────────────────
 
     @staticmethod
     def s011_plan_deviation_alert(planned_action: str, actual_action: str) -> PolicyResult:

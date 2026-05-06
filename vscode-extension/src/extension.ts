@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getPythonArgs, loadSkillContent, BUNDLED_SKILLS, BUNDLED_PROMPTS, BUNDLED_AGENTS } from './utils';
+import { getPythonArgs, loadSkillContent, BUNDLED_SKILLS, BUNDLED_PROMPTS, BUNDLED_AGENTS, BUNDLED_CLINE_RULES } from './utils';
 import { findUvPath, installUvHeadless, buildMcpCommand, buildMcpEnv, ensureInstalledTool, checkDockerServiceHealth } from './uvManager';
 import { shouldSkipMcpRegistration, isDevWorkspace as checkIsDevWorkspace, determinePythonPath, countMissingBundledItems, buildDevPythonPath, isBundledToolProject } from './extensionHelpers';
 import { TOOL_GROUPS, FULL_REPORT_CHAT_QUERY, buildPipelineExecutionPrompt, buildToolRetryInstruction, filterRdeTools, getToolCallPolicyAction, NO_AVAILABLE_RDE_TOOLS_MESSAGE, NO_RDE_TOOL_CALL_MESSAGE, toolGroupIncludes } from './toolPolicy';
@@ -474,7 +474,7 @@ function registerChatParticipant(context: vscode.ExtensionContext): vscode.Dispo
         ) => {
             if (request.command === 'fullreport') {
                 const edaSkill = loadSkillContent(skillsPath, 'eda-workflow');
-                stream.markdown('📄 **正在使用完整 Phase 0-10 MCP workflow 組裝分析報告…**\n\n');
+                stream.markdown('📄 **正在使用完整 13-Phase MCP workflow 組裝分析報告…**\n\n');
                 await runWithTools(
                     request,
                     stream,
@@ -483,7 +483,7 @@ function registerChatParticipant(context: vscode.ExtensionContext): vscode.Dispo
                     {
                         maxRounds: 10,
                         promptOverride: buildPipelineExecutionPrompt(
-                            request.prompt || '請完成完整 Phase 0-10 分析並產出可審計報告。',
+                            request.prompt || '請完成完整 13-Phase 分析並產出可審計報告。',
                             edaSkill,
                         ),
                     },
@@ -521,7 +521,7 @@ function registerChatParticipant(context: vscode.ExtensionContext): vscode.Dispo
                     stream.markdown('| `/help` | 顯示本說明 |\n\n');
                     stream.markdown('### 🔧 Agent Mode 自然語言\n\n');
                     stream.markdown('直接在 Agent Mode 輸入：\n');
-                    stream.markdown('- 「我有資料想分析」→ 完整 Phase 0-10\n');
+                    stream.markdown('- 「我有資料想分析」→ 完整 13-Phase\n');
                     stream.markdown('- 「請幫我完成完整分析報告」→ fullreport\n');
                     stream.markdown('- 「只想看概況」→ Quick Explore\n');
                     stream.markdown('- 「比較兩組差異」→ compare_groups\n');
@@ -598,8 +598,24 @@ async function autoScaffoldIfNeeded(context: vscode.ExtensionContext): Promise<v
     const wsRoot = workspaceFolders[0].uri.fsPath;
     const extPath = context.extensionPath;
 
-    const { missingSkills, missingAgents, missingPrompts, total: totalMissing } =
-        countMissingBundledItems(wsRoot, extPath, BUNDLED_SKILLS, BUNDLED_AGENTS, BUNDLED_PROMPTS);
+    const {
+        missingSkills,
+        missingAgents,
+        missingPrompts,
+        missingCodexSkills,
+        missingClineRules,
+        missingCodexInstructions,
+        total: totalMissing,
+    } = countMissingBundledItems(
+        wsRoot,
+        extPath,
+        BUNDLED_SKILLS,
+        BUNDLED_AGENTS,
+        BUNDLED_PROMPTS,
+        BUNDLED_SKILLS,
+        BUNDLED_CLINE_RULES,
+        true,
+    );
 
     if (totalMissing === 0) {
         outputChannel.appendLine('[AutoScaffold] Workspace already has all skills/agents/prompts.');
@@ -618,6 +634,9 @@ async function autoScaffoldIfNeeded(context: vscode.ExtensionContext): Promise<v
     if (missingSkills > 0) { detail.push(`${missingSkills} skills`); }
     if (missingAgents > 0) { detail.push(`${missingAgents} agents`); }
     if (missingPrompts > 0) { detail.push(`${missingPrompts} prompts`); }
+    if (missingCodexSkills > 0) { detail.push(`${missingCodexSkills} Codex skills`); }
+    if (missingClineRules > 0) { detail.push(`${missingClineRules} Cline rules`); }
+    if (missingCodexInstructions > 0) { detail.push('Codex AGENTS.md'); }
 
     const selection = await vscode.window.showInformationMessage(
         `RDE: 偵測到 workspace 缺少 ${detail.join('、')}。要設定嗎？`,
@@ -655,7 +674,18 @@ async function setupWorkspace(context: vscode.ExtensionContext): Promise<void> {
         }
     }
 
-    // 2. Copy prompts → .github/prompts/
+    // 2. Copy Codex skills → .codex/skills/
+    for (const skill of BUNDLED_SKILLS) {
+        const src = path.join(extPath, 'skills', skill, 'SKILL.md');
+        const dst = path.join(wsRoot, '.codex', 'skills', skill, 'SKILL.md');
+        if (fs.existsSync(src) && !fs.existsSync(dst)) {
+            fs.mkdirSync(path.dirname(dst), { recursive: true });
+            fs.copyFileSync(src, dst);
+            copied++;
+        }
+    }
+
+    // 3. Copy prompts → .github/prompts/
     for (const prompt of BUNDLED_PROMPTS) {
         const src = path.join(extPath, 'prompts', `${prompt}.prompt.md`);
         const dst = path.join(wsRoot, '.github', 'prompts', `${prompt}.prompt.md`);
@@ -666,7 +696,7 @@ async function setupWorkspace(context: vscode.ExtensionContext): Promise<void> {
         }
     }
 
-    // 3. Copy agents → .github/agents/
+    // 4. Copy agents → .github/agents/
     for (const agent of BUNDLED_AGENTS) {
         const src = path.join(extPath, 'agents', `${agent}.agent.md`);
         const dst = path.join(wsRoot, '.github', 'agents', `${agent}.agent.md`);
@@ -677,12 +707,31 @@ async function setupWorkspace(context: vscode.ExtensionContext): Promise<void> {
         }
     }
 
-    // 4. Copy copilot-instructions.md (only if not exists)
+    // 5. Copy Cline rules → .clinerules/
+    for (const rule of BUNDLED_CLINE_RULES) {
+        const src = path.join(extPath, 'clinerules', rule);
+        const dst = path.join(wsRoot, '.clinerules', rule);
+        if (fs.existsSync(src) && !fs.existsSync(dst)) {
+            fs.mkdirSync(path.dirname(dst), { recursive: true });
+            fs.copyFileSync(src, dst);
+            copied++;
+        }
+    }
+
+    // 6. Copy copilot-instructions.md (only if not exists)
     const instrSrc = path.join(extPath, 'copilot-instructions.md');
     const instrDst = path.join(wsRoot, '.github', 'copilot-instructions.md');
     if (fs.existsSync(instrSrc) && !fs.existsSync(instrDst)) {
         fs.mkdirSync(path.dirname(instrDst), { recursive: true });
         fs.copyFileSync(instrSrc, instrDst);
+        copied++;
+    }
+
+    // 7. Copy Codex AGENTS.md (only if not exists)
+    const codexInstrSrc = path.join(extPath, 'AGENTS.md');
+    const codexInstrDst = path.join(wsRoot, 'AGENTS.md');
+    if (fs.existsSync(codexInstrSrc) && !fs.existsSync(codexInstrDst)) {
+        fs.copyFileSync(codexInstrSrc, codexInstrDst);
         copied++;
     }
 

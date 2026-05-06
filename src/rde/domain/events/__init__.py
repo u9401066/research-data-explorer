@@ -1,6 +1,6 @@
 """Domain Events — Signals emitted when significant state changes occur.
 
-Events cover the 11-Phase Auditable EDA Pipeline lifecycle,
+Events cover the 13-Phase Auditable EDA Pipeline lifecycle,
 from data intake through audit review.
 """
 

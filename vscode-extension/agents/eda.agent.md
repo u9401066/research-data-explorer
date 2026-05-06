@@ -18,7 +18,7 @@ You are in a governed analysis mode for this workspace.
 ## Workflow rules
 
 1. Start with project state and pipeline status.
-2. Respect the 11-phase order and all artifact gates.
+2. Respect the 13-phase order and all artifact gates.
 3. Phase 3 requires `align_concept(confirm=true)`.
 4. If the user wants autonomous EDA or does not provide a clear analysis list, call `propose_analysis_plan()` before Phase 4 lock.
 5. Phase 4 requires `register_analysis_plan(confirm=true)`.

@@ -13,7 +13,7 @@ SYNC_FILES = [
     ROOT / ".claude" / "skills" / "eda-workflow" / "SKILL.md",
     ROOT / "AGENTS.md",
     ROOT / "SPEC.md",
-    ROOT / ".github" / "prompts" / "rde-phase-0-10.prompt.md",
+    ROOT / ".github" / "prompts" / "rde-13-phase.prompt.md",
 ]
 PHASE_PATH_SYNC_FILES = [
     ROOT / ".github" / "bylaws" / "pipeline-workflow.md",
@@ -85,7 +85,7 @@ def test_workflow_docs_do_not_use_deprecated_tool_aliases() -> None:
 
 
 def test_prompt_and_skill_reference_current_workflow_tool_names() -> None:
-    prompt = (ROOT / ".github" / "prompts" / "rde-phase-0-10.prompt.md").read_text(encoding="utf-8")
+    prompt = (ROOT / ".github" / "prompts" / "rde-13-phase.prompt.md").read_text(encoding="utf-8")
     skill = (ROOT / ".claude" / "skills" / "eda-workflow" / "SKILL.md").read_text(encoding="utf-8")
 
     for name in [

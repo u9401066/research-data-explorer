@@ -10,7 +10,29 @@ import * as fs from 'fs';
  * Check if the workspace has a user-defined rde MCP server in .vscode/mcp.json.
  */
 export function shouldSkipMcpRegistration(mcpJsonContent: string): boolean {
-    return mcpJsonContent.includes('"rde"') && mcpJsonContent.includes('research-data-explorer');
+    try {
+        const parsed = JSON.parse(mcpJsonContent) as unknown;
+        return hasRdeServerKey(parsed);
+    } catch {
+        return /"rde"\s*:/.test(mcpJsonContent)
+            && /(research-data-explorer|python"\s*,\s*"-m"\s*,\s*"rde"|uvx)/.test(mcpJsonContent);
+    }
+}
+
+function hasRdeServerKey(value: unknown): boolean {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const record = value as Record<string, unknown>;
+    for (const containerName of ['servers', 'mcpServers']) {
+        const container = record[containerName];
+        if (container && typeof container === 'object' && 'rde' in container) {
+            return true;
+        }
+    }
+
+    return 'rde' in record && typeof record.rde === 'object';
 }
 
 /**
@@ -152,10 +174,23 @@ export function countMissingBundledItems(
     bundledSkills: readonly string[],
     bundledAgents: readonly string[],
     bundledPrompts: readonly string[],
-): { missingSkills: number; missingAgents: number; missingPrompts: number; total: number } {
+    bundledCodexSkills: readonly string[] = [],
+    bundledClineRules: readonly string[] = [],
+    includeCodexInstructions = false,
+): {
+    missingSkills: number;
+    missingAgents: number;
+    missingPrompts: number;
+    missingCodexSkills: number;
+    missingClineRules: number;
+    missingCodexInstructions: number;
+    total: number;
+} {
     const skillsDir = path.join(wsRoot, '.claude', 'skills');
     const agentsDir = path.join(wsRoot, '.github', 'agents');
     const promptsDir = path.join(wsRoot, '.github', 'prompts');
+    const codexSkillsDir = path.join(wsRoot, '.codex', 'skills');
+    const clineRulesDir = path.join(wsRoot, '.clinerules');
 
     let missingSkills = 0;
     for (const skill of bundledSkills) {
@@ -184,6 +219,43 @@ export function countMissingBundledItems(
         }
     }
 
-    const total = missingSkills + missingAgents + missingPrompts;
-    return { missingSkills, missingAgents, missingPrompts, total };
+    let missingCodexSkills = 0;
+    for (const skill of bundledCodexSkills) {
+        const src = path.join(extPath, 'skills', skill, 'SKILL.md');
+        const dst = path.join(codexSkillsDir, skill, 'SKILL.md');
+        if (fs.existsSync(src) && !fs.existsSync(dst)) {
+            missingCodexSkills++;
+        }
+    }
+
+    let missingClineRules = 0;
+    for (const rule of bundledClineRules) {
+        const src = path.join(extPath, 'clinerules', rule);
+        const dst = path.join(clineRulesDir, rule);
+        if (fs.existsSync(src) && !fs.existsSync(dst)) {
+            missingClineRules++;
+        }
+    }
+
+    const missingCodexInstructions = includeCodexInstructions
+        && fs.existsSync(path.join(extPath, 'AGENTS.md'))
+        && !fs.existsSync(path.join(wsRoot, 'AGENTS.md'))
+        ? 1
+        : 0;
+
+    const total = missingSkills
+        + missingAgents
+        + missingPrompts
+        + missingCodexSkills
+        + missingClineRules
+        + missingCodexInstructions;
+    return {
+        missingSkills,
+        missingAgents,
+        missingPrompts,
+        missingCodexSkills,
+        missingClineRules,
+        missingCodexInstructions,
+        total,
+    };
 }

@@ -7,7 +7,7 @@ tools: ['changes', 'codebase', 'fetch', 'problems', 'search', 'showMemory', 'usa
 ---
 # RDE Ask
 
-You answer questions about this repository with emphasis on governance, the 11-phase workflow, and artifact-backed explanations.
+You answer questions about this repository with emphasis on governance, the 13-phase workflow, and artifact-backed explanations.
 
 ## Required reading order
 

@@ -6,6 +6,10 @@ out/**/*.map
 out/test/**
 node_modules/**
 *.vsix
+.venv/**
+venv/**
+bundled/tool/.venv/**
+bundled/tool/venv/**
 .gitignore
 tsconfig.json
 **/*.ts

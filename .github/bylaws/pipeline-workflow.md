@@ -1,91 +1,43 @@
 # Pipeline Workflow Bylaw
 
-> Version: 1.0.0 | 依據：CONSTITUTION.md Article II, III
+> Version: 1.1.0 | Canonical RDE 13-phase artifact contract.
 
-## §1 Phase 轉換規則
+## Artifact Gate (H-008)
 
-### 1.1 Artifact Gate (H-008)
+Before entering a phase, the prior required artifacts must exist unless the selected flow is explicitly marked as Quick Explore.
 
-進入 Phase N 之前，Phase 0 ~ N-1 的所有必要 artifact 必須存在。
-
-| Phase | 必要 Artifact |
-|-------|---------------|
-| 0 | `project.yaml` |
+| Phase | Required artifact |
+|-------|-------------------|
+| 0 | `artifacts/phase_00_project_setup/project.yaml` |
 | 1 | `artifacts/phase_01_data_intake/intake_report.json` |
 | 2 | `artifacts/phase_02_schema_registry/schema.json` |
 | 3 | `artifacts/phase_03_concept_alignment/concept_alignment.md` |
-| 4 | `artifacts/phase_04_plan_registration/analysis_plan.yaml` |
-| 5 | `artifacts/phase_05_pre_explore_check/readiness_checklist.json` |
-| 6 | `decision_log.jsonl` (Phase 6+ 需持續寫入) |
-| 7 | `artifacts/phase_07_collect_results/results_summary.json` |
-| 8 | `artifacts/phase_08_report_assembly/eda_report.md` |
-| 9 | `artifacts/phase_09_audit_review/audit_report.json` |
+| 4 | `artifacts/phase_04_creative_ideation/greedy_analysis_candidates.json` |
+| 5 | `artifacts/phase_05_plan_completeness_review/analysis_plan_review.json` |
+| 6 | `artifacts/phase_06_plan_registration/analysis_plan.yaml` |
+| 7 | `artifacts/phase_07_pre_explore_check/readiness_checklist.json` |
+| 8 | `artifacts/phase_08_execute_exploration/decision_log.jsonl` |
+| 9 | `artifacts/phase_09_collect_results/results_summary.json` |
+| 10 | `artifacts/phase_10_report_assembly/eda_report.md` |
+| 11 | `artifacts/phase_11_audit_review/audit_report.json` |
+| 12 | `artifacts/phase_12_auto_improve/final_report.md` |
 
-### 1.2 User Confirmation Gate
+## Confirmation Gates
 
-以下 Phase 轉換需要**用戶明確確認**：
+- Phase 3: concept-schema alignment requires user confirmation.
+- Phase 5: plan completeness review requires user confirmation.
+- Phase 6: plan registration locks the analysis plan.
 
-- Phase 3 → 4: 概念對齊結果確認
-- Phase 4 鎖定：分析計畫確認
+## Plan Lock (H-007)
 
-Agent 不得自動跳過確認步驟。
+- Phase 8+ analysis requires a locked Phase 6 plan.
+- Any execution departure from the locked plan must call `log_deviation()`.
+- Decision and deviation logs are append-only under `artifacts/phase_08_execute_exploration/`.
 
-### 1.3 Plan Lock (H-007)
+## Quick Explore
 
-- Phase 4 計畫鎖定後不可修改
-- Phase 6+ 偏離計畫必須 `log_deviation()` 並附理由
-- 偏離不需要用戶每次確認，但報告中必須顯示
+Quick Explore may skip Phase 3-7 and Phase 9/11/12 only when the final report is clearly labeled `Quick Explore -- Not Audited`.
 
-## §2 Quick Explore 例外
+## automl-stat-mcp Delegation
 
-Quick Explore 模式允許跳過 Phase 3-5, 7, 9-10，但：
-- 報告必須標記「Quick Explore — Not Audited」
-- 不得標記任何內容為 PUBLISHABLE
-- Decision log 仍然必須記錄
-
-## §3 automl-stat-mcp 委派
-
-### 3.1 委派條件
-
-以下分析應委派給 automl-stat-mcp（如服務可用）：
-- Propensity Score Matching
-- Survival Analysis (Kaplan-Meier, Cox)
-- ROC/AUC Analysis
-- Advanced Power Analysis (非標準設計)
-- Multiple Regression / GLM
-- Machine Learning (AutoML)
-
-### 3.2 Fallback
-
-automl-stat-mcp 不可用時：
-- 基礎統計 → ScipyStatisticalEngine 處理
-- 進階分析 → 告知用戶服務未啟動，建議 `docker compose up`
-
-### 3.3 Decision Log
-
-委派 automl 的操作同樣寫入 `decision_log.jsonl`，並標記 `source: automl-stat-mcp`。
-
-## §4 Deviation Handling
-
-### 4.1 何時必須記錄偏離
-
-| 情境 | 必須記錄 |
-|------|----------|
-| Phase 5 發現前提不符，需改方法 | ✅ |
-| 用戶臨時要加分析 | ✅ |
-| 樣本量不足改無母數檢定 | ✅ |
-| 修正 typo | ❌ |
-| 增加圖表 | ❌ (但需 decision_log) |
-
-### 4.2 偏離記錄格式
-
-```json
-{
-  "timestamp": "ISO-8601",
-  "phase": "phase_06",
-  "planned_action": "t-test",
-  "actual_action": "Mann-Whitney U",
-  "reason": "Shapiro-Wilk p < 0.05, 不符常態假設",
-  "impact_assessment": "結果解讀不受影響，無母數方法更適當"
-}
-```
+Use automl-stat-mcp for advanced analyses such as PSM, survival analysis, ROC/AUC, advanced power analysis, regression/GLM, and machine learning. If the service is unavailable, fall back to local analysis only when the report and decision log state the limitation.

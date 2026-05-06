@@ -46,8 +46,8 @@ if (!fs.existsSync(repoPyproject)) {
     throw new Error(`pyproject.toml not found: ${repoPyproject}`);
 }
 
+fs.rmSync(bundledToolRoot, { recursive: true, force: true });
 fs.mkdirSync(bundledSrcRoot, { recursive: true });
-fs.rmSync(bundledRdeRoot, { recursive: true, force: true });
 
 if (typeof fs.cpSync === 'function') {
     fs.cpSync(sourceRoot, bundledRdeRoot, {
