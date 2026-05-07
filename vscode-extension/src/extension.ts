@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { getPythonArgs, loadSkillContent, BUNDLED_SKILLS, BUNDLED_PROMPTS, BUNDLED_AGENTS, BUNDLED_CLINE_RULES } from './utils';
 import { findUvPath, installUvHeadless, buildMcpCommand, buildMcpEnv, ensureInstalledTool, checkDockerServiceHealth } from './uvManager';
 import { shouldSkipMcpRegistration, isDevWorkspace as checkIsDevWorkspace, determinePythonPath, countMissingBundledItems, buildDevPythonPath, isBundledToolProject } from './extensionHelpers';
-import { TOOL_GROUPS, FULL_REPORT_CHAT_QUERY, buildPipelineExecutionPrompt, buildToolRetryInstruction, filterRdeTools, getToolCallPolicyAction, NO_AVAILABLE_RDE_TOOLS_MESSAGE, NO_RDE_TOOL_CALL_MESSAGE, toolGroupIncludes } from './toolPolicy';
+import { TOOL_GROUPS, FULL_REPORT_CHAT_QUERY, MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE, buildPipelineExecutionPrompt, buildToolRetryInstruction, filterRdeTools, findMissingRequiredRdeTools, getToolCallPolicyAction, NO_AVAILABLE_RDE_TOOLS_MESSAGE, NO_RDE_TOOL_CALL_MESSAGE, toolGroupIncludes } from './toolPolicy';
 import { readUxHarnessArtifacts, renderUxHarnessDashboardHtml, summarizeUxHarnessArtifacts } from './uxHarnessView';
 
 let outputChannel: vscode.OutputChannel;
@@ -399,6 +399,16 @@ async function runWithTools(
     if (filtered.length === 0) {
         stream.markdown(NO_AVAILABLE_RDE_TOOLS_MESSAGE);
         outputChannel.appendLine('[Tools] No RDE MCP tools available to chat participant.');
+        return;
+    }
+    const missingRequiredTools = findMissingRequiredRdeTools(filtered);
+    if (missingRequiredTools.length > 0) {
+        stream.markdown(
+            `${MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE}\n\nMissing required tool(s): ${missingRequiredTools.join(', ')}`,
+        );
+        outputChannel.appendLine(
+            `[Tools] RDE MCP tool list missing required bootstrap tools: ${missingRequiredTools.join(', ')}`,
+        );
         return;
     }
 

@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
     FULL_REPORT_CHAT_QUERY,
+    MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE,
     NO_RDE_TOOL_CALL_MESSAGE,
     RDE_MCP_TOOL_NAMES,
     TOOL_GROUPS,
     buildPipelineExecutionPrompt,
     buildToolRetryInstruction,
     filterRdeTools,
+    findMissingRequiredRdeTools,
     getToolCallPolicyAction,
     toolGroupIncludes,
 } from '../src/toolPolicy';
@@ -91,7 +93,15 @@ describe('toolPolicy', () => {
     it('keeps init_project visible after command-level tool filtering', () => {
         const allTools = RDE_MCP_TOOL_NAMES.map(name => ({ name }));
 
-        for (const command of ['explore', 'pipeline', 'compare', 'table1', 'advanced'] as const) {
+        for (const command of [
+            'explore',
+            'pipeline',
+            'compare',
+            'table1',
+            'advanced',
+            'report',
+            'audit',
+        ] as const) {
             const filtered = filterRdeTools(
                 allTools,
                 tool => toolGroupIncludes(TOOL_GROUPS[command], tool.name),
@@ -100,6 +110,23 @@ describe('toolPolicy', () => {
             expect(filtered).toContain('init_project');
             expect(filtered).toContain('build_schema');
         }
+    });
+
+    it('detects partial live RDE tool lists that are missing bootstrap tools', () => {
+        const partialLiveTools = [
+            { name: 'run_intake' },
+            { name: 'build_schema' },
+            { name: 'align_concept' },
+        ];
+        const filtered = filterRdeTools(
+            partialLiveTools,
+            tool => toolGroupIncludes(TOOL_GROUPS.pipeline, tool.name),
+        );
+
+        expect(filtered.map(tool => tool.name)).not.toContain('init_project');
+        expect(findMissingRequiredRdeTools(filtered)).toEqual(['init_project']);
+        expect(MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE).toContain('init_project');
+        expect(MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE).toContain('reload VS Code');
     });
 
     it('includes Phase 8 exploration branch loop tools in the RDE allowlist', () => {

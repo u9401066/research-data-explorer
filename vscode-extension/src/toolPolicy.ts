@@ -117,6 +117,7 @@ export const TOOL_GROUPS = {
         'log_deviation',
     ],
     report: [
+        ...WORKFLOW_PREREQUISITE_TOOLS,
         'collect_results',
         'assemble_report',
         'get_approval_card',
@@ -129,7 +130,7 @@ export const TOOL_GROUPS = {
         'export_handoff',
     ],
     audit: [
-        'get_pipeline_status',
+        ...WORKFLOW_PREREQUISITE_TOOLS,
         'get_approval_card',
         'get_harness_dashboard',
         'build_artifact_index',
@@ -159,6 +160,13 @@ export interface ToolInfoLike {
     name: string;
 }
 
+export const BOOTSTRAP_REQUIRED_RDE_TOOL_NAMES = [
+    'init_project',
+] as const;
+
+export const MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE =
+    'RDE MCP tool list is incomplete: init_project is missing. Restart the RDE MCP server or reload VS Code before running the pipeline.';
+
 export function isRdeToolName(name: string): boolean {
     return RDE_MCP_TOOL_NAME_SET.has(name);
 }
@@ -176,6 +184,14 @@ export function filterRdeTools<T extends ToolInfoLike>(
 
 export function toolGroupIncludes(group: readonly string[], toolName: string): boolean {
     return group.includes(toolName);
+}
+
+export function findMissingRequiredRdeTools(
+    tools: readonly ToolInfoLike[],
+    requiredTools: readonly string[] = BOOTSTRAP_REQUIRED_RDE_TOOL_NAMES,
+): string[] {
+    const available = new Set(tools.map(tool => tool.name));
+    return requiredTools.filter(toolName => !available.has(toolName));
 }
 
 export function getToolCallPolicyAction(options: {
