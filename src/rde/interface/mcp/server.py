@@ -15,6 +15,8 @@ from rde.interface.mcp.tools.report_tools import register_report_tools
 from rde.interface.mcp.tools.project_tools import register_project_tools
 from rde.interface.mcp.tools.plan_tools import register_plan_tools
 from rde.interface.mcp.tools.audit_tools import register_audit_tools
+from rde.interface.mcp.tools.branch_tools import register_branch_tools
+from rde.interface.mcp.tools.ux_tools import register_ux_tools
 
 
 def create_server():
@@ -47,6 +49,8 @@ def create_server():
     register_profiling_tools(server)  # Phase 2: Schema Registry (profiling)
     register_plan_tools(server)  # Phase 3-7: Concept, Plan, Pre-check
     register_analysis_tools(server)  # Phase 8-9: Execute & Collect
+    register_branch_tools(server)  # Phase 8: YOLO Exploration Branch Loop
+    register_ux_tools(server)  # Cross-phase: no-code UX Harness
     register_report_tools(server)  # Phase 10: Report Assembly
     register_audit_tools(server)  # Phase 11-12: Audit & Improve
 

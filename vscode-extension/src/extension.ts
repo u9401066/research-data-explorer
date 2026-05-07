@@ -5,6 +5,7 @@ import { getPythonArgs, loadSkillContent, BUNDLED_SKILLS, BUNDLED_PROMPTS, BUNDL
 import { findUvPath, installUvHeadless, buildMcpCommand, buildMcpEnv, ensureInstalledTool, checkDockerServiceHealth } from './uvManager';
 import { shouldSkipMcpRegistration, isDevWorkspace as checkIsDevWorkspace, determinePythonPath, countMissingBundledItems, buildDevPythonPath, isBundledToolProject } from './extensionHelpers';
 import { TOOL_GROUPS, FULL_REPORT_CHAT_QUERY, buildPipelineExecutionPrompt, buildToolRetryInstruction, filterRdeTools, getToolCallPolicyAction, NO_AVAILABLE_RDE_TOOLS_MESSAGE, NO_RDE_TOOL_CALL_MESSAGE, toolGroupIncludes } from './toolPolicy';
+import { readUxHarnessArtifacts, renderUxHarnessDashboardHtml, summarizeUxHarnessArtifacts } from './uxHarnessView';
 
 let outputChannel: vscode.OutputChannel;
 let resolvedUvPath: string | null = null;
@@ -47,6 +48,9 @@ export async function activate(context: vscode.ExtensionContext) {
             outputChannel.show();
             outputChannel.appendLine(`[${new Date().toISOString()}] Research Data Explorer Status: Active`);
         }),
+        vscode.commands.registerCommand('rde.openHarnessDashboard', () => {
+            openUxHarnessDashboard(context);
+        }),
         vscode.commands.registerCommand('rde.runPipeline', () => {
             vscode.commands.executeCommand('workbench.action.chat.open', {
                 query: FULL_REPORT_CHAT_QUERY
@@ -80,6 +84,46 @@ export async function activate(context: vscode.ExtensionContext) {
     autoScaffoldIfNeeded(context);
 
     outputChannel.appendLine('Research Data Explorer activated successfully!');
+}
+
+function openUxHarnessDashboard(context: vscode.ExtensionContext): void {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+        vscode.window.showWarningMessage('Open a workspace before viewing the RDE UX harness dashboard.');
+        return;
+    }
+
+    const artifacts = readUxHarnessArtifacts(workspaceRoot);
+    const summary = summarizeUxHarnessArtifacts(artifacts);
+    const panel = vscode.window.createWebviewPanel(
+        'rdeUxHarnessDashboard',
+        'RDE UX Harness',
+        vscode.ViewColumn.One,
+        {
+            enableScripts: false,
+            retainContextWhenHidden: true,
+        },
+    );
+    panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'icon.png');
+    panel.webview.html = renderUxHarnessDashboardHtml(artifacts);
+
+    outputChannel.appendLine(
+        `[UX] Dashboard opened: ${summary.present}/${summary.total} artifacts present; ` +
+        `missing tools=${summary.missingTools.join(', ') || 'none'}`,
+    );
+
+    if (summary.missing > 0) {
+        vscode.window.showInformationMessage(
+            `RDE UX harness is missing ${summary.missing} artifact(s).`,
+            'Generate via @rde',
+        ).then(choice => {
+            if (choice === 'Generate via @rde') {
+                vscode.commands.executeCommand('workbench.action.chat.open', {
+                    query: '@rde /pipeline Generate the RDE UX harness artifacts for the current project using get_approval_card, get_harness_dashboard, build_artifact_index, and get_blocker_playbook.',
+                });
+            }
+        });
+    }
 }
 
 // ─── automl-stat-mcp Health Check ──────────────────────────────────────────────
