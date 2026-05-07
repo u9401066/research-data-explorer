@@ -81,6 +81,73 @@ def test_approval_card_persists_next_confirmation_gate(tmp_path: Path) -> None:
     assert card["requires_user_confirmation"] is True
 
 
+def test_approval_card_returns_bootstrap_guidance_without_active_project() -> None:
+    server = _ToolCapture()
+    register_ux_tools(server)
+
+    output = server.tools["get_approval_card"]("missing-project-id")
+
+    assert "Bootstrap Approval Card" in output
+    assert "init_project" in output
+    assert "Developer: Reload Window" in output
+
+
+def test_approval_card_points_to_setup_prerequisites_before_phase_three(tmp_path: Path) -> None:
+    project = Project(
+        id=f"ux-prereq-{tmp_path.name}",
+        name="ux-prereq",
+        data_dir=tmp_path / "raw",
+        output_dir=tmp_path / "output",
+        research_question="What should the agent do next?",
+    )
+    project.output_dir.mkdir(parents=True, exist_ok=True)
+    session = get_session()
+    session.register_project(project)
+    server = _ToolCapture()
+    register_ux_tools(server)
+
+    output = server.tools["get_blocker_playbook"](project.id)
+    card = ArtifactStore(project.artifacts_dir).load(PipelinePhase.PROJECT_SETUP, "blocker_playbook.json")
+
+    assert "run_intake" in output
+    assert card["blockers"][0]["tool"] == "run_intake"
+
+
+def test_approval_card_keeps_phase_four_as_draft_then_confirm(tmp_path: Path) -> None:
+    project, store = _make_project(tmp_path)
+    session = get_session()
+    pipeline = session.get_pipeline(project.id)
+    pipeline.mark_completed(
+        _complete_phase(
+            store,
+            PipelinePhase.CONCEPT_ALIGNMENT,
+            {"concept_alignment.md": "ok", "variable_roles.json": {"confirmed": True}},
+            user_confirmed=True,
+        )
+    )
+    server = _ToolCapture()
+    register_ux_tools(server)
+
+    draft_output = server.tools["get_approval_card"](project.id)
+    assert "propose_analysis_plan(confirm=false)" in draft_output
+    assert "propose_analysis_plan(confirm=true)" not in draft_output
+
+    pipeline.mark_completed(
+        _complete_phase(
+            store,
+            PipelinePhase.CREATIVE_IDEATION,
+            {
+                "greedy_analysis_candidates.md": "# draft",
+                "greedy_analysis_candidates.json": {"confirmed": False},
+            },
+            user_confirmed=False,
+        )
+    )
+
+    confirm_output = server.tools["get_approval_card"](project.id)
+    assert "propose_analysis_plan(confirm=true)" in confirm_output
+
+
 def test_artifact_index_recursively_indexes_nested_artifacts(tmp_path: Path) -> None:
     project, store = _make_project(tmp_path)
     store.get_path(

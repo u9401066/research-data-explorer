@@ -2,6 +2,7 @@ import path from 'path';
 
 import { describe, expect, it } from 'vitest';
 
+import { buildMcpEnv } from '../src/uvManager';
 import { getPythonArgs } from '../src/utils';
 
 describe('utils', () => {
@@ -30,5 +31,13 @@ describe('utils', () => {
     it('treats Windows virtualenv interpreters as python module runners', () => {
         expect(getPythonArgs('C:\\repo\\.venv\\Scripts\\python.exe', 'rde')).toEqual(['-m', 'rde']);
         expect(getPythonArgs('C:\\repo\\VENV\\Scripts\\python.exe', 'rde')).toEqual(['-m', 'rde']);
+    });
+
+    it('forces UTF-8 Python IO for MCP stdio on Windows locales', () => {
+        expect(buildMcpEnv({ workspaceDir: '/tmp/rde' })).toMatchObject({
+            RDE_WORKSPACE: '/tmp/rde',
+            PYTHONUTF8: '1',
+            PYTHONIOENCODING: 'utf-8',
+        });
     });
 });

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import json
 import re
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from rde.interface.mcp.server import create_server
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS_DIR = ROOT / "src" / "rde" / "interface" / "mcp" / "tools"
 TOOL_POLICY = ROOT / "vscode-extension" / "src" / "toolPolicy.ts"
+VSIX_PACKAGE = ROOT / "vscode-extension" / "package.json"
 AGENT_CONTROL = ROOT / ".github" / "agent-control.yaml"
 VSIX_STRICT_AGENT = ROOT / "vscode-extension" / "agents" / "eda.agent.md"
 VSIX_RDE_PROMPT = ROOT / "vscode-extension" / "prompts" / "rde-13-phase.prompt.md"
@@ -151,6 +153,15 @@ def test_vsx_allowlist_matches_registered_mcp_tools() -> None:
     assert vsx_allowlist == server_tools
 
 
+def test_vsix_package_declares_expected_mcp_tool_surface() -> None:
+    server_tools = _extract_server_tool_names()
+    package = json.loads(VSIX_PACKAGE.read_text(encoding="utf-8"))
+    manifest_tools = set(package.get("rde", {}).get("expectedMcpTools", []))
+
+    assert manifest_tools == server_tools
+    assert {"init_project", "propose_analysis_plan", "get_blocker_playbook"} <= manifest_tools
+
+
 def test_live_mcp_tool_list_includes_project_bootstrap_chain() -> None:
     pytest.importorskip("mcp.server.fastmcp")
 
@@ -160,7 +171,14 @@ def test_live_mcp_tool_list_includes_project_bootstrap_chain() -> None:
 
     live_tools = asyncio.run(list_tool_names())
 
-    assert {"init_project", "run_intake", "build_schema", "align_concept"} <= live_tools
+    assert {
+        "init_project",
+        "run_intake",
+        "build_schema",
+        "align_concept",
+        "propose_analysis_plan",
+        "get_blocker_playbook",
+    } <= live_tools
     assert len(live_tools) == len(_extract_server_tool_names())
 
 

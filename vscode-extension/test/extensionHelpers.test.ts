@@ -106,6 +106,19 @@ describe('extensionHelpers', () => {
         expect(shouldSkipMcpRegistration(mcpJson)).toBe(true);
     });
 
+    it('detects README-style research-data-explorer MCP registrations', () => {
+        const mcpJson = JSON.stringify({
+            servers: {
+                'research-data-explorer': {
+                    command: 'uvx',
+                    args: ['research-data-explorer'],
+                },
+            },
+        });
+
+        expect(shouldSkipMcpRegistration(mcpJson)).toBe(true);
+    });
+
     it('counts Copilot, Codex, and Cline scaffold targets', () => {
         const wsRoot = makeTempDir();
         const extPath = makeTempDir();

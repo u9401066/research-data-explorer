@@ -27,12 +27,33 @@ function hasRdeServerKey(value: unknown): boolean {
     const record = value as Record<string, unknown>;
     for (const containerName of ['servers', 'mcpServers']) {
         const container = record[containerName];
-        if (container && typeof container === 'object' && 'rde' in container) {
-            return true;
+        if (container && typeof container === 'object') {
+            const servers = container as Record<string, unknown>;
+            for (const [serverKey, serverValue] of Object.entries(servers)) {
+                if (isRdeServerEntry(serverKey, serverValue)) {
+                    return true;
+                }
+            }
         }
     }
 
-    return 'rde' in record && typeof record.rde === 'object';
+    return Object.entries(record).some(([serverKey, serverValue]) =>
+        isRdeServerEntry(serverKey, serverValue),
+    );
+}
+
+function isRdeServerEntry(serverKey: string, value: unknown): boolean {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+    if (serverKey === 'rde' || serverKey === 'research-data-explorer') {
+        return true;
+    }
+    const entry = value as Record<string, unknown>;
+    const command = typeof entry.command === 'string' ? entry.command : '';
+    const args = Array.isArray(entry.args) ? entry.args.map(String).join(' ') : '';
+    const haystack = `${serverKey} ${command} ${args}`;
+    return /research-data-explorer|python\s+-m\s+rde|uvx\s+.*rde|uvx\s+.*research-data-explorer/.test(haystack);
 }
 
 /**

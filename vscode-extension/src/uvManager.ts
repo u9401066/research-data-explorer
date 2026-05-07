@@ -217,6 +217,8 @@ export function buildMcpEnv(options: {
     if (options.pythonPath) {
         env['PYTHONPATH'] = options.pythonPath;
     }
+    env['PYTHONUTF8'] = '1';
+    env['PYTHONIOENCODING'] = 'utf-8';
     return env;
 }
 

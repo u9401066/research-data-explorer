@@ -1,6 +1,6 @@
 [project]
 name = "research-data-explorer"
-version = "0.4.10"
+version = "0.4.11"
 description = "13-Phase Auditable EDA Pipeline — MCP Server"
 requires-python = ">=3.11"
 dependencies = [
@@ -16,6 +16,10 @@ dependencies = [
     "pyyaml>=6.0",
     "python-docx>=1.1",
 ]
+
+[project.scripts]
+research-data-explorer = "rde.__main__:main"
+rde = "rde.__main__:main"
 
 [project.optional-dependencies]
 dev = [

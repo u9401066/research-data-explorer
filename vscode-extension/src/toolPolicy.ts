@@ -160,12 +160,10 @@ export interface ToolInfoLike {
     name: string;
 }
 
-export const BOOTSTRAP_REQUIRED_RDE_TOOL_NAMES = [
-    'init_project',
-] as const;
+export const BOOTSTRAP_REQUIRED_RDE_TOOL_NAMES = WORKFLOW_PREREQUISITE_TOOLS;
 
 export const MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE =
-    'RDE MCP tool list is incomplete: init_project is missing. Restart the RDE MCP server or reload VS Code before running the pipeline.';
+    'RDE MCP tool list is incomplete: required pipeline bootstrap tools are missing. Restart the RDE MCP server or reload VS Code before running the pipeline.';
 
 export function isRdeToolName(name: string): boolean {
     return RDE_MCP_TOOL_NAME_SET.has(name);

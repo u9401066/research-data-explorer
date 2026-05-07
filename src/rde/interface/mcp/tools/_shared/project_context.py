@@ -18,6 +18,7 @@ from rde.application.session import get_session, DatasetEntry
 from rde.domain.models.dataset import Dataset, DatasetMetadata
 from rde.domain.models.project import Project
 from rde.domain.models.project import ProjectStatus
+from rde.domain.models.variable import VariableRole
 from rde.domain.policies.hard_constraints import HardConstraints
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -286,6 +287,21 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
     dataset = Dataset(id=dataset_id, metadata=metadata)
     dataset.mark_loaded(variables, row_count)
     dataset.tags["normalization_report"] = report.as_dict()
+
+    alignment = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json")
+    if isinstance(alignment, dict):
+        raw_roles = alignment.get("variable_roles")
+        if isinstance(raw_roles, dict):
+            variable_by_name = {variable.name: variable for variable in dataset.variables}
+            for variable_name, role_value in raw_roles.items():
+                variable = variable_by_name.get(str(variable_name))
+                if variable is None:
+                    continue
+                try:
+                    variable.role = VariableRole(str(role_value))
+                except ValueError:
+                    continue
+            dataset.tags["concept_alignment"] = alignment
 
     session = get_session()
     session.register_dataset(dataset, dataframe)

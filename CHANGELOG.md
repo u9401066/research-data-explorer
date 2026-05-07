@@ -6,6 +6,22 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.11] - 2026-05-07
+
+### 0.4.11 Fixed
+
+- Hardened MCP/VSIX bootstrap contracts so stale tool lists expose the full Phase 0-7 prerequisite chain and `/explore` no longer misdiagnoses a complete live tool surface as incomplete.
+- Made Phase 4 creative ideation a true draft-then-confirm gate: `confirm=true` now confirms an existing blueprint instead of regenerating or overwriting the draft.
+- `get_approval_card()` now returns actionable `init_project()` bootstrap guidance when no active project exists, matching the blocker playbook.
+- Strengthened Windows UTF-8 handling for MCP stdout, Python hooks, and PowerShell hook stdin/stdout; transient hook state is archived instead of deleted.
+- Sanitized report figure manifests and publication bundle counting so stale, escaped, or missing figure paths cannot be promoted into reports.
+
+### 0.4.11 Added
+
+- Clinical heuristic planning improvements for natural-language role inference, time-to-event candidates, survival analysis, complication/time outcomes, and ID-like sequence safeguards.
+- Local-lite visualization fallback for group comparisons and advanced analyses so Docker/AutoML downtime still leaves reportable figure artifacts.
+- VSIX package manifest coverage for the expected RDE MCP tool surface and regression tests for partial/stale MCP tool-list caching.
+
 ## [0.4.10] - 2026-05-07
 
 ### 0.4.10 Fixed

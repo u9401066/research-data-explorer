@@ -394,6 +394,7 @@ async function runWithTools(
     const requireToolCall = options?.requireToolCall ?? true;
 
     const allTools = vscode.lm.tools;
+    const allRdeTools = filterRdeTools(allTools);
     const filtered = filterRdeTools(allTools, toolFilter);
 
     if (filtered.length === 0) {
@@ -401,7 +402,7 @@ async function runWithTools(
         outputChannel.appendLine('[Tools] No RDE MCP tools available to chat participant.');
         return;
     }
-    const missingRequiredTools = findMissingRequiredRdeTools(filtered);
+    const missingRequiredTools = findMissingRequiredRdeTools(allRdeTools);
     if (missingRequiredTools.length > 0) {
         stream.markdown(
             `${MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE}\n\nMissing required tool(s): ${missingRequiredTools.join(', ')}`,

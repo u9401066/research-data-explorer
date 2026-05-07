@@ -34,7 +34,7 @@ def register_ux_tools(server: Any) -> None:
         log_tool_call("get_approval_card", {"project_id": project_id})
         ok, msg, project, store, pipeline = _ux_context(project_id)
         if not ok:
-            return fmt_error(msg)
+            return _format_bootstrap_approval_card(msg)
         assert project is not None
         assert store is not None
         assert pipeline is not None
@@ -136,7 +136,7 @@ def register_ux_tools(server: Any) -> None:
         log_tool_call("get_blocker_playbook", {"project_id": project_id})
         ok, msg, project, store, pipeline = _ux_context(project_id)
         if not ok:
-            return fmt_error(msg)
+            return _format_bootstrap_blocker_playbook(msg)
         assert project is not None
         assert store is not None
         assert pipeline is not None
@@ -165,6 +165,35 @@ def _ux_context(
 
 
 def _build_approval_card(project: Any, store: ArtifactStore, pipeline: Any) -> dict[str, Any]:
+    setup_sequence = [
+        (
+            PipelinePhase.DATA_INTAKE,
+            "run_intake",
+            "run_intake(project_id=...)",
+            ["phase_01_data_intake/intake_report.json"],
+            "Run Phase 1 intake before schema and concept alignment.",
+        ),
+        (
+            PipelinePhase.SCHEMA_REGISTRY,
+            "build_schema",
+            "build_schema(project_id=..., dataset_id=...)",
+            ["phase_02_schema_registry/schema.json"],
+            "Build the schema registry before mapping concepts to variables.",
+        ),
+    ]
+    for phase, tool, call, artifacts, purpose in setup_sequence:
+        if phase not in pipeline.completed_phases:
+            return {
+                "project_id": project.id,
+                "status": "blocked_prerequisite",
+                "phase": phase.value,
+                "tool": tool,
+                "call": call,
+                "requires_user_confirmation": False,
+                "purpose": purpose,
+                "review_artifacts": artifacts,
+            }
+
     gates = [
         (
             PipelinePhase.CONCEPT_ALIGNMENT,
@@ -196,6 +225,22 @@ def _build_approval_card(project: Any, store: ArtifactStore, pipeline: Any) -> d
     ]
     for phase, tool, call, artifacts, purpose in gates:
         result = pipeline.completed_phases.get(phase)
+        if result is not None and result.user_confirmed:
+            continue
+        if phase == PipelinePhase.CREATIVE_IDEATION and result is None:
+            return {
+                "project_id": project.id,
+                "status": "approval_required",
+                "phase": phase.value,
+                "tool": tool,
+                "call": "propose_analysis_plan(confirm=false)",
+                "requires_user_confirmation": False,
+                "purpose": "Generate the greedy blueprint draft first; user confirmation happens after review.",
+                "review_artifacts": [],
+            }
+        if phase == PipelinePhase.CREATIVE_IDEATION:
+            call = "propose_analysis_plan(confirm=true)"
+            purpose = "Confirm the reviewed greedy blueprint after inspecting Phase 4 artifacts."
         if result is None or not result.user_confirmed:
             return {
                 "project_id": project.id,
@@ -282,11 +327,15 @@ def _collect_artifact_entries(project: Any) -> list[dict[str, Any]]:
 def _build_blockers(project: Any, store: ArtifactStore, pipeline: Any) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     approval = _build_approval_card(project, store, pipeline)
-    if approval["status"] == "approval_required":
+    if approval["status"] in {"approval_required", "blocked_prerequisite"}:
         blockers.append(
             {
                 "id": f"approval:{approval['tool']}",
-                "severity": "action_required",
+                "severity": (
+                    "blocked" if approval["status"] == "blocked_prerequisite" else "action_required"
+                ),
+                "phase": approval["phase"],
+                "tool": approval["tool"],
                 "summary": approval["purpose"],
                 "next_action": approval["call"],
                 "artifacts": approval["review_artifacts"],
@@ -332,15 +381,51 @@ def _build_blockers(project: Any, store: ArtifactStore, pipeline: Any) -> list[d
 
 def _suggest_action_for_blocker(reason: str) -> str:
     lowered = reason.lower()
+    if "phase_01" in lowered or "intake" in lowered:
+        return "Run run_intake(project_id=...) before schema, concept alignment, or planning."
+    if "phase_02" in lowered or "schema" in lowered:
+        return "Run build_schema(project_id=..., dataset_id=...) before align_concept()."
     if "concept" in lowered:
-        return "Review concept_alignment.md, then call align_concept(confirm=true)."
+        return "Run align_concept(confirm=false) to draft mapping, review concept_alignment.md, then call align_concept(confirm=true)."
     if "creative" in lowered or "ideation" in lowered:
-        return "Review greedy candidates, then call propose_analysis_plan(confirm=true)."
+        return "Run propose_analysis_plan(confirm=false) first; after reviewing greedy candidates, call propose_analysis_plan(confirm=true)."
     if "plan" in lowered or "locked" in lowered:
         return "Review analysis_plan_review.md, then call register_analysis_plan(confirm=true)."
     if "readiness" in lowered or "pre" in lowered:
         return "Run check_readiness() and address any readiness checklist blockers."
     return "Use get_pipeline_status() and the listed artifacts to resolve the phase gate."
+
+
+def _format_bootstrap_blocker_playbook(reason: str) -> str:
+    lines = [
+        "# Blocker Playbook",
+        "",
+        "## 1. bootstrap:init_project",
+        "- severity: blocked",
+        f"- summary: {reason}",
+        "- next_action: `init_project(name=..., data_dir=..., research_question=...)`",
+        "- fallback: if `init_project` is not visible in the MCP tool list, reload VS Code (`Developer: Reload Window`) or restart the RDE MCP server so the extension refreshes the tool registry.",
+        "- after_init: `run_intake(project_id=...)` -> `build_schema(project_id=..., dataset_id=...)` -> `align_concept(confirm=false)` -> review -> `align_concept(confirm=true)`",
+    ]
+    return "\n".join(lines)
+
+
+def _format_bootstrap_approval_card(reason: str) -> str:
+    lines = [
+        "# Bootstrap Approval Card",
+        "- status: blocked_prerequisite",
+        "- phase: phase_00_project_setup",
+        "- tool: init_project",
+        "- call: `init_project(name=..., data_dir=..., research_question=...)`",
+        "- purpose: Create an active RDE project before any intake, schema, concept alignment, or EDA planning tool can run.",
+        "- requires_user_confirmation: false",
+        f"- blocker: {reason}",
+        "- fallback: if `init_project` is not visible in the MCP tool list, reload VS Code (`Developer: Reload Window`) or restart the RDE MCP server.",
+        "",
+        "## Review Artifacts",
+        "- none",
+    ]
+    return "\n".join(lines)
 
 
 def _format_blocker_playbook(blockers: list[dict[str, Any]]) -> str:

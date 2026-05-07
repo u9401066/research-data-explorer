@@ -8,6 +8,160 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from rde.domain.models.variable import VariableRole, VariableType
+
+
+_ROLE_ALIASES = {
+    "outcome": VariableRole.OUTCOME,
+    "outcomes": VariableRole.OUTCOME,
+    "target": VariableRole.OUTCOME,
+    "targets": VariableRole.OUTCOME,
+    "endpoint": VariableRole.OUTCOME,
+    "endpoints": VariableRole.OUTCOME,
+    "dependent": VariableRole.OUTCOME,
+    "dependent_variable": VariableRole.OUTCOME,
+    "group": VariableRole.GROUP,
+    "groups": VariableRole.GROUP,
+    "arm": VariableRole.GROUP,
+    "arms": VariableRole.GROUP,
+    "treatment": VariableRole.GROUP,
+    "exposure": VariableRole.GROUP,
+    "predictor": VariableRole.PREDICTOR,
+    "predictors": VariableRole.PREDICTOR,
+    "independent": VariableRole.PREDICTOR,
+    "independent_variable": VariableRole.PREDICTOR,
+    "covariate": VariableRole.COVARIATE,
+    "covariates": VariableRole.COVARIATE,
+    "confounder": VariableRole.COVARIATE,
+    "confounders": VariableRole.COVARIATE,
+    "adjustment": VariableRole.COVARIATE,
+    "id": VariableRole.ID,
+    "identifier": VariableRole.ID,
+    "unassigned": VariableRole.UNASSIGNED,
+}
+
+
+_COMMON_COVARIATE_KEYWORDS = (
+    "age",
+    "sex",
+    "gender",
+    "bmi",
+    "weight",
+    "height",
+    "baseline",
+    "comorbidity",
+    "severity",
+    "apache",
+    "sofa",
+)
+
+
+def _normalize_role_key(value: object) -> VariableRole | None:
+    normalized = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    if not normalized:
+        return None
+    if normalized in _ROLE_ALIASES:
+        return _ROLE_ALIASES[normalized]
+    try:
+        return VariableRole(normalized)
+    except ValueError:
+        return None
+
+
+def _as_role_name_list(value: str | list[str]) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    return [str(item) for item in value]
+
+
+def _roles_by_role(assignments: dict[str, str]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {
+        role.value: [] for role in VariableRole if role != VariableRole.UNASSIGNED
+    }
+    for variable, role in assignments.items():
+        if role in grouped:
+            grouped[role].append(variable)
+    return {role: values for role, values in grouped.items() if values}
+
+
+def _assign_explicit_variable_roles(
+    *,
+    variable_roles: dict[str, str | list[str]],
+    available_vars: dict[str, Any],
+) -> tuple[dict[str, str], list[str]]:
+    assignments: dict[str, str] = {}
+    errors: list[str] = []
+
+    for raw_key, raw_value in variable_roles.items():
+        # Accept both role -> variables and variable -> role mappings to reduce no-code friction.
+        if raw_key in available_vars and isinstance(raw_value, str):
+            role_enum = _normalize_role_key(raw_value)
+            if role_enum is None:
+                errors.append(f"Invalid role '{raw_value}' for variable '{raw_key}'.")
+                continue
+            available_vars[raw_key].role = role_enum
+            assignments[raw_key] = role_enum.value
+            continue
+
+        role_enum = _normalize_role_key(raw_key)
+        if role_enum is None:
+            errors.append(f"Invalid role key '{raw_key}'.")
+            continue
+
+        for variable_name in _as_role_name_list(raw_value):
+            if variable_name not in available_vars:
+                errors.append(f"Unknown variable '{variable_name}' for role '{raw_key}'.")
+                continue
+            available_vars[variable_name].role = role_enum
+            assignments[variable_name] = role_enum.value
+
+    return assignments, errors
+
+
+def _infer_variable_roles_from_question(
+    *,
+    variables: list[Any],
+    research_question: str,
+) -> tuple[dict[str, str], list[str]]:
+    from rde.domain.services.autonomous_eda_planner import AutonomousEDAPlanner
+
+    planner = AutonomousEDAPlanner()
+    analyzable = [
+        variable for variable in variables if variable.is_analyzable() and not variable.is_pii_suspect
+    ]
+    question_terms = planner._question_terms(research_question)
+    outcomes = planner._pick_outcomes(analyzable, question_terms=question_terms)
+    groups = planner._pick_groups(analyzable, outcomes=outcomes, question_terms=question_terms)
+    predictors = planner._pick_predictors(
+        analyzable,
+        outcomes,
+        groups,
+        question_terms=question_terms,
+    )
+
+    assignments: dict[str, str] = {}
+    for variable in groups[:2]:
+        assignments[variable.name] = VariableRole.GROUP.value
+    for variable in outcomes[:4]:
+        assignments[variable.name] = VariableRole.OUTCOME.value
+    for variable in predictors[:10]:
+        if variable.name in assignments:
+            continue
+        lowered = variable.name.lower()
+        role = (
+            VariableRole.COVARIATE
+            if any(keyword in lowered for keyword in _COMMON_COVARIATE_KEYWORDS)
+            else VariableRole.PREDICTOR
+        )
+        assignments[variable.name] = role.value
+
+    warnings: list[str] = []
+    if assignments:
+        warnings.append(
+            "Heuristic role mapping was inferred from the research question and schema; review before confirm=true."
+        )
+    return assignments, warnings
+
 
 def _normalized_plan_family(entry: dict[str, Any]) -> str | None:
     entry_type = str(entry.get("type", "")).strip()
@@ -400,7 +554,6 @@ def register_plan_tools(server: Any) -> None:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.domain.models.project import ProjectStatus
-            from rde.domain.models.variable import VariableRole
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
             session = get_session()
@@ -412,19 +565,51 @@ def register_plan_tools(server: Any) -> None:
             available_vars = {v.name: v for v in ds.variables}
 
             role_assignments: dict[str, str] = {}
+            role_assignment_source = "user"
+            role_warnings: list[str] = []
             if variable_roles:
-                for role_key, var_names_raw in variable_roles.items():
-                    names_list = (
-                        [var_names_raw] if isinstance(var_names_raw, str) else var_names_raw
+                role_assignments, role_errors = _assign_explicit_variable_roles(
+                    variable_roles=variable_roles,
+                    available_vars=available_vars,
+                )
+                if role_errors:
+                    return fmt_error(
+                        "Concept alignment role mapping is invalid.",
+                        "\n".join(f"- {error}" for error in role_errors),
+                        suggestion=(
+                            "Use schema variable names exactly, e.g. "
+                            "{'group': 'treatment', 'outcome': ['success', 'time_sec'], "
+                            "'covariates': ['age']}."
+                        ),
                     )
-                    for vn in names_list:
-                        if vn in available_vars:
-                            try:
-                                role_enum = VariableRole(role_key)
-                            except ValueError:
-                                role_enum = VariableRole.UNASSIGNED
-                            available_vars[vn].role = role_enum
-                            role_assignments[vn] = role_key
+            else:
+                role_assignment_source = "heuristic"
+                role_assignments, role_warnings = _infer_variable_roles_from_question(
+                    variables=ds.variables,
+                    research_question=project.research_question or research_question,
+                )
+                for variable_name, role_value in role_assignments.items():
+                    available_vars[variable_name].role = VariableRole(role_value)
+
+            if not role_assignments:
+                return fmt_error(
+                    "Concept alignment could not infer an analyzable variable mapping.",
+                    "No outcome/group/predictor roles were assigned from the schema and research question.",
+                    suggestion=(
+                        "Pass variable_roles explicitly or clarify the research question before "
+                        "Phase 4 planning."
+                    ),
+                )
+
+            if confirm and VariableRole.OUTCOME.value not in set(role_assignments.values()):
+                return fmt_error(
+                    "Concept alignment requires at least one outcome before confirm=true.",
+                    f"Assigned roles: {role_assignments}",
+                    suggestion=(
+                        "Add an outcome/endpoint/success/time variable to variable_roles or rerun "
+                        "align_concept(confirm=false) after clarifying the research question."
+                    ),
+                )
 
             analyzable = sum(1 for v in ds.variables if v.is_analyzable())
             unassigned = [
@@ -441,6 +626,9 @@ def register_plan_tools(server: Any) -> None:
                 "total_variables": len(ds.variables),
                 "analyzable_variables": analyzable,
                 "variable_roles": role_assignments,
+                **_roles_by_role(role_assignments),
+                "role_assignment_source": role_assignment_source,
+                "warnings": role_warnings,
                 "unassigned": unassigned,
                 "pii_suspects": pii_suspects,
                 "confirmed": confirm,
@@ -452,6 +640,7 @@ def register_plan_tools(server: Any) -> None:
                 "concept_alignment.md",
                 f"# Concept Alignment\n\n"
                 f"## Research Question\n{project.research_question}\n\n"
+                f"## Role Assignment Source\n{role_assignment_source}\n\n"
                 f"## Variable Roles\n{role_assignments}\n",
             )
             store.save(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json", alignment)
@@ -482,6 +671,15 @@ def register_plan_tools(server: Any) -> None:
             if role_assignments:
                 assigned_text = "\n**已指定角色:**\n" + "\n".join(
                     f"- {var} → {role}" for var, role in role_assignments.items()
+                )
+
+            if role_assignments:
+                assigned_text = (
+                    f"\n**Role assignment source:** {role_assignment_source}\n" + assigned_text
+                )
+            if role_warnings:
+                assigned_text += "\n\n**Role mapping warnings:**\n" + "\n".join(
+                    f"- {warning}" for warning in role_warnings
                 )
 
             unassigned_text = ""
@@ -592,6 +790,91 @@ def register_plan_tools(server: Any) -> None:
 
             session = get_session()
             pipeline = session.get_pipeline(project.id)
+            store = ArtifactStore(project.artifacts_dir)
+
+            if confirm:
+                proposal_dict = store.load(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_candidates.json",
+                )
+                if not isinstance(proposal_dict, dict) or proposal_dict.get("confirmed") is True:
+                    return fmt_error(
+                        "Phase 4 confirmation requires an existing unconfirmed draft. "
+                        "Run propose_analysis_plan(confirm=false), review "
+                        "phase_04_creative_ideation/greedy_analysis_candidates.md, "
+                        "then call propose_analysis_plan(confirm=true)."
+                    )
+
+                proposal_dict["confirmed"] = True
+                proposal_dict["confirmed_at"] = datetime.now().isoformat()
+                proposal_dict["confirmation_mode"] = "confirm_existing_draft"
+                json_path = store.save(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_candidates.json",
+                    proposal_dict,
+                )
+                md_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_candidates.md",
+                )
+                review_json_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_review.json",
+                )
+                review_md_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_analysis_review.md",
+                )
+                schedule_json_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_execution_schedule.json",
+                )
+                schedule_md_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_execution_schedule.md",
+                )
+                enrich_json_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_plan_enrichment.json",
+                )
+                enrich_md_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_plan_enrichment.md",
+                )
+                script_path = store.get_path(
+                    PipelinePhase.CREATIVE_IDEATION,
+                    "greedy_statsmodels_base_analysis.py",
+                )
+                pipeline.mark_started(PipelinePhase.CREATIVE_IDEATION)
+                pipeline.mark_completed(
+                    PhaseResult(
+                        phase=PipelinePhase.CREATIVE_IDEATION,
+                        completed_at=datetime.now(),
+                        success=True,
+                        artifacts={
+                            "greedy_analysis_candidates.json": str(json_path),
+                            "greedy_analysis_candidates.md": str(md_path),
+                        },
+                        user_confirmed=True,
+                    )
+                )
+                project.advance_to(ProjectStatus.CREATIVE_IDEATION)
+                persist_project(project)
+                log_tool_result("propose_analysis_plan", "confirmed existing Phase 4 draft")
+                return _render_greedy_plan_markdown(
+                    proposal_dict,
+                    artifact_json=str(json_path),
+                    artifact_md=str(md_path),
+                    plan_locked=pipeline.plan_locked,
+                    review_json=str(review_json_path) if review_json_path.exists() else None,
+                    review_md=str(review_md_path) if review_md_path.exists() else None,
+                    schedule_json=str(schedule_json_path) if schedule_json_path.exists() else None,
+                    schedule_md=str(schedule_md_path) if schedule_md_path.exists() else None,
+                    enrich_json=str(enrich_json_path) if enrich_json_path.exists() else None,
+                    enrich_md=str(enrich_md_path) if enrich_md_path.exists() else None,
+                    script_path=str(script_path) if script_path.exists() else None,
+                )
+
             use_case = ProposeAnalysisPlanUseCase()
             proposal = use_case.execute(
                 entry.dataset,
@@ -604,7 +887,6 @@ def register_plan_tools(server: Any) -> None:
 
             proposal_dict = proposal.to_dict()
             proposal_dict["confirmed"] = confirm
-            store = ArtifactStore(project.artifacts_dir)
             json_path = store.save(
                 PipelinePhase.CREATIVE_IDEATION,
                 "greedy_analysis_candidates.json",

@@ -112,6 +112,17 @@ describe('toolPolicy', () => {
         }
     });
 
+    it('checks missing bootstrap tools against the full live RDE surface, not a command subset', () => {
+        const allTools = RDE_MCP_TOOL_NAMES.map(name => ({ name }));
+        const quickExploreTools = filterRdeTools(
+            allTools,
+            tool => toolGroupIncludes(TOOL_GROUPS.explore, tool.name),
+        );
+
+        expect(quickExploreTools.map(tool => tool.name)).not.toContain('propose_analysis_plan');
+        expect(findMissingRequiredRdeTools(filterRdeTools(allTools))).toEqual([]);
+    });
+
     it('detects partial live RDE tool lists that are missing bootstrap tools', () => {
         const partialLiveTools = [
             { name: 'run_intake' },
@@ -124,9 +135,39 @@ describe('toolPolicy', () => {
         );
 
         expect(filtered.map(tool => tool.name)).not.toContain('init_project');
-        expect(findMissingRequiredRdeTools(filtered)).toEqual(['init_project']);
-        expect(MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE).toContain('init_project');
+        expect(findMissingRequiredRdeTools(filtered)).toEqual([
+            'init_project',
+            'get_pipeline_status',
+            'scan_data_folder',
+            'load_dataset',
+            'propose_analysis_plan',
+            'register_analysis_plan',
+            'check_readiness',
+        ]);
+        expect(MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE).toContain('bootstrap tools');
         expect(MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE).toContain('reload VS Code');
+    });
+
+    it('detects stale live RDE tool lists that include init_project but miss later bootstrap tools', () => {
+        const staleLiveTools = [
+            { name: 'init_project' },
+            { name: 'get_pipeline_status' },
+            { name: 'scan_data_folder' },
+            { name: 'run_intake' },
+            { name: 'load_dataset' },
+            { name: 'build_schema' },
+            { name: 'align_concept' },
+        ];
+        const filtered = filterRdeTools(
+            staleLiveTools,
+            tool => toolGroupIncludes(TOOL_GROUPS.pipeline, tool.name),
+        );
+
+        expect(findMissingRequiredRdeTools(filtered)).toEqual([
+            'propose_analysis_plan',
+            'register_analysis_plan',
+            'check_readiness',
+        ]);
     });
 
     it('includes Phase 8 exploration branch loop tools in the RDE allowlist', () => {

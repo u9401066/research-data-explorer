@@ -485,6 +485,14 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
                 "project_id": project.id,
                 "dataset_id": dataset_id,
                 "max_analyses": 4,
+                "confirm": False,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
                 "confirm": True,
             },
         )
@@ -623,6 +631,14 @@ def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -
                 "project_id": project.id,
                 "dataset_id": dataset_id,
                 "max_analyses": 4,
+                "confirm": False,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
                 "confirm": True,
             },
         )
@@ -671,6 +687,93 @@ def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -
     assert store.exists(PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json")
     assert store.exists(PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json")
     assert store.exists(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+
+
+def test_phase4_confirm_requires_and_preserves_existing_draft(tmp_path: Path) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    shutil.copy2(FIXTURE_CSV, raw_dir / FIXTURE_CSV.name)
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, dict[str, object], dict[str, object], Project]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "phase4-draft-confirm",
+                "data_dir": str(raw_dir),
+                "research_question": "Do iris species differ in petal length?",
+            },
+        )
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id, "project_id": project.id})
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "research_question": "Do iris species differ in petal length?",
+                "variable_roles": {"group": "species", "outcome": "petal_length"},
+                "confirm": True,
+            },
+        )
+
+        direct_confirm = await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 8,
+                "confirm": True,
+            },
+        )
+
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 1,
+                "confirm": False,
+            },
+        )
+        store = ArtifactStore(project.artifacts_dir)
+        draft = store.load(PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json")
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 8,
+                "confirm": True,
+            },
+        )
+        confirmed = store.load(PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json")
+        return _textify(direct_confirm), draft, confirmed, project
+
+    direct_output, draft, confirmed, project = asyncio.run(run_flow())
+    pipeline = get_session().get_pipeline(project.id)
+
+    assert "propose_analysis_plan(confirm=false)" in direct_output
+    assert draft["confirmed"] is False
+    assert confirmed["confirmed"] is True
+    for key in ["selected", "review", "execution_schedule", "enrichment_rounds"]:
+        assert confirmed[key] == draft[key]
+    assert pipeline.completed_phases[PipelinePhase.CREATIVE_IDEATION].user_confirmed is True
 
 
 def test_align_concept_recovers_project_context_after_intake_schema_without_init_project(
@@ -900,6 +1003,112 @@ def test_align_concept_requires_dataset_id_for_multi_dataset_recovery(
     assert "Multiple datasets" in ambiguous_output
     assert "auto-recovered" in recovered_output
     assert recovered_dataset_id != first_id
+
+
+def test_align_concept_blocks_unknown_variables_and_invalid_roles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    (raw_dir / "demo.csv").write_text(
+        "group,outcome,age\nA,1,65\nB,0,72\nA,1,61\nB,0,70\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        return "\n".join(getattr(block, "text", str(block)) for block in blocks)
+
+    async def run_flow() -> str:
+        server = create_server()
+        session = get_session()
+        await server.call_tool("init_project", {"name": "role-validation", "data_dir": str(raw_dir)})
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id, "project_id": project.id})
+        result = await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "research_question": "Does group affect outcome?",
+                "variable_roles": {"bad_role": "outcome", "outcome": ["missing_column"]},
+                "confirm": True,
+            },
+        )
+        return _textify(result)
+
+    output = asyncio.run(run_flow())
+
+    assert "Invalid role key" in output
+    assert "Unknown variable" in output
+    assert PipelinePhase.CONCEPT_ALIGNMENT not in get_session().get_pipeline(
+        get_session().get_project().id
+    ).completed_phases
+
+
+def test_rehydrated_dataset_replays_concept_roles_for_planning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    (raw_dir / "coded.csv").write_text(
+        "Arm,Y,X1\nA,1,2.0\nB,0,3.2\nA,1,2.4\nB,0,3.5\nA,1,2.1\nB,0,3.8\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    async def setup_flow() -> tuple[str, str]:
+        server = create_server()
+        session = get_session()
+        await server.call_tool("init_project", {"name": "role-rehydrate", "data_dir": str(raw_dir)})
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id, "project_id": project.id})
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "research_question": "Does Arm affect Y after X1?",
+                "variable_roles": {"group": "Arm", "outcome": "Y", "covariates": ["X1"]},
+                "confirm": True,
+            },
+        )
+        return project.id, dataset_id
+
+    project_id, dataset_id = asyncio.run(setup_flow())
+
+    import rde.application.session as session_module
+
+    session_module._session = None
+
+    async def propose_after_reload() -> dict:
+        server = create_server()
+        session = get_session()
+        project = session.get_project(project_id)
+        await server.call_tool(
+            "propose_analysis_plan",
+            {"project_id": project.id, "dataset_id": dataset_id, "max_analyses": 5},
+        )
+        store = ArtifactStore(project.artifacts_dir)
+        return store.load(PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json")
+
+    proposal = asyncio.run(propose_after_reload())
+    compare = next(
+        entry for entry in proposal["plan_blueprint"] if entry["type"] == "compare_groups"
+    )
+
+    assert compare["group_variable"] == "Arm"
+    assert compare["variables"] == ["Y", "X1"]
 
 
 def test_unconfirmed_phase3_stays_blocked_after_session_reload(
@@ -1198,6 +1407,14 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
                 "project_id": project.id,
                 "dataset_id": dataset_id,
                 "max_analyses": 2,
+                "confirm": False,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
                 "confirm": True,
             },
         )
