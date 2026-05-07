@@ -9,6 +9,7 @@ import {
     buildToolRetryInstruction,
     filterRdeTools,
     getToolCallPolicyAction,
+    toolGroupIncludes,
 } from '../src/toolPolicy';
 
 const BRANCH_TOOL_NAMES = [
@@ -84,6 +85,20 @@ describe('toolPolicy', () => {
 
         for (const command of ['pipeline', 'compare', 'table1', 'advanced'] as const) {
             expect(TOOL_GROUPS[command]).toEqual(expect.arrayContaining(prerequisiteTools));
+        }
+    });
+
+    it('keeps init_project visible after command-level tool filtering', () => {
+        const allTools = RDE_MCP_TOOL_NAMES.map(name => ({ name }));
+
+        for (const command of ['explore', 'pipeline', 'compare', 'table1', 'advanced'] as const) {
+            const filtered = filterRdeTools(
+                allTools,
+                tool => toolGroupIncludes(TOOL_GROUPS[command], tool.name),
+            ).map(tool => tool.name);
+
+            expect(filtered).toContain('init_project');
+            expect(filtered).toContain('build_schema');
         }
     });
 

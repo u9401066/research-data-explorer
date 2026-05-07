@@ -673,6 +673,64 @@ def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -
     assert store.exists(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
 
 
+def test_align_concept_recovers_project_context_after_intake_schema_without_init_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    csv_path = raw_dir / "arterial_line.csv"
+    csv_path.write_text(
+        "group,outcome,age\nA,1,65\nB,0,72\nA,1,61\nB,0,70\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, Project]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool("run_intake", {"directory": str(raw_dir)})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id})
+        result = await server.call_tool(
+            "align_concept",
+            {
+                "research_question": "Does group affect outcome?",
+                "variable_roles": {"group": "group", "outcome": "outcome", "covariates": ["age"]},
+                "confirm": True,
+            },
+        )
+        return _textify(result), session.get_project()
+
+    output, project = asyncio.run(run_flow())
+    store = ArtifactStore(project.artifacts_dir)
+    pipeline = get_session().get_pipeline(project.id)
+
+    assert "No active project" not in output
+    assert "auto-recovered" in output
+    assert project.dataset_ids
+    assert project.config["auto_recovered_from_session"] is True
+    for phase, artifact in [
+        (PipelinePhase.PROJECT_SETUP, "project.yaml"),
+        (PipelinePhase.DATA_INTAKE, "intake_report.json"),
+        (PipelinePhase.SCHEMA_REGISTRY, "schema.json"),
+        (PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json"),
+    ]:
+        assert store.exists(phase, artifact)
+        assert phase in pipeline.completed_phases
+
+
 def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 

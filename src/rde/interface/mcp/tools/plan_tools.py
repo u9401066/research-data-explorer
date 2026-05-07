@@ -333,6 +333,7 @@ def register_plan_tools(server: Any) -> None:
     @server.tool()
     def align_concept(
         project_id: str | None = None,
+        dataset_id: str | None = None,
         research_question: str = "",
         variable_roles: dict[str, str | list[str]] | None = None,
         confirm: bool = False,
@@ -363,13 +364,28 @@ def register_plan_tools(server: Any) -> None:
             "align_concept",
             {
                 "research_question": research_question,
+                "dataset_id": dataset_id,
                 "variable_roles": variable_roles,
             },
         )
 
+        recovery_note = ""
+        if project_id is None:
+            from rde.interface.mcp.tools._shared.project_context import (
+                recover_project_context_from_session,
+            )
+
+            recovered_project, recovery_note = recover_project_context_from_session(
+                research_question=research_question,
+                dataset_id=dataset_id,
+            )
+            if recovered_project is not None:
+                project_id = recovered_project.id
+
         ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.CONCEPT_ALIGNMENT,
             project_id=project_id,
+            dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
@@ -468,6 +484,11 @@ def register_plan_tools(server: Any) -> None:
             unassigned_text = ""
             if unassigned:
                 unassigned_text = f"\n**未指定角色:** {', '.join(unassigned)}\n"
+
+            if recovery_note:
+                assigned_text = (
+                    f"\n**Project context auto-recovered:** {recovery_note}\n" + assigned_text
+                )
 
             log_tool_result(
                 "align_concept", f"{analyzable} analyzable, {len(role_assignments)} assigned"

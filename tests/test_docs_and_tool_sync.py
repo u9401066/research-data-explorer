@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import re
 from pathlib import Path
 
 import yaml
+import pytest
 
 from rde.application.pipeline import PipelinePhase, REQUIRED_ARTIFACTS
 from rde.interface.mcp.tools import branch_tools, ux_tools
+from rde.interface.mcp.server import create_server
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -146,6 +149,19 @@ def test_vsx_allowlist_matches_registered_mcp_tools() -> None:
     vsx_allowlist = set(_extract_ts_string_array(ts_source, "RDE_MCP_TOOL_NAMES"))
 
     assert vsx_allowlist == server_tools
+
+
+def test_live_mcp_tool_list_includes_project_bootstrap_chain() -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    async def list_tool_names() -> set[str]:
+        server = create_server()
+        return {tool.name for tool in await server.list_tools()}
+
+    live_tools = asyncio.run(list_tool_names())
+
+    assert {"init_project", "run_intake", "build_schema", "align_concept"} <= live_tools
+    assert len(live_tools) == len(_extract_server_tool_names())
 
 
 def test_agent_control_declares_phase_08_branch_loop_contract() -> None:

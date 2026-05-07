@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 import math
 from pathlib import Path
+import uuid
 
 from rde.application.pipeline import (
     PREREQUISITES,
@@ -99,6 +100,152 @@ def link_dataset_to_project(project: Project, dataset_id: str) -> None:
     if dataset_id not in project.dataset_ids:
         project.dataset_ids.append(dataset_id)
         persist_project(project)
+
+
+def _session_dataset_schema(entry: DatasetEntry) -> dict[str, object]:
+    dataset = entry.dataset
+    variables: list[dict[str, object]] = []
+    for variable in dataset.variables:
+        missing_rate = variable.n_missing / dataset.row_count if dataset.row_count else 0
+        variables.append(
+            {
+                "name": variable.name,
+                "dtype": variable.dtype,
+                "variable_type": variable.variable_type.value,
+                "role": variable.role.value,
+                "n_missing": variable.n_missing,
+                "missing_rate": round(missing_rate, 4),
+                "n_unique": variable.n_unique,
+                "is_pii_suspect": variable.is_pii_suspect,
+            }
+        )
+    return {
+        "dataset_id": dataset.id,
+        "row_count": dataset.row_count,
+        "column_count": len(dataset.variables),
+        "variables": variables,
+        "created_at": datetime.now().isoformat(),
+        "auto_recovered_from_session": True,
+    }
+
+
+def recover_project_context_from_session(
+    *,
+    research_question: str = "",
+    dataset_id: str | None = None,
+) -> tuple[Project | None, str]:
+    """Create a minimal auditable project when intake/schema ran before Phase 0."""
+
+    session = get_session()
+    if session.active_project_id:
+        try:
+            return session.get_project(), ""
+        except KeyError:
+            pass
+
+    candidate_ids = [dataset_id] if dataset_id else session.list_datasets()
+    candidate_ids = [candidate for candidate in candidate_ids if candidate]
+    if not candidate_ids:
+        return None, ""
+    if dataset_id is None and len(candidate_ids) != 1:
+        return None, (
+            "Multiple datasets are loaded but no project is active; pass dataset_id or call "
+            "init_project() so Phase 3 can bind the right dataset."
+        )
+
+    resolved_dataset_id = candidate_ids[-1]
+    try:
+        entry = session.get_dataset_entry(resolved_dataset_id)
+    except KeyError:
+        return None, f"Dataset '{resolved_dataset_id}' is not available for project recovery."
+
+    dataset = entry.dataset
+    metadata = dataset.metadata
+    file_path = metadata.file_path if metadata is not None else Path("data/rawdata") / dataset.id
+    created_at = datetime.now()
+    project_id = str(uuid.uuid4())[:8]
+
+    from rde.infrastructure.persistence import resolve_projects_base_dir
+    from rde.interface.mcp.tools.project_tools import _make_project_folder_slug
+
+    dataset_stem = file_path.stem if file_path.name else dataset.id[:8]
+    project_name = f"recovered_{dataset_stem}"
+    folder_slug = _make_project_folder_slug(project_name)
+    folder_name = f"{created_at.strftime('%Y%m%d_%H%M%S')}_{folder_slug}_{project_id}"
+    output_dir = resolve_projects_base_dir() / folder_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "artifacts").mkdir(exist_ok=True)
+    (output_dir / "figures").mkdir(exist_ok=True)
+
+    project = Project(
+        id=project_id,
+        name=project_name,
+        data_dir=file_path.parent,
+        output_dir=output_dir,
+        created_at=created_at,
+        research_question=research_question,
+        dataset_ids=[dataset.id],
+        config={
+            "auto_recovered_from_session": True,
+            "recovery_reason": "intake/schema completed before active project existed",
+            "source_dataset_id": dataset.id,
+        },
+    )
+    session.register_project(project)
+    store = ArtifactStore(project.artifacts_dir)
+
+    store.save(
+        PipelinePhase.PROJECT_SETUP,
+        "project.yaml",
+        {
+            "id": project_id,
+            "folder_slug": folder_slug,
+            "folder_name": folder_name,
+            "name": project_name,
+            "data_dir": str(project.data_dir),
+            "output_dir": str(output_dir),
+            "research_question": research_question,
+            "created_at": created_at.isoformat(),
+            "auto_recovered_from_session": True,
+            "source_dataset_id": dataset.id,
+        },
+    )
+    store.save(
+        PipelinePhase.DATA_INTAKE,
+        "intake_report.json",
+        {
+            "directory": str(file_path.parent),
+            "total_files": 1,
+            "loadable": 1,
+            "rejected": 0,
+            "loaded_file": file_path.name,
+            "dataset_id": dataset.id,
+            "row_count": dataset.row_count,
+            "column_count": len(dataset.variables),
+            "normalization": dataset.tags.get("normalization_report", {}),
+            "pii_suspects": [v.name for v in dataset.variables if v.is_pii_suspect],
+            "rejections": [],
+            "timestamp": created_at.isoformat(),
+            "auto_recovered_from_session": True,
+        },
+    )
+    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", _session_dataset_schema(entry))
+
+    pipeline = session.get_pipeline(project.id)
+    for phase, artifacts in [
+        (PipelinePhase.PROJECT_SETUP, {"project.yaml": ""}),
+        (PipelinePhase.DATA_INTAKE, {"intake_report.json": ""}),
+        (PipelinePhase.SCHEMA_REGISTRY, {"schema.json": ""}),
+    ]:
+        pipeline.mark_started(phase)
+        pipeline.mark_completed(PhaseResult(phase, datetime.now(), True, artifacts))
+    project.advance_to(ProjectStatus.SCHEMA_REGISTRY)
+    persist_project(project)
+
+    return project, (
+        f"auto-recovered project `{project.id}` from dataset `{dataset.id}` because Phase 0 "
+        "was missing from the active tool flow."
+    )
 
 
 def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> DatasetEntry | None:
