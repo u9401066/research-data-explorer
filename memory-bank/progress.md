@@ -11,6 +11,8 @@
 - [x] Phase 4 docs/tool sync: two-step draft then confirm contract is reflected in manifest, prompts, docs, and regression tests.
 - [x] Release verification: Python tests, VSIX tests, bundled asset sync, and whitespace checks passed for v0.4.10 after final subagent review follow-up.
 - [x] Release metadata prepared for branch push and `v0.4.10` tag publication.
+- [x] v0.4.11 hardening prepared: full MCP tool-surface manifest, VSIX command-filter drift fix, true Phase 4 draft-confirm gate, UX bootstrap approval card, clinical planner inference, local-lite figure fallback, report-safe visualization promotion, Windows UTF-8 hook hardening, and vendor CSV/JSON encoding fallback.
+- [x] v0.4.11 verification: `python -m pytest -q` = 205 passed, 5 skipped; VSIX `npm.cmd test` = 33 passed; `git diff --check` passed; release consistency hook passed.
 
 ## MEM+ 2026-05-06
 
@@ -35,9 +37,14 @@
 
 ## Doing
 
+- Prepare segmented git commits, push branch, and publish `v0.4.11` tag.
+
 - 整理 soft-budget expansion / execution schedule 後的最終文件與 memory bank 狀態
 
 ## Next
+
+- After release, add dedicated vendor roundtrip tests for utf-8-sig, cp950/big5, utf-16 with/without BOM, and malformed-byte fallback behavior.
+- Consider adding a small hook-state archive regression harness for the PowerShell scripts.
 
 - 評估是否要讓 `propose_analysis_plan()` 進一步讀取 raw profiling 統計，而不只依賴 schema/roles heuristics
 - 若要更激進的 autonomous EDA，可考慮把 execution schedule 進一步接成真正的 blueprint → execute orchestrator，而不只是一份 artifact

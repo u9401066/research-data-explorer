@@ -2,6 +2,11 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-07 | Confirm Phase 4 only against an existing draft | `propose_analysis_plan(confirm=true)` must not regenerate or overwrite the blueprint that the user/agent reviewed; it now promotes only existing unconfirmed Phase 4 artifacts. |
+| 2026-05-07 | Check MCP bootstrap completeness against the full live RDE tool surface | Command-scoped filters such as `/explore` are smaller by design and should not be mistaken for a stale MCP registration. |
+| 2026-05-07 | Keep local-lite analysis reportable when AutoML/Docker is unavailable | Non-data-scientist users still need figures and report artifacts from fallback analyses; Docker downtime cannot silently remove visualization deliverables. |
+| 2026-05-07 | Archive transient hook state instead of deleting it | Windows/PowerShell hook state can contain useful audit context; clearing active nudges should preserve evidence under `_archive`. |
+| 2026-05-07 | Commit vendor encoding fallback through the submodule, not only the parent tree | Dirty detached submodule edits would disappear from clean clones; release integrity requires a vendor commit and parent pointer update. |
 | 2026-05-07 | Treat recovered projects as audit-compatible only when session data carries Phase 1 and Phase 2 provenance | Auto-recovery must not fabricate schema or intake artifacts; it may recover from MCP tool-list drift only when `run_intake()` and `build_schema()` really ran. |
 | 2026-05-07 | Persist and rehydrate explicit Phase 3/4 confirmation state from artifacts | A session reload must not promote unconfirmed concept alignment or creative ideation, while legacy locked-plan projects remain resumable through plan artifact compatibility. |
 | 2026-05-07 | Preserve legacy `project.plan_locked=true` when old plan artifacts lack a `locked` field | Older projects recorded the lock on project JSON before `analysis_plan.yaml.locked` existed; reload repair must not downgrade valid locked plans unless the artifact explicitly says `locked:false`. |
