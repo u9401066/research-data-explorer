@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "13-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {
@@ -116,6 +116,11 @@
       {
         "command": "rde.showStatus",
         "title": "Show RDE Status",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.openHarnessDashboard",
+        "title": "Open UX Harness Dashboard",
         "category": "RDE"
       },
       {

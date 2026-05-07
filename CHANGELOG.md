@@ -6,6 +6,21 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-05-07
+
+### 0.4.7 Added
+
+- Phase 8 autoresearch durable runner tools for next-task execution, queue drain, status/progress artifacts, and resume-aware overnight exploration.
+- No-code UX harness tools and VSIX dashboard for approval cards, harness status, artifact index, and blocker playbook.
+- Branch/autoresearch control manifest coverage, VSIX allowlist updates, prompt sync, and docs/tool sync tests for 49 MCP tools.
+
+### 0.4.7 Fixed
+
+- Branch/autoresearch execution now requires a confirmed locked plan and successful readiness, preventing quick-explore bypass before Phase 8.
+- Autoresearch lifecycle now handles empty queues, failure budgets, completed/failed resume blocking, expired lease reclaim, and lifecycle decision logging.
+- Phase 4 agent docs now use the two-step draft/review/confirm contract.
+- UX artifact index and dashboard previews now redact absolute local paths.
+
 ## [0.4.6] - 2026-05-06
 
 ### 0.4.6 Added
