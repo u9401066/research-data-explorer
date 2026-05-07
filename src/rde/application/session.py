@@ -77,7 +77,10 @@ class SessionRegistry:
     def get_project(self, project_id: str | None = None) -> Project:
         pid = project_id or self._active_project_id
         if pid is None:
-            raise KeyError("No active project. Create one with create_project().")
+            raise KeyError(
+                "No active project. Start Phase 0 with init_project() before calling "
+                "align_concept() or later pipeline tools."
+            )
         if pid not in self._projects:
             project = self._load_project_from_repository(pid)
             if project is None:

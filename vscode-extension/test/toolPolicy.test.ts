@@ -69,7 +69,7 @@ describe('toolPolicy', () => {
         }
     });
 
-    it('keeps quick analysis commands bootstrapped through readiness prerequisites', () => {
+    it('keeps governed workflow commands bootstrapped through readiness prerequisites', () => {
         const prerequisiteTools = [
             'init_project',
             'scan_data_folder',
@@ -82,7 +82,7 @@ describe('toolPolicy', () => {
             'check_readiness',
         ];
 
-        for (const command of ['compare', 'table1', 'advanced'] as const) {
+        for (const command of ['pipeline', 'compare', 'table1', 'advanced'] as const) {
             expect(TOOL_GROUPS[command]).toEqual(expect.arrayContaining(prerequisiteTools));
         }
     });
@@ -151,6 +151,7 @@ describe('toolPolicy', () => {
 
         expect(prompt).toContain('You may only use RDE MCP tools.');
         expect(prompt).toContain('Allowed RDE MCP tools:');
+        expect(prompt).toContain('call init_project() first');
         expect(prompt).toContain('compare_groups');
         expect(prompt).toContain('verify_audit_trail');
         expect(prompt).toContain('Phase 3 concept alignment requires user confirmation');

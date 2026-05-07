@@ -34,7 +34,8 @@ def ensure_project_context(
         project = session.get_project(project_id)
         return True, f"專案: {project.name} ({project.id})", project
     except KeyError as e:
-        return False, str(e), None
+        message = e.args[0] if e.args else str(e)
+        return False, str(message), None
 
 
 def persist_project(project: Project) -> None:

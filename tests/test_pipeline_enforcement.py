@@ -12,6 +12,16 @@ from rde.domain.models.project import ProjectStatus
 from rde.domain.policies.hard_constraints import HardConstraints
 from rde.interface.mcp.tools.discovery_tools import _pii_gate_message
 from rde.interface.mcp.server import create_server
+from rde.interface.mcp.tools._shared.project_context import ensure_project_context
+
+
+def test_missing_active_project_message_points_to_init_project() -> None:
+    ok, msg, project = ensure_project_context()
+
+    assert ok is False
+    assert project is None
+    assert "init_project()" in msg
+    assert "create_project" not in msg
 
 
 def _textify_tool_result(result: object) -> str:
