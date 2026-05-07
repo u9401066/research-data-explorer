@@ -6,6 +6,21 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.10] - 2026-05-07
+
+### 0.4.10 Fixed
+
+- Project auto-recovery now requires real Phase 1 `run_intake()` provenance and Phase 2 `build_schema()` schema tags before `align_concept()` can create a recovered project.
+- Multi-dataset recovery now refuses ambiguous session state unless `dataset_id` is explicit, preventing the wrong dataset from being silently bound to Phase 3.
+- Phase 3 and Phase 4 explicit confirmation state now survives MCP session reloads; unconfirmed artifacts remain blocked, while legacy locked-plan projects remain resumable.
+- Legacy projects that store `plan_locked=true` remain locked after reload even when old `analysis_plan.yaml` files do not yet contain a `locked` field.
+- `run_intake(project_id=...)` now rejects unknown project IDs instead of falling back to an unscoped session-only intake.
+- VSIX chat tool policy now blocks partial RDE MCP tool lists missing `init_project`, and report/audit command filters keep the bootstrap chain visible.
+
+### 0.4.10 Added
+
+- Regression coverage for no-schema/no-intake recovery refusal, multi-dataset recovery ambiguity, confirmation reload gates, legacy locked-plan rehydrate compatibility, and partial MCP tool-list detection.
+
 ## [0.4.9] - 2026-05-07
 
 ### 0.4.9 Fixed

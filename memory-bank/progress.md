@@ -4,12 +4,13 @@
 
 - [x] v0.4.8 hotfix prepared: no-active-project guidance now points to `init_project()`, and `/pipeline` exposes Phase 0-7 bootstrap tools.
 - [x] v0.4.9 hotfix prepared: `align_concept()` recovers auditable Phase 0-2 project context from orphan session datasets.
+- [x] v0.4.10 hardening prepared: recovery requires intake/schema provenance, ambiguous multi-dataset recovery is blocked, Phase 3/4 confirmation reload drift is fixed, legacy locked-plan reload is preserved, and VSIX partial MCP tool lists missing `init_project` are blocked.
 - [x] Harness Contract Hardening: plan/readiness gates now protect branch/autoresearch execution from drift and quick-explore bypass.
 - [x] Autoresearch Durable Runner: queue, budget, resume/status, next-task, drain-runner, failure thresholds, expired lease reclaim, and lifecycle decision logging.
 - [x] UX Harness: approval card, dashboard, artifact index, blocker playbook, and VSIX dashboard command.
 - [x] Phase 4 docs/tool sync: two-step draft then confirm contract is reflected in manifest, prompts, docs, and regression tests.
-- [x] Release verification: Python tests, VSIX tests, bundled asset sync, and whitespace checks passed.
-- [x] Release metadata prepared for branch push and `v0.4.7` tag publication.
+- [x] Release verification: Python tests, VSIX tests, bundled asset sync, and whitespace checks passed for v0.4.10 after final subagent review follow-up.
+- [x] Release metadata prepared for branch push and `v0.4.10` tag publication.
 
 ## MEM+ 2026-05-06
 

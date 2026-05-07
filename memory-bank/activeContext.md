@@ -5,11 +5,16 @@
 - v0.4.7 release focus: harness contract hardening, autoresearch durable runner, and no-code UX harness.
 - v0.4.8 hotfix focus: repair VSIX/RDE project bootstrap drift so Phase 3 cannot strand users without `init_project()`.
 - v0.4.9 hotfix focus: recover project context from session-only intake/schema flows when client tool cache omits `init_project`.
+- v0.4.10 hardening focus: subagent review follow-up for recovery provenance, confirmation reload drift, multi-dataset ambiguity, and VSIX partial MCP tool lists.
+- Recovery now requires real `run_intake()` provenance plus `build_schema()` tags before Phase 3 can auto-create an auditable project.
+- Explicit `confirm=false` for Phase 3/4 remains blocked after MCP session reload; legacy locked-plan projects remain resumable for backwards compatibility.
+- Legacy project JSON with `plan_locked=true` remains authoritative when old `analysis_plan.yaml` lacks a `locked` field; an explicit `locked:false` artifact still overrides it.
+- VSIX chat guard now blocks incomplete RDE MCP tool lists missing `init_project` instead of letting the agent enter a half-registered workflow.
 - Phase 8 branch/autoresearch is governed-only: a confirmed locked plan plus readiness pass are required before execution.
 - Autoresearch can run overnight-style branch queues with budget, resume/status, failure budget, lease reclaim, and lifecycle decision logs; promotion remains behind audit/user gates.
 - UX harness now includes approval card, dashboard status, artifact index, and blocker playbook. Webview previews redact local absolute paths.
 - Phase 4 confirmation contract is two-step: `propose_analysis_plan(confirm=false)` draft, user review, then `propose_analysis_plan(confirm=true)`.
-- Latest verification before release metadata: `python -m pytest -q` = 186 passed, 5 skipped; VSIX `npm.cmd test` = 27 passed; asset sync and `git diff --check` passed.
+- Latest verification before v0.4.10 release metadata: `python -m pytest -q` = 194 passed, 5 skipped; VSIX `npm.cmd test` = 29 passed; asset sync and `git diff --check` passed.
 
 ## MEM+ 2026-05-06
 

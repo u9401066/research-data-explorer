@@ -2,6 +2,10 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-07 | Treat recovered projects as audit-compatible only when session data carries Phase 1 and Phase 2 provenance | Auto-recovery must not fabricate schema or intake artifacts; it may recover from MCP tool-list drift only when `run_intake()` and `build_schema()` really ran. |
+| 2026-05-07 | Persist and rehydrate explicit Phase 3/4 confirmation state from artifacts | A session reload must not promote unconfirmed concept alignment or creative ideation, while legacy locked-plan projects remain resumable through plan artifact compatibility. |
+| 2026-05-07 | Preserve legacy `project.plan_locked=true` when old plan artifacts lack a `locked` field | Older projects recorded the lock on project JSON before `analysis_plan.yaml.locked` existed; reload repair must not downgrade valid locked plans unless the artifact explicitly says `locked:false`. |
+| 2026-05-07 | Block partial VSIX RDE tool lists that omit `init_project()` | The chat harness should fail fast on client/server registration drift instead of letting agents call later pipeline tools without Phase 0 bootstrap. |
 | 2026-05-07 | Allow auditable project recovery from session-only intake/schema before Phase 3 | Agent clients can cache or omit `init_project`; recovery preserves Phase 0-2 artifacts and normal Phase 3 confirmation instead of leaving non-data-scientists stuck. |
 | 2026-05-07 | Treat `init_project()` as the only canonical RDE Phase 0 project bootstrap tool | `create_project()` belongs to delegated automl contexts and must not appear in RDE no-active-project guidance or VSIX pipeline bootstrap instructions. |
 | 2026-05-07 | Treat Phase 8 branch/autoresearch as governed-only execution | Automatic branches are useful only after concept alignment, plan confirmation, locked plan registration, and readiness checks have created an auditable foundation. |
