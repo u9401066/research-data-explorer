@@ -58,6 +58,13 @@ tests/**/*.py[cod]
 .tools/
 uv.lock
 
+# Local MCP/test runtime state
+.pytest-tmp/
+pytest_tmp/
+run-*.json
+runs.json
+.asset-aware-mcp/
+
 # xhtml2pdf / reportlab caches
 .cache/
 

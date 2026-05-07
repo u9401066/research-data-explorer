@@ -104,15 +104,14 @@ The intended execution order is:
 2. Phase 1: `run_intake`
 3. Phase 2: `build_schema`, `profile_dataset`
 4. Phase 3: `align_concept(confirm=true)`
-5. Phase 4: `propose_analysis_plan()`
-6. Phase 5: `register_analysis_plan(confirm=true)` methodology review
-7. Phase 6: `register_analysis_plan(confirm=true)` locked plan registration
-8. Phase 7: `check_readiness`
-9. Phase 8: analysis tools such as `compare_groups`, `correlation_matrix`, `run_advanced_analysis`
-10. Phase 9: `collect_results`
-11. Phase 10: `assemble_report`
-12. Phase 11: `run_audit`
-13. Phase 12: `auto_improve`, `export_handoff`, `verify_audit_trail`
+5. Phase 4: `propose_analysis_plan(confirm=false)` generates creative ideation artifacts; after user review, `propose_analysis_plan(confirm=true)` confirms them
+6. Phase 5+6: `register_analysis_plan(confirm=true)` performs methodology review and locks the Phase 6 plan in one governed call
+7. Phase 7: `check_readiness`
+8. Phase 8: analysis tools such as `compare_groups`, `correlation_matrix`, `run_advanced_analysis`
+9. Phase 9: `collect_results`
+10. Phase 10: `assemble_report`
+11. Phase 11: `run_audit`
+12. Phase 12: `auto_improve`, `export_handoff`, `verify_audit_trail`
 
 ### Hard Constraints
 
@@ -255,16 +254,17 @@ For a fully constrained run:
 3. `build_schema`
 4. `profile_dataset`
 5. `align_concept(confirm=true)`
-6. `propose_analysis_plan()`
-7. `register_analysis_plan(confirm=true)`
-8. `check_readiness`
-9. phase-8 analysis tools
-10. `collect_results`
-11. `assemble_report`
-12. `run_audit`
-13. `auto_improve`
-14. `export_handoff`
-15. `verify_audit_trail`
+6. `propose_analysis_plan(confirm=false)` to create the greedy blueprint/review artifacts
+7. `propose_analysis_plan(confirm=true)` after user review
+8. `register_analysis_plan(confirm=true)`
+9. `check_readiness`
+10. phase-8 analysis tools
+11. `collect_results`
+12. `assemble_report`
+13. `run_audit`
+14. `auto_improve`
+15. `export_handoff`
+16. `verify_audit_trail`
 
 ## Why Phase 3 and 4 Matter
 
@@ -278,11 +278,11 @@ This is the point where a research question becomes an auditable analysis contra
 - the outcome type: continuous, binary, categorical, time-to-event, or repeated-measures
 - adjustment covariates, subgroup variables, exclusion fields, and time-axis columns
 
-`register_analysis_plan(confirm=true)` should then lock the allowed analysis families, variables, and fallback rules rather than only storing a loose checklist.
+`propose_analysis_plan(confirm=false)` should then generate the greedy blueprint/review artifacts for user review. After the user confirms that creative ideation output, `propose_analysis_plan(confirm=true)` records Phase 4 as confirmed.
 
-If you want the agent to drive EDA more autonomously, the repo now provides `propose_analysis_plan()` as Phase 4. It no longer behaves as a bare greedy sorter only. It now produces a draft candidate set, runs an internal methodology review / repair pass, expands beyond the initial budget when that preserves promising EDA branches, and then emits a reviewed blueprint plus a visualization bundle and Phase 8 execution schedule that can be passed into `register_analysis_plan()`. The point is not to bypass human confirmation; the point is to make autonomous ideation itself auditable, repairable, and lockable.
+If you want the agent to drive EDA more autonomously, Phase 4 no longer behaves as a bare greedy sorter. It now produces a draft candidate set, runs an internal methodology review / repair pass, expands beyond the initial budget when that preserves promising EDA branches, and then emits a reviewed blueprint plus a visualization bundle and Phase 8 execution schedule that can be passed into `register_analysis_plan(confirm=true)`. The point is not to bypass human confirmation; the point is to make autonomous ideation itself auditable, repairable, and lockable.
 
-`register_analysis_plan(confirm=true)` now also performs a methodology gate before lock. If the submitted plan is obviously under-scoped for the detected data structure, for example trying to stop after only a couple of analyses even though the dataset supports grouped comparisons, association screening, and adjusted modeling, Phase 5 now first auto-expands the plan with optional exploratory branches. Only if the reviewed plan is still too thin does it block the lock and push the agent back toward `propose_analysis_plan()`, unless `allow_methodology_override=true` is set explicitly. When the plan is locked in Phase 6, the repo also persists an execution schedule artifact so Phase 8 can follow the reviewed ordering instead of improvising from scratch.
+`register_analysis_plan(confirm=true)` now also performs a methodology gate before lock. If the submitted plan is obviously under-scoped for the detected data structure, for example trying to stop after only a couple of analyses even though the dataset supports grouped comparisons, association screening, and adjusted modeling, Phase 5 now first auto-expands the plan with optional exploratory branches. Only if the reviewed plan is still too thin does it block the lock and push the agent back toward `propose_analysis_plan(confirm=false)`, unless `allow_methodology_override=true` is set explicitly. When the plan is locked in Phase 6, the repo also persists an execution schedule artifact so Phase 8 can follow the reviewed ordering instead of improvising from scratch.
 
 Typical analysis options to place in the Phase 4 plan:
 

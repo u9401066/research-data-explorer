@@ -2,6 +2,10 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-07 | Treat Phase 8 branch/autoresearch as governed-only execution | Automatic branches are useful only after concept alignment, plan confirmation, locked plan registration, and readiness checks have created an auditable foundation. |
+| 2026-05-07 | Use a durable queue for YOLO overnight exploration, but keep promotion behind audit gates | The agent may explore branches autonomously, while result promotion still requires coverage, artifact, decision-log, audit, and user-facing approval evidence. |
+| 2026-05-07 | Keep Phase 4 as a two-step draft/review/confirm contract | Locking creative exploration too early blocks new branches, but confirmation still needs an explicit user-review boundary. |
+| 2026-05-07 | Redact local paths in UX harness previews and artifact index output | No-code users need readable artifacts without leaking machine-specific workspace details into review surfaces. |
 | 2026-05-06 | Keep 13 main phases and enforce sub-artifact gates instead of expanding the public phase count | 13 phases are enough for agent-facing workflow; Phase 4/5/6 and Phase 8 artifacts provide the needed granularity without making the harness unwieldy. |
 | 2026-05-06 | VSIX setup must scaffold Copilot, Codex, and Cline assets | Real users may use any of the three mainstream agents; setup now writes `.github/*`, root `AGENTS.md`/`.codex/skills`, and `.clinerules` without overwriting existing files. |
 | 2026-05-06 | H-004 PII detection must inspect sample values, not only column names | Real datasets often hide emails/phones/IDs under generic column names, so value-level patterns are needed before downstream analysis. |

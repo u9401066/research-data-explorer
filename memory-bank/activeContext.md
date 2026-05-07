@@ -1,5 +1,14 @@
 # Active Context
 
+## MEM+ 2026-05-07
+
+- v0.4.7 release focus: harness contract hardening, autoresearch durable runner, and no-code UX harness.
+- Phase 8 branch/autoresearch is governed-only: a confirmed locked plan plus readiness pass are required before execution.
+- Autoresearch can run overnight-style branch queues with budget, resume/status, failure budget, lease reclaim, and lifecycle decision logs; promotion remains behind audit/user gates.
+- UX harness now includes approval card, dashboard status, artifact index, and blocker playbook. Webview previews redact local absolute paths.
+- Phase 4 confirmation contract is two-step: `propose_analysis_plan(confirm=false)` draft, user review, then `propose_analysis_plan(confirm=true)`.
+- Latest verification before release metadata: `python -m pytest -q` = 186 passed, 5 skipped; VSIX `npm.cmd test` = 27 passed; asset sync and `git diff --check` passed.
+
 ## MEM+ 2026-05-06
 
 - Canonical pipeline is 13 phases. Keep the public phase count stable; use phase-local artifacts for finer granularity.

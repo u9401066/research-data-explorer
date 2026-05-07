@@ -25,8 +25,8 @@ Before entering a phase, the prior required artifacts must exist unless the sele
 ## Confirmation Gates
 
 - Phase 3: concept-schema alignment requires user confirmation.
-- Phase 5: plan completeness review requires user confirmation.
-- Phase 6: plan registration locks the analysis plan.
+- Phase 4: creative ideation requires user confirmation.
+- Phase 5+6: one confirmed `register_analysis_plan(confirm=true)` call performs plan completeness review and then locks the analysis plan.
 
 ## Plan Lock (H-007)
 

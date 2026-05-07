@@ -1,6 +1,6 @@
 # Research Workflow Guide for Copilot
 
-> 這份指南幫助 Copilot 理解如何正確使用 Zotero + PubMed MCP tools (v0.3.8)
+> 這份指南幫助 Copilot 理解如何正確使用 Zotero + PubMed MCP tools
 
 ## 🔍 文獻搜尋流程
 
@@ -18,20 +18,14 @@
 - Field tags
 
 ### 步驟 3: 執行搜尋
-使用 `unified_search` 搜尋多個來源（PubMed、Europe PMC、CORE 等），注意：
+使用 `unified_search` 執行搜尋，注意：
 - 結果會自動快取到 Session
 - 使用 `get_session_pmids` 取得已搜尋的 PMID
 - **不要重複搜尋相同的關鍵字**
 - `unified_search` 會自動合併去重多個來源的結果
 
-#### 進階搜尋參數
-| 參數 | 用途 | 範例 |
-|------|------|------|
-| `include_preprints` | 搜尋 arXiv/medRxiv/bioRxiv 預印本 | `unified_search(query="...", include_preprints=true)` |
-| `peer_reviewed_only` | 只顯示同行審查文章 | `unified_search(query="...", peer_reviewed_only=true)` |
-
 ### 步驟 4: 過濾已有文獻
-使用 `search_pubmed_exclude_owned` 直接搜尋「尚未擁有」的新文獻
+使用 `check_articles_owned` 檢查搜尋結果中的 PMID 哪些已存在於 Zotero
 
 ---
 
@@ -44,14 +38,13 @@
 
 | 情境 | 推薦工具 | 說明 |
 |------|----------|------|
-| 少量文獻 (1-5) | `quick_import_pmids` | 簡單快速 |
-| 中量文獻 (5-20) | `import_from_pmids` | 可指定 collection |
-| 大量文獻 (20+) | `batch_import_from_pubmed` | 批次處理，有進度回報 |
-| 有 RIS 檔案 | `import_ris_to_zotero` | 標準格式匯入 |
+| pubmed-search-mcp JSON 結果 | `import_articles` | 預設推薦，直接接 `unified_search(..., output_format="json")` |
+| RIS 匯出文字 | `import_articles` | 傳入 `ris_text`，由 keeper 統一解析匯入 |
+| 需要舊版 keeper 單機橋接流程 | legacy tools | 僅在啟用 `ZOTERO_KEEPER_ENABLE_LEGACY_PUBMED_TOOLS=1` 時使用 |
 
 ### 匯入前確認清單
 1. ✅ 已詢問目標 Collection
-2. ✅ 已確認 PMID 列表（使用 `get_session_pmids` 取得）
+2. ✅ 已確認文章或 PMID 來源（例如 `unified_search` 結果或 `get_session_pmids`）
 3. ✅ 已提醒用戶文獻數量
 
 ---
@@ -90,31 +83,6 @@
 
 ---
 
-## 🔬 進階工具
-
-### 引用網路
-- `build_citation_tree` - 從一篇文章建構引用網路（前向+後向）
-- `find_citing_articles` - 找出引用某篇文章的後續研究
-- `get_article_references` - 取得文章的參考文獻
-
-### ICD ↔ MeSH 轉換
-- `convert_icd_mesh` - 雙向轉換 ICD 代碼和 MeSH 術語
-- `search_by_icd` - 用 ICD 代碼搜尋 PubMed（自動轉換為 MeSH）
-
-### 研究時間軸
-- `build_research_timeline` - 建構研究主題的歷史演進時間軸
-- `compare_timelines` - 比較多個研究領域的時間軸
-
-### 圖片搜尋
-- `search_biomedical_images` - 搜尋 Open-i 和 Europe PMC 的生物醫學圖片
-
-### NCBI 延伸資料庫
-- `search_gene` / `get_gene_details` - 基因資訊
-- `search_compound` / `get_compound_details` - 化合物/藥物資訊
-- `search_clinvar` - 臨床變異搜尋
-
----
-
 ## ⚠️ 常見錯誤避免
 
 ### ❌ 錯誤做法
@@ -127,7 +95,7 @@
 1. 搜尋 → 確認結果 → 詢問 Collection → 匯入
 2. 用 `get_session_pmids` 取得已有的 PMID
 3. 用 `get_item` 從 Zotero 讀取已存文獻的詳情
-4. 匯入前用 `check_articles_owned` 檢查重複
+4. 匯入前用 `check_articles_owned` 檢查重複，再用 `import_articles` 存入 Zotero
 
 ---
 
@@ -139,10 +107,10 @@
 Copilot 動作:
 1. parse_pico: 分析研究問題
 2. generate_search_queries: 產生搜尋策略
-3. unified_search: 執行多來源搜尋
+3. unified_search: 執行搜尋
 4. [回報結果，詢問是否要存入 Zotero]
 5. list_collections: 取得 Collection 列表
 6. [詢問用戶要存入哪個 Collection]
-7. quick_import_pmids 或 batch_import_from_pubmed: 匯入
+7. import_articles: 匯入到指定 Collection
 8. [確認完成]
 ```

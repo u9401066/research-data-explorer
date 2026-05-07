@@ -23,6 +23,12 @@ phase_controls:
     tool: propose_analysis_plan
     phase: phase_04_creative_ideation
     requires_confirmed_phase_03: true
+    requires_user_confirmation: true
+    confirmation_flag: confirm
+    draft_call: propose_analysis_plan(confirm=false)
+    confirmation_call: propose_analysis_plan(confirm=true)
+    confirmation_sequence: draft_then_user_review_then_confirm
+    next_phase_unblocked_only_when_confirmed: true
     strategy: greedy_coverage_under_budget
     includes_internal_review_and_repair: true
     review_may_expand_soft_budget: true
@@ -34,12 +40,17 @@ phase_controls:
       - greedy_analysis_review.md
       - greedy_execution_schedule.json
       - greedy_execution_schedule.md
+      - greedy_plan_enrichment.json
+      - greedy_plan_enrichment.md
+      - greedy_statsmodels_base_analysis.py
   plan_completeness_review:
     tool: register_analysis_plan
     phase: phase_05_plan_completeness_review
     requires_user_confirmation: true
     confirmation_flag: confirm
     locks_plan_when_confirmed: false
+    combined_with_plan_registration_when_confirmed: true
+    same_tool_invocation_can_complete_phase_06: true
     methodology_review_applies_before_lock: true
     methodology_auto_expands_exploratory_branches_before_block: true
     methodology_override_flag: allow_methodology_override
@@ -52,6 +63,7 @@ phase_controls:
     requires_user_confirmation: true
     confirmation_flag: confirm
     locks_plan_when_confirmed: true
+    performed_by_same_confirmed_register_analysis_plan_call: true
     execution_schedule_artifacts:
       - analysis_execution_schedule.json
       - analysis_execution_schedule.md
@@ -60,6 +72,110 @@ phase_controls:
     requires_locked_plan: true
     requires_successful_phase_07: true
     requires_decision_logging: true
+  exploration_branch_loop:
+    phase: phase_08_execute_exploration
+    requires_locked_plan: true
+    requires_successful_phase_07: true
+    allows_autonomous_branch_running: true
+    autonomous_scope: branch_scoped_exploratory_candidates_only
+    does_not_modify_locked_plan_or_primary_conclusions: true
+    tools:
+      - open_exploration_branch
+      - suggest_branch_experiments
+      - start_autoresearch_run
+      - get_autoresearch_status
+      - stop_autoresearch_run
+      - resume_autoresearch_run
+      - run_autoresearch_next_task
+      - run_autoresearch_queue
+      - run_branch_experiment
+      - evaluate_branch
+      - promote_branch_to_plan_amendment
+      - discard_branch
+      - get_exploration_board
+    artifact_names:
+      - exploration_board.json
+      - exploration_branches.jsonl
+      - experiment_ledger.jsonl
+      - branch_experiment_results.jsonl
+      - branch_evaluations.jsonl
+      - branch_promotion_gate.json
+      - autoresearch_runs.jsonl
+      - work_queue.jsonl
+      - work_events.jsonl
+      - budget_state.json
+      - stop_decisions.jsonl
+      - resume_decisions.jsonl
+      - progress_events.jsonl
+      - branch_results/{branch_id}.json
+      - branch_results/{branch_id}/experiments/{experiment_id}.json
+      - branch_results/{branch_id}_promotion_review.md
+      - branch_results/{branch_id}_promotion_gate.json
+      - plan_amendments/{branch_id}.json
+      - plan_amendments/{branch_id}.md
+      - plan_amendments.jsonl
+    artifact_groups:
+      always_possible:
+        - exploration_board.json
+        - exploration_branches.jsonl
+        - experiment_ledger.jsonl
+        - branch_experiment_results.jsonl
+        - branch_evaluations.jsonl
+        - branch_promotion_gate.json
+      autoresearch_run_started:
+        - autoresearch_runs.jsonl
+        - work_queue.jsonl
+        - work_events.jsonl
+        - budget_state.json
+        - progress_events.jsonl
+      autoresearch_run_stopped:
+        - stop_decisions.jsonl
+      autoresearch_run_resumed:
+        - resume_decisions.jsonl
+      branch_promoted_after_audit_gate:
+        - branch_results/{branch_id}_promotion_gate.json
+        - plan_amendments/{branch_id}.json
+        - plan_amendments/{branch_id}.md
+        - plan_amendments.jsonl
+    promotion_gate:
+      tool: promote_branch_to_plan_amendment
+      requires_audit_gate: true
+      audit_tool: evaluate_branch
+      requires_prior_audit_event: true
+      blocks_stale_evaluation: true
+      requires_confirmed_locked_plan: true
+      requires_successful_phase_07: true
+      requires_live_evidence_artifact: true
+      requires_minimum_evidence_bundle:
+        - sample_size
+        - effect_or_model_metric
+        - uncertainty_or_diagnostic_metric
+      requires_user_confirmation: true
+      confirmation_flag: confirm
+      blocks_auto_merge_to_primary_conclusions: true
+      output_artifacts:
+        - branch_promotion_gate.json
+        - branch_results/{branch_id}_promotion_gate.json
+        - plan_amendments/{branch_id}.json
+        - plan_amendments/{branch_id}.md
+        - plan_amendments.jsonl
+  ux_harness:
+    phase: phase_00_project_setup
+    purpose: no_code_user_guidance
+    tools:
+      - get_approval_card
+      - get_harness_dashboard
+      - build_artifact_index
+      - get_blocker_playbook
+    output_artifacts:
+      - phase_00_project_setup/approval_card.json
+      - phase_00_project_setup/approval_card.md
+      - phase_00_project_setup/harness_dashboard.json
+      - phase_00_project_setup/artifact_index.json
+      - phase_00_project_setup/blocker_playbook.json
+      - phase_00_project_setup/blocker_playbook.md
+    must_not_execute_analysis: true
+    must_not_override_phase_gates: true
 
 override_controls:
   pii_detection:
@@ -75,6 +191,27 @@ audit_contract:
   deviation_log_path: artifacts/phase_08_execute_exploration/deviation_log.jsonl
   phase_08_required_artifacts:
     - decision_log.jsonl
+  phase_08_branch_loop_artifacts:
+    - exploration_board.json
+    - exploration_branches.jsonl
+    - experiment_ledger.jsonl
+    - branch_experiment_results.jsonl
+    - branch_evaluations.jsonl
+    - branch_promotion_gate.json
+    - autoresearch_runs.jsonl
+    - work_queue.jsonl
+    - work_events.jsonl
+    - budget_state.json
+    - stop_decisions.jsonl
+    - resume_decisions.jsonl
+    - progress_events.jsonl
+    - branch_results/{branch_id}.json
+    - branch_results/{branch_id}/experiments/{experiment_id}.json
+    - branch_results/{branch_id}_promotion_review.md
+    - branch_results/{branch_id}_promotion_gate.json
+    - plan_amendments/{branch_id}.json
+    - plan_amendments/{branch_id}.md
+    - plan_amendments.jsonl
   phase_12_required_artifacts:
     - final_report.md
 

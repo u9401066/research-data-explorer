@@ -9,7 +9,7 @@ Use RDE as a 13-phase auditable EDA harness, not as an ad hoc notebook.
 - Check `report_readiness.core_goal_audit`; `core_goal:*` gaps mean the run is not production-ready.
 - Follow `.github/agent-control.yaml` when it is present in the workspace.
 - Use the RDE MCP tools for dataset intake, schema, planning, execution, reporting, audit, and handoff.
-- Treat Phase 3 concept alignment, Phase 5 plan completeness review, and Phase 6 plan lock as explicit confirmation gates.
+- Treat Phase 3 concept alignment, Phase 4 creative ideation, and the combined Phase 5+6 review/plan lock as explicit confirmation gates.
 - After Phase 6, any execution change outside the locked plan requires `log_deviation()`.
 - Decision and deviation logs live under `artifacts/phase_08_execute_exploration/`.
 - Reports should cite artifact paths and explain statistical findings in plain language with technical values in parentheses.

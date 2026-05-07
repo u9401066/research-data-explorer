@@ -1,12 +1,12 @@
 ---
 name: report-generator
-description: "Phase 8 report assembly and export workflow. Use when user wants to generate, review, or export the EDA report. Triggers: 報告, report, assemble, export, 產出報告, 匯出."
+description: "Phase 10 report assembly and export workflow. Use when user wants to generate, review, or export the EDA report. Triggers: 報告, report, assemble, export, 產出報告, 匯出."
 ---
 
 # Report Generator
 
 ## 描述
-Phase 8 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯出。
+Phase 10 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯出。
 
 ## 觸發條件
 - 「產出報告」「匯出結果」「report」「看報告」
@@ -19,7 +19,7 @@ Phase 8 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯
 ## 前提
 
 報告組裝前必須確認：
-1. Phase 7 `collect_results()` 已完成
+1. Phase 9 `collect_results()` 已完成
 2. `results_summary.json` 存在
 3. `decision_log.jsonl` 存在
 
@@ -34,7 +34,7 @@ Phase 8 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯
 ## 4. Analysis Plan (+ 偏離紀錄)
 ## 5. Findings
    - 每個結果附 effect size + CI
-   - PUBLISHABLE 標記
+   - statistically significant candidates (audit required)
 ## 6. Visualizations
 ## 7. Limitations
 ## 8. Appendix
@@ -52,13 +52,13 @@ Phase 8 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯
 | `<linux-home>/...` | `<project>/...` |
 | API keys, tokens | `<REDACTED>` |
 
-## PUBLISHABLE 標記
+## Candidate Finding Markers
 
 報告中可直接用於論文的段落用以下標記：
 ```markdown
-<!-- PUBLISHABLE:START -->
+<!-- CANDIDATE_FINDING:START -->
 這段內容可直接用於論文 Methods/Results
-<!-- PUBLISHABLE:END -->
+<!-- CANDIDATE_FINDING:END -->
 ```
 
 ## Handoff 到 med-paper-assistant

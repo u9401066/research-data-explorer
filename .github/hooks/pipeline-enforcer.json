@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot/session-init.sh",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/hooks/copilot/session-init.ps1",
+        "cwd": ".",
+        "timeoutSec": 10,
+        "comment": "Load available pipelines and set context for the agent"
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot/analyze-prompt.sh",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/hooks/copilot/analyze-prompt.ps1",
+        "cwd": ".",
+        "timeoutSec": 5,
+        "comment": "Detect research intent and recommend pipeline mode"
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot/enforce-pipeline.sh",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/hooks/copilot/enforce-pipeline.ps1",
+        "cwd": ".",
+        "timeoutSec": 5,
+        "comment": "Copilot-only workflow guardrails for search, discovery, fulltext, session, export, and pipeline tools"
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot/evaluate-results.sh",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/hooks/copilot/evaluate-results.ps1",
+        "cwd": ".",
+        "timeoutSec": 10,
+        "comment": "Copilot-only evaluation of research tool quality and workflow state for the next preToolUse"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot/session-cleanup.sh",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/hooks/copilot/session-cleanup.ps1",
+        "cwd": ".",
+        "timeoutSec": 5,
+        "comment": "Clean up temporary state files"
+      }
+    ]
+  }
+}

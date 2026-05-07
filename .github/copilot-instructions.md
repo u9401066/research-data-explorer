@@ -19,7 +19,7 @@
 Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← Infrastructure (Adapters)
 ```
 
-- **32 MCP tools** across 7 tool files
+- **49 MCP tools** across 9 tool files
 - **13-Phase Pipeline** with Hard/Soft constraints
 - **local-first AnalysisDelegator** with local-lite statsmodels/scipy fallback and optional automl-stat-mcp delegation
 
@@ -125,8 +125,9 @@ automl-stat-mcp is optional. VSIX users can complete the core report flow throug
 
 ## Agent Control Notes
 
-- Phase 3 `align_concept()` 與 Phase 4 `register_analysis_plan()` 都需要 `confirm=true` 才算解除下一階段 gate
-- 若使用者要 agent 自主規劃 EDA，或尚未提供明確分析清單，應先用 `propose_analysis_plan()` 產生 greedy blueprint，再進入 Phase 4 鎖定
+- Phase 3 uses `align_concept(confirm=true)` only after concept-schema review.
+- Phase 4 is two-step: `propose_analysis_plan(confirm=false)` generates the greedy blueprint/review artifacts, then `propose_analysis_plan(confirm=true)` confirms them after user review.
+- Phase 5+6 uses `register_analysis_plan(confirm=true)` to perform plan review and lock the Phase 6 plan in one governed call.
 - `load_dataset()` / `run_intake()` 偵測疑似 PII 時預設拒絕；只有 `allow_pii=true` 可覆蓋，而且回覆中必須明確警告
 - `decision_log.jsonl` 與 `deviation_log.jsonl` 位於 `artifacts/phase_08_execute_exploration/`
 - 測試與回歸驗證請使用 `python3 -m pytest -q`

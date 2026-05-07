@@ -1,4 +1,4 @@
-# Research Data Explorer — VS Code Extension
+﻿# Research Data Explorer — VS Code Extension
 
 Governed research data exploration assistant with MCP tools, prompts, and skills.
 
@@ -20,7 +20,7 @@ RDE therefore treats automl-stat-mcp as optional. The built-in MCP server can co
 ## Features
 
 - 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
-- 📊 **32 MCP Tools** — 資料載入、greedy plan ideation、描述統計、分組比較、Table 1、進階分析
+- 📊 **49 MCP Tools** — 資料載入、greedy plan ideation、YOLO exploration branches、UX harness、描述統計、分組比較、Table 1、進階分析
 - 🧪 **local-lite + optional automl-stat-mcp** — no-Docker adjusted models / ROC / power, with optional heavy delegation
 - 📄 **報告匯出** — Word/PDF 匯出
 - 🔒 **品質把關** — Hard Constraints (H-001~H-010) + Soft Constraints (S-001~S-012)
@@ -124,6 +124,7 @@ cd vendor/automl-stat-mcp && docker compose up -d
 | 指令 | 說明 |
 | ------ | ------ |
 | `RDE: Run Full Pipeline` | 直接啟動完整報告工作流，不是只看 pipeline 狀態 |
+| `RDE: Open UX Harness Dashboard` | 開啟 approval card、dashboard、artifact index、blocker playbook 的無代碼檢視；優先讀取 workspace `artifacts/`，否則讀取 `data/projects/` 最新專案 |
 | `RDE: Show Status` | 顯示擴充功能狀態 |
 | `RDE: Setup Workspace` | 設定 Copilot/Codex/Cline skills、prompts、rules、instructions |
 
@@ -147,7 +148,7 @@ cd vendor/automl-stat-mcp && docker compose up -d
 
 1. 開啟 VS Code 後執行 `RDE: Run Full Pipeline`。
 2. 在 chat 視窗貼上你的資料需求，例如「請從這份 Excel 做完整分析報告」。
-3. 如果你要 agent 先自主規劃，先讓它跑 `propose_analysis_plan()` 產生經過內部 review / repair 的 greedy blueprint。這一步現在也會在必要時擴張 soft budget、保留更多 EDA 路線，並輸出 Phase 6 execution schedule。再確認 Phase 4 的分析計畫；若 plan 太薄，Phase 4 會先自動補入 exploratory branches，只有補完後仍不足時才擋下來，之後再讓 `@rde` 完成 `collect_results`、`assemble_report`、`run_audit`。
+3. 如果你要 agent 先自主規劃，先讓它跑 `propose_analysis_plan(confirm=true)` 產生經過內部 review / repair 的 greedy blueprint。這一步現在也會在必要時擴張 soft budget、保留更多 EDA 路線，並輸出 Phase 6 execution schedule。再確認 Phase 4 的分析計畫；若 plan 太薄，Phase 4 會先自動補入 exploratory branches，只有補完後仍不足時才擋下來，之後再讓 `@rde` 完成 `collect_results`、`assemble_report`、`run_audit`。
 
 ## Architecture
 
@@ -157,25 +158,27 @@ Capability → Skill → MCP Tool
 
 ### 13-Phase Pipeline
 
-| Phase | 名稱 | 說明 |
+| Phase | Name | Purpose |
 | ------- | ------ | ------ |
-| 0 | Setup | 專案建立 |
-| 1 | Intake | 資料載入 |
-| 2 | Schema | Schema 登記 |
-| 3 | Concept | 概念校準 |
-| 4 | Plan | 分析計畫 |
-| 5 | Pre-check | 前置檢查 |
-| 6 | Execute | 執行分析 |
-| 7 | Collect | 收集結果 |
-| 8 | Report | 報告組裝 |
-| 9 | Audit | 審計 |
-| 10 | Improve | 自我改善 |
+| 0 | Setup | Project and artifact store |
+| 1 | Intake | File, format, size, and PII checks |
+| 2 | Schema Registry | Schema, profile, and quality artifacts |
+| 3 | Concept Alignment | Research question to variable roles |
+| 4 | Creative Ideation | Greedy analysis candidates |
+| 5 | Plan Completeness Review | Methodology review before lock |
+| 6 | Plan Registration | Locked executable analysis plan |
+| 7 | Pre-Explore Check | Readiness, assumptions, and sample checks |
+| 8 | Execute Exploration | Planned analyses plus branch-scoped YOLO exploration |
+| 9 | Collect Results | Results summary and report readiness |
+| 10 | Report Assembly | EDA report and export |
+| 11 | Audit Review | Audit score and contract checks |
+| 12 | Auto-Improve | Final report and handoff |
 
-### MCP Tools (32)
+### MCP Tools (49)
 
 自動註冊 MCP Server:
 
-- **Research Data Explorer** — 32 工具 (project, discovery, profiling, plan, analysis, report, audit)
+- **Research Data Explorer** — 49 tools (project, discovery, profiling, plan, analysis, YOLO branches, UX harness, report, audit)
 
 ### Bundled Skills (8)
 

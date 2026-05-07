@@ -1,4 +1,13 @@
-# Progress (Updated: 2026-05-06)
+# Progress (Updated: 2026-05-07)
+
+## MEM+ 2026-05-07
+
+- [x] Harness Contract Hardening: plan/readiness gates now protect branch/autoresearch execution from drift and quick-explore bypass.
+- [x] Autoresearch Durable Runner: queue, budget, resume/status, next-task, drain-runner, failure thresholds, expired lease reclaim, and lifecycle decision logging.
+- [x] UX Harness: approval card, dashboard, artifact index, blocker playbook, and VSIX dashboard command.
+- [x] Phase 4 docs/tool sync: two-step draft then confirm contract is reflected in manifest, prompts, docs, and regression tests.
+- [x] Release verification: Python tests, VSIX tests, bundled asset sync, and whitespace checks passed.
+- [x] Release metadata prepared for branch push and `v0.4.7` tag publication.
 
 ## MEM+ 2026-05-06
 

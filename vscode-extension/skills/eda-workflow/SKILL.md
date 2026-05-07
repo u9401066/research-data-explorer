@@ -52,19 +52,22 @@ align_concept(research_question, variable_roles, confirm=true)
 
 ### Phase 4: Creative Ideation ⚠️ 用戶必須確認
 ```
-propose_analysis_plan()
+propose_analysis_plan(confirm=true)
+→ greedy_analysis_candidates.json
+→ greedy_analysis_candidates.md
+→ greedy_execution_schedule.json
+→ greedy_execution_schedule.md
+→ greedy_plan_enrichment.json
+→ greedy_plan_enrichment.md
+→ greedy_statsmodels_base_analysis.py
 → greedy_analysis_candidates.json + greedy_analysis_candidates.md
 ```
 
-### Phase 5: Plan Completeness Review ⚠️ 用戶必須確認
+### Phase 5+6: Plan Completeness Review + Registration ⚠️ 用戶必須確認
 ```
 register_analysis_plan(confirm=true)
-→ analysis_plan_review.json + analysis_plan_review.md
-```
-
-### Phase 6: Plan Registration ⚠️ 用戶必須確認 → 🔒 鎖定
-```
-register_analysis_plan(confirm=true)
+→ analysis_plan_review.json
+→ analysis_plan_review.md
 → analysis_plan.yaml (LOCKED after confirmation)
 ```
 **Agent 必須：** 展示完整計畫（方法、α 值、missing 策略），等待確認後鎖定。
@@ -95,7 +98,7 @@ correlation_matrix()
 ### Phase 9: Collect Results
 ```
 collect_results()
-→ results_summary.json (含 PUBLISHABLE markers)
+→ results_summary.json (含 statistically significant candidate markers)
 ```
 
 ### Phase 10: Report Assembly
