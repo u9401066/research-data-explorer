@@ -3,6 +3,7 @@
 ## MEM+ 2026-05-07
 
 - v0.4.7 release focus: harness contract hardening, autoresearch durable runner, and no-code UX harness.
+- v0.4.8 hotfix focus: repair VSIX/RDE project bootstrap drift so Phase 3 cannot strand users without `init_project()`.
 - Phase 8 branch/autoresearch is governed-only: a confirmed locked plan plus readiness pass are required before execution.
 - Autoresearch can run overnight-style branch queues with budget, resume/status, failure budget, lease reclaim, and lifecycle decision logs; promotion remains behind audit/user gates.
 - UX harness now includes approval card, dashboard status, artifact index, and blocker playbook. Webview previews redact local absolute paths.

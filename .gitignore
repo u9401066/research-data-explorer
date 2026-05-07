@@ -64,6 +64,7 @@ pytest_tmp/
 run-*.json
 runs.json
 .asset-aware-mcp/
+.github/hooks/_state/
 
 # xhtml2pdf / reportlab caches
 .cache/
