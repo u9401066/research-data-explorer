@@ -6,6 +6,18 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-05-07
+
+### 0.4.9 Fixed
+
+- `align_concept()` can now recover an auditable project context when `run_intake()` and `build_schema()` were run session-only because the client tool list omitted or cached out `init_project()`.
+- Recovery writes Phase 0-2 artifacts, binds the active dataset, persists the project, and then continues through the normal Phase 3 confirmation gate instead of bypassing harness controls.
+
+### 0.4.9 Added
+
+- Live MCP tool-list regression coverage verifies the running server exposes `init_project`, `run_intake`, `build_schema`, and `align_concept`.
+- VSIX command-filter regression coverage verifies `init_project` remains visible after command-level filtering.
+
 ## [0.4.8] - 2026-05-07
 
 ### 0.4.8 Fixed

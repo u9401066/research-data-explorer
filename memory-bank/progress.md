@@ -3,6 +3,7 @@
 ## MEM+ 2026-05-07
 
 - [x] v0.4.8 hotfix prepared: no-active-project guidance now points to `init_project()`, and `/pipeline` exposes Phase 0-7 bootstrap tools.
+- [x] v0.4.9 hotfix prepared: `align_concept()` recovers auditable Phase 0-2 project context from orphan session datasets.
 - [x] Harness Contract Hardening: plan/readiness gates now protect branch/autoresearch execution from drift and quick-explore bypass.
 - [x] Autoresearch Durable Runner: queue, budget, resume/status, next-task, drain-runner, failure thresholds, expired lease reclaim, and lifecycle decision logging.
 - [x] UX Harness: approval card, dashboard, artifact index, blocker playbook, and VSIX dashboard command.

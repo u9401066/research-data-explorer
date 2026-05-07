@@ -2,6 +2,7 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-07 | Allow auditable project recovery from session-only intake/schema before Phase 3 | Agent clients can cache or omit `init_project`; recovery preserves Phase 0-2 artifacts and normal Phase 3 confirmation instead of leaving non-data-scientists stuck. |
 | 2026-05-07 | Treat `init_project()` as the only canonical RDE Phase 0 project bootstrap tool | `create_project()` belongs to delegated automl contexts and must not appear in RDE no-active-project guidance or VSIX pipeline bootstrap instructions. |
 | 2026-05-07 | Treat Phase 8 branch/autoresearch as governed-only execution | Automatic branches are useful only after concept alignment, plan confirmation, locked plan registration, and readiness checks have created an auditable foundation. |
 | 2026-05-07 | Use a durable queue for YOLO overnight exploration, but keep promotion behind audit gates | The agent may explore branches autonomously, while result promotion still requires coverage, artifact, decision-log, audit, and user-facing approval evidence. |
