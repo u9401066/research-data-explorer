@@ -11,6 +11,7 @@
 # =============================================================================
 $ErrorActionPreference = "Stop"
 
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -18,13 +19,14 @@ function Read-JsonFileSafe {
     param([string]$Path)
     try {
         if (Test-Path $Path -ErrorAction SilentlyContinue) {
-            $content = Get-Content $Path -Raw -ErrorAction Stop
+            $encoding = New-Object System.Text.UTF8Encoding($false, $true)
+            $content = [System.IO.File]::ReadAllText($Path, $encoding)
             if ($content -and $content.Trim().Length -gt 0) {
                 return ($content | ConvertFrom-Json -ErrorAction Stop)
             }
         }
     } catch {
-        Remove-Item $Path -Force -ErrorAction SilentlyContinue
+        return $null
     }
     return $null
 }
@@ -82,16 +84,7 @@ try {
     $trackerFile = "$stateDir/workflow_tracker.json"
     $tracker = $null
 
-    if (Test-Path $trackerFile -ErrorAction SilentlyContinue) {
-        try {
-            $raw = Get-Content $trackerFile -Raw -ErrorAction Stop
-            if ($raw -and $raw.Trim().Length -gt 0) {
-                $tracker = $raw | ConvertFrom-Json -ErrorAction Stop
-            }
-        } catch {
-            Remove-Item $trackerFile -Force -ErrorAction SilentlyContinue
-        }
-    }
+    $tracker = Read-JsonFileSafe -Path $trackerFile
 
     # Create tracker for research intents
     $isResearch = $intent -ne "unknown"

@@ -47,13 +47,24 @@ def changelog_has_version(version: str) -> bool:
 
 def get_staged_files() -> list[str]:
     result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+        [
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "--cached",
+            "-z",
+            "--name-only",
+            "--diff-filter=ACMR",
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
-    return [line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()]
+    return [path.strip().replace("\\", "/") for path in result.stdout.split("\0") if path.strip()]
 
 
 def find_blocked_staged_files(staged_files: list[str]) -> list[str]:

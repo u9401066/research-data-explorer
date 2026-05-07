@@ -10,6 +10,7 @@
 # =============================================================================
 $ErrorActionPreference = "Stop"
 
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -17,13 +18,14 @@ function Read-JsonFileSafe {
     param([string]$Path)
     try {
         if (Test-Path $Path -ErrorAction SilentlyContinue) {
-            $content = Get-Content $Path -Raw -ErrorAction Stop
+            $encoding = New-Object System.Text.UTF8Encoding($false, $true)
+            $content = [System.IO.File]::ReadAllText($Path, $encoding)
             if ($content -and $content.Trim().Length -gt 0) {
                 return ($content | ConvertFrom-Json -ErrorAction Stop)
             }
         }
     } catch {
-        Remove-Item $Path -Force -ErrorAction SilentlyContinue
+        return $null
     }
     return $null
 }
@@ -44,6 +46,22 @@ function Append-Utf8NoBomLine {
     )
     $encoding = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::AppendAllText($Path, $Line + [Environment]::NewLine, $encoding)
+}
+
+function Clear-HookStateFile {
+    param([string]$Path)
+    try {
+        if (Test-Path $Path -ErrorAction SilentlyContinue) {
+            $archiveDir = Join-Path (Split-Path $Path -Parent) "_archive"
+            if (-not (Test-Path $archiveDir)) {
+                New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+            }
+            $stamp = Get-Date -Format "yyyyMMddTHHmmssfff"
+            $leaf = Split-Path $Path -Leaf
+            Move-Item -LiteralPath $Path -Destination (Join-Path $archiveDir "$stamp-$leaf") -Force
+        }
+    } catch {
+    }
 }
 
 function Get-PolicyArray {
@@ -273,7 +291,7 @@ try {
                 $pendingTemplate = [string]$pending.template
             }
         }
-        Remove-Item $pendingFile -Force -ErrorAction SilentlyContinue
+        Clear-HookStateFile -Path $pendingFile
     }
 
     $evaluationMode = Get-EvaluationMode -ToolName $toolName -ToolGroup $toolGroup
@@ -348,10 +366,10 @@ try {
             template = $pendingTemplate
             nudged = $false
         } | ConvertTo-Json -Compress)
-        Remove-Item "$stateDir/last_search_eval.json" -Force -ErrorAction SilentlyContinue
+        Clear-HookStateFile -Path "$stateDir/last_search_eval.json"
     } else {
-        Remove-Item "$stateDir/last_search_eval.json" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$stateDir/last_research_eval.json" -Force -ErrorAction SilentlyContinue
+        Clear-HookStateFile -Path "$stateDir/last_search_eval.json"
+        Clear-HookStateFile -Path "$stateDir/last_research_eval.json"
     }
 
     try {
