@@ -30,11 +30,11 @@ If it fails, stop and report the drift before changing release logic.
 
 ## Step 2: VS Code extension tests
 <execute_command>
-<command>(cd vscode-extension && npm run sync-assets:check)</command>
+<command>npm --prefix vscode-extension run sync-assets:check</command>
 </execute_command>
 
 <execute_command>
-<command>(cd vscode-extension && npm run test:ci)</command>
+<command>npm --prefix vscode-extension run test:ci</command>
 </execute_command>
 
 If it fails, stop and report the failures.
@@ -42,7 +42,7 @@ If it fails, stop and report the failures.
 ## Step 2.1: VSIX install/update smoke test
 This is required before release. Activation smoke is required for release environments that can provide a display.
 <execute_command>
-<command>(cd vscode-extension && npm run test:install-smoke)</command>
+<command>npm --prefix vscode-extension run test:install-smoke</command>
 </execute_command>
 
 - Windows/macOS: run `npm run test:install-smoke`

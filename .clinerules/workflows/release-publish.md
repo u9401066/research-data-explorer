@@ -37,7 +37,7 @@ If anything fails, stop and report the failures.
 
 VSIX install/activation smoke is required for release. On Linux, prefer:
 <execute_command>
-<command>(cd vscode-extension && xvfb-run -a npm run test:install-smoke -- --require-activation)</command>
+<command>xvfb-run -a npm --prefix vscode-extension run test:install-smoke -- --require-activation</command>
 </execute_command>
 
 Validate release harness parity and built artifacts:
@@ -63,7 +63,7 @@ Validate the version in `pyproject.toml` is a strict `X.Y.Z`:
 
 Create a release commit:
 <execute_command>
-<command>VERSION="$(python3 scripts/get_version.py --strict-semver)"; git commit -m "Release $VERSION"</command>
+<command>git commit -m "Release $(python3 scripts/get_version.py --strict-semver)"</command>
 </execute_command>
 
 ## Step 6: Push commit to origin
@@ -77,11 +77,11 @@ Push the default branch (`master`) to `origin`. If git credentials are missing, 
 Create an **annotated** tag named `vX.Y.Z` and push it to origin.
 
 <execute_command>
-<command>VERSION="$(python3 scripts/get_version.py --strict-semver)"; git tag -a "v$VERSION" -m "Release v$VERSION"</command>
+<command>git tag -a "v$(python3 scripts/get_version.py --strict-semver)" -m "Release v$(python3 scripts/get_version.py --strict-semver)"</command>
 </execute_command>
 
 <execute_command>
-<command>VERSION="$(python3 scripts/get_version.py --strict-semver)"; git push origin "v$VERSION"</command>
+<command>git push origin "v$(python3 scripts/get_version.py --strict-semver)"</command>
 </execute_command>
 
 Verify the tag exists on the remote (should include `refs/tags/vX.Y.Z`):
