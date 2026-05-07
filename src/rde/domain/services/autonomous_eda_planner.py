@@ -29,6 +29,27 @@ GROUP_KEYWORDS = (
     "cohort",
     "cluster",
     "exposure",
+    "random",
+    "allocation",
+    "method",
+    "technique",
+    "approach",
+    "device",
+    "guided",
+    "guidance",
+    "ultrasound",
+    "central",
+    "line",
+    "catheter",
+    "arterial",
+    "intervention",
+    "組別",
+    "方式",
+    "處置",
+    "介入",
+    "超音波",
+    "導管",
+    "中線",
 )
 OUTCOME_KEYWORDS = (
     "outcome",
@@ -38,10 +59,44 @@ OUTCOME_KEYWORDS = (
     "status",
     "success",
     "failure",
+    "fail",
     "response",
     "readmission",
+    "complication",
+    "adverse",
+    "infection",
+    "bleeding",
+    "pain",
+    "score",
+    "rate",
+    "time",
+    "duration",
+    "sec",
+    "second",
+    "minute",
+    "min",
+    "成功",
+    "失敗",
+    "併發",
+    "感染",
+    "出血",
+    "疼痛",
+    "時間",
+    "耗時",
+    "花費",
 )
-ROC_KEYWORDS = ("score", "risk", "prob", "probability", "marker", "biomarker")
+TIME_TO_EVENT_KEYWORDS = (
+    "time",
+    "duration",
+    "survival",
+    "followup",
+    "follow_up",
+    "sec",
+    "min",
+    "hour",
+    "day",
+)
+ROC_KEYWORDS = ("score", "risk", "prob", "probability", "marker", "biomarker", "rate")
 OPERATOR_KEYWORDS = ("operator", "surgeon", "provider", "physician", "doctor")
 TRIAL_KEYWORDS = ("trial", "case", "order", "sequence", "attempt", "procedure")
 REPEATED_PATTERNS = (
@@ -99,6 +154,7 @@ class AnalysisCandidate:
     analysis_type: str | None = None
     group_variable: str | None = None
     target_variable: str | None = None
+    time_variable: str | None = None
     covariates: tuple[str, ...] = ()
     priority: str = "medium"
     visualizations: tuple[VisualizationSuggestion, ...] = ()
@@ -109,12 +165,13 @@ class AnalysisCandidate:
     def label(self) -> str:
         return self.family()
 
-    def key(self) -> tuple[str, str | None, str | None, str | None, tuple[str, ...]]:
+    def key(self) -> tuple[str, str | None, str | None, str | None, str | None, tuple[str, ...]]:
         return (
             self.type,
             self.analysis_type,
             self.group_variable,
             self.target_variable,
+            self.time_variable,
             self.variables,
         )
 
@@ -134,6 +191,8 @@ class AnalysisCandidate:
             data["group_variable"] = self.group_variable
         if self.target_variable:
             data["target_variable"] = self.target_variable
+        if self.time_variable:
+            data["time_variable"] = self.time_variable
         if self.covariates:
             data["covariates"] = list(self.covariates)
         return data
@@ -150,6 +209,8 @@ class AnalysisCandidate:
             entry["group_variable"] = self.group_variable
         if self.target_variable:
             entry["target_variable"] = self.target_variable
+        if self.time_variable:
+            entry["time_variable"] = self.time_variable
         if self.covariates:
             entry["covariates"] = list(self.covariates)
         return entry
@@ -356,8 +417,9 @@ class AutonomousEDAPlanner:
                 warnings=tuple(warnings),
             )
 
-        outcomes = self._pick_outcomes(analysis_vars)
-        groups = self._pick_groups(analysis_vars)
+        question_terms = self._question_terms(research_question)
+        outcomes = self._pick_outcomes(analysis_vars, question_terms=question_terms)
+        groups = self._pick_groups(analysis_vars, outcomes=outcomes, question_terms=question_terms)
         continuous = [
             variable
             for variable in analysis_vars
@@ -369,9 +431,21 @@ class AutonomousEDAPlanner:
             if variable.variable_type
             in {VariableType.CATEGORICAL, VariableType.BINARY, VariableType.ORDINAL}
         ]
-        predictors = self._pick_predictors(analysis_vars, outcomes, groups)
+        predictors = self._pick_predictors(
+            analysis_vars,
+            outcomes,
+            groups,
+            question_terms=question_terms,
+        )
         repeated_cluster = self._detect_repeated_measure_cluster(continuous)
         cusum_candidate = self._detect_learning_curve_candidate(all_non_pii, outcomes)
+        survival_candidate = self._detect_time_to_event_candidate(
+            all_non_pii,
+            outcomes,
+            groups,
+            predictors,
+            question_terms=question_terms,
+        )
         model_family = self._recommend_model_family(outcomes, predictors, include_advanced)
 
         if not any(variable.role == VariableRole.OUTCOME for variable in analysis_vars):
@@ -395,6 +469,7 @@ class AutonomousEDAPlanner:
             model_family=model_family,
             repeated_cluster=repeated_cluster,
             cusum_candidate=cusum_candidate if include_advanced else None,
+            survival_candidate=survival_candidate if include_advanced else None,
         )
         variable_missing = {variable.name: variable.missing_rate for variable in all_non_pii}
         draft_selected = tuple(
@@ -414,6 +489,7 @@ class AutonomousEDAPlanner:
             model_family=model_family,
             repeated_cluster=repeated_cluster,
             has_cusum=include_advanced and cusum_candidate is not None,
+            has_survival=include_advanced and survival_candidate is not None,
         )
         if review.warnings:
             warnings.extend(review.warnings)
@@ -479,14 +555,14 @@ class AutonomousEDAPlanner:
             if variable.is_analyzable() and not variable.is_pii_suspect
         ]
         all_non_pii = [variable for variable in dataset.variables if not variable.is_pii_suspect]
-        outcomes = self._pick_outcomes(analysis_vars)
-        groups = self._pick_groups(analysis_vars)
+        outcomes = self._pick_outcomes(analysis_vars, question_terms=())
+        groups = self._pick_groups(analysis_vars, outcomes=outcomes, question_terms=())
         continuous = [
             variable
             for variable in analysis_vars
             if variable.variable_type in {VariableType.CONTINUOUS, VariableType.BIOMARKER}
         ]
-        predictors = self._pick_predictors(analysis_vars, outcomes, groups)
+        predictors = self._pick_predictors(analysis_vars, outcomes, groups, question_terms=())
         repeated_cluster = self._detect_repeated_measure_cluster(continuous)
         has_cusum = (
             include_advanced
@@ -512,6 +588,7 @@ class AutonomousEDAPlanner:
             cusum_candidate=self._detect_learning_curve_candidate(all_non_pii, outcomes)
             if include_advanced
             else None,
+            survival_candidate=None,
         )
         selected_families = tuple(
             family
@@ -525,6 +602,7 @@ class AutonomousEDAPlanner:
             model_family=model_family,
             has_repeated=repeated_cluster is not None,
             has_cusum=has_cusum,
+            has_survival=False,
         )
         recommended_floor = self._recommended_analysis_floor(
             candidate_pool_size=len(candidate_pool),
@@ -533,6 +611,7 @@ class AutonomousEDAPlanner:
             model_family=model_family,
             has_repeated=repeated_cluster is not None,
             has_cusum=has_cusum,
+            has_survival=False,
         )
         academic_target = self._target_analysis_floor(
             recommended_floor=recommended_floor,
@@ -880,6 +959,7 @@ class AutonomousEDAPlanner:
         model_family: str | None,
         repeated_cluster: list[str] | None,
         cusum_candidate: AnalysisCandidate | None,
+        survival_candidate: AnalysisCandidate | None,
     ) -> list[AnalysisCandidate]:
         candidates: list[AnalysisCandidate] = []
 
@@ -906,8 +986,13 @@ class AutonomousEDAPlanner:
 
         if groups:
             group_variable = groups[0]
+            grouped_targets = [
+                variable
+                for variable in self._unique_variables(outcomes + predictors + categorical + continuous)
+                if variable.name != group_variable.name
+            ]
             table_one_vars = self._limit_variables(
-                self._unique_variables(outcomes + predictors + categorical + continuous),
+                grouped_targets,
                 limit=8,
             )
             if table_one_vars:
@@ -934,7 +1019,7 @@ class AutonomousEDAPlanner:
                 )
 
             comparison_targets = self._limit_variables(
-                self._unique_variables(outcomes + predictors + continuous + categorical),
+                grouped_targets,
                 limit=6,
             )
             if comparison_targets:
@@ -1068,9 +1153,12 @@ class AutonomousEDAPlanner:
 
         if include_advanced and cusum_candidate is not None:
             candidates.append(cusum_candidate)
+        if include_advanced and survival_candidate is not None:
+            candidates.append(survival_candidate)
 
         unique: dict[
-            tuple[str, str | None, str | None, str | None, tuple[str, ...]], AnalysisCandidate
+            tuple[str, str | None, str | None, str | None, str | None, tuple[str, ...]],
+            AnalysisCandidate,
         ] = {}
         for candidate in candidates:
             unique[candidate.key()] = candidate
@@ -1150,6 +1238,7 @@ class AutonomousEDAPlanner:
         model_family: str | None,
         repeated_cluster: list[str] | None,
         has_cusum: bool,
+        has_survival: bool = False,
     ) -> tuple[list[RankedCandidate], PlanMethodologyReview]:
         selected = list(draft_selected)
         required_checks = self._build_methodology_requirements(
@@ -1158,6 +1247,7 @@ class AutonomousEDAPlanner:
             model_family=model_family,
             has_repeated=repeated_cluster is not None,
             has_cusum=has_cusum,
+            has_survival=has_survival,
         )
         recommended_floor = self._recommended_analysis_floor(
             candidate_pool_size=len(candidate_pool),
@@ -1166,6 +1256,7 @@ class AutonomousEDAPlanner:
             model_family=model_family,
             has_repeated=repeated_cluster is not None,
             has_cusum=has_cusum,
+            has_survival=has_survival,
         )
         academic_target = self._target_analysis_floor(
             recommended_floor=recommended_floor,
@@ -1323,6 +1414,7 @@ class AutonomousEDAPlanner:
                 model_family=model_family,
                 has_repeated=repeated_cluster is not None,
                 has_cusum=has_cusum,
+                has_survival=has_survival,
             ),
             checks=tuple(checks),
             repair_actions=tuple(repair_actions),
@@ -1337,6 +1429,7 @@ class AutonomousEDAPlanner:
         model_family: str | None,
         has_repeated: bool,
         has_cusum: bool,
+        has_survival: bool = False,
     ) -> list[tuple[str, tuple[str, ...], str]]:
         requirements: list[tuple[str, tuple[str, ...], str]] = [
             (
@@ -1392,6 +1485,14 @@ class AutonomousEDAPlanner:
                     "Detected operator/trial/success structure should reserve a learning-curve family.",
                 )
             )
+        if has_survival:
+            requirements.append(
+                (
+                    "time_to_event_structure",
+                    ("survival_analysis",),
+                    "Detected time-to-event columns should reserve a survival/Kaplan-Meier family.",
+                )
+            )
         return requirements
 
     def _recommended_analysis_floor(
@@ -1403,6 +1504,7 @@ class AutonomousEDAPlanner:
         model_family: str | None,
         has_repeated: bool,
         has_cusum: bool,
+        has_survival: bool = False,
     ) -> int:
         raw_floor = 1
         if has_groups:
@@ -1414,6 +1516,8 @@ class AutonomousEDAPlanner:
         if has_repeated:
             raw_floor += 1
         if has_cusum:
+            raw_floor += 1
+        if has_survival:
             raw_floor += 1
         baseline_floor = min(candidate_pool_size, MIN_METHOD_ANALYSIS_FLOOR)
         return min(candidate_pool_size, max(raw_floor, baseline_floor))
@@ -2085,6 +2189,7 @@ class AutonomousEDAPlanner:
         model_family: str | None,
         has_repeated: bool,
         has_cusum: bool,
+        has_survival: bool = False,
     ) -> dict[str, Any]:
         return {
             "has_groups": has_groups,
@@ -2092,6 +2197,7 @@ class AutonomousEDAPlanner:
             "model_family": model_family,
             "has_repeated_structure": has_repeated,
             "has_learning_curve_signature": has_cusum,
+            "has_time_to_event_signature": has_survival,
         }
 
     def _execution_stage_metadata(self, family: str) -> tuple[int, str, str]:
@@ -2200,7 +2306,12 @@ class AutonomousEDAPlanner:
         rates = [variable_missing.get(variable, 0.0) for variable in variables]
         return (sum(rates) / len(rates)) * 1.5
 
-    def _pick_outcomes(self, variables: list[Variable]) -> list[Variable]:
+    def _pick_outcomes(
+        self,
+        variables: list[Variable],
+        *,
+        question_terms: tuple[str, ...] = (),
+    ) -> list[Variable]:
         explicit = [variable for variable in variables if variable.role == VariableRole.OUTCOME]
         if explicit:
             return self._sort_variables(explicit)
@@ -2212,16 +2323,24 @@ class AutonomousEDAPlanner:
             in {VariableType.BINARY, VariableType.CONTINUOUS, VariableType.BIOMARKER}
         ]
         if keyword_matches:
-            return self._sort_variables(keyword_matches)
+            return self._sort_variables_by_question(keyword_matches, question_terms)
         return []
 
-    def _pick_groups(self, variables: list[Variable]) -> list[Variable]:
+    def _pick_groups(
+        self,
+        variables: list[Variable],
+        *,
+        outcomes: list[Variable] | None = None,
+        question_terms: tuple[str, ...] = (),
+    ) -> list[Variable]:
         explicit = [variable for variable in variables if variable.role == VariableRole.GROUP]
         if explicit:
             return self._sort_variables(explicit)
+        outcome_names = {variable.name for variable in outcomes or []}
         inferred = [
             variable
             for variable in variables
+            if variable.name not in outcome_names
             if variable.variable_type in {VariableType.BINARY, VariableType.CATEGORICAL}
             and 2 <= max(variable.n_unique, 2) <= 8
         ]
@@ -2231,14 +2350,18 @@ class AutonomousEDAPlanner:
             if self._name_has_keyword(variable.name, GROUP_KEYWORDS)
         ]
         if keyword_first:
-            return self._sort_variables(keyword_first)
-        return self._sort_variables(inferred)
+            return self._sort_variables_by_question(keyword_first, question_terms)
+        if outcome_names:
+            return []
+        return self._sort_variables_by_question(inferred, question_terms)
 
     def _pick_predictors(
         self,
         variables: list[Variable],
         outcomes: list[Variable],
         groups: list[Variable],
+        *,
+        question_terms: tuple[str, ...] = (),
     ) -> list[Variable]:
         excluded = {variable.name for variable in outcomes + groups}
         explicit = [
@@ -2262,7 +2385,7 @@ class AutonomousEDAPlanner:
                 VariableType.ORDINAL,
             }
         ]
-        return self._sort_variables(inferred)
+        return self._sort_variables_by_question(inferred, question_terms)
 
     def _pick_roc_predictors(
         self,
@@ -2310,7 +2433,7 @@ class AutonomousEDAPlanner:
         trial = self._first_keyword_match(variables, TRIAL_KEYWORDS)
         success = self._pick_learning_curve_outcome(variables, outcomes)
 
-        if not operator or not trial or not success:
+        if not operator or not trial or not success or not self._is_sequence_variable(trial):
             return None
 
         return AnalysisCandidate(
@@ -2356,6 +2479,81 @@ class AutonomousEDAPlanner:
         if inferred:
             return self._sort_variables(inferred)[0]
         return None
+
+    def _detect_time_to_event_candidate(
+        self,
+        variables: list[Variable],
+        outcomes: list[Variable],
+        groups: list[Variable],
+        predictors: list[Variable],
+        *,
+        question_terms: tuple[str, ...],
+    ) -> AnalysisCandidate | None:
+        event = self._first_keyword_match(
+            [variable for variable in outcomes if variable.variable_type == VariableType.BINARY],
+            ("event", "death", "mortality", "complication", "failure", "success"),
+        )
+        if event is None:
+            event = self._first_keyword_match(
+                [variable for variable in variables if variable.variable_type == VariableType.BINARY],
+                ("event", "death", "mortality", "complication", "failure"),
+            )
+        time_var = self._first_keyword_match(
+            [
+                variable
+                for variable in variables
+                if variable.variable_type in {VariableType.CONTINUOUS, VariableType.BIOMARKER}
+            ],
+            TIME_TO_EVENT_KEYWORDS,
+        )
+        if event is None or time_var is None:
+            return None
+        if question_terms and not (
+            self._question_score(event.name, question_terms)
+            or self._question_score(time_var.name, question_terms)
+            or any(term in {"survival", "event", "complication", "time"} for term in question_terms)
+        ):
+            return None
+        group = groups[0] if groups else None
+        covariates = tuple(
+            variable.name
+            for variable in self._limit_variables(
+                [
+                    variable
+                    for variable in self._unique_variables(predictors)
+                    if variable.name not in {event.name, time_var.name, group.name if group else ""}
+                ],
+                limit=4,
+            )
+        )
+        variables_tuple = tuple(
+            value
+            for value in (event.name, time_var.name, group.name if group else None, *covariates)
+            if value
+        )
+        return AnalysisCandidate(
+            type="run_advanced_analysis",
+            analysis_type="survival_analysis",
+            variables=variables_tuple,
+            target_variable=event.name,
+            group_variable=group.name if group else None,
+            time_variable=time_var.name,
+            covariates=covariates,
+            rationale=(
+                "Detected a time-like variable plus binary event endpoint; reserve a Kaplan-Meier/local-lite survival branch."
+            ),
+            coverage_tags=("time_to_event", "survival", "specialized"),
+            base_score=7.6,
+            priority="medium",
+            visualizations=(
+                VisualizationSuggestion(
+                    plot_type="line",
+                    variables=(time_var.name, event.name),
+                    group_variable=groups[0].name if groups else None,
+                    rationale="Inspect event timing before survival interpretation.",
+                ),
+            ),
+        )
 
     def _default_visualizations_for_variables(
         self,
@@ -2443,6 +2641,20 @@ class AutonomousEDAPlanner:
             ),
         )
 
+    def _sort_variables_by_question(
+        self,
+        variables: list[Variable],
+        question_terms: tuple[str, ...],
+    ) -> list[Variable]:
+        base_rank = {variable.name: index for index, variable in enumerate(self._sort_variables(variables))}
+        return sorted(
+            variables,
+            key=lambda variable: (
+                -self._question_score(variable.name, question_terms),
+                base_rank.get(variable.name, 999),
+            ),
+        )
+
     def _limit_variables(self, variables: list[Variable], *, limit: int) -> list[Variable]:
         return variables[:limit]
 
@@ -2471,3 +2683,51 @@ class AutonomousEDAPlanner:
     def _name_has_keyword(self, name: str, keywords: tuple[str, ...]) -> bool:
         lowered = name.lower()
         return any(keyword in lowered for keyword in keywords)
+
+    def _question_terms(self, research_question: str) -> tuple[str, ...]:
+        lowered = research_question.lower()
+        terms = re.findall(r"[a-z0-9_]+", lowered)
+        aliases: list[str] = []
+        if (
+            "中線" in research_question
+            or "導管" in research_question
+            or "central line" in lowered
+            or "arterial" in lowered
+            or "catheter" in lowered
+        ):
+            aliases.extend(["success", "time", "complication", "rate", "trial", "attempt"])
+        if "超音波" in research_question or "ultrasound" in lowered or "guided" in lowered:
+            aliases.extend(["ultrasound", "guided", "method", "group"])
+        if "成功" in research_question:
+            aliases.append("success")
+        if "時間" in research_question or "花費" in research_question:
+            aliases.extend(["time", "duration", "sec"])
+        if "併發" in research_question or "complication" in lowered:
+            aliases.append("complication")
+        return tuple(dict.fromkeys([*terms, *aliases]))
+
+    def _question_score(self, name: str, question_terms: tuple[str, ...]) -> int:
+        if not question_terms:
+            return 0
+        normalized = name.lower()
+        tokens = set(re.findall(r"[a-z0-9]+", normalized.replace("_", " ")))
+        score = 0
+        for term in question_terms:
+            term = term.lower()
+            if term in tokens or term in normalized:
+                score += 2
+            elif any(token in term or term in token for token in tokens):
+                score += 1
+        return score
+
+    def _is_sequence_variable(self, variable: Variable) -> bool:
+        if variable.variable_type not in {
+            VariableType.CONTINUOUS,
+            VariableType.ORDINAL,
+            VariableType.BIOMARKER,
+        }:
+            return False
+        lowered = variable.name.lower()
+        if "id" in lowered and not self._name_has_keyword(lowered, ("trial", "case_order", "attempt")):
+            return False
+        return True

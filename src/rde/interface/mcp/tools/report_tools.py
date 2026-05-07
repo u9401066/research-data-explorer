@@ -9,6 +9,7 @@ All tools return markdown strings.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 from rde.application.pipeline import PipelinePhase
@@ -22,6 +23,74 @@ _COMPLETENESS_RANKS = {
     "academic_ready": 2,
     "production_ready": 3,
 }
+
+
+def _safe_visualization_filename(filename: str) -> str:
+    candidate = str(filename).strip()
+    path = Path(candidate)
+    if (
+        not candidate
+        or path.is_absolute()
+        or path.name != candidate
+        or ".." in path.parts
+        or "/" in candidate
+        or "\\" in candidate
+    ):
+        raise ValueError("output_filename must be a simple filename inside the project figures directory.")
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", path.stem).strip("._-") or "figure"
+    suffix = path.suffix.lower() if path.suffix else ".png"
+    if suffix != ".png":
+        suffix = ".png"
+    return f"{stem[:96]}{suffix}"
+
+
+def _project_figure_path(project: Any, path_value: object) -> Any | None:
+    from pathlib import Path
+
+    if not path_value:
+        return None
+    figures_dir = (project.output_dir / "figures").resolve()
+    candidate = Path(str(path_value))
+    if not candidate.is_absolute():
+        if candidate.parts and candidate.parts[0] == "figures":
+            candidate = project.output_dir / candidate
+        else:
+            candidate = figures_dir / candidate.name
+    try:
+        resolved = candidate.resolve()
+        resolved.relative_to(figures_dir)
+    except (OSError, ValueError):
+        return None
+    return resolved
+
+
+def _figure_manifest_output_path(project: Any, path_value: object) -> str | None:
+    path = _project_figure_path(project, path_value)
+    if path is None:
+        return None
+    try:
+        return path.relative_to(project.output_dir.resolve()).as_posix()
+    except ValueError:
+        return path.name
+
+
+def _sanitize_project_report_output(content: str, project: Any) -> str:
+    replacements = {
+        str(project.output_dir): "[PROJECT]/",
+        project.output_dir.as_posix(): "[PROJECT]/",
+        str(project.artifacts_dir): "[ARTIFACTS]/",
+        project.artifacts_dir.as_posix(): "[ARTIFACTS]/",
+        str(project.data_dir): "[DATA]/",
+        project.data_dir.as_posix(): "[DATA]/",
+    }
+    sanitized = content
+    for raw, replacement in replacements.items():
+        if raw:
+            sanitized = sanitized.replace(raw, replacement)
+    sanitized = re.sub(r"[A-Z]:\\Users\\[^\\]+\\", r"[PATH]\\", sanitized)
+    sanitized = re.sub(r"/home/[^/]+/", "[PATH]/", sanitized)
+    sanitized = re.sub(r"/Users/[^/]+/", "[PATH]/", sanitized)
+    return sanitized
 
 
 def register_report_tools(server: Any) -> None:
@@ -397,6 +466,18 @@ def register_report_tools(server: Any) -> None:
             if learning_curve_artifacts:
                 artifacts["learning_curve_cusum"] = learning_curve_artifacts
 
+            advanced_artifacts = _load_phase6_markdown_bundle(
+                store,
+                "advanced_analysis_",
+                exclude_prefixes=("advanced_analysis_learning_curve_cusum",),
+            )
+            if advanced_artifacts:
+                artifacts["statistical_analyses"] = (
+                    artifacts.get("statistical_analyses", "")
+                    + "\n\n## Advanced Analyses\n\n"
+                    + advanced_artifacts
+                )
+
             # Recommendations
             artifacts["recommendations"] = _build_recommendations(results, readiness)
 
@@ -423,9 +504,14 @@ def register_report_tools(server: Any) -> None:
             # Render to markdown
             content = use_case.render(report, "markdown")
 
+            figure_gallery = _format_figure_gallery(project, store)
+            if figure_gallery:
+                content += "\n---\n\n" + figure_gallery + "\n"
+
             # Add appendices (decision log + deviation log)
             appendix = _build_appendix(logger, store)
             content += "\n" + appendix
+            content = _sanitize_project_report_output(content, project)
 
             # Save artifact
             store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", content)
@@ -445,6 +531,7 @@ def register_report_tools(server: Any) -> None:
             persist_project(project)
 
             word_count = len(content.split())
+            details[-1] = f"- **output:** {relative_result_path}"
             return fmt_success(
                 f"EDA 報告已組裝 — {word_count} 字",
                 f"- **報告標題:** {title}\n"
@@ -537,6 +624,7 @@ def register_report_tools(server: Any) -> None:
             if output_filename is None:
                 var_str = "_".join(variables[:2])
                 output_filename = f"{plot_type}_{var_str}.png"
+            output_filename = _safe_visualization_filename(output_filename)
 
             output_dir = project.output_dir / "figures"
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -563,6 +651,7 @@ def register_report_tools(server: Any) -> None:
                 group_var=group_var,
                 stats_summary=stats_summary,
             )
+            relative_result_path = _figure_manifest_output_path(project, result_path) or result_path
 
             from rde.interface.mcp.tools.analysis_tools import _auto_log_decision
 
@@ -571,11 +660,11 @@ def register_report_tools(server: Any) -> None:
                 {"plot_type": plot_type, "variables": variables, "group_var": group_var},
                 "生成視覺化圖表",
                 (
-                    f"{plot_type}: {result_path} | {stats_summary}"
+                    f"{plot_type}: {relative_result_path} | {stats_summary}"
                     if stats_summary
-                    else f"{plot_type}: {result_path}"
+                    else f"{plot_type}: {relative_result_path}"
                 ),
-                artifacts=[result_path],
+                artifacts=[relative_result_path],
             )
 
             details = [
@@ -910,7 +999,12 @@ def _render_markdown_table(rows: list[list[str]]) -> str:
     return "\n".join(lines)
 
 
-def _load_phase6_markdown_bundle(store: Any, prefix: str) -> str | None:
+def _load_phase6_markdown_bundle(
+    store: Any,
+    prefix: str,
+    *,
+    exclude_prefixes: tuple[str, ...] = (),
+) -> str | None:
     """Load and concatenate optional Phase 8 markdown artifacts by filename prefix."""
     from rde.application.pipeline import PipelinePhase
 
@@ -918,6 +1012,7 @@ def _load_phase6_markdown_bundle(store: Any, prefix: str) -> str | None:
         name
         for name in store.list_phase_artifacts(PipelinePhase.EXECUTE_EXPLORATION)
         if name.startswith(prefix) and name.endswith(".md")
+        and not any(name.startswith(excluded) for excluded in exclude_prefixes)
     ]
     if not filenames:
         return None
@@ -994,6 +1089,34 @@ def _format_analyses(results: dict | None) -> str:
         for p in pub:
             lines.append(f"- {p.get('test_name', '?')}: p={p.get('p_value', '?')}")
     return "\n".join(lines)
+
+
+def _format_figure_gallery(project: Any, store: Any) -> str:
+    manifest = store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json") or []
+    if not isinstance(manifest, list):
+        return ""
+    lines = ["## Figure Gallery"]
+    included = 0
+    seen_outputs: set[str] = set()
+    for index, entry in enumerate(manifest, 1):
+        if not isinstance(entry, dict):
+            continue
+        figure_path = _project_figure_path(project, entry.get("output_path"))
+        if figure_path is None or not figure_path.exists():
+            continue
+        output_key = figure_path.as_posix()
+        if output_key in seen_outputs:
+            continue
+        seen_outputs.add(output_key)
+        relative = figure_path.relative_to(project.artifacts_dir.parent).as_posix()
+        variables = ", ".join(str(value) for value in entry.get("variables", []))
+        title = f"Figure {index}. {entry.get('plot_type', 'figure')} {variables}".strip()
+        lines.append(f"\n### {title}")
+        lines.append(f"![{title}](../../{relative})")
+        if entry.get("stats_summary"):
+            lines.append(str(entry["stats_summary"]))
+        included += 1
+    return "\n".join(lines) if included else ""
 
 
 def _format_findings(results: dict | None) -> str:
@@ -1599,6 +1722,10 @@ def _upsert_visualization_manifest(
     if not isinstance(manifest, list):
         manifest = []
 
+    output_path = _figure_manifest_output_path(project, result_path)
+    if output_path is None:
+        raise ValueError("Visualization output path must stay inside the project figures directory.")
+
     normalized_vars = [str(value) for value in variables]
     key = (str(plot_type).lower(), tuple(normalized_vars), group_var)
     updated = [
@@ -1616,7 +1743,7 @@ def _upsert_visualization_manifest(
             "plot_type": plot_type,
             "variables": normalized_vars,
             "group_var": group_var,
-            "output_path": result_path,
+            "output_path": output_path,
             "stats_summary": stats_summary,
             "category": _visualization_category(plot_type, group_var),
         }
@@ -1631,9 +1758,32 @@ def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, A
     if not isinstance(manifest, list):
         manifest = []
 
-    descriptive = sum(1 for entry in manifest if entry.get("category") == "descriptive")
-    analytical = sum(1 for entry in manifest if entry.get("category") == "analytical")
-    figure_files = sorted(path.name for path in (project.output_dir / "figures").glob("*.png"))
+    valid_entries: list[dict[str, Any]] = []
+    seen_outputs: set[str] = set()
+    for entry in manifest:
+        if not isinstance(entry, dict):
+            continue
+        figure_path = _project_figure_path(project, entry.get("output_path"))
+        if figure_path is None or not figure_path.exists():
+            continue
+        output_key = figure_path.as_posix()
+        if output_key in seen_outputs:
+            continue
+        seen_outputs.add(output_key)
+        normalized_entry = dict(entry)
+        normalized_entry["output_path"] = figure_path.relative_to(
+            project.output_dir.resolve()
+        ).as_posix()
+        valid_entries.append(normalized_entry)
+
+    descriptive = sum(1 for entry in valid_entries if entry.get("category") == "descriptive")
+    analytical = sum(1 for entry in valid_entries if entry.get("category") == "analytical")
+    figure_files = []
+    for entry in valid_entries:
+        figure_path = _project_figure_path(project, entry.get("output_path"))
+        if figure_path is not None:
+            figure_files.append(figure_path.name)
+    figure_files = sorted(figure_files)
     missing_components: list[str] = []
     table_one_present = bool(store.exists(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md"))
     if not table_one_present:

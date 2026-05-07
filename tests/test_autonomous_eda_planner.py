@@ -387,3 +387,80 @@ def test_learning_curve_signature_generates_cusum_candidate() -> None:
     assert blueprint["target_variable"] == "success"
     assert blueprint["group_variable"] == "operator_id"
     assert blueprint["covariates"] == ["case_order"]
+
+
+def test_medical_natural_language_question_maps_group_success_and_time() -> None:
+    planner = AutonomousEDAPlanner()
+    dataset = _dataset(
+        _variable("US_guided", VariableType.BINARY, n_unique=2),
+        _variable("Success", VariableType.BINARY, n_unique=2),
+        _variable("Time_sec", VariableType.CONTINUOUS),
+        _variable("Trial", VariableType.CONTINUOUS),
+        _variable("Operator_ID", VariableType.ID, n_unique=8),
+        _variable("complication_rate", VariableType.BINARY, n_unique=2),
+        _variable("age", VariableType.CONTINUOUS),
+    )
+
+    proposal = planner.propose(
+        dataset,
+        research_question="我想看中線有沒有用，是否影響成功率和花費時間",
+        max_analyses=7,
+        include_advanced=True,
+    )
+
+    compare_entries = [
+        entry for entry in proposal.plan_blueprint if entry["type"] == "compare_groups"
+    ]
+    assert compare_entries
+    assert compare_entries[0]["group_variable"] == "US_guided"
+    assert {"Success", "Time_sec"} <= set(compare_entries[0]["variables"])
+    for entry in proposal.plan_blueprint:
+        if entry.get("target_variable") and entry.get("group_variable"):
+            assert entry.get("target_variable") != entry.get("group_variable")
+        if entry.get("group_variable") and entry["type"] in {"compare_groups", "generate_table_one"}:
+            assert entry["group_variable"] not in entry.get("variables", [])
+
+
+def test_time_to_event_structure_generates_survival_candidate() -> None:
+    planner = AutonomousEDAPlanner()
+    dataset = _dataset(
+        _variable("treatment", VariableType.BINARY, n_unique=2),
+        _variable("Time_sec", VariableType.CONTINUOUS),
+        _variable("complication", VariableType.BINARY, n_unique=2),
+        _variable("age", VariableType.CONTINUOUS),
+    )
+
+    proposal = planner.propose(
+        dataset,
+        research_question="time to complication by treatment",
+        max_analyses=8,
+        include_advanced=True,
+    )
+
+    survival = [
+        entry
+        for entry in proposal.plan_blueprint
+        if entry["type"] == "run_advanced_analysis"
+        and entry.get("analysis_type") == "survival_analysis"
+    ]
+    assert survival
+    assert survival[0]["target_variable"] == "complication"
+    assert survival[0]["time_variable"] == "Time_sec"
+    assert survival[0]["group_variable"] == "treatment"
+
+
+def test_learning_curve_detection_ignores_id_like_trial_labels() -> None:
+    planner = AutonomousEDAPlanner()
+    dataset = _dataset(
+        _variable("success", VariableType.BINARY, role=VariableRole.OUTCOME, n_unique=2),
+        _variable("operator_id", VariableType.ID, n_unique=12),
+        _variable("clinical_trial_id", VariableType.ID, n_unique=100),
+        _variable("fluoro_time", VariableType.CONTINUOUS),
+    )
+
+    proposal = planner.propose(dataset, max_analyses=6, include_advanced=True)
+
+    assert all(
+        ranked.candidate.analysis_type != "learning_curve_cusum"
+        for ranked in proposal.selected
+    )

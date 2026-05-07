@@ -392,8 +392,34 @@ def test_publication_deliverables_summary_marks_missing_bundle(tmp_path: Path) -
     assert summary["table_one_present"] is False
     assert summary["minimum_publication_bundle_met"] is False
     assert "Table 1" in summary["missing_components"]
-    assert "粗分析圖 1/3" in summary["missing_components"]
-    assert "細分析圖 1/6" in summary["missing_components"]
+    assert any(component.endswith("0/3") for component in summary["missing_components"])
+    assert any(component.endswith("0/6") for component in summary["missing_components"])
+
+
+def test_publication_deliverables_ignore_stale_or_escaped_figure_paths(tmp_path: Path) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    figures_dir = project.output_dir / "figures"
+    figures_dir.mkdir(parents=True)
+    (figures_dir / "valid.png").write_bytes(b"fake")
+
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {"output_path": "figures/valid.png", "category": "descriptive"},
+            {"output_path": "figures/missing.png", "category": "descriptive"},
+            {"output_path": "../escaped.png", "category": "analytical"},
+        ],
+    )
+
+    summary = _summarize_publication_deliverables(project, store)
+
+    assert summary["descriptive_figures"] == 1
+    assert summary["analytical_figures"] == 0
+    assert summary["figure_files"] == ["valid.png"]
 
 
 def test_build_recommendations_mentions_publication_bundle_gap() -> None:

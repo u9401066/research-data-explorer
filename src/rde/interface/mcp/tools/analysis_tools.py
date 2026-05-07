@@ -7,6 +7,7 @@ All tools return markdown strings.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -114,6 +115,316 @@ def _unique_phase_artifact_filename(phase_dir: Path, filename: str) -> str:
         if not (phase_dir / unique_name).exists():
             return unique_name
         counter += 1
+
+
+def _safe_filename_token(value: object, *, fallback: str = "value") -> str:
+    token = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value or "").strip()).strip("._-")
+    return token[:80] if token else fallback
+
+
+def _project_relative_path(project: Any, path: str | Path) -> str:
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(Path(project.output_dir).resolve()).as_posix()
+    except ValueError:
+        return resolved.name
+
+
+def _variable_type_lookup(dataset: Any) -> dict[str, Any]:
+    return {variable.name: variable.variable_type for variable in dataset.variables}
+
+
+def _plot_type_for_grouped_variable(dataset: Any, variable_name: str) -> str:
+    from rde.domain.models.variable import VariableType
+
+    variable_type = _variable_type_lookup(dataset).get(variable_name)
+    if variable_type in {VariableType.CONTINUOUS, VariableType.BIOMARKER}:
+        return "boxplot"
+    return "bar"
+
+
+def _auto_create_group_comparison_figures(
+    *,
+    project: Any,
+    dataset: Any,
+    dataframe: Any,
+    outcome_variables: list[str],
+    group_variable: str,
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Create durable local-lite figures for grouped comparisons."""
+    from rde.infrastructure.visualization.matplotlib_viz import MatplotlibVisualizer
+    from rde.interface.mcp.tools.report_tools import _upsert_visualization_manifest
+
+    figures: list[dict[str, str]] = []
+    warnings: list[str] = []
+    output_dir = Path(project.output_dir) / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for outcome in outcome_variables:
+        if outcome == group_variable:
+            continue
+        if outcome not in dataframe.columns or group_variable not in dataframe.columns:
+            continue
+        plot_type = _plot_type_for_grouped_variable(dataset, outcome)
+        filename = (
+            f"{plot_type}_{_safe_filename_token(outcome)}_by_"
+            f"{_safe_filename_token(group_variable)}.png"
+        )
+        output_path = output_dir / filename
+        try:
+            viz = MatplotlibVisualizer()
+            result_path = viz.create_plot(
+                data=dataframe,
+                plot_type=plot_type,
+                variables=[outcome],
+                output_path=output_path,
+                group_var=group_variable,
+            )
+            stats_summary = viz.last_annotation_summary
+            _upsert_visualization_manifest(
+                project,
+                plot_type=plot_type,
+                variables=[outcome],
+                result_path=result_path,
+                group_var=group_variable,
+                stats_summary=stats_summary,
+            )
+            figures.append(
+                {
+                    "path": _project_relative_path(project, result_path),
+                    "plot_type": plot_type,
+                    "variable": outcome,
+                    "group_variable": group_variable,
+                }
+            )
+        except Exception as exc:
+            warnings.append(f"{outcome}: {exc}")
+
+    return figures, warnings
+
+
+def _create_roc_curve_figure(
+    *,
+    project: Any,
+    dataframe: Any,
+    target_variable: str,
+    score_variable: str,
+    analysis_type: str,
+) -> dict[str, str] | None:
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    if target_variable not in dataframe.columns or score_variable not in dataframe.columns:
+        return None
+
+    working = dataframe[[target_variable, score_variable]].copy().dropna()
+    if working.empty:
+        return None
+    y_raw = working[target_variable]
+    if pd.api.types.is_numeric_dtype(y_raw):
+        values = sorted(pd.to_numeric(y_raw, errors="coerce").dropna().unique().tolist())
+        if len(values) != 2:
+            return None
+        y = pd.to_numeric(y_raw, errors="coerce").map({values[0]: 0, values[1]: 1})
+    else:
+        values = sorted(v for v in y_raw.astype(str).dropna().unique().tolist() if v)
+        if len(values) != 2:
+            return None
+        y = y_raw.astype(str).map({values[0]: 0, values[1]: 1})
+    scores = pd.to_numeric(working[score_variable], errors="coerce")
+    roc = pd.concat([y.rename("target"), scores.rename("score")], axis=1).dropna()
+    if roc["target"].nunique() < 2:
+        return None
+
+    thresholds = sorted(roc["score"].unique(), reverse=True)
+    fpr = [0.0]
+    tpr = [0.0]
+    positives = float((roc["target"] == 1).sum())
+    negatives = float((roc["target"] == 0).sum())
+    for threshold in thresholds:
+        predicted = roc["score"] >= threshold
+        tp = float(((predicted) & (roc["target"] == 1)).sum())
+        fp = float(((predicted) & (roc["target"] == 0)).sum())
+        tpr.append(tp / positives if positives else 0.0)
+        fpr.append(fp / negatives if negatives else 0.0)
+    fpr.append(1.0)
+    tpr.append(1.0)
+
+    output_dir = Path(project.output_dir) / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / (
+        f"advanced_{_safe_filename_token(analysis_type)}_"
+        f"{_safe_filename_token(target_variable)}_roc.png"
+    )
+    fig, ax = plt.subplots(figsize=(5.5, 5))
+    ax.plot(fpr, tpr, marker="o", linewidth=1.5)
+    ax.plot([0, 1], [0, 1], linestyle="--", color="0.5")
+    ax.set_xlabel("False positive rate")
+    ax.set_ylabel("True positive rate")
+    ax.set_title(f"ROC: {target_variable} by {score_variable}")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return {"path": _project_relative_path(project, output_path), "plot_type": "roc_curve"}
+
+
+def _create_kaplan_meier_figure(
+    *,
+    project: Any,
+    analysis_result: dict[str, Any],
+    analysis_type: str,
+) -> dict[str, str] | None:
+    import matplotlib.pyplot as plt
+
+    def _points(table: list[dict[str, Any]]) -> tuple[list[float], list[float]]:
+        times = [0.0]
+        survival = [1.0]
+        for row in table:
+            times.append(float(row.get("time", 0.0)))
+            survival.append(float(row.get("survival_probability", 1.0)))
+        return times, survival
+
+    strata = analysis_result.get("strata")
+    output_dir = Path(project.output_dir) / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"advanced_{_safe_filename_token(analysis_type)}_km.png"
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    if isinstance(strata, dict) and strata:
+        plotted = False
+        for label, payload in strata.items():
+            table = payload.get("survival_table") if isinstance(payload, dict) else None
+            if not isinstance(table, list) or not table:
+                continue
+            times, survival = _points(table)
+            ax.step(times, survival, where="post", label=str(label))
+            plotted = True
+        if plotted:
+            ax.legend(title=str(analysis_result.get("group_variable") or "group"))
+    else:
+        table = analysis_result.get("survival_table")
+        if not isinstance(table, list) or not table:
+            plt.close(fig)
+            return None
+        times, survival = _points(table)
+        ax.step(times, survival, where="post")
+    ax.set_xlabel(str(analysis_result.get("time_variable") or "time"))
+    ax.set_ylabel("Survival probability")
+    ax.set_ylim(0, 1.02)
+    ax.set_title("Kaplan-Meier local-lite fallback")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return {"path": _project_relative_path(project, output_path), "plot_type": "kaplan_meier"}
+
+
+def _auto_create_advanced_analysis_figures(
+    *,
+    project: Any,
+    dataset: Any,
+    dataframe: Any,
+    analysis_type: str,
+    source: str,
+    analysis_result: Any,
+    config: dict[str, Any],
+) -> tuple[list[dict[str, str]], list[str]]:
+    if not str(source).startswith("local-lite"):
+        return [], []
+    if not isinstance(analysis_result, dict) or analysis_result.get("error"):
+        return [], []
+
+    from rde.interface.mcp.tools.report_tools import _upsert_visualization_manifest
+
+    normalized = _normalize_analysis_type(analysis_type)
+    figures: list[dict[str, str]] = []
+    warnings: list[str] = []
+    already_manifested: set[str] = set()
+
+    try:
+        figure = None
+        target = config.get("target")
+        score = config.get("score_variable")
+        if normalized == "roc_auc" and target and score:
+            figure = _create_roc_curve_figure(
+                project=project,
+                dataframe=dataframe,
+                target_variable=str(target),
+                score_variable=str(score),
+                analysis_type=analysis_type,
+            )
+        elif normalized in {"survival_analysis", "kaplan_meier", "cox_regression"}:
+            figure = _create_kaplan_meier_figure(
+                project=project,
+                analysis_result=analysis_result,
+                analysis_type=analysis_type,
+            )
+
+        if figure is not None:
+            figures.append(figure)
+        elif target and config.get("group_var"):
+            generated, generated_warnings = _auto_create_group_comparison_figures(
+                project=project,
+                dataset=dataset,
+                dataframe=dataframe,
+                outcome_variables=[str(target)],
+                group_variable=str(config["group_var"]),
+            )
+            figures.extend(generated)
+            warnings.extend(generated_warnings)
+            already_manifested.update(figure["path"] for figure in generated)
+        elif target and config.get("covariates"):
+            first_covariate = next(
+                (str(value) for value in config.get("covariates", []) if str(value) in dataframe.columns),
+                None,
+            )
+            if first_covariate and str(target) in dataframe.columns:
+                from rde.infrastructure.visualization.matplotlib_viz import MatplotlibVisualizer
+
+                plot_type = (
+                    "scatter"
+                    if _plot_type_for_grouped_variable(dataset, str(target)) == "boxplot"
+                    else "bar"
+                )
+                variables = [first_covariate, str(target)] if plot_type == "scatter" else [str(target)]
+                output_path = (
+                    Path(project.output_dir)
+                    / "figures"
+                    / f"advanced_{_safe_filename_token(analysis_type)}_{_safe_filename_token(str(target))}.png"
+                )
+                viz = MatplotlibVisualizer()
+                result_path = viz.create_plot(
+                    data=dataframe,
+                    plot_type=plot_type,
+                    variables=variables,
+                    output_path=output_path,
+                )
+                _upsert_visualization_manifest(
+                    project,
+                    plot_type=plot_type,
+                    variables=variables,
+                    result_path=result_path,
+                    group_var=None,
+                    stats_summary=viz.last_annotation_summary,
+                )
+                figures.append(
+                    {"path": _project_relative_path(project, result_path), "plot_type": plot_type}
+                )
+
+        for figure in figures:
+            if figure.get("path"):
+                if figure["path"] in already_manifested:
+                    continue
+                _upsert_visualization_manifest(
+                    project,
+                    plot_type=figure.get("plot_type", "advanced"),
+                    variables=list(config.get("variables", [])),
+                    result_path=str(Path(project.output_dir) / figure["path"]),
+                    group_var=config.get("group_var"),
+                    stats_summary=None,
+                )
+    except Exception as exc:
+        warnings.append(str(exc))
+
+    return figures, warnings
 
 
 def _build_advanced_analysis_decision_parameters(
@@ -777,7 +1088,9 @@ def register_analysis_tools(server: Any) -> None:
         assert entry is not None
 
         try:
+            from dataclasses import replace
             from rde.application.use_cases.compare_groups import CompareGroupsUseCase
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from rde.infrastructure.adapters import ScipyStatisticalEngine
 
             engine = ScipyStatisticalEngine()
@@ -795,6 +1108,14 @@ def register_analysis_tools(server: Any) -> None:
                 is_paired=is_paired,
             )
 
+            figures, figure_warnings = _auto_create_group_comparison_figures(
+                project=project,
+                dataset=entry.dataset,
+                dataframe=analysis_df,
+                outcome_variables=outcome_variables,
+                group_variable=group_variable,
+            )
+            result = replace(result, figures=tuple(figure["path"] for figure in figures))
             entry.analysis_results.append(result)
 
             lines = [f"# 📊 組間比較 — by `{group_variable}`\n"]
@@ -858,10 +1179,62 @@ def register_analysis_tools(server: Any) -> None:
                 for w in result.warnings:
                     lines.append(f"- {w}")
 
+            if figure_warnings:
+                lines.append("\n**Figure fallback warnings:**")
+                for warning in figure_warnings:
+                    lines.append(f"- {warning}")
+
+            if figures:
+                lines.append("\n## Figures")
+                for figure in figures:
+                    lines.append(
+                        f"- `{figure['path']}` ({figure['plot_type']}: {figure['variable']} by {figure['group_variable']})"
+                    )
+
             if plausibility_notes:
                 lines.append("\n## 資料合理性防護")
                 for note in plausibility_notes:
                     lines.append(f"- {note}")
+
+            store = ArtifactStore(project.artifacts_dir)
+            phase_dir = project.artifacts_dir / PipelinePhase.EXECUTE_EXPLORATION.value
+            artifact_stem = (
+                f"compare_groups_{_safe_filename_token(group_variable)}_"
+                f"{_safe_filename_token('_'.join(outcome_variables))}"
+            )
+            json_filename = _unique_phase_artifact_filename(phase_dir, f"{artifact_stem}.json")
+            md_filename = _unique_phase_artifact_filename(phase_dir, f"{artifact_stem}.md")
+            tests_payload = [
+                {
+                    "test_name": t.test_name,
+                    "variables": list(t.variables_involved),
+                    "statistic": t.statistic,
+                    "p_value": t.p_value,
+                    "effect_size": t.effect_size,
+                    "effect_size_name": t.effect_size_name,
+                    "interpretation": t.interpretation,
+                }
+                for t in result.tests
+            ]
+            json_path = store.save(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                json_filename,
+                {
+                    "dataset_id": dataset_id,
+                    "group_variable": group_variable,
+                    "outcome_variables": outcome_variables,
+                    "is_paired": is_paired,
+                    "summary": result.summary,
+                    "tests": tests_payload,
+                    "figures": figures,
+                    "warnings": list(result.warnings) + figure_warnings,
+                },
+            )
+            md_path = store.save(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                md_filename,
+                "\n".join(lines),
+            )
 
             # H-009
             _auto_log_decision(
@@ -872,6 +1245,11 @@ def register_analysis_tools(server: Any) -> None:
                     f"{len(result.tests)} tests, {len(result.significant_tests)} significant"
                     + (f"; {plausibility_summary}" if plausibility_summary else "")
                 ),
+                artifacts=[
+                    json_path.name,
+                    md_path.name,
+                    *[figure["path"] for figure in figures],
+                ],
             )
 
             return "\n".join(lines)
@@ -1262,6 +1640,15 @@ def register_analysis_tools(server: Any) -> None:
                 config=decision_config,
                 analysis_result=analysis_result,
             )
+            figures, figure_warnings = _auto_create_advanced_analysis_figures(
+                project=project,
+                dataset=entry.dataset,
+                dataframe=analysis_df,
+                analysis_type=analysis_type,
+                source=source,
+                analysis_result=analysis_result,
+                config=decision_config,
+            )
 
             rendered_output = _format_advanced_analysis_output(
                 analysis_type=analysis_type,
@@ -1270,6 +1657,14 @@ def register_analysis_tools(server: Any) -> None:
                 artifact_path=artifact_path,
                 automl_available=delegator.automl_available,
             )
+            if figures:
+                rendered_output += "\n\n## Figures\n" + "\n".join(
+                    f"- `{figure['path']}` ({figure['plot_type']})" for figure in figures
+                )
+            if figure_warnings:
+                rendered_output += "\n\n## Figure fallback warnings\n" + "\n".join(
+                    f"- {warning}" for warning in figure_warnings
+                )
             if plausibility_notes:
                 rendered_output += "\n\n## 資料合理性防護\n" + "\n".join(
                     f"- {note}" for note in plausibility_notes
@@ -1304,7 +1699,11 @@ def register_analysis_tools(server: Any) -> None:
                     f"source={source}; {decision_summary}"
                     + (f"; {plausibility_summary}" if plausibility_summary else "")
                 ),
-                artifacts=[artifact_path.name, markdown_artifact_path.name],
+                artifacts=[
+                    artifact_path.name,
+                    markdown_artifact_path.name,
+                    *[figure["path"] for figure in figures],
+                ],
             )
 
             return rendered_output
