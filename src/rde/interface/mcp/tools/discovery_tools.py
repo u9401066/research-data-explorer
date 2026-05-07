@@ -252,6 +252,11 @@ def register_discovery_tools(server: Any) -> None:
             if not Path(directory).exists():
                 return fmt_error(f"目錄不存在: {directory}")
 
+            if project_id is not None:
+                ok_project, project_msg, _ = ensure_project_context(project_id)
+                if not ok_project:
+                    return fmt_error(project_msg)
+
             # Step 1: Scan
             loader = PandasLoader()
             use_case = DiscoverDataUseCase(loader)
@@ -317,6 +322,7 @@ def register_discovery_tools(server: Any) -> None:
                 ],
                 "timestamp": datetime.now().isoformat(),
             }
+            dataset.tags["intake_report"] = intake_report
 
             # Save artifact if project exists
             ok, _, project = ensure_project_context(project_id)
@@ -496,6 +502,8 @@ def register_discovery_tools(server: Any) -> None:
                 )
 
             table = fmt_table(headers, rows)
+            ds.tags["schema_registry"] = schema
+            ds.tags["schema_built_at"] = schema["created_at"]
 
             # Save artifact if project exists
             if ok_p and project is not None:

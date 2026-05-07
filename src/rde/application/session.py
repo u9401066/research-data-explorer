@@ -138,7 +138,10 @@ class SessionRegistry:
 
         repaired_completed = [status for status in PIPELINE_ORDER if status in completed]
         repaired_status = repaired_completed[-1] if repaired_completed else project.status
-        repaired_plan_locked = self._analysis_plan_artifact_locked(store)
+        repaired_plan_locked = self._effective_plan_locked(
+            store,
+            project_plan_locked=project.plan_locked,
+        )
 
         changed = False
         current_completed = [status for status in PIPELINE_ORDER if status in project.completed_phases]
@@ -169,10 +172,16 @@ class SessionRegistry:
             completed_at = (
                 project.created_at if isinstance(project.created_at, datetime) else datetime.now()
             )
-            success = self._artifact_phase_success(store, pipeline_phase)
-            user_confirmed = pipeline_phase in USER_CONFIRMATION_REQUIRED
-            if pipeline_phase == PipelinePhase.PLAN_REGISTRATION:
-                user_confirmed = user_confirmed and self._analysis_plan_artifact_locked(store)
+            success = self._artifact_phase_success(
+                store,
+                pipeline_phase,
+                project_plan_locked=project.plan_locked,
+            )
+            user_confirmed = self._artifact_phase_user_confirmed(
+                store,
+                pipeline_phase,
+                project_plan_locked=project.plan_locked,
+            )
             pipeline.mark_completed(
                 PhaseResult(
                     phase=pipeline_phase,
@@ -190,15 +199,69 @@ class SessionRegistry:
         self._pipelines[project.id] = pipeline
 
     def _analysis_plan_artifact_locked(self, store: ArtifactStore) -> bool:
-        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
-        return isinstance(plan, dict) and plan.get("locked") is True
+        return self._effective_plan_locked(store, project_plan_locked=False)
 
-    def _artifact_phase_success(self, store: ArtifactStore, phase: PipelinePhase) -> bool:
+    def _effective_plan_locked(
+        self,
+        store: ArtifactStore,
+        *,
+        project_plan_locked: bool,
+    ) -> bool:
+        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+        if isinstance(plan, dict):
+            if plan.get("locked") is True:
+                return True
+            if plan.get("locked") is False:
+                return False
+        return bool(project_plan_locked)
+
+    def _artifact_phase_user_confirmed(
+        self,
+        store: ArtifactStore,
+        phase: PipelinePhase,
+        *,
+        project_plan_locked: bool = False,
+    ) -> bool:
+        if phase not in USER_CONFIRMATION_REQUIRED:
+            return False
+        plan_locked = self._effective_plan_locked(
+            store,
+            project_plan_locked=project_plan_locked,
+        )
+        if phase == PipelinePhase.CONCEPT_ALIGNMENT:
+            alignment = store.load(phase, "variable_roles.json")
+            if isinstance(alignment, dict) and "confirmed" in alignment:
+                return alignment.get("confirmed") is True
+            return plan_locked
+        if phase == PipelinePhase.CREATIVE_IDEATION:
+            proposal = store.load(phase, "greedy_analysis_candidates.json")
+            if isinstance(proposal, dict) and "confirmed" in proposal:
+                return proposal.get("confirmed") is True
+            return plan_locked
+        if phase == PipelinePhase.PLAN_COMPLETENESS_REVIEW:
+            review = store.load(phase, "analysis_plan_review.json")
+            if isinstance(review, dict) and "confirmed" in review:
+                return review.get("confirmed") is True
+            return plan_locked
+        if phase == PipelinePhase.PLAN_REGISTRATION:
+            return plan_locked
+        return True
+
+    def _artifact_phase_success(
+        self,
+        store: ArtifactStore,
+        phase: PipelinePhase,
+        *,
+        project_plan_locked: bool = False,
+    ) -> bool:
         if phase == PipelinePhase.PRE_EXPLORE_CHECK:
             readiness = store.load(phase, "readiness_checklist.json")
             return isinstance(readiness, dict) and readiness.get("all_passed") is True
         if phase == PipelinePhase.PLAN_REGISTRATION:
-            return self._analysis_plan_artifact_locked(store)
+            return self._effective_plan_locked(
+                store,
+                project_plan_locked=project_plan_locked,
+            )
         return True
 
     # ── Decision Logger ──────────────────────────────────────────────

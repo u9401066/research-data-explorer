@@ -104,6 +104,12 @@ def link_dataset_to_project(project: Project, dataset_id: str) -> None:
 
 def _session_dataset_schema(entry: DatasetEntry) -> dict[str, object]:
     dataset = entry.dataset
+    existing_schema = dataset.tags.get("schema_registry")
+    if isinstance(existing_schema, dict) and existing_schema.get("dataset_id") == dataset.id:
+        schema = dict(existing_schema)
+        schema["auto_recovered_from_session"] = True
+        return schema
+
     variables: list[dict[str, object]] = []
     for variable in dataset.variables:
         missing_rate = variable.n_missing / dataset.row_count if dataset.row_count else 0
@@ -160,6 +166,20 @@ def recover_project_context_from_session(
         return None, f"Dataset '{resolved_dataset_id}' is not available for project recovery."
 
     dataset = entry.dataset
+    intake = dataset.tags.get("intake_report")
+    if not isinstance(intake, dict) or intake.get("dataset_id") != dataset.id:
+        return None, (
+            f"Phase 1 intake provenance is not available for dataset `{dataset.id}`. "
+            "Run `run_intake()` before `align_concept()` so recovery can preserve "
+            "the original intake audit trail."
+        )
+    schema = dataset.tags.get("schema_registry")
+    if not isinstance(schema, dict) or schema.get("dataset_id") != dataset.id:
+        return None, (
+            f"Phase 2 schema is not available for dataset `{dataset.id}`. "
+            f"Run `build_schema(dataset_id=\"{dataset.id}\")` before `align_concept()`."
+        )
+
     metadata = dataset.metadata
     file_path = metadata.file_path if metadata is not None else Path("data/rawdata") / dataset.id
     created_at = datetime.now()
@@ -210,25 +230,10 @@ def recover_project_context_from_session(
             "source_dataset_id": dataset.id,
         },
     )
-    store.save(
-        PipelinePhase.DATA_INTAKE,
-        "intake_report.json",
-        {
-            "directory": str(file_path.parent),
-            "total_files": 1,
-            "loadable": 1,
-            "rejected": 0,
-            "loaded_file": file_path.name,
-            "dataset_id": dataset.id,
-            "row_count": dataset.row_count,
-            "column_count": len(dataset.variables),
-            "normalization": dataset.tags.get("normalization_report", {}),
-            "pii_suspects": [v.name for v in dataset.variables if v.is_pii_suspect],
-            "rejections": [],
-            "timestamp": created_at.isoformat(),
-            "auto_recovered_from_session": True,
-        },
-    )
+    recovered_intake = dict(intake)
+    recovered_intake["auto_recovered_from_session"] = True
+    recovered_intake["recovered_at"] = created_at.isoformat()
+    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", recovered_intake)
     store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", _session_dataset_schema(entry))
 
     pipeline = session.get_pipeline(project.id)
@@ -239,7 +244,7 @@ def recover_project_context_from_session(
     ]:
         pipeline.mark_started(phase)
         pipeline.mark_completed(PhaseResult(phase, datetime.now(), True, artifacts))
-    project.advance_to(ProjectStatus.SCHEMA_REGISTRY)
+        project.advance_to(ProjectStatus(phase.value))
     persist_project(project)
 
     return project, (

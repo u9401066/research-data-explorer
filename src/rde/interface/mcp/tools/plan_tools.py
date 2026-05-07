@@ -381,6 +381,8 @@ def register_plan_tools(server: Any) -> None:
             )
             if recovered_project is not None:
                 project_id = recovered_project.id
+            elif recovery_note:
+                return fmt_error(recovery_note)
 
         ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.CONCEPT_ALIGNMENT,
@@ -441,6 +443,7 @@ def register_plan_tools(server: Any) -> None:
                 "variable_roles": role_assignments,
                 "unassigned": unassigned,
                 "pii_suspects": pii_suspects,
+                "confirmed": confirm,
             }
 
             store = ArtifactStore(project.artifacts_dir)
@@ -600,6 +603,7 @@ def register_plan_tools(server: Any) -> None:
             )
 
             proposal_dict = proposal.to_dict()
+            proposal_dict["confirmed"] = confirm
             store = ArtifactStore(project.artifacts_dir)
             json_path = store.save(
                 PipelinePhase.CREATIVE_IDEATION,
@@ -1023,6 +1027,7 @@ def register_plan_tools(server: Any) -> None:
                     "checks": [],
                     "warnings": ["No dataset was available for methodology review."],
                 }
+            methodology_review_dict["confirmed"] = True
             store.save(
                 PipelinePhase.PLAN_COMPLETENESS_REVIEW,
                 "analysis_plan_review.json",

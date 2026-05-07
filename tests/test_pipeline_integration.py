@@ -721,6 +721,15 @@ def test_align_concept_recovers_project_context_after_intake_schema_without_init
     assert "auto-recovered" in output
     assert project.dataset_ids
     assert project.config["auto_recovered_from_session"] is True
+    assert ProjectStatus.PROJECT_SETUP in project.completed_phases
+    assert ProjectStatus.DATA_INTAKE in project.completed_phases
+    assert ProjectStatus.SCHEMA_REGISTRY in project.completed_phases
+    project_setup = store.load(PipelinePhase.PROJECT_SETUP, "project.yaml")
+    intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+    schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
+    assert project_setup["auto_recovered_from_session"] is True
+    assert intake["auto_recovered_from_session"] is True
+    assert schema["auto_recovered_from_session"] is True
     for phase, artifact in [
         (PipelinePhase.PROJECT_SETUP, "project.yaml"),
         (PipelinePhase.DATA_INTAKE, "intake_report.json"),
@@ -729,6 +738,266 @@ def test_align_concept_recovers_project_context_after_intake_schema_without_init
     ]:
         assert store.exists(phase, artifact)
         assert phase in pipeline.completed_phases
+
+
+def test_align_concept_does_not_recover_phase2_when_schema_was_not_built(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    csv_path = raw_dir / "arterial_line.csv"
+    csv_path.write_text(
+        "group,outcome,age\nA,1,65\nB,0,72\nA,1,61\nB,0,70\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, list[str]]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool("run_intake", {"directory": str(raw_dir)})
+        result = await server.call_tool(
+            "align_concept",
+            {
+                "research_question": "Does group affect outcome?",
+                "variable_roles": {"group": "group", "outcome": "outcome"},
+                "confirm": True,
+            },
+        )
+        return _textify(result), session.list_datasets()
+
+    output, dataset_ids = asyncio.run(run_flow())
+
+    assert "build_schema" in output
+    assert "No active project" not in output
+    assert dataset_ids
+    projects_dir = tmp_path / "data" / "projects"
+    assert not projects_dir.exists() or not list(projects_dir.glob("*.json"))
+    with pytest.raises(KeyError):
+        get_session().get_project()
+
+
+def test_align_concept_does_not_recover_without_intake_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    csv_path = raw_dir / "direct_load.csv"
+    csv_path.write_text(
+        "group,outcome,age\nA,1,65\nB,0,72\nA,1,61\nB,0,70\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, str]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool("load_dataset", {"file_path": str(csv_path)})
+        dataset_id = session.list_datasets()[-1]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id})
+        result = await server.call_tool(
+            "align_concept",
+            {
+                "research_question": "Does group affect outcome?",
+                "variable_roles": {"group": "group", "outcome": "outcome"},
+                "confirm": True,
+            },
+        )
+        return _textify(result), dataset_id
+
+    output, dataset_id = asyncio.run(run_flow())
+
+    assert "run_intake" in output
+    assert dataset_id in output
+    projects_dir = tmp_path / "data" / "projects"
+    assert not projects_dir.exists() or not list(projects_dir.glob("*.json"))
+    with pytest.raises(KeyError):
+        get_session().get_project()
+
+
+def test_align_concept_requires_dataset_id_for_multi_dataset_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_a = tmp_path / "raw_a"
+    raw_b = tmp_path / "raw_b"
+    raw_a.mkdir()
+    raw_b.mkdir()
+    (raw_a / "first.csv").write_text("group,outcome\nA,1\nB,0\n", encoding="utf-8")
+    (raw_b / "second.csv").write_text("arm,score\nX,10\nY,12\n", encoding="utf-8")
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, str, str, str]:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool("run_intake", {"directory": str(raw_a)})
+        first_id = session.list_datasets()[-1]
+        await server.call_tool("build_schema", {"dataset_id": first_id})
+        await server.call_tool("run_intake", {"directory": str(raw_b)})
+        second_id = session.list_datasets()[-1]
+        await server.call_tool("build_schema", {"dataset_id": second_id})
+
+        ambiguous = await server.call_tool(
+            "align_concept",
+            {
+                "research_question": "Does arm affect score?",
+                "variable_roles": {"group": "arm", "outcome": "score"},
+                "confirm": True,
+            },
+        )
+        with pytest.raises(KeyError):
+            session.get_project()
+
+        recovered = await server.call_tool(
+            "align_concept",
+            {
+                "dataset_id": second_id,
+                "research_question": "Does arm affect score?",
+                "variable_roles": {"group": "arm", "outcome": "score"},
+                "confirm": True,
+            },
+        )
+        project = session.get_project()
+        return _textify(ambiguous), _textify(recovered), first_id, project.dataset_ids[0]
+
+    ambiguous_output, recovered_output, first_id, recovered_dataset_id = asyncio.run(run_flow())
+
+    assert "Multiple datasets" in ambiguous_output
+    assert "auto-recovered" in recovered_output
+    assert recovered_dataset_id != first_id
+
+
+def test_unconfirmed_phase3_stays_blocked_after_session_reload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    shutil.copy2(FIXTURE_CSV, raw_dir / FIXTURE_CSV.name)
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    async def run_flow() -> str:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {"name": "unconfirmed-phase3", "data_dir": str(raw_dir)},
+        )
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id, "project_id": project.id})
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "research_question": "Do iris species differ?",
+                "variable_roles": {"group": "species", "outcome": "petal_length"},
+                "confirm": False,
+            },
+        )
+        return project.id
+
+    project_id = asyncio.run(run_flow())
+
+    import rde.application.session as session_module
+
+    session_module._session = None
+    reloaded_session = get_session()
+    reloaded_session.get_project(project_id)
+    pipeline = reloaded_session.get_pipeline(project_id)
+    can_execute, reason = pipeline.can_execute(PipelinePhase.CREATIVE_IDEATION)
+
+    assert can_execute is False
+    assert "requires explicit user confirmation" in reason
+
+
+def test_unconfirmed_phase4_stays_blocked_after_session_reload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    shutil.copy2(FIXTURE_CSV, raw_dir / FIXTURE_CSV.name)
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+
+    async def run_flow() -> str:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {"name": "unconfirmed-phase4", "data_dir": str(raw_dir)},
+        )
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id, "project_id": project.id})
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "research_question": "Do iris species differ?",
+                "variable_roles": {"group": "species", "outcome": "petal_length"},
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {"project_id": project.id, "dataset_id": dataset_id, "confirm": False},
+        )
+        return project.id
+
+    project_id = asyncio.run(run_flow())
+
+    import rde.application.session as session_module
+
+    session_module._session = None
+    reloaded_session = get_session()
+    reloaded_session.get_project(project_id)
+    pipeline = reloaded_session.get_pipeline(project_id)
+    can_execute, reason = pipeline.can_execute(PipelinePhase.PLAN_COMPLETENESS_REVIEW)
+
+    assert can_execute is False
+    assert "requires explicit user confirmation" in reason
 
 
 def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path: Path) -> None:
@@ -1152,7 +1421,11 @@ def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
         {"dataset": "legacy-ds", "group": "treatment"},
     )
     store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"analyses": []})
-    store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", {"checks": []})
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {"all_passed": True, "checks": []},
+    )
     store.save(
         PipelinePhase.EXECUTE_EXPLORATION,
         "decision_log.jsonl",
@@ -1181,16 +1454,21 @@ def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
             parts.append(text if isinstance(text, str) else str(block))
         return "\n".join(parts)
 
-    async def run_flow() -> str:
+    async def run_flow() -> tuple[str, bool, bool, str]:
         server = create_server()
         result = await server.call_tool("get_pipeline_status", {"project_id": project.id})
-        return _textify(result)
+        pipeline = get_session().get_pipeline(project.id)
+        can_execute, reason = pipeline.can_execute(PipelinePhase.EXECUTE_EXPLORATION)
+        return _textify(result), pipeline.plan_locked, can_execute, reason
 
-    output = asyncio.run(run_flow())
+    output, pipeline_plan_locked, can_execute_phase8, phase8_reason = asyncio.run(run_flow())
     repaired = repo.load_project(project.id)
 
     assert "phase_12_auto_improve" in output
     assert repaired.status == ProjectStatus.AUTO_IMPROVE
+    assert repaired.plan_locked is True
+    assert pipeline_plan_locked is True
+    assert can_execute_phase8 is True, phase8_reason
     assert ProjectStatus.AUTO_IMPROVE in repaired.completed_phases
     assert ProjectStatus.COLLECT_RESULTS in repaired.completed_phases
     assert ProjectStatus.REPORT_ASSEMBLY in repaired.completed_phases
