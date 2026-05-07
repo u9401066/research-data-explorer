@@ -386,6 +386,7 @@ def register_discovery_tools(server: Any) -> None:
             fmt_table,
             ensure_dataset,
             ensure_project_context,
+            ensure_phase_ready,
         )
         from rde.interface.mcp.tools._shared.project_context import (
             link_dataset_to_project,
@@ -404,6 +405,13 @@ def register_discovery_tools(server: Any) -> None:
             from rde.domain.services.variable_classifier import VariableClassifier
 
             ok_p, _, project = ensure_project_context(project_id)
+            if ok_p and project is not None:
+                phase_ok, phase_msg, project, _ = ensure_phase_ready(
+                    PipelinePhase.SCHEMA_REGISTRY,
+                    project_id=project.id,
+                )
+                if not phase_ok:
+                    return fmt_error(phase_msg)
             ok, msg, entry = ensure_dataset(dataset_id, project=project if ok_p else None)
             if not ok or entry is None:
                 return fmt_error(msg)

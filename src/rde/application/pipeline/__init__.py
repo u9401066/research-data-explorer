@@ -182,8 +182,12 @@ class PipelineState:
         self.completed_phases[result.phase] = result
         self.current_phase = None
 
-        # Auto-lock plan when Phase 4 completes
-        if result.phase == PipelinePhase.PLAN_REGISTRATION and result.success:
+        # Phase 6 locks the plan only through an explicitly confirmed gate.
+        if (
+            result.phase == PipelinePhase.PLAN_REGISTRATION
+            and result.success
+            and result.user_confirmed
+        ):
             self.plan_locked = True
             self.plan_locked_at = result.completed_at
 

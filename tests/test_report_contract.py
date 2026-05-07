@@ -1,14 +1,19 @@
+from datetime import datetime
 from pathlib import Path
 
 from rde.domain.models.report import EDAReport, ReportSection
-from rde.application.pipeline import PipelinePhase
+from rde.application.pipeline import PhaseResult, PipelinePhase
+from rde.application.session import get_session
 from rde.interface.mcp.tools.report_tools import (
+    _build_appendix,
     _build_recommendations,
     _evaluate_report_readiness,
+    _format_analyses,
     _format_baseline_table,
     _format_data_overview,
     _format_data_quality,
     _format_variable_profiles,
+    _summarize_exploration_branches,
     _summarize_publication_deliverables,
 )
 from rde.interface.mcp.tools.audit_tools import (
@@ -16,11 +21,212 @@ from rde.interface.mcp.tools.audit_tools import (
     _build_phase10_export_report,
     _build_phase10_source_markdown,
     _render_phase10_readiness_summary,
+    register_audit_tools,
 )
 from rde.application.use_cases.export_report import ExportReportUseCase
 from rde.application.use_cases.generate_report import GenerateReportUseCase
+from rde.domain.models.project import Project
 from rde.infrastructure.adapters.markdown_renderer import MarkdownReportRenderer
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+
+class _ToolCapture:
+    def __init__(self) -> None:
+        self.tools = {}
+
+    def tool(self):
+        def decorator(fn):
+            self.tools[fn.__name__] = fn
+            return fn
+
+        return decorator
+
+
+def _save_production_readiness_context(
+    store: ArtifactStore,
+    *,
+    include_project_manifest: bool = True,
+    include_report: bool = True,
+) -> None:
+    if include_project_manifest:
+        store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {"name": "contract"})
+    store.save(
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+        "analysis_plan_review.json",
+        {
+            "status": "pass",
+            "completeness_tier": "production_ready",
+            "recommended_analysis_floor": 5,
+            "academic_analysis_target": 6,
+            "production_analysis_target": 8,
+        },
+    )
+    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"loaded_file": "demo.csv"})
+    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": [{"name": "age"}]})
+    store.save(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md", "# Concept\n")
+    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"analyses": []})
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {"all_passed": True, "checks": [{"id": "H-003", "passed": True}]},
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "decision_log.jsonl",
+        {"phase": "phase_08_execute_exploration", "action": "compare_groups"},
+    )
+    if include_report:
+        store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", "# EDA Report\n")
+
+
+def _minimum_bundle() -> dict:
+    return {
+        "table_one_present": True,
+        "descriptive_figures": 3,
+        "analytical_figures": 6,
+        "required_descriptive_figures": 3,
+        "required_analytical_figures": 6,
+        "minimum_publication_bundle_met": True,
+        "missing_components": [],
+    }
+
+
+def test_summarize_exploration_branches_reads_phase8_branch_ledgers(tmp_path: Path) -> None:
+    project = Project(
+        id="proj-branch-report",
+        name="branch-report",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "exploration_branches.jsonl",
+        {
+            "event_type": "branch_opened",
+            "branch_id": "br-1",
+            "hypothesis": "Effect differs in elderly patients",
+            "risk_level": "low",
+        },
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "experiment_ledger.jsonl",
+        {
+            "event_type": "experiment_completed",
+            "branch_id": "br-1",
+            "status": "completed",
+            "experiment_type": "subgroup",
+        },
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "exploration_branches.jsonl",
+        {
+            "event_type": "branch_evaluated",
+            "branch_id": "br-1",
+            "status": "evaluated",
+            "payload": {
+                "evaluation": {
+                    "recommendation": "promote_candidate",
+                    "overall_score": 82,
+                },
+                "experiment_ids": ["exp-1"],
+            },
+        },
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "branch_evaluations.jsonl",
+        {
+            "event_type": "branch_evaluated",
+            "branch_id": "br-1",
+            "evaluation": {
+                "recommendation": "promote_candidate",
+                "overall_score": 82,
+            },
+            "experiment_ids": ["exp-1"],
+        },
+    )
+
+    summary = _summarize_exploration_branches(store)
+
+    assert summary["total_branches"] == 1
+    assert summary["completed_experiments"] == 1
+    assert summary["promote_candidates"] == 1
+    assert summary["branches"][0]["branch_id"] == "br-1"
+
+
+def test_summarize_exploration_branches_ignores_stale_branch_result_snapshots(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-branch-stale-report",
+        name="branch-stale-report",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "exploration_branches.jsonl",
+        {
+            "event_type": "branch_opened",
+            "branch_id": "br-stale",
+            "status": "open",
+            "hypothesis": "Snapshot alone should not create a promotion candidate.",
+        },
+    )
+    branch_dir = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "branch_results")
+    branch_dir.mkdir(parents=True)
+    (branch_dir / "br-stale.json").write_text(
+        '{"branch_id":"br-stale","evaluation":{"recommendation":"promote_candidate","overall_score":99}}',
+        encoding="utf-8",
+    )
+
+    summary = _summarize_exploration_branches(store)
+
+    assert summary["total_branches"] == 1
+    assert summary["promote_candidates"] == 0
+
+
+def test_format_analyses_separates_exploratory_branch_counts() -> None:
+    text = _format_analyses(
+        {
+            "total_analyses": 2,
+            "exploration_branches": {
+                "total_branches": 2,
+                "completed_experiments": 3,
+                "promote_candidates": 1,
+            },
+        }
+    )
+
+    assert "Exploratory branches" in text
+    assert "2 branches" in text
+    assert "promote candidates: 1" in text
+
+
+def test_build_appendix_includes_exploration_branch_ledger(tmp_path: Path) -> None:
+    project = Project(
+        id="proj-branch-appendix",
+        name="branch-appendix",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    get_session().register_project(project)
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "exploration_branches.jsonl",
+        {"event_type": "branch_opened", "branch_id": "br-1", "hypothesis": "Subgroup check"},
+    )
+    logger = get_session().get_logger(project.id)
+
+    appendix = _build_appendix(logger, store)
+
+    assert "Appendix D: Exploration Branches" in appendix
+    assert "br-1" in appendix
 
 
 def test_format_data_overview_uses_current_intake_keys() -> None:
@@ -243,6 +449,81 @@ def test_evaluate_report_readiness_blocks_academic_only_plan_from_production_rep
     )
 
 
+def test_evaluate_report_readiness_uses_saved_counts_when_called_with_partial_payload(
+    tmp_path: Path,
+) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "total_analyses": 2,
+            "decision_count": 2,
+            "deliverables": _minimum_bundle(),
+        },
+    )
+
+    readiness = _evaluate_report_readiness(
+        {"deliverables": _minimum_bundle()},
+        store,
+    )
+
+    missing_goals = readiness["core_goal_audit"]["missing_goals"]
+    assert "reproducible_exploration" not in missing_goals
+    assert "analysis_execution_interpretation" not in missing_goals
+
+
+def test_report_generation_requires_assembled_report_even_with_publication_bundle(
+    tmp_path: Path,
+) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store, include_report=False)
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 2,
+            "decision_count": 2,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert "core_goal:report_generation" in readiness["missing_requirements"]
+
+
+def test_no_code_and_agent_harness_goals_require_project_evidence(tmp_path: Path) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store, include_project_manifest=False)
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 2,
+            "decision_count": 2,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert "core_goal:no_code_operation" in readiness["missing_requirements"]
+    assert "core_goal:agent_friendly_harness" in readiness["missing_requirements"]
+
+
 def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp_path: Path) -> None:
     project = type("ProjectStub", (), {})()
     project.output_dir = tmp_path / "project"
@@ -250,6 +531,7 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
     project.output_dir.mkdir(parents=True)
 
     store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {"name": "demo"})
     store.save(
         PipelinePhase.PLAN_COMPLETENESS_REVIEW,
         "analysis_plan_review.json",
@@ -278,14 +560,18 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
         "readiness_checklist.json",
         {"all_passed": True, "checks": [{"id": "H-003", "passed": True}]},
     )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "decision_log.jsonl",
+        {"phase": "phase_08_execute_exploration", "action": "compare_groups"},
+    )
+    store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", "# EDA Report\n")
 
     readiness = _evaluate_report_readiness(
         {
             "total_analyses": 4,
             "decision_count": 4,
-            "deliverables": {
-                "minimum_publication_bundle_met": True,
-            }
+            "deliverables": _minimum_bundle(),
         },
         store,
     )
@@ -304,6 +590,262 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
         "no_code_operation",
         "agent_friendly_harness",
     }
+
+
+def test_run_audit_recomputes_readiness_instead_of_trusting_stale_results_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
+    project = Project(
+        id="proj-report-contract-stale-audit",
+        name="stale-audit",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.data_dir.mkdir(parents=True)
+    project.output_dir.mkdir(parents=True)
+    (project.output_dir / "figures").mkdir()
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store, include_project_manifest=False)
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "total_analyses": 2,
+            "decision_count": 2,
+            "deliverables": _minimum_bundle(),
+            "report_readiness": {
+                "ready": True,
+                "target_tier": "production_ready",
+                "current_tier": "production_ready",
+                "review_status": "pass",
+                "publication_bundle_met": True,
+                "core_goal_audit": {
+                    "ready": True,
+                    "checks": [
+                        {"id": "no_code_operation", "passed": True},
+                        {"id": "agent_friendly_harness", "passed": True},
+                    ],
+                    "missing_goals": [],
+                },
+                "missing_requirements": [],
+            },
+        },
+    )
+
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+    pipeline.mark_completed(
+        PhaseResult(
+            phase=PipelinePhase.REPORT_ASSEMBLY,
+            completed_at=datetime.now(),
+            success=True,
+            artifacts={
+                "eda_report.md": str(
+                    store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+                )
+            },
+        )
+    )
+
+    server = _ToolCapture()
+    register_audit_tools(server)
+
+    server.tools["run_audit"](project.id)
+
+    audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
+    core_check = next(item for item in audit["checks"] if item["category"] == "core_goal_audit")
+    assert core_check["passed"] is False
+    assert "no_code_operation" in core_check["missing"]
+    assert "agent_friendly_harness" in core_check["missing"]
+
+
+def test_run_audit_recomputes_plan_adherence_without_branch_inflation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
+    project = Project(
+        id="proj-report-contract-stale-branch-coverage",
+        name="stale-branch-coverage",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.data_dir.mkdir(parents=True)
+    project.output_dir.mkdir(parents=True)
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store, include_project_manifest=False)
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        {
+            "locked": True,
+            "analyses": [
+                {"type": "compare_groups", "variables": ["outcome"], "required": True},
+                {"type": "correlation_matrix", "variables": ["age", "bmi"], "required": True},
+            ],
+        },
+    )
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "total_analyses": 2,
+            "phase6_progress": {
+                "executed_analyses": 2,
+                "branch_decision_count": 2,
+                "coverage": 1.0,
+            },
+            "deliverables": _minimum_bundle(),
+        },
+    )
+
+    session = get_session()
+    session.register_project(project)
+    logger = session.get_logger(project.id)
+    for action in ("open_exploration_branch", "run_branch_experiment"):
+        logger.log_decision(
+            phase=PipelinePhase.EXECUTE_EXPLORATION.value,
+            action=action,
+            tool_used=action,
+            parameters={"scope": "branch"},
+            rationale="branch only",
+            result_summary="branch only",
+        )
+    pipeline = session.get_pipeline(project.id)
+    pipeline.mark_completed(
+        PhaseResult(
+            phase=PipelinePhase.REPORT_ASSEMBLY,
+            completed_at=datetime.now(),
+            success=True,
+            artifacts={"eda_report.md": str(store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))},
+        )
+    )
+
+    server = _ToolCapture()
+    register_audit_tools(server)
+    server.tools["run_audit"](project.id)
+
+    audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
+    adherence = next(item for item in audit["checks"] if item["category"] == "plan_adherence")
+    assert adherence["passed"] is False
+    assert "coverage=0%" in adherence["details"]
+    assert "branch_decisions=2" in adherence["details"]
+
+
+def test_export_final_report_blocks_incomplete_report_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
+    project = Project(
+        id="proj-incomplete-final-export",
+        name="incomplete-final-export",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.data_dir.mkdir(parents=True)
+    project.output_dir.mkdir(parents=True)
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.AUDIT_REVIEW, "audit_report.json", {"grade": "C"})
+    store.save(PipelinePhase.AUTO_IMPROVE, "final_report.md", "# Final Report\n")
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "total_analyses": 0,
+            "decision_count": 0,
+            "deliverables": {
+                "minimum_publication_bundle_met": False,
+                "missing_components": ["table_one"],
+            },
+        },
+    )
+
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+    pipeline.mark_completed(
+        PhaseResult(
+            phase=PipelinePhase.AUDIT_REVIEW,
+            completed_at=datetime.now(),
+            success=True,
+            artifacts={"audit_report.json": ""},
+        )
+    )
+    server = _ToolCapture()
+    register_audit_tools(server)
+
+    output = server.tools["export_final_report"](project.id)
+
+    assert "not production-ready" in output
+    assert "allow_incomplete=true" in output or "allow_incomplete" in output
+    assert not store.exists(PipelinePhase.AUTO_IMPROVE, "final_report_export_manifest.json")
+
+
+def test_export_final_report_recomputes_readiness_instead_of_trusting_stale_improvement_log(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
+    project = Project(
+        id="proj-stale-final-export",
+        name="stale-final-export",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.data_dir.mkdir(parents=True)
+    project.output_dir.mkdir(parents=True)
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.AUDIT_REVIEW, "audit_report.json", {"grade": "A"})
+    store.save(PipelinePhase.AUTO_IMPROVE, "final_report.md", "# Final Report\n")
+    store.save(
+        PipelinePhase.AUTO_IMPROVE,
+        "improvement_log.json",
+        {
+            "report_readiness": {
+                "ready": True,
+                "target_tier": "production_ready",
+                "current_tier": "production_ready",
+                "review_status": "pass",
+                "publication_bundle_met": True,
+                "missing_requirements": [],
+            }
+        },
+    )
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "total_analyses": 0,
+            "decision_count": 0,
+            "deliverables": {
+                "minimum_publication_bundle_met": False,
+                "missing_components": ["table_one"],
+            },
+        },
+    )
+
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+    pipeline.mark_completed(
+        PhaseResult(
+            phase=PipelinePhase.AUDIT_REVIEW,
+            completed_at=datetime.now(),
+            success=True,
+            artifacts={"audit_report.json": ""},
+        )
+    )
+    server = _ToolCapture()
+    register_audit_tools(server)
+
+    output = server.tools["export_final_report"](project.id)
+
+    assert "not production-ready" in output
+    assert not store.exists(PipelinePhase.AUTO_IMPROVE, "final_report_export_manifest.json")
 
 
 def test_evaluate_report_readiness_blocks_when_core_goal_artifacts_are_missing(

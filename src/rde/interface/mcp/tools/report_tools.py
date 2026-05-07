@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from rde.application.pipeline import PipelinePhase
+
 
 MIN_DESCRIPTIVE_FIGURES = 3
 MIN_ANALYTICAL_FIGURES = 6
@@ -27,10 +29,10 @@ def register_report_tools(server: Any) -> None:
 
     @server.tool()
     def collect_results(project_id: str | None = None, force: bool = False) -> str:
-        """彙整 Phase 8 的所有分析結果，標記可發表內容 (Phase 9)。
+        """彙整 Phase 8 的所有分析結果，標記統計顯著候選內容 (Phase 9)。
 
         掃描已完成的分析，生成 results_summary.json。
-        標記統計顯著的結果為 PUBLISHABLE，並建議敏感度分析 (S-012)。
+        標記統計顯著候選結果，並建議敏感度分析 (S-012)。
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
@@ -120,7 +122,7 @@ def register_report_tools(server: Any) -> None:
                     }
                     all_results.append(result_dict)
 
-                    # Mark statistically significant results as PUBLISHABLE
+                    # Significant tests are candidates until audit confirms context.
                     for t in result.significant_tests:
                         publishable.append(
                             {
@@ -130,7 +132,8 @@ def register_report_tools(server: Any) -> None:
                                 "p_value": t.p_value,
                                 "effect_size": t.effect_size,
                                 "effect_size_name": getattr(t, "effect_size_name", None),
-                                "marker": "PUBLISHABLE",
+                                "marker": "STATISTICALLY_SIGNIFICANT_CANDIDATE",
+                                "review_status": "audit_required",
                             }
                         )
 
@@ -138,7 +141,12 @@ def register_report_tools(server: Any) -> None:
             logger = session.get_logger(project.id)
             decisions = logger.read_decisions()
             deviations = logger.read_deviations()
-            executed_analyses = max(len(all_results), len(decisions))
+            branch_decision_count = int(progress.get("branch_decision_count") or 0)
+            primary_decision_count = int(progress.get("primary_decision_count") or 0)
+            executed_analyses = max(
+                len(all_results),
+                int(progress.get("executed_analyses") or primary_decision_count),
+            )
 
             # Check plan coverage
             plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
@@ -166,23 +174,25 @@ def register_report_tools(server: Any) -> None:
                 )
 
             deliverables = _summarize_publication_deliverables(project, store)
-            report_readiness = _evaluate_report_readiness(
-                {"deliverables": deliverables},
-                store,
-            )
-
+            exploration_branches = _summarize_exploration_branches(store)
             summary = {
                 "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
                 "publishable_items": publishable,
+                "candidate_count": len(publishable),
+                "candidate_findings": publishable,
                 "plan_coverage": plan_coverage,
                 "decision_count": len(decisions),
+                "primary_decision_count": primary_decision_count,
+                "branch_exploration_count": branch_decision_count,
                 "deviation_count": len(deviations),
                 "unavailable_datasets": unavailable_datasets,
                 "phase6_progress": progress,
                 "deliverables": deliverables,
-                "report_readiness": report_readiness,
+                "exploration_branches": exploration_branches,
             }
+            report_readiness = _evaluate_report_readiness(summary, store)
+            summary["report_readiness"] = report_readiness
 
             # Save artifact
             store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", summary)
@@ -205,10 +215,15 @@ def register_report_tools(server: Any) -> None:
             lines = [
                 "# 📋 結果彙整 (Phase 7)\n",
                 f"- **分析總數:** {executed_analyses}",
-                f"- **可發表項目:** {len(publishable)}",
+                f"- **統計顯著候選結果:** {len(publishable)}",
                 f"- **決策紀錄:** {len(decisions)} 筆",
                 f"- **計畫偏離:** {len(deviations)} 筆",
             ]
+
+            if branch_decision_count:
+                lines.append(
+                    f"- **Branch-scoped exploratory decisions:** {branch_decision_count}"
+                )
 
             if plan_coverage:
                 lines.append(
@@ -219,6 +234,14 @@ def register_report_tools(server: Any) -> None:
                 lines.append(
                     f"- **Phase 8 進度:** 已執行 {progress.get('executed_analyses', 0)} 項 "
                     f"(門檻: {progress.get('required_executions')})"
+                )
+
+            if exploration_branches["total_branches"]:
+                lines.append(
+                    "- **Exploratory branches:** "
+                    f"{exploration_branches['total_branches']} branches, "
+                    f"{exploration_branches['completed_experiments']} experiments, "
+                    f"promote candidates: {exploration_branches['promote_candidates']}"
                 )
 
             lines.append(f"- **Table 1:** {'✅' if deliverables['table_one_present'] else '❌'}")
@@ -241,7 +264,7 @@ def register_report_tools(server: Any) -> None:
                 )
 
             if publishable:
-                lines.append("\n## 🟢 可發表結果 (PUBLISHABLE)")
+                lines.append("\n## Statistically Significant Candidate Findings (Audit Required)")
                 for p in publishable:
                     es = (
                         f", {p['effect_size_name']}={p['effect_size']:.3f}"
@@ -251,6 +274,10 @@ def register_report_tools(server: Any) -> None:
                     lines.append(
                         f"- {', '.join(p['variables'])}: {p['test_name']} p={p['p_value']:.4f}{es}"
                     )
+                lines.append(
+                    "\nThese are candidates only; audit must confirm effect size, "
+                    "multiplicity, plan adherence, and clinical relevance."
+                )
 
             if sensitivity_hint:
                 lines.append(f"\n💡 {sensitivity_hint}")
@@ -397,7 +424,7 @@ def register_report_tools(server: Any) -> None:
             content = use_case.render(report, "markdown")
 
             # Add appendices (decision log + deviation log)
-            appendix = _build_appendix(logger)
+            appendix = _build_appendix(logger, store)
             content += "\n" + appendix
 
             # Save artifact
@@ -935,6 +962,27 @@ def _format_analyses(results: dict | None) -> str:
         missing = deliverables.get("missing_components", [])
         if missing:
             lines.append(f"**最低發表包缺口:** {', '.join(missing)}")
+    exploration_branches = results.get("exploration_branches") or {}
+    if exploration_branches and exploration_branches.get("total_branches", 0):
+        lines.append(
+            "**Exploratory branches:** "
+            f"{exploration_branches.get('total_branches', 0)} branches, "
+            f"{exploration_branches.get('completed_experiments', 0)} experiments, "
+            f"promote candidates: {exploration_branches.get('promote_candidates', 0)}"
+        )
+        lines.append(
+            "**Exploratory branch caveat:** branch findings are branch-scoped candidates, "
+            "not primary conclusions unless promoted through the audit gate."
+        )
+        for branch in exploration_branches.get("branches", [])[:5]:
+            lines.append(
+                f"- `{branch.get('branch_id', '')}` {branch.get('status', '')}: "
+                f"{branch.get('hypothesis', '')} "
+                f"(experiments={branch.get('experiment_count', 0)}, "
+                f"recommendation={branch.get('recommendation') or 'pending'}, "
+                f"evidence_artifacts={len(branch.get('evidence_artifacts') or [])}, "
+                f"blockers={branch.get('blockers') or []})"
+            )
     core_goal_audit = report_readiness.get("core_goal_audit") or {}
     if core_goal_audit:
         lines.append(
@@ -942,7 +990,7 @@ def _format_analyses(results: dict | None) -> str:
         )
     pub = results.get("publishable_items", [])
     if pub:
-        lines.append("\n**可發表結果:**")
+        lines.append("\n**Candidate signals (audit required):**")
         for p in pub:
             lines.append(f"- {p.get('test_name', '?')}: p={p.get('p_value', '?')}")
     return "\n".join(lines)
@@ -954,8 +1002,9 @@ def _format_findings(results: dict | None) -> str:
         return "[No findings to report]"
     pub = results.get("publishable_items", [])
     if not pub:
-        return "No statistically significant findings."
-    lines = [f"共 {len(pub)} 項顯著發現:\n"]
+        return "No audit-ready candidate signals."
+    lines = [f"共 {len(pub)} 項候選訊號（需審計後才可視為正式結論）:\n"]
+    lines.append("Audit required before treating these candidates as publishable conclusions.")
     for p in pub:
         vars_str = ", ".join(p.get("variables", []))
         details = [f"p={p.get('p_value', '?')}"]
@@ -1004,7 +1053,7 @@ def _build_recommendations(results: dict | None, readiness: dict | None) -> str:
     return "\n".join(lines)
 
 
-def _build_appendix(logger: Any) -> str:
+def _build_appendix(logger: Any, store: Any | None = None) -> str:
     """Build appendix with decision log and deviation log."""
     lines = [
         "\n---\n",
@@ -1043,7 +1092,247 @@ def _build_appendix(logger: Any) -> str:
     lines.append(f"- **Decision count:** {logger.decision_count}")
     lines.append(f"- **Deviation count:** {logger.deviation_count}")
 
+    if store is not None:
+        branches = _summarize_exploration_branches(store)
+        lines.append("\n## Appendix D: Exploration Branches\n")
+        if branches["total_branches"]:
+            lines.append(
+                "| Branch | Status | Hypothesis | Experiments | Recommendation | Score | Blockers | Evidence Artifacts |"
+            )
+            lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+            for branch in branches["branches"]:
+                lines.append(
+                    f"| {branch.get('branch_id', '')} | {branch.get('status', '')} | "
+                    f"{branch.get('hypothesis', '')} | {branch.get('experiment_count', 0)} | "
+                    f"{branch.get('recommendation', '')} | {branch.get('overall_score', '')} | "
+                    f"{branch.get('blockers', [])} | {len(branch.get('evidence_artifacts') or [])} |"
+                )
+            lines.append(
+                "\nExploratory branches are audit candidates only; they are not treated as "
+                "primary conclusions until a branch promotion gate succeeds."
+            )
+        else:
+            lines.append("*No exploration branches recorded.*\n")
+
     return "\n".join(lines)
+
+
+def _summarize_exploration_branches(store: Any) -> dict[str, Any]:
+    """Summarize Phase 8 autonomous branch artifacts for reports and audit context."""
+    branches_raw = store.load(PipelinePhase.EXECUTE_EXPLORATION, "exploration_branches.jsonl")
+    experiments_raw = store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl")
+    evaluations_raw = store.load(PipelinePhase.EXECUTE_EXPLORATION, "branch_evaluations.jsonl")
+    branch_events = branches_raw if isinstance(branches_raw, list) else []
+    experiment_events = experiments_raw if isinstance(experiments_raw, list) else []
+    evaluation_events = evaluations_raw if isinstance(evaluations_raw, list) else []
+
+    branches: dict[str, dict[str, Any]] = {}
+    for event in branch_events:
+        if not isinstance(event, dict):
+            continue
+        branch_id = str(event.get("branch_id") or "")
+        if not branch_id:
+            continue
+        branch = branches.setdefault(
+            branch_id,
+            {
+                "branch_id": branch_id,
+                "status": "",
+                "hypothesis": "",
+                "risk_level": "",
+                "experiment_count": 0,
+                "experiment_types": [],
+                "evidence_artifacts": [],
+                "metrics_preview": [],
+                "recommendation": "",
+                "overall_score": None,
+                "blockers": [],
+                "component_scores": {},
+                "review_artifact": "",
+                "gate_artifact": "",
+            },
+        )
+        if event.get("status"):
+            branch["status"] = str(event["status"])
+        if event.get("hypothesis"):
+            branch["hypothesis"] = str(event["hypothesis"])
+        if event.get("risk_level"):
+            branch["risk_level"] = str(event["risk_level"])
+        payload = event.get("payload")
+        if (
+            event.get("event_type") == "branch_evaluated"
+            and isinstance(payload, dict)
+            and isinstance(payload.get("evaluation"), dict)
+        ):
+            evaluation = payload["evaluation"]
+            branch["recommendation"] = str(evaluation.get("recommendation") or "")
+            branch["overall_score"] = evaluation.get("overall_score")
+            gate = evaluation.get("promotion_gate")
+            if isinstance(gate, dict):
+                branch["blockers"] = gate.get("blockers") or []
+            branch["component_scores"] = evaluation.get("component_scores") or {}
+
+    for event in evaluation_events:
+        if not isinstance(event, dict):
+            continue
+        branch_id = str(event.get("branch_id") or "")
+        evaluation = event.get("evaluation")
+        if not branch_id or not isinstance(evaluation, dict):
+            continue
+        branch = branches.setdefault(
+            branch_id,
+            {
+                "branch_id": branch_id,
+                "status": "",
+                "hypothesis": "",
+                "risk_level": "",
+                "experiment_count": 0,
+                "experiment_types": [],
+                "evidence_artifacts": [],
+                "metrics_preview": [],
+                "recommendation": "",
+                "overall_score": None,
+                "blockers": [],
+                "component_scores": {},
+                "review_artifact": "",
+                "gate_artifact": "",
+            },
+        )
+        branch["recommendation"] = str(evaluation.get("recommendation") or "")
+        branch["overall_score"] = evaluation.get("overall_score")
+        gate = evaluation.get("promotion_gate")
+        if isinstance(gate, dict):
+            branch["blockers"] = gate.get("blockers") or []
+        branch["component_scores"] = evaluation.get("component_scores") or {}
+        branch["review_artifact"] = str(event.get("review_artifact") or branch["review_artifact"])
+        branch["gate_artifact"] = str(event.get("gate_artifact") or branch["gate_artifact"])
+
+    completed_experiments = 0
+    crashed_experiments = 0
+    for event in experiment_events:
+        if not isinstance(event, dict):
+            continue
+        branch_id = str(event.get("branch_id") or "")
+        if branch_id in branches:
+            branch = branches[branch_id]
+            branch["experiment_count"] += 1
+            experiment_type = str(event.get("experiment_type") or "")
+            if experiment_type:
+                branch["experiment_types"].append(experiment_type)
+            artifacts = event.get("artifacts")
+            if isinstance(artifacts, list):
+                branch["evidence_artifacts"].extend(str(artifact) for artifact in artifacts)
+            metrics = event.get("metrics")
+            if isinstance(metrics, dict):
+                preview = _branch_metric_preview(metrics)
+                if preview:
+                    branch["metrics_preview"].append(preview)
+        status = str(event.get("status") or "").lower()
+        if status == "completed":
+            completed_experiments += 1
+        if status in {"crashed", "failed", "error"}:
+            crashed_experiments += 1
+
+    # Branch result files can carry the latest evaluation even when the evaluation
+    # event is not loaded from the ledger, so use them as supplemental evidence.
+    branch_results_dir = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "branch_results")
+    if branch_results_dir.exists():
+        for result_path in sorted(branch_results_dir.glob("*.json")):
+            try:
+                import json
+
+                payload = json.loads(result_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            branch_id = str(payload.get("branch_id") or result_path.stem)
+            branch = branches.setdefault(
+                branch_id,
+                {
+                    "branch_id": branch_id,
+                    "status": "",
+                    "hypothesis": "",
+                    "risk_level": "",
+                "experiment_count": 0,
+                "experiment_types": [],
+                "evidence_artifacts": [],
+                "metrics_preview": [],
+                "recommendation": "",
+                "overall_score": None,
+                "blockers": [],
+                "component_scores": {},
+                "review_artifact": "",
+                "gate_artifact": "",
+            },
+        )
+            branch_payload = payload.get("branch")
+            if isinstance(branch_payload, dict):
+                branch["status"] = str(branch_payload.get("status") or branch["status"])
+                branch["hypothesis"] = str(
+                    branch_payload.get("hypothesis") or branch["hypothesis"]
+                )
+                branch["risk_level"] = str(
+                    branch_payload.get("risk_level") or branch["risk_level"]
+                )
+            experiments = payload.get("experiments")
+            if isinstance(experiments, list):
+                branch["experiment_count"] = max(branch["experiment_count"], len(experiments))
+                for experiment in experiments:
+                    if not isinstance(experiment, dict):
+                        continue
+                    experiment_type = str(experiment.get("experiment_type") or "")
+                    if experiment_type:
+                        branch["experiment_types"].append(experiment_type)
+                    artifacts = experiment.get("artifacts")
+                    if isinstance(artifacts, list):
+                        branch["evidence_artifacts"].extend(str(artifact) for artifact in artifacts)
+                    metrics = experiment.get("metrics")
+                    if isinstance(metrics, dict):
+                        preview = _branch_metric_preview(metrics)
+                        if preview:
+                            branch["metrics_preview"].append(preview)
+
+    branch_list = sorted(branches.values(), key=lambda item: item["branch_id"])
+    for branch in branch_list:
+        branch["experiment_types"] = sorted(set(branch.get("experiment_types") or []))
+        branch["evidence_artifacts"] = sorted(set(branch.get("evidence_artifacts") or []))
+    return {
+        "total_branches": len(branch_list),
+        "completed_experiments": completed_experiments,
+        "crashed_experiments": crashed_experiments,
+        "promote_candidates": sum(
+            1
+            for branch in branch_list
+            if branch.get("recommendation") == "promote_candidate"
+            and branch.get("status") == "evaluated"
+        ),
+        "promoted_branches": sum(1 for branch in branch_list if branch.get("status") == "promoted"),
+        "discarded_branches": sum(
+            1 for branch in branch_list if branch.get("status") == "discarded"
+        ),
+        "branches": branch_list,
+    }
+
+
+def _branch_metric_preview(metrics: dict[str, Any]) -> dict[str, Any]:
+    preview_keys = [
+        "n",
+        "nobs",
+        "sample_size",
+        "p_value",
+        "effect_size",
+        "odds_ratio",
+        "hazard_ratio",
+        "auc",
+        "roc_auc",
+        "c_index",
+        "standardized_mean_difference",
+        "ci_low",
+        "ci_high",
+        "common_support",
+    ]
+    return {key: metrics[key] for key in preview_keys if key in metrics}
 
 
 def _visualization_category(plot_type: str, group_var: str | None) -> str:
@@ -1082,7 +1371,20 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     from rde.application.pipeline import PipelinePhase
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
 
-    normalized_results = results or {}
+    normalized_results = dict(results or {})
+    persisted_results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+    if isinstance(persisted_results, dict):
+        for key in (
+            "total_analyses",
+            "decision_count",
+            "deviation_count",
+            "publishable_count",
+            "publishable_items",
+            "plan_coverage",
+            "deliverables",
+        ):
+            if key not in normalized_results and key in persisted_results:
+                normalized_results[key] = persisted_results[key]
     review = store.load(
         PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json"
     ) or store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json") or {}
@@ -1147,7 +1449,22 @@ def _evaluate_core_goal_audit(
     decision_count = int(results.get("decision_count") or 0)
     deliverables = results.get("deliverables") or {}
     has_results = total_analyses > 0 or bool(results.get("publishable_items"))
-    has_report_bundle = bool(deliverables) and publication_bundle_met
+    has_assembled_report = has(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+    has_project_manifest = has(PipelinePhase.PROJECT_SETUP, "project.yaml")
+    has_results_summary = (
+        has(PipelinePhase.COLLECT_RESULTS, "results_summary.json") or has_results
+    )
+    has_no_code_evidence = (
+        has_project_manifest
+        and has(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+        and has_results_summary
+    )
+    has_agent_harness_evidence = (
+        has_project_manifest
+        and has(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md")
+        and has(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+        and has(PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl")
+    )
 
     checks = [
         {
@@ -1206,22 +1523,31 @@ def _evaluate_core_goal_audit(
         {
             "id": "report_generation",
             "title": "Report generation",
-            "passed": has_report_bundle,
+            "passed": has_assembled_report,
             "evidence": ["phase_10_report_assembly/eda_report.md", "publication deliverables"],
-            "contract": "The run must produce the minimum report bundle for non-coders.",
+            "contract": "The run must produce an assembled EDA report for non-coders.",
         },
         {
             "id": "no_code_operation",
             "title": "No-code operation",
-            "passed": True,
-            "evidence": ["MCP tools, VSIX commands, and stored artifacts"],
+            "passed": has_no_code_evidence,
+            "evidence": [
+                "phase_00_project_setup/project.yaml",
+                "phase_06_plan_registration/analysis_plan.yaml",
+                "phase_09_collect_results/results_summary.json",
+            ],
             "contract": "The user should not need notebooks or analysis scripts to complete the flow.",
         },
         {
             "id": "agent_friendly_harness",
             "title": "Agent-friendly harness",
-            "passed": True,
-            "evidence": ["13-phase tool contract, AGENTS.md, Copilot/Codex/Cline assets"],
+            "passed": has_agent_harness_evidence,
+            "evidence": [
+                "phase_00_project_setup/project.yaml",
+                "phase_03_concept_alignment/concept_alignment.md",
+                "phase_06_plan_registration/analysis_plan.yaml",
+                "phase_08_execute_exploration/decision_log.jsonl",
+            ],
             "contract": "Mainstream agents should have explicit phases, gates, and artifacts to follow.",
         },
     ]

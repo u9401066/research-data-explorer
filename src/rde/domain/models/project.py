@@ -84,16 +84,11 @@ class Project:
             if target_index < current_index:
                 if phase not in self.completed_phases:
                     self.completed_phases.append(phase)
-                if phase == ProjectStatus.PLAN_REGISTRATION:
-                    self.plan_locked = True
                 return
 
         self.status = phase
         if phase not in self.completed_phases:
             self.completed_phases.append(phase)
-        # Auto-lock plan when Phase 4 completes
-        if phase == ProjectStatus.PLAN_REGISTRATION:
-            self.plan_locked = True
 
     def phase_artifact_dir(self, phase: ProjectStatus) -> Path:
         """Get the artifact directory for a specific phase."""

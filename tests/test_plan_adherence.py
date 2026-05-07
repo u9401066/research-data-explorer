@@ -8,8 +8,12 @@ import re
 import yaml
 
 from rde.application.pipeline import PipelinePhase
+from rde.application.session import get_session
 from rde.domain.models.project import Project
-from rde.interface.mcp.tools._shared.project_context import check_plan_adherence
+from rde.interface.mcp.tools._shared.project_context import (
+    check_plan_adherence,
+    compute_phase6_progress,
+)
 
 
 # ── helpers ──────────────────────────────────────────────────────
@@ -111,6 +115,96 @@ class TestCheckPlanAdherence:
         )
         assert ok is True
         assert reason is None
+
+    def test_group_variable_mismatch_is_a_deviation(self, tmp_path: Path) -> None:
+        project = _make_project(tmp_path)
+        _write_plan(
+            project,
+            [
+                {
+                    "type": "compare_groups",
+                    "variables": ["outcome_score"],
+                    "group_variable": "treatment_arm",
+                }
+            ],
+        )
+
+        ok, reason = check_plan_adherence(
+            project,
+            "compare_groups",
+            {
+                "outcome_variables": ["outcome_score"],
+                "group_variable": "wrong_group",
+            },
+        )
+
+        assert ok is False
+        assert reason is not None
+        assert "compare_groups" in reason
+
+    def test_advanced_analysis_time_variable_mismatch_is_a_deviation(
+        self, tmp_path: Path
+    ) -> None:
+        project = _make_project(tmp_path)
+        _write_plan(
+            project,
+            [
+                {
+                    "type": "survival_analysis",
+                    "variables": ["death_28d", "followup_days"],
+                    "time_variable": "followup_days",
+                }
+            ],
+        )
+
+        ok, reason = check_plan_adherence(
+            project,
+            "run_advanced_analysis",
+            {
+                "analysis_type": "survival_analysis",
+                "target_variable": "death_28d",
+                "time_variable": "wrong_time",
+                "variables": ["death_28d", "wrong_time"],
+            },
+        )
+
+        assert ok is False
+        assert reason is not None
+        assert "run_advanced_analysis" in reason
+
+    def test_phase8_progress_counts_only_decisions_matching_locked_plan(
+        self, tmp_path: Path
+    ) -> None:
+        project = _make_project(tmp_path)
+        get_session().register_project(project)
+        _write_plan(
+            project,
+            [
+                {
+                    "type": "compare_groups",
+                    "variables": ["age"],
+                    "group_variable": "treatment_arm",
+                },
+                {"type": "analyze_variable", "variables": ["age"]},
+            ],
+        )
+        logger = get_session().get_logger(project.id)
+        logger.log_decision(
+            phase=PipelinePhase.EXECUTE_EXPLORATION.value,
+            action="correlation_matrix",
+            tool_used="correlation_matrix",
+            parameters={"variables": ["age", "weight"]},
+            rationale="off-plan exploratory check",
+            result_summary="ok",
+        )
+
+        progress = compute_phase6_progress(project)
+
+        assert progress["decision_count"] == 1
+        assert progress["matched_decision_count"] == 0
+        assert progress["off_plan_decision_count"] == 1
+        assert progress["executed_analyses"] == 0
+        assert progress["ready"] is False
 
 
 # ── artifact_gate hook ───────────────────────────────────────────

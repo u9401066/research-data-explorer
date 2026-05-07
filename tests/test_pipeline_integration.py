@@ -480,6 +480,15 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
             },
         )
         await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 4,
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
             "register_analysis_plan",
             {
                 "project_id": project.id,
@@ -614,6 +623,7 @@ def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -
                 "project_id": project.id,
                 "dataset_id": dataset_id,
                 "max_analyses": 4,
+                "confirm": True,
             },
         )
         await server.call_tool(
@@ -782,11 +792,13 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
     from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
 
     workspace_dir = tmp_path / "workspace"
+    legacy_dir = workspace_dir / "legacy"
     raw_dir = workspace_dir / "rawdata"
+    legacy_dir.mkdir(parents=True)
     raw_dir.mkdir(parents=True)
     monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
 
-    legacy_csv = raw_dir / "legacy_session_dataset.csv"
+    legacy_csv = legacy_dir / "legacy_session_dataset.csv"
     project_csv = raw_dir / "project_bound_dataset.csv"
 
     DataFrame(
@@ -833,11 +845,17 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
                 "research_question": "Does treatment affect outcome?",
             },
         )
-        await server.call_tool("load_dataset", {"file_path": str(project_csv)})
-        await server.call_tool("build_schema", {})
+        await server.call_tool("run_intake", {"directory": str(raw_dir)})
+        project = session.get_project()
+        dataset_id = session.list_datasets()[-1]
+        await server.call_tool(
+            "build_schema",
+            {"dataset_id": dataset_id, "project_id": project.id},
+        )
         await server.call_tool(
             "align_concept",
             {
+                "project_id": project.id,
                 "research_question": "Does treatment affect outcome?",
                 "variable_roles": {
                     "outcome": "outcome",
@@ -848,12 +866,23 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
             },
         )
         await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 2,
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
             "register_analysis_plan",
             {
+                "project_id": project.id,
                 "analyses": [
                     {
                         "type": "compare_groups",
                         "variables": ["outcome", "treatment"],
+                        "group_variable": "treatment",
                         "rationale": "Compare outcome by treatment group",
                     }
                 ],
@@ -974,9 +1003,15 @@ def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
     project.advance_to(ProjectStatus.SCHEMA_REGISTRY)
     project.advance_to(ProjectStatus.CONCEPT_ALIGNMENT)
     project.advance_to(ProjectStatus.PLAN_REGISTRATION)
+    project.plan_locked = True
 
     repo = FileSystemProjectRepository(projects_base_dir)
     repo.save(project)
+    ArtifactStore(project.artifacts_dir).save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        {"locked": True, "analyses": []},
+    )
 
     def _textify(result: object) -> str:
         content = getattr(result, "content", None)

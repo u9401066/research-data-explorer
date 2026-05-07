@@ -499,6 +499,7 @@ def register_plan_tools(server: Any) -> None:
         enrich_rounds: int = 1,
         include_advanced: bool = True,
         include_visualizations: bool = True,
+        confirm: bool = False,
     ) -> str:
         """產生 greedy autonomous EDA 候選計畫（Phase 4 — Creative Ideation）。
 
@@ -539,6 +540,7 @@ def register_plan_tools(server: Any) -> None:
                 "enrich_rounds": enrich_rounds,
                 "include_advanced": include_advanced,
                 "include_visualizations": include_visualizations,
+                "confirm": confirm,
             },
         )
 
@@ -664,7 +666,7 @@ def register_plan_tools(server: Any) -> None:
                         "greedy_analysis_candidates.json": str(json_path),
                         "greedy_analysis_candidates.md": str(md_path),
                     },
-                    user_confirmed=True,
+                    user_confirmed=confirm,
                 )
             )
             project.advance_to(ProjectStatus.CREATIVE_IDEATION)
@@ -763,6 +765,18 @@ def register_plan_tools(server: Any) -> None:
                 return fmt_error(
                     "分析計畫已鎖定 (H-007)，無法修改。",
                     suggestion="偏離計畫請使用 `log_deviation()`。",
+                )
+
+            can_review_plan, review_gate_reason = pipeline.can_execute(
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW
+            )
+            if not can_review_plan:
+                return fmt_error(
+                    review_gate_reason,
+                    suggestion=(
+                        "Run `propose_analysis_plan(confirm=true)` first so Phase 4 "
+                        "creative ideation is explicit and user-confirmed."
+                    ),
                 )
 
             if not analyses:
@@ -1042,6 +1056,7 @@ def register_plan_tools(server: Any) -> None:
                 )
             )
             project.advance_to(ProjectStatus.PLAN_REGISTRATION)
+            project.plan_locked = True
             persist_project(project)
 
             analyses_text = ""

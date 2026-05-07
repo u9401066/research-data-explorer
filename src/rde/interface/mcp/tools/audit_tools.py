@@ -49,6 +49,7 @@ def register_audit_tools(server: Any) -> None:
             from rde.application.pipeline import PipelinePhase, PhaseResult, REQUIRED_ARTIFACTS
             from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
+            from rde.interface.mcp.tools._shared.project_context import compute_phase6_progress
             from datetime import datetime
 
             session = get_session()
@@ -106,7 +107,8 @@ def register_audit_tools(server: Any) -> None:
                     for entry in plan.get("analyses", plan.get("steps", []))
                     if not isinstance(entry, dict) or entry.get("required", True)
                 ]
-                executed = results.get("total_analyses", 0)
+                progress = compute_phase6_progress(project)
+                executed = progress.get("executed_analyses", results.get("total_analyses", 0))
                 coverage = min(1.0, executed / max(1, len(planned)))
                 deviations = logger.read_deviations()
                 adherence_score = int(25 * coverage)
@@ -121,7 +123,10 @@ def register_audit_tools(server: Any) -> None:
                         "score": adherence_score,
                         "max": 25,
                         "passed": adherence_score >= 18,
-                        "details": f"coverage={coverage:.0%}, deviations={len(deviations)}",
+                        "details": (
+                            f"coverage={coverage:.0%}, deviations={len(deviations)}, "
+                            f"branch_decisions={progress.get('branch_decision_count', 0)}"
+                        ),
                     }
                 )
             else:
@@ -227,9 +232,7 @@ def register_audit_tools(server: Any) -> None:
             max_score += 10
             from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
 
-            report_readiness = results.get("report_readiness") if results else None
-            if not report_readiness:
-                report_readiness = _evaluate_report_readiness(results, store)
+            report_readiness = _evaluate_report_readiness(results, store)
             readiness_score = 0
             if report_readiness.get("review_status") in {"pass", "repaired"}:
                 readiness_score += 3
@@ -540,7 +543,7 @@ def register_audit_tools(server: Any) -> None:
         project_id: str | None = None,
         formats: str = "docx,pdf",
         title: str = "",
-        allow_incomplete: bool = True,
+        allow_incomplete: bool = False,
     ) -> str:
         """匯出 Phase 10 final_report.md 為正式 DOCX / PDF。
 
@@ -1382,11 +1385,6 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
 def _load_phase10_report_readiness(store: Any) -> dict[str, Any]:
     from rde.application.pipeline import PipelinePhase
     from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
-
-    improvement_log = store.load(PipelinePhase.AUTO_IMPROVE, "improvement_log.json") or {}
-    report_readiness = improvement_log.get("report_readiness")
-    if report_readiness:
-        return report_readiness
 
     results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
     return _evaluate_report_readiness(results, store)

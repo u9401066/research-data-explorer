@@ -249,19 +249,47 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
     """Compute how far Phase 8 execution has progressed relative to the locked plan."""
     session = get_session()
     logger = session.get_logger(project.id)
-    decision_count = logger.decision_count
+    decisions = logger.read_decisions()
+    decision_count = len(decisions)
+    branch_decision_count = 0
+    primary_decision_count = 0
     dataset_ids = project_dataset_ids(project)
     analysis_result_count = 0
     for did in dataset_ids:
         ok, _, entry = ensure_dataset(did, project=project)
         if ok and entry is not None:
             analysis_result_count += len(entry.analysis_results)
-    executed = max(decision_count, analysis_result_count)
+    for decision in decisions:
+        parameters = decision.get("parameters")
+        if not isinstance(parameters, dict):
+            parameters = {}
+        if parameters.get("scope") == "branch":
+            branch_decision_count += 1
+        else:
+            primary_decision_count += 1
+    executed = max(primary_decision_count, analysis_result_count)
 
     store = ArtifactStore(project.artifacts_dir)
     plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
     planned_entries = _extract_planned_analyses(plan)
     planned = len(planned_entries)
+    matched_decision_count = 0
+    off_plan_decision_count = 0
+
+    if planned > 0:
+        for decision in decisions:
+            tool_name = str(decision.get("tool_used") or decision.get("action") or "")
+            parameters = decision.get("parameters")
+            if not isinstance(parameters, dict):
+                parameters = {}
+            if parameters.get("scope") == "branch":
+                continue
+            in_plan, _ = check_plan_adherence(project, tool_name, parameters)
+            if in_plan:
+                matched_decision_count += 1
+            else:
+                off_plan_decision_count += 1
+        executed = max(matched_decision_count, analysis_result_count)
 
     if planned > 0:
         required_executions = max(1, math.ceil(planned * PHASE6_REQUIRED_COVERAGE))
@@ -277,6 +305,10 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
         "planned_entries": planned_entries,
         "executed_analyses": executed,
         "decision_count": decision_count,
+        "primary_decision_count": primary_decision_count,
+        "branch_decision_count": branch_decision_count,
+        "matched_decision_count": matched_decision_count if planned > 0 else primary_decision_count,
+        "off_plan_decision_count": off_plan_decision_count,
         "analysis_result_count": analysis_result_count,
         "coverage": coverage,
         "required_coverage": PHASE6_REQUIRED_COVERAGE if planned else None,
@@ -354,6 +386,115 @@ def format_phase6_gate_message(progress: dict[str, object]) -> str:
     )
 
 
+def _normalize_plan_value(value: object) -> str:
+    return str(value).strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _plan_values(payload: dict, keys: tuple[str, ...]) -> set[str]:
+    values: set[str] = set()
+    for key in keys:
+        raw = payload.get(key)
+        if raw is None:
+            continue
+        if isinstance(raw, (list, tuple, set)):
+            values.update(str(item) for item in raw if item is not None)
+        else:
+            values.add(str(raw))
+    return {value for value in values if value}
+
+
+def _normalized_plan_values(payload: dict, keys: tuple[str, ...]) -> set[str]:
+    return {_normalize_plan_value(value) for value in _plan_values(payload, keys)}
+
+
+def _planned_named_fields_match(entry: dict, parameters: dict) -> bool:
+    required_pairs = (
+        (("group_variable", "group_var", "group"), ("group_variable", "group_var", "group")),
+        (("time_variable", "time_var"), ("time_variable", "time_var")),
+        (("score_variable", "score_var"), ("score_variable", "score_var")),
+        (
+            ("target_variable", "outcome_variable", "target"),
+            ("target_variable", "outcome_variable", "variable_name", "target"),
+        ),
+    )
+    for planned_keys, parameter_keys in required_pairs:
+        planned_values = _normalized_plan_values(entry, planned_keys)
+        if not planned_values:
+            continue
+        actual_values = _normalized_plan_values(parameters, parameter_keys)
+        if not actual_values or not planned_values.intersection(actual_values):
+            return False
+    return True
+
+
+def _check_plan_adherence_against_analyses(
+    analyses: list,
+    tool_name: str,
+    parameters: dict,
+) -> bool:
+    tool_type_map = {
+        "compare_groups": {
+            "compare_groups",
+            "group_comparison",
+            "t_test",
+            "mann_whitney",
+            "chi_square",
+        },
+        "analyze_variable": {"analyze_variable", "univariate", "descriptive"},
+        "correlation_matrix": {"correlation_matrix", "correlation", "collinearity"},
+        "generate_table_one": {"generate_table_one", "table_one", "table_1", "baseline"},
+        "run_advanced_analysis": {"run_advanced_analysis"},
+        "run_repeated_measures": {"run_repeated_measures", "repeated_measures", "friedman"},
+        "apply_cleaning": {"apply_cleaning", "cleaning", "clean"},
+        "suggest_cleaning": {"suggest_cleaning", "cleaning", "clean"},
+        "create_visualization": {"create_visualization", "visualization", "plot", "chart"},
+    }
+    normalized_tool_name = _normalize_plan_value(tool_name)
+    synonyms = {
+        _normalize_plan_value(value)
+        for value in tool_type_map.get(normalized_tool_name, {normalized_tool_name})
+    }
+    if normalized_tool_name == "run_advanced_analysis" and parameters.get("analysis_type"):
+        synonyms.add(_normalize_plan_value(parameters["analysis_type"]))
+
+    param_vars = _plan_values(
+        parameters,
+        (
+            "outcome_variables",
+            "outcome_variable",
+            "variables",
+            "variable_name",
+            "target_variable",
+            "group_variable",
+            "group_var",
+            "group",
+            "time_variable",
+            "time_var",
+            "score_variable",
+            "score_var",
+        ),
+    )
+
+    for entry in analyses:
+        if not isinstance(entry, dict):
+            continue
+        planned_type = _normalize_plan_value(entry.get("type", ""))
+        planned_analysis_type = _normalize_plan_value(entry.get("analysis_type", ""))
+        type_matches = planned_type in synonyms or any(s in planned_type for s in synonyms)
+        if not type_matches and planned_analysis_type:
+            type_matches = planned_analysis_type in synonyms
+        if not type_matches:
+            continue
+        if not _planned_named_fields_match(entry, parameters):
+            continue
+
+        planned_vars = _plan_values(entry, ("variables",))
+        if not planned_vars or param_vars.intersection(planned_vars):
+            return True
+
+    return False
+
+
 def check_plan_adherence(
     project: "Project",
     tool_name: str,
@@ -374,68 +515,11 @@ def check_plan_adherence(
         return True, None  # no plan → nothing to check
 
     analyses = plan.get("analyses", [])
-    if not analyses:
-        return True, None  # empty plan → nothing to check
-
-    # Normalise tool_name → analysis type keywords for matching
-    tool_type_map = {
-        "compare_groups": {
-            "compare_groups",
-            "group_comparison",
-            "t_test",
-            "mann_whitney",
-            "chi_square",
-        },
-        "analyze_variable": {"analyze_variable", "univariate", "descriptive"},
-        "correlation_matrix": {"correlation_matrix", "correlation", "collinearity"},
-        "generate_table_one": {"generate_table_one", "table_one", "table_1", "baseline"},
-        "run_advanced_analysis": set(),  # matched by analysis_type param
-        "run_repeated_measures": {"run_repeated_measures", "repeated_measures", "friedman"},
-        "apply_cleaning": {"apply_cleaning", "cleaning", "clean"},
-        "suggest_cleaning": {"suggest_cleaning", "cleaning", "clean"},
-        "create_visualization": {"create_visualization", "visualization", "plot", "chart"},
-    }
-
-    synonyms = tool_type_map.get(tool_name, {tool_name})
-
-    # For run_advanced_analysis, also include the analysis_type parameter
-    if tool_name == "run_advanced_analysis" and "analysis_type" in parameters:
-        synonyms = {parameters["analysis_type"], tool_name}
-
-    # Extract the target variables from parameters
-    param_vars = set()
-    for key in ("outcome_variables", "variables", "variable_name"):
-        val = parameters.get(key)
-        if isinstance(val, list):
-            param_vars.update(val)
-        elif isinstance(val, str) and key == "variable_name":
-            param_vars.add(val)
-    if "group_variable" in parameters:
-        param_vars.add(parameters["group_variable"])
-
-    # Check each planned analysis for a match
-    for entry in analyses:
-        if not isinstance(entry, dict):
-            continue
-        planned_type = str(entry.get("type", "")).lower().replace("-", "_").replace(" ", "_")
-        planned_vars = set()
-        pv = entry.get("variables")
-        if isinstance(pv, list):
-            planned_vars = set(pv)
-        elif isinstance(pv, str):
-            planned_vars = {pv}
-
-        # Type match
-        if planned_type in synonyms or any(s in planned_type for s in synonyms):
-            # If planned analysis has no specific vars, type match is enough
-            if not planned_vars:
-                return True, None
-            # If there's variable overlap, it matches
-            if param_vars & planned_vars:
-                return True, None
-
-    # No match found — this is a deviation
-    return False, (
-        f"工具 '{tool_name}' 不在已鎖定的分析計畫中 "
-        f"(計畫含 {len(analyses)} 項分析)。已自動記錄偏離。"
-    )
+    if analyses:
+        if _check_plan_adherence_against_analyses(analyses, tool_name, parameters):
+            return True, None
+        return False, (
+            f"Tool '{tool_name}' is not covered by the locked analysis plan "
+            f"({len(analyses)} planned analyses checked)."
+        )
+    return True, None  # empty plan → nothing to check
