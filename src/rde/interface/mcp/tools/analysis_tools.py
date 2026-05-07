@@ -79,6 +79,17 @@ def _summarize_advanced_analysis_result(analysis_result: Any) -> str:
     if isinstance(analysis_result, dict):
         if analysis_result.get("error"):
             return str(analysis_result["error"])
+        core_parts: list[str] = []
+        for key in ("auc", "power", "nobs", "events"):
+            if key in analysis_result:
+                core_parts.append(f"{key}={analysis_result[key]}")
+        for key, prefix in (("odds_ratios", "OR"), ("hazard_ratios", "HR")):
+            values = analysis_result.get(key)
+            if isinstance(values, dict):
+                for name, value in list(values.items())[:4]:
+                    core_parts.append(f"{prefix}.{name}={value}")
+        if core_parts:
+            return ", ".join(core_parts)
         numeric_parts: list[str] = []
         for key in ("calculation_type", "result", "status", "job_id"):
             if key in analysis_result:
@@ -88,6 +99,71 @@ def _summarize_advanced_analysis_result(analysis_result: Any) -> str:
         return ", ".join(sorted(analysis_result.keys())[:6])
 
     return str(analysis_result)
+
+
+def _unique_phase_artifact_filename(phase_dir: Path, filename: str) -> str:
+    """Return filename or a numeric-suffixed variant that does not overwrite."""
+    candidate = phase_dir / filename
+    if not candidate.exists():
+        return filename
+
+    path = Path(filename)
+    counter = 2
+    while True:
+        unique_name = f"{path.stem}_{counter}{path.suffix}"
+        if not (phase_dir / unique_name).exists():
+            return unique_name
+        counter += 1
+
+
+def _build_advanced_analysis_decision_parameters(
+    *,
+    analysis_type: str,
+    source: str,
+    target_variable: str | None,
+    group_variable: str | None,
+    covariates: list[str] | None,
+    time_variable: str | None,
+    score_variable: str | None,
+    problem_type: str | None,
+    endpoint: str | None,
+    test_type: str | None,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the Phase 8 decision-log parameters for advanced analyses."""
+    variables = list(config.get("variables", []))
+    if not variables:
+        variables = [
+            value
+            for value in [
+                target_variable,
+                group_variable,
+                time_variable,
+                score_variable,
+                *(covariates or []),
+            ]
+            if value
+        ]
+
+    parameters: dict[str, Any] = {
+        "analysis_type": analysis_type,
+        "source": source,
+        "target_variable": target_variable,
+        "group_variable": group_variable,
+        "covariates": covariates or [],
+        "time_variable": time_variable,
+        "score_variable": score_variable,
+        "problem_type": problem_type,
+        "endpoint": endpoint,
+        "test_type": test_type,
+        "variables": list(dict.fromkeys(variables)),
+        "config": config,
+    }
+    return {
+        key: value
+        for key, value in parameters.items()
+        if value is not None or key in {"covariates", "variables", "config"}
+    }
 
 
 def _save_advanced_analysis_artifact(
@@ -124,6 +200,10 @@ def _save_advanced_analysis_artifact(
     }
 
     store = ArtifactStore(project.artifacts_dir)
+    filename = _unique_phase_artifact_filename(
+        project.artifacts_dir / PipelinePhase.EXECUTE_EXPLORATION.value,
+        filename,
+    )
     return store.save(PipelinePhase.EXECUTE_EXPLORATION, filename, payload)
 
 
@@ -144,6 +224,10 @@ def _save_advanced_analysis_markdown_artifact(
     filename = f"advanced_analysis_{normalized}{job_suffix}.md"
 
     store = ArtifactStore(project.artifacts_dir)
+    filename = _unique_phase_artifact_filename(
+        project.artifacts_dir / PipelinePhase.EXECUTE_EXPLORATION.value,
+        filename,
+    )
     return store.save(PipelinePhase.EXECUTE_EXPLORATION, filename, content)
 
 
@@ -1096,6 +1180,7 @@ def register_analysis_tools(server: Any) -> None:
                 "problem_type": problem_type,
                 "endpoint": endpoint,
                 "test_type": test_type,
+                "vendor_options": vendor_options,
             },
         )
 
@@ -1146,12 +1231,18 @@ def register_analysis_tools(server: Any) -> None:
                 config["endpoint"] = endpoint
             if test_type:
                 config["test_type"] = test_type
-            if vendor_options:
-                config.update(
-                    {key: value for key, value in vendor_options.items() if value is not None}
-                )
+            clean_vendor_options = (
+                {key: value for key, value in vendor_options.items() if value is not None}
+                if vendor_options
+                else {}
+            )
+            if clean_vendor_options:
+                config.update(clean_vendor_options)
 
             config["variables"] = list(dict.fromkeys(config["variables"]))
+            decision_config = dict(config)
+            if clean_vendor_options:
+                decision_config["vendor_options"] = dict(clean_vendor_options)
 
             analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
                 entry.dataframe,
@@ -1168,7 +1259,7 @@ def register_analysis_tools(server: Any) -> None:
                 dataset_id=dataset_id,
                 analysis_type=analysis_type,
                 source=source,
-                config=config,
+                config=decision_config,
                 analysis_result=analysis_result,
             )
 
@@ -1195,17 +1286,19 @@ def register_analysis_tools(server: Any) -> None:
             # H-009
             _auto_log_decision(
                 "run_advanced_analysis",
-                {
-                    "analysis_type": analysis_type,
-                    "source": source,
-                    "target_variable": target_variable,
-                    "group_variable": group_variable,
-                    "variables": [
-                        value
-                        for value in [target_variable, group_variable, *(covariates or [])]
-                        if value
-                    ],
-                },
+                _build_advanced_analysis_decision_parameters(
+                    analysis_type=analysis_type,
+                    source=source,
+                    target_variable=target_variable,
+                    group_variable=group_variable,
+                    covariates=covariates,
+                    time_variable=time_variable,
+                    score_variable=score_variable,
+                    problem_type=problem_type,
+                    endpoint=endpoint,
+                    test_type=test_type,
+                    config=decision_config,
+                ),
                 f"進階分析: {analysis_type}",
                 (
                     f"source={source}; {decision_summary}"

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from rde.domain.models.project import Project
+from rde.interface.mcp.tools import analysis_tools
 from rde.interface.mcp.tools.analysis_tools import (
     _format_advanced_analysis_output,
     _is_async_job_contract,
@@ -103,6 +104,33 @@ def test_save_advanced_analysis_artifact_marks_generic_job_submission(tmp_path: 
     assert '"analysis_type": "automl"' in content
 
 
+def test_save_advanced_analysis_artifact_uses_unique_names_for_repeated_local_runs(
+    tmp_path: Path,
+) -> None:
+    project = _make_project(tmp_path)
+
+    first = _save_advanced_analysis_artifact(
+        project,
+        dataset_id="dataset-1",
+        analysis_type="roc_auc",
+        source="local-lite (scipy)",
+        config={"target": "outcome"},
+        analysis_result={"analysis_type": "roc_auc", "auc": 0.71},
+    )
+    second = _save_advanced_analysis_artifact(
+        project,
+        dataset_id="dataset-1",
+        analysis_type="roc_auc",
+        source="local-lite (scipy)",
+        config={"target": "outcome"},
+        analysis_result={"analysis_type": "roc_auc", "auc": 0.82},
+    )
+
+    assert first.name == "advanced_analysis_roc_auc.json"
+    assert second.name == "advanced_analysis_roc_auc_2.json"
+    assert first.read_text(encoding="utf-8") != second.read_text(encoding="utf-8")
+
+
 def test_save_advanced_analysis_markdown_artifact_persists_phase06_markdown(
     tmp_path: Path,
 ) -> None:
@@ -117,6 +145,83 @@ def test_save_advanced_analysis_markdown_artifact_persists_phase06_markdown(
     assert artifact.exists()
     assert artifact.name == "advanced_analysis_learning_curve_cusum.md"
     assert artifact.read_text(encoding="utf-8") == "# CUSUM\n\nsummary"
+
+
+def test_save_advanced_analysis_markdown_artifact_uses_unique_names_for_repeated_runs(
+    tmp_path: Path,
+) -> None:
+    project = _make_project(tmp_path)
+
+    first = _save_advanced_analysis_markdown_artifact(
+        project,
+        analysis_type="kaplan_meier",
+        analysis_result={"analysis_type": "kaplan_meier"},
+        content="# KM\n\nfirst",
+    )
+    second = _save_advanced_analysis_markdown_artifact(
+        project,
+        analysis_type="kaplan_meier",
+        analysis_result={"analysis_type": "kaplan_meier"},
+        content="# KM\n\nsecond",
+    )
+
+    assert first.name == "advanced_analysis_kaplan_meier.md"
+    assert second.name == "advanced_analysis_kaplan_meier_2.md"
+    assert first.read_text(encoding="utf-8") == "# KM\n\nfirst"
+    assert second.read_text(encoding="utf-8") == "# KM\n\nsecond"
+
+
+def test_advanced_analysis_summary_extracts_core_local_lite_metrics() -> None:
+    summary = _summarize_advanced_analysis_result(
+        {
+            "analysis_type": "cox_regression",
+            "auc": 0.81,
+            "power": 0.72,
+            "nobs": 42,
+            "events": 17,
+            "odds_ratios": {"age": 1.18},
+            "hazard_ratios": {"severity": 1.43},
+        }
+    )
+
+    assert "auc=0.81" in summary
+    assert "power=0.72" in summary
+    assert "nobs=42" in summary
+    assert "events=17" in summary
+    assert "OR.age=1.18" in summary
+    assert "HR.severity=1.43" in summary
+
+
+def test_advanced_analysis_decision_parameters_include_full_config() -> None:
+    config = {
+        "variables": ["outcome", "time", "score", "age"],
+        "target": "outcome",
+        "time_variable": "time",
+        "score_variable": "score",
+        "test_type": "survival",
+        "vendor_options": {"time_limit": 120, "presets": "high_quality"},
+    }
+
+    parameters = analysis_tools._build_advanced_analysis_decision_parameters(
+        analysis_type="survival_analysis",
+        source="local-lite (statsmodels)",
+        target_variable="outcome",
+        group_variable=None,
+        covariates=["age"],
+        time_variable="time",
+        score_variable="score",
+        problem_type=None,
+        endpoint=None,
+        test_type="survival",
+        config=config,
+    )
+
+    assert parameters["time_variable"] == "time"
+    assert parameters["score_variable"] == "score"
+    assert parameters["test_type"] == "survival"
+    assert parameters["variables"] == ["outcome", "time", "score", "age"]
+    assert parameters["config"] == config
+    assert parameters["config"]["vendor_options"]["time_limit"] == 120
 
 
 def test_format_advanced_analysis_output_includes_job_summary_and_artifact(tmp_path: Path) -> None:

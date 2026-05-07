@@ -83,6 +83,32 @@ def test_delegator_runs_local_logistic_regression_without_automl() -> None:
     assert "interpretation" in result["result"]
 
 
+def test_delegator_encodes_categorical_covariates_for_local_logistic_regression() -> None:
+    df = pd.DataFrame(
+        {
+            "outcome": [0, 0, 0, 0, 1, 1, 1, 1, 0, 1],
+            "age": [35, 42, 48, 55, 58, 63, 69, 74, 46, 67],
+            "sex": ["F", "F", "M", "F", "M", "M", "F", "M", "F", "M"],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "logistic_regression",
+        {"target": "outcome", "covariates": ["age", "sex"]},
+    )
+
+    payload = result["result"]
+    assert result["source"] == "local-lite (statsmodels)"
+    assert payload["analysis_type"] == "logistic_regression"
+    assert payload["source_covariates"] == ["age", "sex"]
+    assert payload["encoded_covariates"]["sex"]
+    assert any(name.startswith("sex_") for name in payload["covariates"])
+    assert any(name.startswith("sex_") for name in payload["odds_ratios"])
+
+
 def test_delegator_runs_local_roc_auc_without_automl() -> None:
     df = pd.DataFrame(
         {
@@ -105,6 +131,30 @@ def test_delegator_runs_local_roc_auc_without_automl() -> None:
     assert "interpretation" in result["result"]
 
 
+def test_delegator_uses_logistic_probability_when_roc_score_is_missing() -> None:
+    df = pd.DataFrame(
+        {
+            "outcome": [0, 0, 0, 0, 1, 1, 1, 1, 0, 1],
+            "age": [45, 52, 49, 58, 61, 66, 72, 69, 54, 63],
+            "severity": [1, 2, 2, 3, 3, 4, 5, 4, 2, 3],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "roc_auc",
+        {"target": "outcome", "covariates": ["age", "severity"]},
+    )
+
+    assert result["source"] == "local-lite (scipy)"
+    assert result["result"]["analysis_type"] == "roc_auc"
+    assert result["result"]["score_variable"] == "predicted_probability"
+    assert result["result"]["score_source"] == "local logistic predicted probability"
+    assert 0.5 <= result["result"]["auc"] <= 1.0
+
+
 def test_delegator_runs_local_power_analysis_without_automl() -> None:
     df = pd.DataFrame({"placeholder": [1]})
     delegator = AnalysisDelegator()
@@ -120,6 +170,110 @@ def test_delegator_runs_local_power_analysis_without_automl() -> None:
     assert result["result"]["analysis_type"] == "power_analysis"
     assert result["result"]["test_type"] == "ttest"
     assert 0 < result["result"]["power"] < 1
+
+
+def test_delegator_propensity_score_local_lite_returns_score_diagnostics() -> None:
+    df = pd.DataFrame(
+        {
+            "treatment": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            "age": [50, 51, 49, 54, 60, 59, 58, 62, 47, 52, 55, 56],
+            "bmi": [25.0, 27.0, 24.0, 30.0, 31.0, 29.0, 28.0, 32.0, 23.0, 26.0, 27.0, 28.0],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "propensity_score",
+        {"group_var": "treatment", "covariates": ["age", "bmi"]},
+    )
+
+    ps_result = result["result"]
+    assert result["source"] == "local-lite (statsmodels)"
+    assert ps_result["analysis_type"] == "propensity_score"
+    assert ps_result["propensity_score_summary"]["count"] == 12
+    assert 0 <= ps_result["propensity_score_summary"]["min"] <= ps_result["propensity_score_summary"]["max"] <= 1
+    assert ps_result["propensity_scores_sample"][0]["propensity_score"] >= 0
+    assert ps_result["common_support"]["treated_min"] <= ps_result["common_support"]["treated_max"]
+    assert "age" in ps_result["balance_diagnostics"]
+    assert "standardized_mean_difference" in ps_result["balance_diagnostics"]["age"]
+
+
+def test_delegator_propensity_score_encodes_categorical_covariates() -> None:
+    df = pd.DataFrame(
+        {
+            "treatment": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            "age": [50, 51, 49, 54, 60, 59, 58, 62, 47, 52, 55, 56],
+            "sex": ["F", "M", "F", "M", "F", "M", "F", "M", "F", "M", "F", "M"],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "propensity_score",
+        {"group_var": "treatment", "covariates": ["age", "sex"]},
+    )
+
+    ps_result = result["result"]
+    assert result["source"] == "local-lite (statsmodels)"
+    assert ps_result["covariates"] == ["age", "sex"]
+    assert "sex" in ps_result["encoded_covariate_map"]
+    assert any(name.startswith("sex_") for name in ps_result["encoded_covariates"])
+    assert any(name.startswith("sex_") for name in ps_result["balance_diagnostics"])
+
+
+def test_delegator_kaplan_meier_local_lite_returns_stratified_summary() -> None:
+    df = pd.DataFrame(
+        {
+            "time": [3, 5, 8, 10, 4, 6, 9, 12],
+            "event": [1, 1, 0, 1, 1, 0, 1, 0],
+            "treatment": ["control", "control", "control", "control", "treated", "treated", "treated", "treated"],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "kaplan_meier",
+        {"time_variable": "time", "target": "event", "group_variable": "treatment"},
+    )
+
+    km_result = result["result"]
+    assert result["source"] == "local-lite (kaplan-meier)"
+    assert km_result["analysis_type"] == "kaplan_meier"
+    assert km_result["median_survival"] == 9.0
+    assert km_result["group_variable"] == "treatment"
+    assert set(km_result["strata"]) == {"control", "treated"}
+    assert km_result["strata"]["control"]["nobs"] == 4
+    assert km_result["strata"]["treated"]["events"] == 2
+    assert "median_survival" in km_result["strata"]["treated"]
+
+
+def test_delegator_survival_analysis_with_covariates_uses_local_cox() -> None:
+    df = pd.DataFrame(
+        {
+            "time": [5, 8, 12, 4, 10, 14, 6, 9, 13, 7, 11, 15],
+            "event": [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            "age": [60, 55, 58, 70, 65, 62, 59, 68, 64, 61, 66, 63],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "survival_analysis",
+        {"time_variable": "time", "target": "event", "covariates": ["age"]},
+    )
+
+    assert result["source"] == "local-lite (statsmodels)"
+    assert result["result"]["analysis_type"] == "cox_regression"
+    assert result["result"]["nobs"] == 12
+    assert "age" in result["result"]["hazard_ratios"]
 
 
 def test_delegator_capabilities_distinguish_local_lite_from_automl_required() -> None:

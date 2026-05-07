@@ -245,6 +245,11 @@ class AnalysisDelegator:
                 "source": "local-lite (statsmodels)",
                 "result": self._run_propensity_score(df, config),
             }
+        if analysis_type == "survival_analysis" and self._resolve_covariates(df, config):
+            return {
+                "source": "local-lite (statsmodels)",
+                "result": self._run_cox_regression(df, config),
+            }
         if analysis_type in {"survival_analysis", "kaplan_meier"}:
             return {
                 "source": "local-lite (kaplan-meier)",
@@ -311,14 +316,73 @@ class AnalysisDelegator:
                 "suggestion": "Check missingness or reduce the covariate list.",
             }
         y = working[target]
-        x = working[covariates].apply(pd.to_numeric, errors="coerce")
-        model_frame = pd.concat([y, x], axis=1).dropna()
+        x, encoded_covariates = self._encode_covariates(working, covariates)
+        if x.empty:
+            return None, None, None, {
+                "error": "No usable covariate columns after local encoding.",
+                "suggestion": "Use covariates with variation, or simplify high-missing predictors.",
+            }
+        model_frame = pd.concat([y.rename(target), x], axis=1).dropna()
         if len(model_frame) < 3:
             return None, None, None, {
-                "error": "Not enough numeric complete rows for local advanced analysis.",
-                "suggestion": "Use numeric covariates or encode categorical covariates first.",
+                "error": "Not enough encoded complete rows for local advanced analysis.",
+                "suggestion": "Check missingness, sparse categories, or reduce the covariate list.",
             }
-        return model_frame, model_frame[target], model_frame[covariates], None
+        encoded_x = model_frame[list(x.columns)]
+        encoded_x.attrs["source_covariates"] = covariates
+        encoded_x.attrs["encoded_covariates"] = encoded_covariates
+        return model_frame, model_frame[target], encoded_x, None
+
+    def _encode_covariates(
+        self,
+        working: pd.DataFrame,
+        covariates: list[str],
+    ) -> tuple[pd.DataFrame, dict[str, list[str]]]:
+        encoded_parts: list[pd.DataFrame] = []
+        encoded_covariates: dict[str, list[str]] = {}
+
+        for covariate in covariates:
+            if covariate not in working.columns:
+                continue
+            series = working[covariate]
+            columns_for_covariate: list[str] = []
+
+            if pd.api.types.is_bool_dtype(series):
+                encoded = pd.DataFrame({covariate: series.astype(float)}, index=working.index)
+            elif pd.api.types.is_numeric_dtype(series):
+                encoded = pd.DataFrame(
+                    {covariate: pd.to_numeric(series, errors="coerce")},
+                    index=working.index,
+                )
+            else:
+                numeric = pd.to_numeric(series, errors="coerce")
+                non_missing = int(series.notna().sum())
+                if non_missing > 0 and int(numeric.notna().sum()) == non_missing:
+                    encoded = pd.DataFrame({covariate: numeric}, index=working.index)
+                else:
+                    encoded = pd.get_dummies(
+                        series.astype("category"),
+                        prefix=covariate,
+                        drop_first=True,
+                        dummy_na=False,
+                        dtype=float,
+                    )
+
+            for column in list(encoded.columns):
+                column_data = pd.to_numeric(encoded[column], errors="coerce")
+                if column_data.nunique(dropna=True) <= 1:
+                    encoded = encoded.drop(columns=[column])
+                    continue
+                encoded[column] = column_data
+                columns_for_covariate.append(str(column))
+
+            if columns_for_covariate:
+                encoded_parts.append(encoded[columns_for_covariate])
+                encoded_covariates[covariate] = columns_for_covariate
+
+        if not encoded_parts:
+            return pd.DataFrame(index=working.index), {}
+        return pd.concat(encoded_parts, axis=1), encoded_covariates
 
     def _binary_target(self, y: pd.Series) -> pd.Series | None:
         if pd.api.types.is_numeric_dtype(y):
@@ -335,26 +399,32 @@ class AnalysisDelegator:
             return None
         return categories.map({values[0]: 0, values[1]: 1}).astype(float)
 
-    def _run_logistic_regression(self, df: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
+    def _fit_binary_logit(
+        self,
+        df: pd.DataFrame,
+        target: str | None,
+        covariates: list[str],
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         import warnings
 
         import statsmodels.api as sm
 
-        target = self._resolve_target(config)
-        covariates = self._resolve_covariates(df, config)
         model_frame, y_raw, x_raw, error = self._prepare_model_frame(df, target, covariates)
         if error:
-            return error
-        assert model_frame is not None
+            return {"error": error}
         assert y_raw is not None
         assert x_raw is not None
 
         y = self._binary_target(y_raw)
         if y is None:
             return {
-                "error": "Logistic regression requires a binary target variable.",
-                "suggestion": "Use a 0/1 outcome or choose multiple_regression for continuous outcomes.",
+                "error": {
+                    "error": "Logistic regression requires a binary target variable.",
+                    "suggestion": "Use a 0/1 outcome or choose a continuous-outcome method.",
+                }
             }
+
         x = sm.add_constant(x_raw, has_constant="add")
         regularized = False
         with warnings.catch_warnings():
@@ -371,16 +441,38 @@ class AnalysisDelegator:
                     regularized = True
                 except Exception as second_exc:
                     return {
-                        "error": (
-                            f"Local logistic regression failed: {exc}; "
-                            f"regularized fallback failed: {second_exc}"
-                        ),
-                        "suggestion": (
-                            "Reduce collinearity, simplify covariates, or use the optional "
-                            "advanced engine."
-                        ),
+                        "error": {
+                            "error": (
+                                f"Local logistic regression failed: {exc}; "
+                                f"regularized fallback failed: {second_exc}"
+                            ),
+                            "suggestion": (
+                                "Reduce collinearity, simplify covariates, or use the optional "
+                                "advanced engine."
+                            ),
+                        }
                     }
 
+        predictions = pd.Series(fitted.predict(x), index=x.index).clip(0.0, 1.0)
+        return {
+            "fitted": fitted,
+            "target": str(target),
+            "covariates": list(x_raw.columns),
+            "source_covariates": list(x_raw.attrs.get("source_covariates", covariates)),
+            "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
+            "y": y,
+            "x_raw": x_raw,
+            "predictions": predictions,
+            "regularized": regularized,
+        }
+
+    def _logistic_result_from_fit(
+        self,
+        fit: dict[str, Any],
+        *,
+        analysis_type: str = "logistic_regression",
+    ) -> dict[str, Any]:
+        fitted = fit["fitted"]
         params = {name: float(value) for name, value in fitted.params.items()}
         raw_pvalues = getattr(fitted, "pvalues", None)
         if raw_pvalues is not None:
@@ -390,21 +482,37 @@ class AnalysisDelegator:
         odds_ratios = {name: float(np.exp(value)) for name, value in fitted.params.items()}
         pseudo_r2 = float(getattr(fitted, "prsquared", np.nan))
         return {
-            "analysis_type": "logistic_regression",
+            "analysis_type": analysis_type,
             "engine": "statsmodels.Logit",
-            "target": str(target),
-            "covariates": covariates,
+            "target": fit["target"],
+            "covariates": fit["covariates"],
+            "source_covariates": fit.get("source_covariates", fit["covariates"]),
+            "encoded_covariates": fit.get("encoded_covariates", {}),
             "nobs": int(fitted.nobs),
             "coefficients": params,
             "odds_ratios": odds_ratios,
             "p_values": p_values,
             "pseudo_r2": pseudo_r2,
-            "regularized_fallback": regularized,
+            "regularized_fallback": bool(fit["regularized"]),
+        }
+
+    def _run_logistic_regression(self, df: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
+        target = self._resolve_target(config)
+        covariates = self._resolve_covariates(df, config)
+        fit = self._fit_binary_logit(df, target, covariates, config)
+        if "error" in fit:
+            return fit["error"]
+
+        result = self._logistic_result_from_fit(fit)
+        result.update(
+            {
             "interpretation": (
                 "Local logistic regression estimates adjusted associations for a binary outcome. "
                 "Odds ratios above 1 indicate higher odds after adjustment; review p-values and confidence intervals before drawing conclusions."
             ),
-        }
+            }
+        )
+        return result
 
     def _run_regression_or_glm(
         self,
@@ -443,7 +551,9 @@ class AnalysisDelegator:
             "analysis_type": analysis_type,
             "engine": engine,
             "target": str(target),
-            "covariates": covariates,
+            "covariates": list(x_raw.columns),
+            "source_covariates": list(x_raw.attrs.get("source_covariates", covariates)),
+            "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
             "nobs": int(fitted.nobs),
             "coefficients": {name: float(value) for name, value in fitted.params.items()},
             "p_values": {name: float(value) for name, value in fitted.pvalues.items()},
@@ -462,19 +572,33 @@ class AnalysisDelegator:
                 "error": "ROC/AUC requires a valid binary target variable.",
                 "suggestion": "Provide target_variable with an existing 0/1 outcome column.",
             }
-        if not score or score not in df.columns:
-            return {
-                "error": "ROC/AUC requires a valid score variable.",
-                "suggestion": "Provide score_variable or run a model that produces predicted scores.",
-            }
-        working = df[[target, score]].copy().dropna()
-        y = self._binary_target(working[target])
-        if y is None:
-            return {
-                "error": "ROC/AUC requires a binary target variable.",
-                "suggestion": "Use a 0/1 outcome for ROC/AUC.",
-            }
-        scores = pd.to_numeric(working[score], errors="coerce")
+
+        score_name = str(score) if score and score in df.columns else "predicted_probability"
+        score_source = "provided score variable"
+        if score and score in df.columns:
+            working = df[[target, score]].copy().dropna()
+            y = self._binary_target(working[target])
+            if y is None:
+                return {
+                    "error": "ROC/AUC requires a binary target variable.",
+                    "suggestion": "Use a 0/1 outcome for ROC/AUC.",
+                }
+            scores = pd.to_numeric(working[score], errors="coerce")
+        else:
+            covariates = self._resolve_covariates(df, config)
+            fit = self._fit_binary_logit(df, target, covariates, config)
+            if "error" in fit:
+                return {
+                    "error": "ROC/AUC requires a valid score variable or covariates for local logistic score fallback.",
+                    "suggestion": fit["error"].get(
+                        "suggestion",
+                        "Provide score_variable or covariates that can predict the binary target.",
+                    ),
+                }
+            y = fit["y"]
+            scores = fit["predictions"]
+            score_source = "local logistic predicted probability"
+
         valid = pd.concat([y.rename("target"), scores.rename("score")], axis=1).dropna()
         positives = valid[valid["target"] == 1]
         negatives = valid[valid["target"] == 0]
@@ -492,7 +616,8 @@ class AnalysisDelegator:
             "analysis_type": "roc_auc",
             "engine": "rank-based AUC",
             "target": str(target),
-            "score_variable": str(score),
+            "score_variable": score_name,
+            "score_source": score_source,
             "auc": float(auc),
             "n_positive": int(n_pos),
             "n_negative": int(n_neg),
@@ -588,40 +713,103 @@ class AnalysisDelegator:
         )
         local_config = dict(config)
         local_config["target"] = treatment
-        result = self._run_logistic_regression(df, local_config)
-        if result.get("error"):
+        covariates = self._resolve_covariates(df, local_config)
+        fit = self._fit_binary_logit(df, treatment, covariates, local_config)
+        if "error" in fit:
+            result = fit["error"]
             result["analysis_type"] = "propensity_score"
             return result
+
+        model_result = self._logistic_result_from_fit(fit)
+        scores = fit["predictions"].astype(float)
+        treatment_values = fit["y"].astype(float)
+        valid = pd.concat(
+            [
+                treatment_values.rename("treatment"),
+                scores.rename("propensity_score"),
+                fit["x_raw"],
+            ],
+            axis=1,
+        ).dropna(subset=["treatment", "propensity_score"])
+        treated_scores = valid.loc[valid["treatment"] == 1, "propensity_score"]
+        control_scores = valid.loc[valid["treatment"] == 0, "propensity_score"]
+        common_support = {
+            "treated_min": float(treated_scores.min()) if not treated_scores.empty else None,
+            "treated_max": float(treated_scores.max()) if not treated_scores.empty else None,
+            "control_min": float(control_scores.min()) if not control_scores.empty else None,
+            "control_max": float(control_scores.max()) if not control_scores.empty else None,
+            "overlap_min": None,
+            "overlap_max": None,
+            "in_support_count": 0,
+            "in_support_fraction": 0.0,
+        }
+        if not treated_scores.empty and not control_scores.empty:
+            overlap_min = max(float(treated_scores.min()), float(control_scores.min()))
+            overlap_max = min(float(treated_scores.max()), float(control_scores.max()))
+            in_support = valid["propensity_score"].between(overlap_min, overlap_max)
+            common_support.update(
+                {
+                    "overlap_min": overlap_min,
+                    "overlap_max": overlap_max,
+                    "in_support_count": int(in_support.sum()),
+                    "in_support_fraction": float(in_support.mean()),
+                }
+            )
+
+        balance_diagnostics: dict[str, dict[str, float | None]] = {}
+        for covariate in fit["covariates"]:
+            treated = pd.to_numeric(
+                valid.loc[valid["treatment"] == 1, covariate],
+                errors="coerce",
+            ).dropna()
+            control = pd.to_numeric(
+                valid.loc[valid["treatment"] == 0, covariate],
+                errors="coerce",
+            ).dropna()
+            pooled_sd = float(np.sqrt((treated.var(ddof=1) + control.var(ddof=1)) / 2))
+            smd = None
+            if pooled_sd and not np.isnan(pooled_sd):
+                smd = float((treated.mean() - control.mean()) / pooled_sd)
+            balance_diagnostics[covariate] = {
+                "treated_mean": float(treated.mean()) if not treated.empty else None,
+                "control_mean": float(control.mean()) if not control.empty else None,
+                "standardized_mean_difference": smd,
+            }
+
         return {
             "analysis_type": "propensity_score",
             "engine": "statsmodels.Logit",
             "treatment_variable": str(treatment),
-            "covariates": result.get("covariates", []),
-            "propensity_model": result,
+            "covariates": fit.get("source_covariates", covariates),
+            "encoded_covariates": fit["covariates"],
+            "encoded_covariate_map": fit.get("encoded_covariates", {}),
+            "propensity_score_summary": {
+                "count": int(scores.count()),
+                "min": float(scores.min()),
+                "max": float(scores.max()),
+                "mean": float(scores.mean()),
+                "std": float(scores.std()),
+            },
+            "propensity_scores_sample": [
+                {
+                    "row_index": str(index),
+                    "treatment": int(row["treatment"]),
+                    "propensity_score": float(row["propensity_score"]),
+                }
+                for index, row in valid.head(10).iterrows()
+            ],
+            "common_support": common_support,
+            "balance_diagnostics": balance_diagnostics,
+            "propensity_model": model_result,
             "interpretation": (
                 "Local propensity analysis estimates treatment probability from covariates. "
                 "It is a lightweight scoring fallback, not a full matching or weighting workflow."
             ),
         }
 
-    def _run_kaplan_meier(self, df: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
-        time_col = config.get("time_variable") or config.get("time_column")
-        event_col = self._resolve_target(config) or config.get("event_column")
-        if not time_col or time_col not in df.columns or not event_col or event_col not in df.columns:
-            return {
-                "error": "Kaplan-Meier summary requires valid time and event variables.",
-                "suggestion": "Provide time_variable and target_variable/event column.",
-            }
-        working = df[[time_col, event_col]].copy().dropna()
-        working["_time"] = pd.to_numeric(working[time_col], errors="coerce")
-        working["_event"] = pd.to_numeric(working[event_col], errors="coerce")
-        working = working.dropna(subset=["_time", "_event"]).sort_values("_time")
-        if working.empty:
-            return {
-                "error": "No numeric complete rows available for Kaplan-Meier summary.",
-                "suggestion": "Check survival time and event coding.",
-            }
+    def _kaplan_meier_summary(self, working: pd.DataFrame) -> dict[str, Any]:
         survival = 1.0
+        median_survival: float | None = None
         table: list[dict[str, Any]] = []
         for time in sorted(working.loc[working["_event"] > 0, "_time"].unique()):
             at_risk = int((working["_time"] >= time).sum())
@@ -629,6 +817,8 @@ class AnalysisDelegator:
             censored = int(((working["_time"] == time) & (working["_event"] <= 0)).sum())
             if at_risk > 0:
                 survival *= 1.0 - events / at_risk
+            if median_survival is None and survival <= 0.5:
+                median_survival = float(time)
             table.append(
                 {
                     "time": float(time),
@@ -639,13 +829,47 @@ class AnalysisDelegator:
                 }
             )
         return {
+            "nobs": int(len(working)),
+            "events": int((working["_event"] > 0).sum()),
+            "censored": int((working["_event"] <= 0).sum()),
+            "median_survival": median_survival,
+            "survival_table": table,
+        }
+
+    def _run_kaplan_meier(self, df: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
+        time_col = config.get("time_variable") or config.get("time_column")
+        event_col = self._resolve_target(config) or config.get("event_column")
+        group_col = config.get("group_variable") or config.get("group_var")
+        if not time_col or time_col not in df.columns or not event_col or event_col not in df.columns:
+            return {
+                "error": "Kaplan-Meier summary requires valid time and event variables.",
+                "suggestion": "Provide time_variable and target_variable/event column.",
+            }
+        columns = [time_col, event_col]
+        if group_col and group_col in df.columns:
+            columns.append(group_col)
+        working = df[columns].copy().dropna(subset=[time_col, event_col])
+        working["_time"] = pd.to_numeric(working[time_col], errors="coerce")
+        working["_event"] = pd.to_numeric(working[event_col], errors="coerce")
+        working = working.dropna(subset=["_time", "_event"]).sort_values("_time")
+        if working.empty:
+            return {
+                "error": "No numeric complete rows available for Kaplan-Meier summary.",
+                "suggestion": "Check survival time and event coding.",
+            }
+        summary = self._kaplan_meier_summary(working)
+        strata: dict[str, Any] = {}
+        if group_col and group_col in working.columns:
+            for group_value, group_df in working.groupby(group_col, sort=False):
+                strata[str(group_value)] = self._kaplan_meier_summary(group_df)
+
+        return {
             "analysis_type": "kaplan_meier",
             "engine": "local Kaplan-Meier summary",
             "time_variable": str(time_col),
             "event_variable": str(event_col),
-            "nobs": int(len(working)),
-            "events": int((working["_event"] > 0).sum()),
-            "survival_table": table,
+            **summary,
+            **({"group_variable": str(group_col), "strata": strata} if strata else {}),
             "interpretation": (
                 "Local Kaplan-Meier summary estimates unadjusted survival over observed event times."
             ),
@@ -668,17 +892,23 @@ class AnalysisDelegator:
         working = df[columns].copy().dropna()
         durations = pd.to_numeric(working[time_col], errors="coerce")
         events = pd.to_numeric(working[event_col], errors="coerce")
-        exog = working[covariates].apply(pd.to_numeric, errors="coerce")
+        exog, encoded_covariates = self._encode_covariates(working, covariates)
+        if exog.empty:
+            return {
+                "error": "No usable covariate columns after local Cox encoding.",
+                "suggestion": "Use covariates with variation, or simplify sparse categorical predictors.",
+            }
         model_frame = pd.concat([durations.rename("_time"), events.rename("_event"), exog], axis=1).dropna()
         if len(model_frame) < 5:
             return {
                 "error": "Not enough complete rows for local Cox regression.",
                 "suggestion": "Use Kaplan-Meier summary or reduce covariates.",
             }
+        encoded_columns = list(exog.columns)
         try:
             fitted = PHReg(
                 model_frame["_time"],
-                model_frame[covariates],
+                model_frame[encoded_columns],
                 status=model_frame["_event"],
             ).fit(disp=False)
         except Exception as exc:
@@ -686,16 +916,19 @@ class AnalysisDelegator:
                 "error": f"Local Cox regression failed: {exc}",
                 "suggestion": "Use Kaplan-Meier summary or configure the optional advanced engine.",
             }
-        params = {name: float(value) for name, value in zip(covariates, fitted.params, strict=False)}
+        params = {name: float(value) for name, value in zip(encoded_columns, fitted.params, strict=False)}
         hazard_ratios = {name: float(np.exp(value)) for name, value in params.items()}
-        p_values = {name: float(value) for name, value in zip(covariates, fitted.pvalues, strict=False)}
+        p_values = {name: float(value) for name, value in zip(encoded_columns, fitted.pvalues, strict=False)}
         return {
             "analysis_type": "cox_regression",
             "engine": "statsmodels.PHReg",
             "time_variable": str(time_col),
             "event_variable": str(event_col),
-            "covariates": covariates,
+            "covariates": encoded_columns,
+            "source_covariates": covariates,
+            "encoded_covariates": encoded_covariates,
             "nobs": int(len(model_frame)),
+            "events": int((model_frame["_event"] > 0).sum()),
             "coefficients": params,
             "hazard_ratios": hazard_ratios,
             "p_values": p_values,
