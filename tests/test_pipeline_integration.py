@@ -583,6 +583,85 @@ def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
     assert "100% (4/4)" in collect_output
 
 
+def test_mcp_quick_explore_flow_assembles_report_and_ux_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
+
+    raw_dir = tmp_path / "rawdata"
+    raw_dir.mkdir()
+    staged_csv = raw_dir / FIXTURE_CSV.name
+    shutil.copy2(FIXTURE_CSV, staged_csv)
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> Project:
+        server = create_server()
+        session = get_session()
+
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "mcp-quick-explore-report",
+                "data_dir": str(raw_dir),
+                "research_question": "Do iris species differ in petal length?",
+                "mode": "quick_explore",
+            },
+        )
+        project = session.get_project()
+        pipeline = session.get_pipeline(project.id)
+        assert pipeline.is_quick_explore is True
+
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[-1]
+        await server.call_tool(
+            "build_schema",
+            {
+                "dataset_id": dataset_id,
+                "project_id": project.id,
+            },
+        )
+        await server.call_tool("profile_dataset", {"dataset_id": dataset_id})
+        await server.call_tool("assess_quality", {"dataset_id": dataset_id})
+        await server.call_tool("get_harness_dashboard", {"project_id": project.id})
+        await server.call_tool("build_artifact_index", {"project_id": project.id})
+        await server.call_tool("get_blocker_playbook", {"project_id": project.id})
+        report_result = await server.call_tool(
+            "assemble_report",
+            {
+                "project_id": project.id,
+                "title": "Quick Explore -- Not Audited",
+                "allow_incomplete": True,
+            },
+        )
+
+        assert "❌" not in _textify(report_result)
+        return project
+
+    project = asyncio.run(run_flow())
+    store = ArtifactStore(project.artifacts_dir)
+
+    for filename in [
+        "approval_card.json",
+        "harness_dashboard.json",
+        "artifact_index.json",
+        "blocker_playbook.json",
+    ]:
+        assert store.exists(PipelinePhase.PROJECT_SETUP, filename)
+    assert store.exists(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+    report = store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+    assert "Quick Explore -- Not Audited" in report
+
+
 def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 

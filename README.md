@@ -421,10 +421,11 @@ The current repository has been validated in three ways:
 2. Live vendor contract tests
    - [tests/test_vendor_automl_contract_integration.py](tests/test_vendor_automl_contract_integration.py)
 3. End-to-end dry runs using repository sample data
-   - minimal full-gate dry run artifacts under [data/projects/e45af361](data/projects/e45af361)
-   - heart disease dry run artifacts under [data/projects/12aafc56](data/projects/12aafc56)
+   - external Codex/RDE MCP runtime smoke: `python scripts/codex_rde_smoke.py --list-tools-only`
+   - Quick Explore report smoke: `python scripts/codex_rde_smoke.py`
+   - pytest coverage: [tests/test_codex_support.py](tests/test_codex_support.py)
 
-New projects created via `init_project()` now use sortable, human-readable folders in the form `data/projects/YYYYMMDD_HHMMSS_<project_name_slug>_<project_id>/`. The checked-in sample dry runs above still use legacy short-ID folder names.
+New projects created via `init_project()` now use sortable, human-readable folders in the form `data/projects/YYYYMMDD_HHMMSS_<project_name_slug>_<project_id>/`.
 When launched from the VS Code extension, `init_project()` resolves this `data/projects/` root from the active workspace via `RDE_WORKSPACE`, not from the MCP server process cwd.
 
 Relevant tests include:

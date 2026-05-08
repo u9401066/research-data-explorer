@@ -1,4 +1,12 @@
-# Progress (Updated: 2026-05-07)
+# Progress (Updated: 2026-05-08)
+
+## MEM+ 2026-05-08
+
+- [x] Codex MCP support added: config writer, external stdio smoke runner, Codex skill/AGENTS setup docs, and live config update for `~/.codex/config.toml`.
+- [x] Quick Explore backend mode added through `init_project(mode="quick_explore")`, with UX harness artifacts auto-bootstrapped at Phase 0.
+- [x] Phase 10 report path fixed: `assemble_report()` no longer fails on stale undefined output variables.
+- [x] UX harness readiness hardened: no-code and agent-friendly core goals now require approval card, dashboard, artifact index, and blocker playbook evidence.
+- [x] Codex/RDE validation passed: `codex_rde_smoke.py --list-tools-only`, `codex_rde_smoke.py`, and full `python -m pytest -q` = 210 passed, 5 skipped.
 
 ## MEM+ 2026-05-07
 

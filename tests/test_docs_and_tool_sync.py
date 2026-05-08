@@ -405,6 +405,9 @@ def test_agent_facing_docs_use_phase4_two_step_confirmation() -> None:
         ROOT / "vscode-extension" / "copilot-instructions.md",
         STRICT_AGENT,
         ROOT / "README.md",
+        ROOT / "AGENTS.md",
+        ROOT / ".codex" / "skills" / "eda-workflow" / "SKILL.md",
+        ROOT / "vscode-extension" / "AGENTS.md",
     ]
 
     for path in paths:

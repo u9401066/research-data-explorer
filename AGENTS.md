@@ -20,6 +20,30 @@
 - 每個 Phase 產出結構化 artifact
 - 報告比論文更完整 — 作者從報告中提取有意義的部分發表
 
+## Codex MCP Support
+
+Codex 可以完整使用 RDE，但必須透過 RDE MCP server 執行，不可用臨時 shell / pandas 腳本替代 pipeline。
+
+1. 設定 `~/.codex/config.toml`：
+
+```toml
+[mcp_servers.research-data-explorer]
+command = "uv"
+args = ["run", "--directory", "<repo>", "python", "-m", "rde"]
+cwd = "<repo>"
+
+[mcp_servers.research-data-explorer.env]
+RDE_WORKSPACE = "<repo>"
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+```
+
+2. 在 repo 內可用 `python scripts/configure_codex_mcp.py --apply` 自動更新設定。
+3. 用 `python scripts/codex_rde_smoke.py --list-tools-only` 確認 Codex runtime 看得到 live RDE tools。
+4. 用 `python scripts/codex_rde_smoke.py` 跑外部 MCP subprocess Quick Explore 到 `phase_10_report_assembly/eda_report.md`。
+
+若 Codex 工具清單看不到 `init_project` / `run_intake` / `build_schema` / `propose_analysis_plan`，應先回報 MCP registry blocker，要求 reload/restart，不可宣稱已完成 RDE 分析。
+
 ## Quick Start
 
 ```text
@@ -29,7 +53,7 @@ Agent:
   Phase 1  → run_intake("rawdata/")        # 格式+大小+PII 檢查；H-004 預設阻擋
   Phase 2  → build_schema()                 # 完整 schema registry
   Phase 3  → align_concept(confirm=true)    # 研究問題 → 變數映射 → 用戶確認
-  Phase 4  → propose_analysis_plan()        # creative ideation: greedy 候選分析 + 圖表 bundle
+  Phase 4  → propose_analysis_plan(confirm=false) → review → propose_analysis_plan(confirm=true)
   Phase 5  → register_analysis_plan(confirm=true)  # plan completeness review → 鎖定
   Phase 6  → check_readiness()              # 前提檢查
   Phase 7  → execute analysis tools         # 按計畫執行
@@ -190,8 +214,9 @@ Phase 3: Concept–Schema Alignment
   └─ → concept_alignment.md + variable_roles.json
 
 Phase 4: Creative Ideation
-  └─ propose_analysis_plan()
+  └─ propose_analysis_plan(confirm=false)
   └─ greedy candidate ranking + visualization bundle（不鎖定）
+  └─ review artifacts → propose_analysis_plan(confirm=true)
   └─ → greedy_analysis_candidates.json + greedy_analysis_candidates.md
 
 Phase 5: Plan Completeness Review
@@ -247,7 +272,7 @@ Phase 12: Auto-Improve
 ### Quick Explore Flow（用戶只想快速看概況）
 
 ```text
-init_project → run_intake → build_schema → profile_dataset → assemble_report
+init_project(mode="quick_explore") → run_intake → build_schema → profile_dataset → get_harness_dashboard → build_artifact_index → assemble_report(title="Quick Explore -- Not Audited", allow_incomplete=true)
 (跳過 Phase 3-7, 9, 11-12；報告標記為 "Quick Explore — Not Audited")
 ```
 

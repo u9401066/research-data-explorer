@@ -1,5 +1,14 @@
 # Active Context
 
+## MEM+ 2026-05-08
+
+- Codex/RDE support is now explicit: `scripts/configure_codex_mcp.py --apply` writes the `research-data-explorer` MCP server block to `~/.codex/config.toml`, and `scripts/codex_rde_smoke.py` verifies a real stdio subprocess can list tools and run Quick Explore to Phase 10.
+- `init_project(mode="quick_explore")` now marks the pipeline as Quick Explore and bootstraps approval card, harness dashboard, artifact index, and blocker playbook artifacts at Phase 0.
+- `assemble_report()` Phase 10 NameError was fixed; Quick Explore can assemble `Quick Explore -- Not Audited` reports with `allow_incomplete=true`.
+- Report readiness now requires the UX harness bundle for `core_goal:no_code_operation` and `core_goal:agent_friendly_harness`, so friendly-agent support cannot be claimed without artifacts.
+- Agent-facing docs now explain Codex MCP setup and enforce the Phase 4 `propose_analysis_plan(confirm=false)` review before `confirm=true` contract.
+- Latest verification: `python scripts/codex_rde_smoke.py --list-tools-only` passed with 49 tools; `python scripts/codex_rde_smoke.py` produced a Phase 10 report; `python -m pytest -q` = 210 passed, 5 skipped.
+
 ## MEM+ 2026-05-07
 
 - v0.4.7 release focus: harness contract hardening, autoresearch durable runner, and no-code UX harness.

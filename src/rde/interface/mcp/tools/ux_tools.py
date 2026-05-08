@@ -24,6 +24,57 @@ BLOCKER_PLAYBOOK_JSON = "blocker_playbook.json"
 BLOCKER_PLAYBOOK_MD = "blocker_playbook.md"
 
 
+def refresh_ux_harness_artifacts(
+    project: Any,
+    pipeline: Any,
+    *,
+    store: ArtifactStore | None = None,
+) -> dict[str, Any]:
+    """Persist the no-code UX artifact bundle used by agent readiness gates."""
+
+    store = store or ArtifactStore(project.artifacts_dir)
+    approval = _build_approval_card(project, store, pipeline)
+    store.save(PipelinePhase.PROJECT_SETUP, APPROVAL_CARD_JSON, approval)
+    store.save(PipelinePhase.PROJECT_SETUP, APPROVAL_CARD_MD, _format_approval_card(approval))
+
+    artifacts = _collect_artifact_entries(project)
+    summary = pipeline.summary()
+    dashboard = {
+        "project_id": project.id,
+        "project_name": project.name,
+        "research_question": project.research_question,
+        "progress": summary.get("progress"),
+        "next_suggested": summary.get("next_suggested"),
+        "plan_locked": bool(summary.get("plan_locked")),
+        "completed_phases": summary.get("completed", []),
+        "approval": approval,
+        "artifact_count": len(artifacts),
+    }
+    store.save(PipelinePhase.PROJECT_SETUP, HARNESS_DASHBOARD, dashboard)
+
+    indexed_artifacts = _collect_artifact_entries(project)
+    artifact_index = {
+        "project_id": project.id,
+        "artifact_root": ".",
+        "artifact_root_policy": "relative_to_project_artifacts_dir",
+        "artifact_count": len(indexed_artifacts),
+        "artifacts": indexed_artifacts,
+    }
+    store.save(PipelinePhase.PROJECT_SETUP, ARTIFACT_INDEX, artifact_index)
+
+    blockers = _build_blockers(project, store, pipeline)
+    blocker_payload = {"project_id": project.id, "blockers": blockers}
+    store.save(PipelinePhase.PROJECT_SETUP, BLOCKER_PLAYBOOK_JSON, blocker_payload)
+    store.save(PipelinePhase.PROJECT_SETUP, BLOCKER_PLAYBOOK_MD, _format_blocker_playbook(blockers))
+
+    return {
+        "approval": approval,
+        "dashboard": dashboard,
+        "artifact_index": artifact_index,
+        "blockers": blockers,
+    }
+
+
 def register_ux_tools(server: Any) -> None:
     """Register no-code harness UX tools."""
 
@@ -40,10 +91,9 @@ def register_ux_tools(server: Any) -> None:
         assert pipeline is not None
 
         try:
-            card = _build_approval_card(project, store, pipeline)
-            store.save(PipelinePhase.PROJECT_SETUP, APPROVAL_CARD_JSON, card)
-            md = _format_approval_card(card)
-            path = store.save(PipelinePhase.PROJECT_SETUP, APPROVAL_CARD_MD, md)
+            bundle = refresh_ux_harness_artifacts(project, pipeline, store=store)
+            md = _format_approval_card(bundle["approval"])
+            path = store.get_path(PipelinePhase.PROJECT_SETUP, APPROVAL_CARD_MD)
             return fmt_success(
                 "Approval card prepared.",
                 md + f"\n\n- artifact: `{_relative_artifact_path(path, project)}`",
@@ -65,21 +115,10 @@ def register_ux_tools(server: Any) -> None:
         assert pipeline is not None
 
         try:
-            artifacts = _collect_artifact_entries(project)
-            approval = _build_approval_card(project, store, pipeline)
-            summary = pipeline.summary()
-            dashboard = {
-                "project_id": project.id,
-                "project_name": project.name,
-                "research_question": project.research_question,
-                "progress": summary.get("progress"),
-                "next_suggested": summary.get("next_suggested"),
-                "plan_locked": bool(summary.get("plan_locked")),
-                "completed_phases": summary.get("completed", []),
-                "approval": approval,
-                "artifact_count": len(artifacts),
-            }
-            path = store.save(PipelinePhase.PROJECT_SETUP, HARNESS_DASHBOARD, dashboard)
+            bundle = refresh_ux_harness_artifacts(project, pipeline, store=store)
+            dashboard = bundle["dashboard"]
+            approval = bundle["approval"]
+            path = store.get_path(PipelinePhase.PROJECT_SETUP, HARNESS_DASHBOARD)
             lines = [
                 "# Harness Dashboard",
                 f"- project: {project.name}",
@@ -87,7 +126,7 @@ def register_ux_tools(server: Any) -> None:
                 f"- next_suggested: {dashboard['next_suggested']}",
                 f"- plan_locked: {dashboard['plan_locked']}",
                 f"- pending_approval: {approval['status']}",
-                f"- artifact_count: {len(artifacts)}",
+                f"- artifact_count: {dashboard['artifact_count']}",
                 f"- artifact: `{_relative_artifact_path(path, project)}`",
             ]
             return "\n".join(lines)
@@ -107,20 +146,18 @@ def register_ux_tools(server: Any) -> None:
         assert store is not None
 
         try:
-            artifacts = _collect_artifact_entries(project)
-            payload = {
-                "project_id": project.id,
-                "artifact_root": ".",
-                "artifact_root_policy": "relative_to_project_artifacts_dir",
-                "artifact_count": len(artifacts),
-                "artifacts": artifacts,
-            }
-            path = store.save(PipelinePhase.PROJECT_SETUP, ARTIFACT_INDEX, payload)
+            from rde.application.session import get_session
+
+            pipeline = get_session().get_pipeline(project.id)
+            payload = refresh_ux_harness_artifacts(project, pipeline, store=store)[
+                "artifact_index"
+            ]
+            path = store.get_path(PipelinePhase.PROJECT_SETUP, ARTIFACT_INDEX)
             return fmt_success(
                 "Artifact index built.",
                 "\n".join(
                     [
-                        f"- artifact_count: {len(artifacts)}",
+                        f"- artifact_count: {payload['artifact_count']}",
                         f"- artifact: `{_relative_artifact_path(path, project)}`",
                     ]
                 ),
@@ -142,11 +179,9 @@ def register_ux_tools(server: Any) -> None:
         assert pipeline is not None
 
         try:
-            blockers = _build_blockers(project, store, pipeline)
-            payload = {"project_id": project.id, "blockers": blockers}
-            store.save(PipelinePhase.PROJECT_SETUP, BLOCKER_PLAYBOOK_JSON, payload)
-            md = _format_blocker_playbook(blockers)
-            path = store.save(PipelinePhase.PROJECT_SETUP, BLOCKER_PLAYBOOK_MD, md)
+            bundle = refresh_ux_harness_artifacts(project, pipeline, store=store)
+            md = _format_blocker_playbook(bundle["blockers"])
+            path = store.get_path(PipelinePhase.PROJECT_SETUP, BLOCKER_PLAYBOOK_MD)
             return md + f"\n\n- artifact: `{_relative_artifact_path(path, project)}`"
         except Exception as exc:
             log_tool_error("get_blocker_playbook", exc)
@@ -193,6 +228,38 @@ def _build_approval_card(project: Any, store: ArtifactStore, pipeline: Any) -> d
                 "purpose": purpose,
                 "review_artifacts": artifacts,
             }
+
+    if getattr(pipeline, "is_quick_explore", False):
+        if PipelinePhase.REPORT_ASSEMBLY not in pipeline.completed_phases:
+            return {
+                "project_id": project.id,
+                "status": "next_action",
+                "phase": PipelinePhase.REPORT_ASSEMBLY.value,
+                "tool": "assemble_report",
+                "call": (
+                    'assemble_report(title="Quick Explore -- Not Audited", '
+                    "allow_incomplete=true)"
+                ),
+                "requires_user_confirmation": False,
+                "purpose": (
+                    "Assemble a quick, explicitly non-audited overview report after "
+                    "intake and schema."
+                ),
+                "review_artifacts": [
+                    "phase_01_data_intake/intake_report.json",
+                    "phase_02_schema_registry/schema.json",
+                ],
+            }
+        return {
+            "project_id": project.id,
+            "status": "no_pending_approval",
+            "phase": "",
+            "tool": "",
+            "call": "",
+            "requires_user_confirmation": False,
+            "purpose": "Quick Explore report is assembled; no explicit approval gate is pending.",
+            "review_artifacts": [],
+        }
 
     gates = [
         (

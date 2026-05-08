@@ -531,7 +531,6 @@ def register_report_tools(server: Any) -> None:
             persist_project(project)
 
             word_count = len(content.split())
-            details[-1] = f"- **output:** {relative_result_path}"
             return fmt_success(
                 f"EDA 報告已組裝 — {word_count} 字",
                 f"- **報告標題:** {title}\n"
@@ -1577,13 +1576,25 @@ def _evaluate_core_goal_audit(
     has_results_summary = (
         has(PipelinePhase.COLLECT_RESULTS, "results_summary.json") or has_results
     )
+    has_approval_card = has(PipelinePhase.PROJECT_SETUP, "approval_card.json")
+    has_harness_dashboard = has(PipelinePhase.PROJECT_SETUP, "harness_dashboard.json")
+    has_artifact_index = has(PipelinePhase.PROJECT_SETUP, "artifact_index.json")
+    has_blocker_playbook = has(PipelinePhase.PROJECT_SETUP, "blocker_playbook.json")
+    has_ux_harness_bundle = (
+        has_approval_card
+        and has_harness_dashboard
+        and has_artifact_index
+        and has_blocker_playbook
+    )
     has_no_code_evidence = (
         has_project_manifest
+        and has_ux_harness_bundle
         and has(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
         and has_results_summary
     )
     has_agent_harness_evidence = (
         has_project_manifest
+        and has_ux_harness_bundle
         and has(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md")
         and has(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
         and has(PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl")
@@ -1656,6 +1667,10 @@ def _evaluate_core_goal_audit(
             "passed": has_no_code_evidence,
             "evidence": [
                 "phase_00_project_setup/project.yaml",
+                "phase_00_project_setup/approval_card.json",
+                "phase_00_project_setup/harness_dashboard.json",
+                "phase_00_project_setup/artifact_index.json",
+                "phase_00_project_setup/blocker_playbook.json",
                 "phase_06_plan_registration/analysis_plan.yaml",
                 "phase_09_collect_results/results_summary.json",
             ],
@@ -1667,6 +1682,10 @@ def _evaluate_core_goal_audit(
             "passed": has_agent_harness_evidence,
             "evidence": [
                 "phase_00_project_setup/project.yaml",
+                "phase_00_project_setup/approval_card.json",
+                "phase_00_project_setup/harness_dashboard.json",
+                "phase_00_project_setup/artifact_index.json",
+                "phase_00_project_setup/blocker_playbook.json",
                 "phase_03_concept_alignment/concept_alignment.md",
                 "phase_06_plan_registration/analysis_plan.yaml",
                 "phase_08_execute_exploration/decision_log.jsonl",

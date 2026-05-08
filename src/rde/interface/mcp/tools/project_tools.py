@@ -27,6 +27,7 @@ def register_project_tools(server: Any) -> None:
         name: str,
         data_dir: str = "data/rawdata",
         research_question: str = "",
+        mode: str = "full_audit",
     ) -> str:
         """建立新的 EDA 探索專案（Phase 0）。
 
@@ -37,6 +38,7 @@ def register_project_tools(server: Any) -> None:
             name: 專案名稱，用於識別此次探索性分析（如 "sepsis_eda"、"aki_analysis"）
             data_dir: 原始資料目錄路徑，含 CSV/Excel/Parquet 等檔案（預設: data/rawdata）
             research_question: 研究問題描述，如 "ICU sepsis 患者自主呼吸試驗的成功因素"（可選，Phase 3 再填）
+            mode: full_audit 或 quick_explore。quick_explore 會標示為 Not Audited 快速概況。
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -46,7 +48,7 @@ def register_project_tools(server: Any) -> None:
         )
         from rde.interface.mcp.tools._shared.project_context import persist_project
 
-        log_tool_call("init_project", {"name": name, "data_dir": data_dir})
+        log_tool_call("init_project", {"name": name, "data_dir": data_dir, "mode": mode})
 
         if not name or not name.strip():
             return fmt_error("專案名稱不可為空。")
@@ -61,6 +63,18 @@ def register_project_tools(server: Any) -> None:
             from rde.domain.models.project import Project, ProjectStatus
             from rde.infrastructure.persistence import resolve_projects_base_dir
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
+            from rde.interface.mcp.tools.ux_tools import refresh_ux_harness_artifacts
+
+            normalized_mode = (mode or "full_audit").strip().lower().replace("-", "_")
+            if normalized_mode not in {"full_audit", "quick_explore"}:
+                return fmt_error(
+                    "Invalid project mode.",
+                    detail="mode must be 'full_audit' or 'quick_explore'.",
+                    suggestion=(
+                        "Use full_audit for governed EDA, or quick_explore for a fast "
+                        "non-audited overview."
+                    ),
+                )
 
             created_at = datetime.now()
             project_id = str(uuid.uuid4())[:8]
@@ -77,6 +91,7 @@ def register_project_tools(server: Any) -> None:
                 output_dir=output_dir,
                 created_at=created_at,
                 research_question=research_question,
+                config={"mode": normalized_mode},
             )
 
             (output_dir / "artifacts").mkdir(exist_ok=True)
@@ -97,11 +112,13 @@ def register_project_tools(server: Any) -> None:
                     "data_dir": str(data_dir),
                     "output_dir": str(output_dir),
                     "research_question": research_question,
+                    "mode": normalized_mode,
                     "created_at": created_at.isoformat(),
                 },
             )
 
             pipeline = session.get_pipeline(project_id)
+            pipeline.is_quick_explore = normalized_mode == "quick_explore"
             pipeline.mark_started(PipelinePhase.PROJECT_SETUP)
             pipeline.mark_completed(
                 PhaseResult(
@@ -112,15 +129,22 @@ def register_project_tools(server: Any) -> None:
                 )
             )
             project.advance_to(ProjectStatus.PROJECT_SETUP)
+            refresh_ux_harness_artifacts(project, pipeline, store=store)
             persist_project(project)
 
             log_tool_result("init_project", f"created {project_id}")
 
             rq = research_question or "(未指定，Phase 3 再填)"
+            mode_note = (
+                "Quick Explore -- Not Audited"
+                if normalized_mode == "quick_explore"
+                else "Full Audit"
+            )
             return (
                 f"✅ 專案建立成功！\n\n"
                 f"📁 **專案名稱:** {name}\n"
                 f"🔖 **專案 ID:** {project_id}\n"
+                f"🧭 **模式:** {mode_note}\n"
                 f"🕒 **資料夾排序鍵:** {folder_name}\n"
                 f"📂 **輸出目錄:** {output_dir}\n"
                 f"🔬 **研究問題:** {rq}\n\n"

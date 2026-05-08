@@ -50,6 +50,16 @@ def _save_production_readiness_context(
 ) -> None:
     if include_project_manifest:
         store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {"name": "contract"})
+        store.save(
+            PipelinePhase.PROJECT_SETUP,
+            "approval_card.json",
+            {"status": "no_pending_approval"},
+        )
+        store.save(PipelinePhase.PROJECT_SETUP, "approval_card.md", "# Approval Card\n")
+        store.save(PipelinePhase.PROJECT_SETUP, "harness_dashboard.json", {"progress": "100%"})
+        store.save(PipelinePhase.PROJECT_SETUP, "artifact_index.json", {"artifacts": []})
+        store.save(PipelinePhase.PROJECT_SETUP, "blocker_playbook.json", {"blockers": []})
+        store.save(PipelinePhase.PROJECT_SETUP, "blocker_playbook.md", "# Blocker Playbook\n")
     store.save(
         PipelinePhase.PLAN_COMPLETENESS_REVIEW,
         "analysis_plan_review.json",
@@ -558,6 +568,16 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
 
     store = ArtifactStore(project.artifacts_dir)
     store.save(PipelinePhase.PROJECT_SETUP, "project.yaml", {"name": "demo"})
+    store.save(
+        PipelinePhase.PROJECT_SETUP,
+        "approval_card.json",
+        {"status": "no_pending_approval"},
+    )
+    store.save(PipelinePhase.PROJECT_SETUP, "approval_card.md", "# Approval Card\n")
+    store.save(PipelinePhase.PROJECT_SETUP, "harness_dashboard.json", {"progress": "100%"})
+    store.save(PipelinePhase.PROJECT_SETUP, "artifact_index.json", {"artifacts": []})
+    store.save(PipelinePhase.PROJECT_SETUP, "blocker_playbook.json", {"blockers": []})
+    store.save(PipelinePhase.PROJECT_SETUP, "blocker_playbook.md", "# Blocker Playbook\n")
     store.save(
         PipelinePhase.PLAN_COMPLETENESS_REVIEW,
         "analysis_plan_review.json",

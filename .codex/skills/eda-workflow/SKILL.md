@@ -8,6 +8,29 @@ description: "13-Phase Auditable EDA Pipeline orchestration. Use when user wants
 ## 描述
 協調 RDE 13-Phase Auditable EDA Pipeline 的完整流程，確保每個 Phase Gate 正確通過。
 
+## Codex MCP Setup
+Codex 必須透過 RDE MCP server 執行資料探索，不可以用 shell / pandas 腳本替代 RDE pipeline。若看不到 `init_project`、`run_intake`、`build_schema`、`propose_analysis_plan` 等 RDE MCP tools，先回報 blocker 並要求重新載入 Codex/VS Code MCP registry，不要宣稱已完成 RDE 分析。
+
+在 `~/.codex/config.toml` 需要有：
+```toml
+[mcp_servers.research-data-explorer]
+command = "uv"
+args = ["run", "--directory", "<repo>", "python", "-m", "rde"]
+cwd = "<repo>"
+
+[mcp_servers.research-data-explorer.env]
+RDE_WORKSPACE = "<repo>"
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+```
+
+快速設定與驗證：
+```powershell
+python scripts/configure_codex_mcp.py --apply
+python scripts/codex_rde_smoke.py --list-tools-only
+python scripts/codex_rde_smoke.py
+```
+
 ## 觸發條件
 - 「我有資料想分析」「分析這個 CSV」「資料探索」「EDA」
 - 「pipeline 目前進度」「下一步是什麼」
@@ -52,7 +75,7 @@ align_concept(research_question, variable_roles, confirm=true)
 
 ### Phase 4: Creative Ideation ⚠️ 用戶必須確認
 ```
-propose_analysis_plan(confirm=true)
+propose_analysis_plan(confirm=false)
 → greedy_analysis_candidates.json
 → greedy_analysis_candidates.md
 → greedy_execution_schedule.json
@@ -60,7 +83,8 @@ propose_analysis_plan(confirm=true)
 → greedy_plan_enrichment.json
 → greedy_plan_enrichment.md
 → greedy_statsmodels_base_analysis.py
-→ greedy_analysis_candidates.json + greedy_analysis_candidates.md
+review artifacts with the user
+propose_analysis_plan(confirm=true)
 ```
 
 ### Phase 5+6: Plan Completeness Review + Registration ⚠️ 用戶必須確認

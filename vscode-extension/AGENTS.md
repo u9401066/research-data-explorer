@@ -16,7 +16,11 @@ Use RDE as a 13-phase auditable EDA harness, not as an ad hoc notebook.
 
 ## Full Report Flow
 
-`init_project` -> `run_intake` -> `build_schema` -> `align_concept` -> `propose_analysis_plan` -> `register_analysis_plan` -> `check_readiness` -> execute planned analyses -> `collect_results` -> `assemble_report` -> `run_audit` -> `auto_improve` -> optional `export_final_report` / `export_handoff`.
+`init_project` -> `run_intake` -> `build_schema` -> `align_concept(confirm=true)` -> `propose_analysis_plan(confirm=false)` -> review Phase 4 artifacts -> `propose_analysis_plan(confirm=true)` -> `register_analysis_plan(confirm=true)` -> `check_readiness` -> execute planned analyses -> `collect_results` -> `assemble_report` -> `run_audit` -> `auto_improve` -> optional `export_final_report` / `export_handoff`.
+
+## Codex Support
+
+Codex should use the RDE MCP server directly. Run `python scripts/configure_codex_mcp.py --apply`, then verify with `python scripts/codex_rde_smoke.py --list-tools-only` and `python scripts/codex_rde_smoke.py`. If `init_project` or other RDE tools are missing from the MCP registry, reload/restart the MCP host instead of replacing RDE with shell-based analysis.
 
 ## Agent Coverage
 

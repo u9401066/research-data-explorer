@@ -2,6 +2,9 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-08 | Treat Codex support as a real MCP runtime contract, not documentation only | Codex must be able to launch `python -m rde` over stdio, list the live 49-tool surface, and run at least Quick Explore to a Phase 10 report without using shell/pandas as a substitute. |
+| 2026-05-08 | Bootstrap UX harness artifacts during Phase 0 project creation | `report_readiness` now checks approval card, dashboard, artifact index, and blocker playbook evidence, so those artifacts must exist early and be refreshable by UX tools. |
+| 2026-05-08 | Add explicit `quick_explore` project mode | Quick Explore is a first-class non-audited overview path with `assemble_report(... allow_incomplete=true)` instead of an informal title convention. |
 | 2026-05-07 | Confirm Phase 4 only against an existing draft | `propose_analysis_plan(confirm=true)` must not regenerate or overwrite the blueprint that the user/agent reviewed; it now promotes only existing unconfirmed Phase 4 artifacts. |
 | 2026-05-07 | Check MCP bootstrap completeness against the full live RDE tool surface | Command-scoped filters such as `/explore` are smaller by design and should not be mistaken for a stale MCP registration. |
 | 2026-05-07 | Keep local-lite analysis reportable when AutoML/Docker is unavailable | Non-data-scientist users still need figures and report artifacts from fallback analyses; Docker downtime cannot silently remove visualization deliverables. |
