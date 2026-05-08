@@ -2,6 +2,9 @@
 
 ## MEM+ 2026-05-08
 
+- [x] v0.4.12 release package prepared: artifact-backed phase resume, audit diagnostics, local-lite no-Docker fallback hardening, Windows ANSI-safe JSON/JSONL artifacts, full-yolo MCP runner, and README/i18n alignment.
+- [x] v0.4.12 real-file governed MCP validation passed with audit grade A, 130/130, `report_readiness=production_ready`, `core_goal_audit=9/9`, publication bundle met, and 23 decision-log entries.
+- [x] v0.4.12 cross-platform entrypoint checks passed locally: VSIX helper tests, Codex MCP config/UTF-8/path coverage, MCP tool inventory smoke, and Quick Explore smoke.
 - [x] Codex MCP support added: config writer, external stdio smoke runner, Codex skill/AGENTS setup docs, and live config update for `~/.codex/config.toml`.
 - [x] Quick Explore backend mode added through `init_project(mode="quick_explore")`, with UX harness artifacts auto-bootstrapped at Phase 0.
 - [x] Phase 10 report path fixed: `assemble_report()` no longer fails on stale undefined output variables.
@@ -28,7 +31,7 @@
 - [x] Phase 4/5/6 planning now emits separate greedy blueprint, methodology review, and locked plan artifacts.
 - [x] VSIX setup now scaffolds Copilot, Codex, and Cline harness assets.
 - [x] Runtime hardening added value-level PII detection, project-bound dataset rehydrate, Phase 4/5 readiness gates, Shapiro-Wilk preview, and Phase 5 methodology-review based report readiness.
-- [ ] Finish 0.4.5 release verification, push, and tag.
+- [x] Superseded stale 0.4.5 release todo; current release target is v0.4.12.
 
 ## Done
 
@@ -45,7 +48,7 @@
 
 ## Doing
 
-- Prepare segmented git commits, push branch, and publish `v0.4.11` tag.
+- Prepare segmented git commits, push branch, and publish `v0.4.12` tag.
 
 - 整理 soft-budget expansion / execution schedule 後的最終文件與 memory bank 狀態
 

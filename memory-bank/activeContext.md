@@ -2,12 +2,15 @@
 
 ## MEM+ 2026-05-08
 
+- v0.4.12 release focus: artifact-backed MCP phase resume, audit diagnostic path, no-Docker local-lite performance/fallback hardening, Windows ANSI-safe JSON/JSONL artifacts, full-yolo Codex/RDE runner, i18n README alignment, and release verification evidence.
+- Full governed real-file Codex/RDE smoke passed through MCP with no Docker dependency: audit grade A, 130/130, `report_readiness=production_ready`, `core_goal_audit=9/9`, publication bundle met, 23 decision-log entries, and 100% plan adherence.
+- Cross-platform entrypoint confidence was rechecked locally through VSIX helper tests, Codex MCP config upsert coverage, UTF-8 env assertions, MCP tool inventory smoke, and Quick Explore MCP smoke.
 - Codex/RDE support is now explicit: `scripts/configure_codex_mcp.py --apply` writes the `research-data-explorer` MCP server block to `~/.codex/config.toml`, and `scripts/codex_rde_smoke.py` verifies a real stdio subprocess can list tools and run Quick Explore to Phase 10.
 - `init_project(mode="quick_explore")` now marks the pipeline as Quick Explore and bootstraps approval card, harness dashboard, artifact index, and blocker playbook artifacts at Phase 0.
 - `assemble_report()` Phase 10 NameError was fixed; Quick Explore can assemble `Quick Explore -- Not Audited` reports with `allow_incomplete=true`.
 - Report readiness now requires the UX harness bundle for `core_goal:no_code_operation` and `core_goal:agent_friendly_harness`, so friendly-agent support cannot be claimed without artifacts.
 - Agent-facing docs now explain Codex MCP setup and enforce the Phase 4 `propose_analysis_plan(confirm=false)` review before `confirm=true` contract.
-- Latest verification: `python scripts/codex_rde_smoke.py --list-tools-only` passed with 49 tools; `python scripts/codex_rde_smoke.py` produced a Phase 10 report; `python -m pytest -q` = 210 passed, 5 skipped.
+- Latest focused verification for v0.4.12: full-yolo real Excel MCP smoke passed; `python scripts/codex_rde_smoke.py --list-tools-only` exposed 49 tools; Quick Explore smoke produced a Phase 10 report; focused Python regression suite passed; VSIX helper tests and compile passed.
 
 ## MEM+ 2026-05-07
 

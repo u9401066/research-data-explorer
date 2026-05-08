@@ -54,13 +54,14 @@ Agent:
   Phase 2  → build_schema()                 # 完整 schema registry
   Phase 3  → align_concept(confirm=true)    # 研究問題 → 變數映射 → 用戶確認
   Phase 4  → propose_analysis_plan(confirm=false) → review → propose_analysis_plan(confirm=true)
-  Phase 5  → register_analysis_plan(confirm=true)  # plan completeness review → 鎖定
-  Phase 6  → check_readiness()              # 前提檢查
-  Phase 7  → execute analysis tools         # 按計畫執行
-  Phase 8  → collect_results()             # 結果彙整
-  Phase 9  → assemble_report()             # 報告組裝
-  Phase 10 → run_audit()                   # 審計
-  Phase 11 → auto_improve()                # 自動改善
+  Phase 5  → register_analysis_plan(confirm=true)  # methodology gate / completeness review
+  Phase 6  → register_analysis_plan(confirm=true)  # executable analysis_plan.yaml → 🔒 鎖定
+  Phase 7  → check_readiness()              # 前提檢查
+  Phase 8  → execute analysis tools         # 按計畫執行
+  Phase 9  → collect_results()             # 結果彙整
+  Phase 10 → assemble_report()             # 報告組裝
+  Phase 11 → run_audit()                   # 審計
+  Phase 12 → auto_improve()                # 自動改善
 ```
 
 ## Available MCP Servers

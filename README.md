@@ -31,7 +31,14 @@ RDE is built for non-data-scientists who can bring real data but may not know wh
 
 `report_readiness` and `run_audit` now evaluate this core goal explicitly. Missing artifacts for data understanding, planning, readiness, execution, traceability, report generation, or agent-friendly/no-code operation are reported as `core_goal:*` readiness gaps instead of being treated as a finished report.
 
-繁體中文完整說明請見 [README.zh-TW.md](README.zh-TW.md).
+## Language / i18n
+
+- English canonical overview: [README.md](README.md)
+- Traditional Chinese full guide: [README.zh-TW.md](README.zh-TW.md)
+- Agent-facing operational contract: [AGENTS.md](AGENTS.md)
+- VS Code extension guide: [vscode-extension/README.md](vscode-extension/README.md)
+
+When governance, phase numbering, release evidence, or no-Docker behavior changes, update the English README, Traditional Chinese README, extension README, AGENTS guide, CHANGELOG, and Memory Bank together.
 
 ## Visual Overview
 
@@ -414,16 +421,35 @@ If this idea is adopted in the repo, the README should describe it explicitly as
 
 ## Validation Status
 
-The current repository has been validated in three ways:
+The current repository has been validated in five ways for the 0.4.12 release:
 
 1. Unit and integration tests
-   - Run with `python3 -m pytest -q`
+   - Run focused contract and harness suites with `python -m pytest ...`
 2. Live vendor contract tests
    - [tests/test_vendor_automl_contract_integration.py](tests/test_vendor_automl_contract_integration.py)
-3. End-to-end dry runs using repository sample data
+3. End-to-end dry runs through the external Codex/RDE MCP runtime
    - external Codex/RDE MCP runtime smoke: `python scripts/codex_rde_smoke.py --list-tools-only`
    - Quick Explore report smoke: `python scripts/codex_rde_smoke.py`
+   - real-file governed smoke: `python scripts/codex_rde_smoke.py --data-file <path> --full-yolo`
    - pytest coverage: [tests/test_codex_support.py](tests/test_codex_support.py)
+4. A real Excel governed full-yolo run with no Docker dependency
+   - command: `python scripts/codex_rde_smoke.py --workspace .tmp\codex-full-yolo-final15 --data-file <real Excel file> --research-question "比較有無中線輔助對超音波施打動脈導管成功率、耗時與穿刺次數的影響，並探索操作者學習曲線" --full-yolo`
+   - report artifact: `.tmp/codex-full-yolo-final15/data/projects/20260508_124523_codex-rde-full-yolo_bf7434f6/artifacts/phase_10_report_assembly/eda_report.md`
+   - audit artifact: `.tmp/codex-full-yolo-final15/data/projects/20260508_124523_codex-rde-full-yolo_bf7434f6/artifacts/phase_11_audit_review/audit_report.json`
+   - audit result: grade A, 130/130, `report_readiness=production_ready`, `core_goal_audit=9/9`, publication bundle `4/3` descriptive figures and `6/6` analytical figures
+5. Cross-platform entrypoint checks
+   - VSIX helper tests cover Codex MCP config generation/upsert, UTF-8 environment variables, and path handling.
+   - MCP inventory smoke verifies the live Codex/RDE subprocess exposes the required tool surface.
+   - The repository uses `pathlib`, Node `path`, UTF-8 environment settings, and ASCII-escaped JSON/JSONL artifacts instead of shell-specific path assembly or ANSI-sensitive machine-readable output.
+
+The no-Docker local-lite path now defaults away from slow or fragile heavy imports for large routine runs:
+
+- Shapiro-Wilk is skipped for large univariate summaries and replaced with an S-001 large-sample advisory.
+- Table 1 defaults to descriptive local-lite output; p-values and the `tableone` package are opt-in.
+- Group comparisons, post-hoc power hints, common chart annotations, high-dimensional logistic regression, and high-dimensional linear regression have local-lite fallbacks.
+- Matplotlib figures use pure headless Matplotlib paths for common plots instead of requiring seaborn for the production report bundle.
+
+The VSIX also auto-upserts Codex MCP configuration in `~/.codex/config.toml` on activation when a workspace is open. Use `RDE: Configure Codex MCP` to re-run that setup manually.
 
 New projects created via `init_project()` now use sortable, human-readable folders in the form `data/projects/YYYYMMDD_HHMMSS_<project_name_slug>_<project_id>/`.
 When launched from the VS Code extension, `init_project()` resolves this `data/projects/` root from the active workspace via `RDE_WORKSPACE`, not from the MCP server process cwd.
@@ -439,10 +465,11 @@ Relevant tests include:
 
 At the time of writing:
 
-1. `run_advanced_analysis` can delegate successfully when vendor contracts match the request shape
-2. Some payloads, especially direct model and AutoML submissions on specific datasets, may still fall back if vendor endpoints return HTTP 422
-3. The fallback is preserved as an artifact so auditability is not lost
-4. Specialized analyses outside the current schema, delegator, or vendor contract will often still require manual execution or custom integration rather than a generic built-in tool
+1. `run_advanced_analysis` can delegate successfully when vendor contracts match the request shape.
+2. Docker and automl-stat-mcp remain optional heavy engines; no-Docker VSIX/Codex runs use local-lite fallbacks for the core report path.
+3. Some vendor payloads, especially direct model and AutoML submissions on specific datasets, may still fall back if vendor endpoints return HTTP 422.
+4. The fallback is preserved as an artifact so auditability is not lost.
+5. Specialized analyses outside the current schema, delegator, or vendor contract will often still require custom integration rather than a generic built-in tool.
 
 Example fallback artifact:
 
@@ -455,7 +482,7 @@ src/rde/                         Core application
 tests/                           Regression and contract tests
 vendor/automl-stat-mcp/          Delegated heavy-analysis engine
 data/projects/                   Per-project outputs and artifacts
-                                New folders: YYYYMMDD_HHMMSS_<project_id>
+                                New folders: YYYYMMDD_HHMMSS_<project_name_slug>_<project_id>
 memory-bank/                     Project memory documents
 ```
 

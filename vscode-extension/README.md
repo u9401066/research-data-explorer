@@ -17,6 +17,15 @@ RDE therefore treats automl-stat-mcp as optional. The built-in MCP server can co
 
 `report_readiness` and `run_audit` explicitly check the core goal: data understanding, analysis planning, data correctness, reproducible exploration, analysis execution and interpretation, report generation, no-code operation, and agent-friendly harness artifacts.
 
+## Documentation / i18n
+
+- Repository overview: [../README.md](../README.md)
+- Traditional Chinese overview: [../README.zh-TW.md](../README.zh-TW.md)
+- Agent contract: [../AGENTS.md](../AGENTS.md)
+- Extension guide: this file
+
+Keep these documents aligned when changing phase gates, Codex MCP setup, no-Docker behavior, release validation evidence, or supported-platform expectations.
+
 ## Features
 
 - 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
@@ -57,6 +66,8 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 | macOS (Intel/Apple Silicon) | ✅ | Homebrew uv 自動偵測 |
 | Linux (x64) | ✅ | snap/apt uv 支援 |
 
+The 0.4.12 release re-verified the Windows VSIX/Codex path locally and keeps the setup code on Node `path`, Python `pathlib`, UTF-8 environment variables, and ASCII-escaped JSON/JSONL artifacts. Full Linux/macOS confidence should come from the CI matrix, but the extension no longer uses Windows-only path assembly for Codex MCP configuration.
+
 ## MCP Installation Behavior
 
 - RDE source workspaces run the local project directly via `uv run python -m rde`.
@@ -64,6 +75,19 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 - No Python package registry publication is required for the MCP server to start.
 - If the workspace already has a `.vscode/mcp.json` defining `rde`, the extension skips auto-registration.
 - uv 會自動偵測多個可能路徑（`~/.local/bin`, `~/.cargo/bin`, `%LOCALAPPDATA%\uv\bin`, `/opt/homebrew/bin`）。
+
+## Release Validation Snapshot
+
+For 0.4.12, the extension-facing path was checked with:
+
+```bash
+npm test -- extensionHelpers.test.ts
+npm run compile
+python scripts/codex_rde_smoke.py --list-tools-only
+python scripts/codex_rde_smoke.py
+```
+
+The full governed real-file smoke was also run through the RDE MCP subprocess with `scripts/codex_rde_smoke.py --full-yolo`, producing an audit grade A report with `report_readiness=production_ready` and `core_goal_audit=9/9`.
 
 ## automl-stat-mcp (進階分析引擎)
 
@@ -127,6 +151,7 @@ cd vendor/automl-stat-mcp && docker compose up -d
 | `RDE: Open UX Harness Dashboard` | 開啟 approval card、dashboard、artifact index、blocker playbook 的無代碼檢視；優先讀取 workspace `artifacts/`，否則讀取 `data/projects/` 最新專案 |
 | `RDE: Show Status` | 顯示擴充功能狀態 |
 | `RDE: Setup Workspace` | 設定 Copilot/Codex/Cline skills、prompts、rules、instructions |
+| `RDE: Configure Codex MCP` | 重新寫入 `~/.codex/config.toml` 的 RDE MCP server 設定；VSIX 啟用時也會自動執行一次 |
 
 ### Agent Mode 自然語言
 

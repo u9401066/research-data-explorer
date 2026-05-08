@@ -20,7 +20,7 @@ Use RDE as a 13-phase auditable EDA harness, not as an ad hoc notebook.
 
 ## Codex Support
 
-Codex should use the RDE MCP server directly. Run `python scripts/configure_codex_mcp.py --apply`, then verify with `python scripts/codex_rde_smoke.py --list-tools-only` and `python scripts/codex_rde_smoke.py`. If `init_project` or other RDE tools are missing from the MCP registry, reload/restart the MCP host instead of replacing RDE with shell-based analysis.
+Codex should use the RDE MCP server directly. The VSIX auto-upserts `~/.codex/config.toml` on activation and via the `RDE: Configure Codex MCP` command when a workspace is open. Repo developers can also run `python scripts/configure_codex_mcp.py --apply`. Verify with `python scripts/codex_rde_smoke.py --list-tools-only` and `python scripts/codex_rde_smoke.py`; use `--data-file <path> --full-yolo` for a governed real-file smoke. If `init_project` or other RDE tools are missing from the MCP registry, reload/restart the MCP host instead of replacing RDE with shell-based analysis.
 
 ## Agent Coverage
 

@@ -2,6 +2,9 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-08 | Cut v0.4.12 as the Codex/RDE full-yolo hardening release | The repo now has artifact-backed MCP phase resume, audit diagnostics, local-lite no-Docker fallback hardening, i18n README alignment, and a real Excel governed smoke that reaches production-ready audit evidence. |
+| 2026-05-08 | Treat README i18n as part of the release contract | Non-data-scientist users and agent operators need the same core-goal, no-Docker, validation, and limitation language in English, Traditional Chinese, and VSIX docs to avoid drift. |
+| 2026-05-08 | ASCII-escape JSON/JSONL artifacts while keeping Markdown UTF-8 | Windows ANSI/CP950 readers can corrupt raw UTF-8 status symbols in machine-readable JSON. Escaping JSON keeps artifacts parseable across shells while preserving decoded Unicode through normal JSON parsers. |
 | 2026-05-08 | Treat Codex support as a real MCP runtime contract, not documentation only | Codex must be able to launch `python -m rde` over stdio, list the live 49-tool surface, and run at least Quick Explore to a Phase 10 report without using shell/pandas as a substitute. |
 | 2026-05-08 | Bootstrap UX harness artifacts during Phase 0 project creation | `report_readiness` now checks approval card, dashboard, artifact index, and blocker playbook evidence, so those artifacts must exist early and be refreshable by UX tools. |
 | 2026-05-08 | Add explicit `quick_explore` project mode | Quick Explore is a first-class non-audited overview path with `assemble_report(... allow_incomplete=true)` instead of an informal title convention. |
