@@ -32,15 +32,15 @@ def register_audit_tools(server: Any) -> None:
             log_tool_call,
             log_tool_error,
             fmt_error,
-            ensure_phase_ready,
+            ensure_project_context,
         )
         from rde.interface.mcp.tools._shared.project_context import persist_project
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("run_audit", {"project_id": project_id})
 
-        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUDIT_REVIEW, project_id=project_id)
-        if not ok:
+        ok, msg, project = ensure_project_context(project_id)
+        if not ok or project is None:
             return fmt_error(msg)
         assert project is not None
 
@@ -53,9 +53,14 @@ def register_audit_tools(server: Any) -> None:
             from datetime import datetime
 
             session = get_session()
+            project = session.sync_project_from_artifacts(project.id)
             pipeline = session.get_pipeline(project.id)
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
+            if not store.exists(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"):
+                return fmt_error(
+                    "Missing artifacts for phase_10_report_assembly: eda_report.md"
+                )
 
             checks: list[dict] = []
             total_score = 0
@@ -758,7 +763,7 @@ def register_audit_tools(server: Any) -> None:
             }
             manifest_path = handoff_dir / "handoff_manifest.json"
             manifest_path.write_text(
-                json.dumps(manifest, indent=2, ensure_ascii=False),
+                json.dumps(manifest, indent=2, ensure_ascii=True),
                 encoding="utf-8",
             )
 

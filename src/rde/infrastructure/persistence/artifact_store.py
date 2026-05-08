@@ -37,7 +37,7 @@ class ArtifactStore:
 
         if filename.endswith(".json"):
             path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                json.dumps(data, indent=2, ensure_ascii=True, default=str),
                 encoding="utf-8",
             )
         elif filename.endswith(".md"):
@@ -54,7 +54,7 @@ class ArtifactStore:
                 # Fallback to JSON
                 path = path.with_suffix(".json")
                 path.write_text(
-                    json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                    json.dumps(data, indent=2, ensure_ascii=True, default=str),
                     encoding="utf-8",
                 )
         elif filename.endswith(".jsonl"):
@@ -62,9 +62,9 @@ class ArtifactStore:
             with open(path, "a", encoding="utf-8") as f:
                 if isinstance(data, list):
                     for entry in data:
-                        f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+                        f.write(json.dumps(entry, ensure_ascii=True, default=str) + "\n")
                 else:
-                    f.write(json.dumps(data, ensure_ascii=False, default=str) + "\n")
+                    f.write(json.dumps(data, ensure_ascii=True, default=str) + "\n")
         else:
             path.write_text(str(data), encoding="utf-8")
 

@@ -1159,32 +1159,35 @@ def _phase8_context(
         project_id=project_id,
         require_dataset=False,
     )
+    store = ArtifactStore(project.artifacts_dir) if project is not None else None
     if not ok or project is None:
-        return False, msg, None, None
-    return True, "ready", project, ArtifactStore(project.artifacts_dir)
+        return False, msg, project, store
+    return True, "ready", project, store
 
 
 def _governed_phase8_context(
     project_id: str | None,
 ) -> tuple[bool, str, Any | None, ArtifactStore | None]:
     ok, msg, project, store = _phase8_context(project_id)
+    if project is not None and store is not None:
+        blockers = _promotion_prerequisite_blockers(project, store)
+        if blockers:
+            return (
+                False,
+                (
+                    "Phase 8 branch exploration requires a confirmed locked plan and "
+                    "successful readiness gate. "
+                    f"blockers={blockers}. "
+                    "Run Phase 6 register_analysis_plan(confirm=True) and Phase 7 "
+                    "check_readiness() before branch/autoresearch execution."
+                ),
+                project,
+                store,
+            )
+
     if not ok or project is None or store is None:
         return ok, msg, project, store
 
-    blockers = _promotion_prerequisite_blockers(project, store)
-    if blockers:
-        return (
-            False,
-            (
-                "Phase 8 branch exploration requires a confirmed locked plan and "
-                "successful readiness gate. "
-                f"blockers={blockers}. "
-                "Run Phase 6 register_analysis_plan(confirm=True) and Phase 7 "
-                "check_readiness() before branch/autoresearch execution."
-            ),
-            project,
-            store,
-        )
     return True, "ready", project, store
 
 

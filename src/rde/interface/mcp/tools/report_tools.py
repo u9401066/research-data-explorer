@@ -260,7 +260,11 @@ def register_report_tools(server: Any) -> None:
                 "deliverables": deliverables,
                 "exploration_branches": exploration_branches,
             }
-            report_readiness = _evaluate_report_readiness(summary, store)
+            report_readiness = _evaluate_report_readiness(
+                summary,
+                store,
+                require_report_generation=False,
+            )
             summary["report_readiness"] = report_readiness
 
             # Save artifact
@@ -414,7 +418,11 @@ def register_report_tools(server: Any) -> None:
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
             results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
-            report_readiness = _evaluate_report_readiness(results, store)
+            report_readiness = _evaluate_report_readiness(
+                results,
+                store,
+                require_report_generation=False,
+            )
             if not allow_incomplete and not report_readiness.get("ready", False):
                 return fmt_error(
                     "最終報告完整度未達預設目標，暫不組裝終版報告。",
@@ -515,6 +523,16 @@ def register_report_tools(server: Any) -> None:
 
             # Save artifact
             store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", content)
+            final_report_readiness = _evaluate_report_readiness(results, store)
+            store.save(
+                PipelinePhase.REPORT_ASSEMBLY,
+                "report_readiness.json",
+                final_report_readiness,
+            )
+            if isinstance(results, dict):
+                results["report_readiness"] = final_report_readiness
+                store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", results)
+                report_readiness = final_report_readiness
             pipeline.mark_completed(
                 PhaseResult(
                     phase=PipelinePhase.REPORT_ASSEMBLY,
@@ -523,7 +541,10 @@ def register_report_tools(server: Any) -> None:
                     artifacts={
                         "eda_report.md": str(
                             store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
-                        )
+                        ),
+                        "report_readiness.json": str(
+                            store.get_path(PipelinePhase.REPORT_ASSEMBLY, "report_readiness.json")
+                        ),
                     },
                 )
             )
@@ -1489,7 +1510,12 @@ def _completion_label(tier: str | None) -> str:
     return normalized
 
 
-def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, Any]:
+def _evaluate_report_readiness(
+    results: dict | None,
+    store: Any,
+    *,
+    require_report_generation: bool = True,
+) -> dict[str, Any]:
     from rde.application.pipeline import PipelinePhase
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
 
@@ -1517,6 +1543,12 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     review_status = str(review.get("status", "missing"))
     deliverables = normalized_results.get("deliverables") or {}
     publication_bundle_met = bool(deliverables.get("minimum_publication_bundle_met"))
+    current_tier = _execution_adjusted_completion_tier(
+        normalized_results,
+        review,
+        current_tier=current_tier,
+        publication_bundle_met=publication_bundle_met,
+    )
 
     missing_requirements: list[str] = []
     if review_status not in {"pass", "repaired"}:
@@ -1535,6 +1567,7 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
         target_tier=target_tier,
         review_status=review_status,
         publication_bundle_met=publication_bundle_met,
+        require_report_generation=require_report_generation,
     )
     for goal in core_goal_audit["missing_goals"]:
         missing_requirements.append(f"core_goal:{goal}")
@@ -1553,6 +1586,45 @@ def _evaluate_report_readiness(results: dict | None, store: Any) -> dict[str, An
     }
 
 
+def _execution_adjusted_completion_tier(
+    results: dict[str, Any],
+    review: dict[str, Any],
+    *,
+    current_tier: str,
+    publication_bundle_met: bool,
+) -> str:
+    """Upgrade planner tier when executed evidence meets the production contract."""
+
+    if _completion_rank(current_tier) >= _completion_rank("production_ready"):
+        return current_tier
+    if not publication_bundle_met:
+        return current_tier
+
+    total_analyses = int(results.get("total_analyses") or 0)
+    plan_coverage = results.get("plan_coverage") or {}
+    phase_progress = results.get("phase6_progress") or {}
+    coverage = float(plan_coverage.get("coverage") or phase_progress.get("coverage") or 0.0)
+    coverage_ready = coverage >= float(phase_progress.get("required_coverage") or 0.8)
+
+    production_target = int(
+        review.get("production_analysis_target")
+        or review.get("academic_analysis_target")
+        or review.get("recommended_analysis_floor")
+        or 0
+    )
+    academic_target = int(
+        review.get("academic_analysis_target")
+        or review.get("recommended_analysis_floor")
+        or 0
+    )
+
+    if production_target and total_analyses >= production_target and coverage_ready:
+        return "production_ready"
+    if academic_target and total_analyses >= academic_target and coverage_ready:
+        return "academic_ready"
+    return current_tier
+
+
 def _evaluate_core_goal_audit(
     results: dict[str, Any],
     store: Any,
@@ -1561,6 +1633,7 @@ def _evaluate_core_goal_audit(
     target_tier: str,
     review_status: str,
     publication_bundle_met: bool,
+    require_report_generation: bool = True,
 ) -> dict[str, Any]:
     from rde.application.pipeline import PipelinePhase
 
@@ -1657,7 +1730,7 @@ def _evaluate_core_goal_audit(
         {
             "id": "report_generation",
             "title": "Report generation",
-            "passed": has_assembled_report,
+            "passed": has_assembled_report or not require_report_generation,
             "evidence": ["phase_10_report_assembly/eda_report.md", "publication deliverables"],
             "contract": "The run must produce an assembled EDA report for non-coders.",
         },

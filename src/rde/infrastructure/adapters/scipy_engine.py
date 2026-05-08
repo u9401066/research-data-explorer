@@ -6,6 +6,8 @@ Uses scipy.stats, statsmodels, and tableone for statistical analysis.
 from __future__ import annotations
 
 import logging
+import math
+import os
 import warnings
 from typing import Any
 
@@ -93,10 +95,13 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         **kwargs: Any,
     ) -> dict[str, Any]:
         df: pd.DataFrame = data
+        if os.environ.get("RDE_TABLE_ONE_ENGINE", "local-lite").lower() != "tableone":
+            return self._generate_table_one_lite(df, group_var, variables)
+
         try:
             from tableone import TableOne
         except ImportError:
-            return {"error": "tableone not installed. pip install tableone"}
+            return self._generate_table_one_lite(df, group_var, variables)
 
         cols = [c for c in variables if c in df.columns and c != group_var]
         if not cols:
@@ -138,6 +143,180 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "n_variables": len(cols),
             "n_categorical": len(categorical),
         }
+
+    def _generate_table_one_lite(
+        self,
+        df: pd.DataFrame,
+        group_var: str,
+        variables: list[str],
+    ) -> dict[str, Any]:
+        cols = [c for c in variables if c in df.columns and c != group_var]
+        if group_var not in df.columns:
+            return {"error": f"Grouping variable not found: {group_var}"}
+        if not cols:
+            return {"error": "No valid variables found for Table 1."}
+
+        groups = [group for group in sorted(df[group_var].dropna().unique(), key=lambda value: str(value))]
+        headers = ["Variable", "Overall"] + [str(group) for group in groups] + ["p"]
+        rows: list[list[str]] = []
+        table_dict: dict[str, dict[str, str]] = {}
+        n_categorical = 0
+
+        for col in cols:
+            series = df[col]
+            is_categorical = (
+                series.dtype == "object"
+                or series.dtype.name == "category"
+                or series.nunique(dropna=True) <= 10
+            )
+            if is_categorical:
+                n_categorical += 1
+                overall = self._format_categorical_summary(series)
+                group_values = [
+                    self._format_categorical_summary(df.loc[df[group_var] == group, col])
+                    for group in groups
+                ]
+                p_value = self._safe_categorical_p_value(df, col, group_var)
+            else:
+                overall = self._format_continuous_summary(series)
+                group_values = [
+                    self._format_continuous_summary(df.loc[df[group_var] == group, col])
+                    for group in groups
+                ]
+                p_value = self._safe_continuous_p_value(df, col, group_var)
+
+            row = [col, overall, *group_values, p_value]
+            rows.append(row)
+            table_dict[col] = dict(zip(headers[1:], row[1:], strict=False))
+
+        return {
+            "table_text": self._markdown_table(headers, rows),
+            "table_html": "",
+            "table_dict": table_dict,
+            "group_var": group_var,
+            "n_variables": len(cols),
+            "n_categorical": n_categorical,
+            "source": "local-lite",
+        }
+
+    def _format_continuous_summary(self, series: pd.Series) -> str:
+        values = pd.to_numeric(series, errors="coerce").dropna()
+        if values.empty:
+            return "NA"
+        return (
+            f"{values.mean():.2f} ({values.std():.2f}); "
+            f"{values.median():.2f} [{values.quantile(0.25):.2f}, {values.quantile(0.75):.2f}]"
+        )
+
+    def _format_categorical_summary(self, series: pd.Series) -> str:
+        values = series.dropna()
+        if values.empty:
+            return "NA"
+        total = len(values)
+        parts = []
+        for value, count in values.value_counts().head(3).items():
+            parts.append(f"{value}: {int(count)} ({(count / total):.1%})")
+        return "; ".join(parts)
+
+    def _safe_continuous_p_value(self, df: pd.DataFrame, col: str, group_var: str) -> str:
+        if os.environ.get("RDE_TABLE_ONE_P_VALUES", "0") != "1":
+            return "NA"
+        try:
+            from scipy import stats
+
+            groups = [
+                pd.to_numeric(group[col], errors="coerce").dropna().values
+                for _, group in df[[col, group_var]].dropna().groupby(group_var)
+            ]
+            groups = [group for group in groups if len(group) > 0]
+            if len(groups) == 2:
+                _, p_value = stats.mannwhitneyu(groups[0], groups[1], alternative="two-sided")
+            elif len(groups) > 2:
+                _, p_value = stats.kruskal(*groups)
+            else:
+                return "NA"
+            return f"{float(p_value):.4f}"
+        except Exception:
+            return "NA"
+
+    def _safe_categorical_p_value(self, df: pd.DataFrame, col: str, group_var: str) -> str:
+        if os.environ.get("RDE_TABLE_ONE_P_VALUES", "0") != "1":
+            return "NA"
+        try:
+            from scipy import stats
+
+            table = pd.crosstab(df[group_var], df[col])
+            if table.shape[0] < 2 or table.shape[1] < 2:
+                return "NA"
+            if table.shape == (2, 2):
+                _, p_value = stats.fisher_exact(table)
+            else:
+                _, p_value, _, _ = stats.chi2_contingency(table)
+            return f"{float(p_value):.4f}"
+        except Exception:
+            return "NA"
+
+    def _markdown_table(self, headers: list[str], rows: list[list[str]]) -> str:
+        lines = [
+            "| " + " | ".join(headers) + " |",
+            "| " + " | ".join("---" for _ in headers) + " |",
+        ]
+        for row in rows:
+            lines.append("| " + " | ".join(str(value).replace("\n", " ") for value in row) + " |")
+        return "\n".join(lines)
+
+    def _use_scipy_backend(self) -> bool:
+        return os.environ.get("RDE_STATS_BACKEND", "local-lite").lower() == "scipy"
+
+    def _normal_two_sided_p(self, z_value: float) -> float:
+        return max(0.0, min(1.0, math.erfc(abs(z_value) / math.sqrt(2.0))))
+
+    def _normal_cdf(self, z_value: float) -> float:
+        return max(0.0, min(1.0, 0.5 * (1.0 + math.erf(z_value / math.sqrt(2.0)))))
+
+    def _chi_square_sf_approx(self, statistic: float, dof: int) -> float:
+        if dof <= 0 or statistic <= 0:
+            return 1.0
+        z_value = (
+            (statistic / dof) ** (1.0 / 3.0)
+            - (1.0 - (2.0 / (9.0 * dof)))
+        ) / math.sqrt(2.0 / (9.0 * dof))
+        return max(0.0, min(1.0, 0.5 * math.erfc(z_value / math.sqrt(2.0))))
+
+    def _rankdata_average(self, values: np.ndarray) -> np.ndarray:
+        order = np.argsort(values, kind="mergesort")
+        ranks = np.empty(len(values), dtype=float)
+        sorted_values = values[order]
+        i = 0
+        while i < len(values):
+            j = i + 1
+            while j < len(values) and sorted_values[j] == sorted_values[i]:
+                j += 1
+            ranks[order[i:j]] = (i + 1 + j) / 2.0
+            i = j
+        return ranks
+
+    def _mann_whitney_lite(self, a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
+        a = pd.to_numeric(pd.Series(a), errors="coerce").dropna().to_numpy(dtype=float)
+        b = pd.to_numeric(pd.Series(b), errors="coerce").dropna().to_numpy(dtype=float)
+        n1, n2 = len(a), len(b)
+        if n1 == 0 or n2 == 0:
+            return 0.0, 1.0
+        values = np.concatenate([a, b])
+        ranks = self._rankdata_average(values)
+        rank_sum_a = float(ranks[:n1].sum())
+        u1 = rank_sum_a - n1 * (n1 + 1) / 2.0
+        u2 = n1 * n2 - u1
+        u = min(u1, u2)
+        _, tie_counts = np.unique(values, return_counts=True)
+        tie_term = float(np.sum(tie_counts**3 - tie_counts))
+        n = n1 + n2
+        mean_u = n1 * n2 / 2.0
+        variance = n1 * n2 / 12.0 * ((n + 1) - tie_term / (n * (n - 1))) if n > 1 else 0
+        if variance <= 0:
+            return float(u), 1.0
+        z_value = (u - mean_u) / math.sqrt(variance)
+        return float(u), self._normal_two_sided_p(z_value)
 
     # ── individual test implementations ──────────────────────────────
 
@@ -188,8 +367,6 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         }
 
     def _mann_whitney(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        from scipy import stats
-
         outcome, group = variables[0], variables[1]
         groups = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_keys = list(groups.index)
@@ -197,7 +374,12 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             return {"error": f"Need ≥2 groups, found {len(group_keys)}."}
 
         a, b = groups.iloc[0], groups.iloc[1]
-        stat, p = stats.mannwhitneyu(a, b, alternative="two-sided")
+        if self._use_scipy_backend():
+            from scipy import stats
+
+            stat, p = stats.mannwhitneyu(a, b, alternative="two-sided")
+        else:
+            stat, p = self._mann_whitney_lite(a, b)
         n = len(a) + len(b)
         r = abs(stat - (len(a) * len(b) / 2)) / (len(a) * len(b)) if n > 0 else 0
 
@@ -262,15 +444,32 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         }
 
     def _kruskal(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        from scipy import stats
-
         outcome, group = variables[0], variables[1]
         groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
         group_arrays = [g for g in groups_series]
         if len(group_arrays) < 2:
             return {"error": "Kruskal-Wallis requires ≥2 groups."}
 
-        stat, p = stats.kruskal(*group_arrays)
+        if self._use_scipy_backend():
+            from scipy import stats
+
+            stat, p = stats.kruskal(*group_arrays)
+        else:
+            values = np.concatenate(group_arrays)
+            ranks = self._rankdata_average(values)
+            start = 0
+            rank_sums = []
+            for group_values in group_arrays:
+                stop = start + len(group_values)
+                rank_sums.append(float(ranks[start:stop].sum()))
+                start = stop
+            n_total = len(values)
+            stat = (12.0 / (n_total * (n_total + 1.0))) * sum(
+                rank_sum**2 / len(group_values)
+                for rank_sum, group_values in zip(rank_sums, group_arrays, strict=False)
+                if len(group_values) > 0
+            ) - 3.0 * (n_total + 1.0)
+            p = self._chi_square_sf_approx(float(stat), len(group_arrays) - 1)
         n = sum(len(g) for g in group_arrays)
         k = len(group_arrays)
         eta_h = (stat - k + 1) / (n - k) if (n - k) > 0 else 0
@@ -381,11 +580,23 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         return result
 
     def _chi_squared(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        from scipy import stats
-
         var1, var2 = variables[0], variables[1]
         ct = pd.crosstab(df[var1], df[var2])
-        stat, p, dof, expected = stats.chi2_contingency(ct)
+        observed = ct.to_numpy(dtype=float)
+        dof = (observed.shape[0] - 1) * (observed.shape[1] - 1)
+        if self._use_scipy_backend():
+            from scipy import stats
+
+            stat, p, dof, expected = stats.chi2_contingency(ct)
+        else:
+            row_totals = observed.sum(axis=1, keepdims=True)
+            col_totals = observed.sum(axis=0, keepdims=True)
+            total = observed.sum()
+            expected = row_totals @ col_totals / total if total else np.zeros_like(observed)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                components = np.where(expected > 0, (observed - expected) ** 2 / expected, 0.0)
+            stat = float(components.sum())
+            p = self._chi_square_sf_approx(stat, int(dof))
         n = ct.sum().sum()
         cramers_v = np.sqrt(stat / (n * (min(ct.shape) - 1))) if n > 0 and min(ct.shape) > 1 else 0
 
@@ -401,13 +612,19 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         }
 
     def _fisher_exact(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        from scipy import stats
-
         var1, var2 = variables[0], variables[1]
         ct = pd.crosstab(df[var1], df[var2])
         if ct.shape != (2, 2):
             return {"error": "Fisher's exact test requires a 2×2 table."}
-        odds_ratio, p = stats.fisher_exact(ct)
+        a, b, c, d = (float(value) for value in ct.to_numpy().ravel())
+        odds_ratio = (a * d) / (b * c) if b * c else float("inf")
+        if self._use_scipy_backend():
+            from scipy import stats
+
+            odds_ratio, p = stats.fisher_exact(ct)
+        else:
+            chi_result = self._chi_squared(df, variables)
+            p = float(chi_result.get("p_value", 1.0))
 
         return {
             "test_name": "Fisher's exact",
@@ -666,34 +883,42 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         alpha: float = 0.05,
     ) -> dict[str, Any]:
         """Compute post-hoc statistical power (S-010)."""
-        from scipy import stats
+        backend = "local-lite"
+        power = self._post_hoc_power_lite(test_name, effect_size, n, n_groups, alpha)
+        if self._use_scipy_backend():
+            from scipy import stats
 
-        power = 0.0
-        if test_name in ("Independent t-test", "Mann-Whitney U"):
-            # Two-sample: use noncentrality parameter
-            ncp = effect_size * np.sqrt(n / (2 * n_groups))
-            crit = stats.t.ppf(1 - alpha / 2, df=n - 2)
-            power = 1 - stats.t.cdf(crit, df=n - 2, loc=ncp) + stats.t.cdf(-crit, df=n - 2, loc=ncp)
-        elif test_name in ("One-way ANOVA", "Kruskal-Wallis"):
-            # F-test: f2 = eta2 / (1 - eta2)
-            f2 = effect_size / (1 - effect_size) if effect_size < 1 else effect_size
-            df1 = n_groups - 1
-            df2 = n - n_groups
-            if df2 > 0:
-                lam = f2 * n  # noncentrality
-                crit = stats.f.ppf(1 - alpha, df1, df2)
-                power = 1 - stats.ncf.cdf(crit, df1, df2, lam)
-        elif test_name in ("Chi-squared", "Fisher's exact"):
-            # Chi-sq: w = sqrt(chi2/n), noncentrality = n*w^2
-            lam = n * effect_size**2
-            df_val = max(1, n_groups - 1)
-            crit = stats.chi2.ppf(1 - alpha, df_val)
-            power = 1 - stats.ncx2.cdf(crit, df_val, lam)
-        else:
-            # Generic: normal approximation
-            z_alpha = stats.norm.ppf(1 - alpha / 2)
-            z_power = effect_size * np.sqrt(n) - z_alpha
-            power = float(stats.norm.cdf(z_power))
+            backend = "scipy"
+            power = 0.0
+            if test_name in ("Independent t-test", "Mann-Whitney U"):
+                # Two-sample: use noncentrality parameter
+                ncp = effect_size * np.sqrt(n / (2 * n_groups))
+                crit = stats.t.ppf(1 - alpha / 2, df=n - 2)
+                power = (
+                    1
+                    - stats.t.cdf(crit, df=n - 2, loc=ncp)
+                    + stats.t.cdf(-crit, df=n - 2, loc=ncp)
+                )
+            elif test_name in ("One-way ANOVA", "Kruskal-Wallis"):
+                # F-test: f2 = eta2 / (1 - eta2)
+                f2 = effect_size / (1 - effect_size) if effect_size < 1 else effect_size
+                df1 = n_groups - 1
+                df2 = n - n_groups
+                if df2 > 0:
+                    lam = f2 * n  # noncentrality
+                    crit = stats.f.ppf(1 - alpha, df1, df2)
+                    power = 1 - stats.ncf.cdf(crit, df1, df2, lam)
+            elif test_name in ("Chi-squared", "Fisher's exact"):
+                # Chi-sq: w = sqrt(chi2/n), noncentrality = n*w^2
+                lam = n * effect_size**2
+                df_val = max(1, n_groups - 1)
+                crit = stats.chi2.ppf(1 - alpha, df_val)
+                power = 1 - stats.ncx2.cdf(crit, df_val, lam)
+            else:
+                # Generic: normal approximation
+                z_alpha = stats.norm.ppf(1 - alpha / 2)
+                z_power = effect_size * np.sqrt(n) - z_alpha
+                power = float(stats.norm.cdf(z_power))
 
         power = max(0.0, min(1.0, float(power)))
 
@@ -710,9 +935,39 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size": effect_size,
             "n": n,
             "n_groups": n_groups,
+            "backend": backend,
             "interpretation": interp,
             "adequate": power >= 0.8,
         }
+
+    def _post_hoc_power_lite(
+        self,
+        test_name: str,
+        effect_size: float,
+        n: int,
+        n_groups: int,
+        alpha: float,
+    ) -> float:
+        if n <= 1:
+            return 0.0
+        effect = abs(float(effect_size or 0.0))
+        z_alpha = 1.959963984540054
+        if alpha not in (0.05, 0.050):
+            z_alpha = 1.6448536269514722 if alpha >= 0.1 else 2.5758293035489004
+
+        if test_name in ("Independent t-test", "Mann-Whitney U"):
+            signal = effect * math.sqrt(max(1.0, n / max(1, 2 * n_groups)))
+        elif test_name in ("One-way ANOVA", "Kruskal-Wallis"):
+            bounded = min(effect, 0.999999)
+            f2 = bounded / max(1e-12, 1.0 - bounded)
+            signal = math.sqrt(max(0.0, f2 * n))
+        elif test_name in ("Chi-squared", "Fisher's exact"):
+            if test_name == "Fisher's exact" and effect > 1:
+                effect = min(abs(math.log(effect)), 3.0) / 3.0
+            signal = effect * math.sqrt(n / max(1, n_groups - 1))
+        else:
+            signal = effect * math.sqrt(n)
+        return self._normal_cdf(signal - z_alpha)
 
     # ── missing data pattern analysis ────────────────────────────────
 

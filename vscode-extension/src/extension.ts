@@ -3,7 +3,16 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { getPythonArgs, loadSkillContent, BUNDLED_SKILLS, BUNDLED_PROMPTS, BUNDLED_AGENTS, BUNDLED_CLINE_RULES } from './utils';
 import { findUvPath, installUvHeadless, buildMcpCommand, buildMcpEnv, ensureInstalledTool, checkDockerServiceHealth } from './uvManager';
-import { shouldSkipMcpRegistration, isDevWorkspace as checkIsDevWorkspace, determinePythonPath, countMissingBundledItems, buildDevPythonPath, isBundledToolProject } from './extensionHelpers';
+import {
+    shouldSkipMcpRegistration,
+    isDevWorkspace as checkIsDevWorkspace,
+    determinePythonPath,
+    countMissingBundledItems,
+    buildDevPythonPath,
+    isBundledToolProject,
+    codexConfigPath,
+    configureCodexRdeMcpConfigFile,
+} from './extensionHelpers';
 import { TOOL_GROUPS, FULL_REPORT_CHAT_QUERY, MISSING_BOOTSTRAP_RDE_TOOLS_MESSAGE, buildPipelineExecutionPrompt, buildToolRetryInstruction, filterRdeTools, findMissingRequiredRdeTools, getToolCallPolicyAction, NO_AVAILABLE_RDE_TOOLS_MESSAGE, NO_RDE_TOOL_CALL_MESSAGE, toolGroupIncludes } from './toolPolicy';
 import { readUxHarnessArtifacts, renderUxHarnessDashboardHtml, summarizeUxHarnessArtifacts } from './uxHarnessView';
 
@@ -59,6 +68,9 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('rde.setupWorkspace', () => {
             setupWorkspace(context);
         }),
+        vscode.commands.registerCommand('rde.configureCodex', async () => {
+            await configureCodexMcp(context, false);
+        }),
         vscode.commands.registerCommand('rde.checkAutoml', async () => {
             outputChannel.show();
             await checkAutomlAvailability(context);
@@ -82,6 +94,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Auto-scaffold: check if workspace is missing skills/agents/prompts
     autoScaffoldIfNeeded(context);
+    configureCodexMcp(context, true);
 
     outputChannel.appendLine('Research Data Explorer activated successfully!');
 }
@@ -642,6 +655,61 @@ function getPythonPath(context: vscode.ExtensionContext): string {
     });
 }
 
+async function configureCodexMcp(
+    context: vscode.ExtensionContext,
+    silent: boolean,
+): Promise<void> {
+    const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!wsRoot) {
+        if (!silent) {
+            vscode.window.showWarningMessage('Open a workspace before configuring Codex for RDE.');
+        }
+        return;
+    }
+
+    const bundledToolPath = path.join(context.extensionPath, 'bundled', 'tool');
+    const projectPath = checkIsDevWorkspace(wsRoot)
+        ? wsRoot
+        : (isBundledToolProject(bundledToolPath) ? bundledToolPath : undefined);
+
+    if (!projectPath) {
+        const message = 'RDE bundled tool project was not found; Codex MCP config was not changed.';
+        outputChannel.appendLine(`[Codex] ${message}`);
+        if (!silent) {
+            vscode.window.showWarningMessage(message);
+        }
+        return;
+    }
+
+    try {
+        const uvPath = resolvedUvPath || context.globalState.get<string>('uvPath') || 'uv';
+        const result = configureCodexRdeMcpConfigFile(
+            codexConfigPath(),
+            {
+                command: uvPath,
+                projectPath,
+                workspacePath: wsRoot,
+            },
+        );
+        outputChannel.appendLine(
+            `[Codex] ${result.changed ? 'Updated' : 'Already configured'} ${result.configPath}`,
+        );
+        if (!silent) {
+            vscode.window.showInformationMessage(
+                result.changed
+                    ? 'Codex MCP config updated for Research Data Explorer.'
+                    : 'Codex MCP config already points to Research Data Explorer.',
+            );
+        }
+    } catch (error) {
+        const message = `Failed to configure Codex MCP: ${error instanceof Error ? error.message : String(error)}`;
+        outputChannel.appendLine(`[Codex] ${message}`);
+        if (!silent) {
+            vscode.window.showErrorMessage(message);
+        }
+    }
+}
+
 // ─── Auto-scaffold ─────────────────────────────────────────────────────────────
 
 async function autoScaffoldIfNeeded(context: vscode.ExtensionContext): Promise<void> {
@@ -803,6 +871,7 @@ async function setupWorkspace(context: vscode.ExtensionContext): Promise<void> {
         vscode.window.showInformationMessage('RDE: Workspace 已是最新，無需更新。');
     }
 
+    await configureCodexMcp(context, true);
     outputChannel.appendLine(`[Setup] Copied ${copied} files to workspace`);
 }
 

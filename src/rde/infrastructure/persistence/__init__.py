@@ -38,7 +38,7 @@ class FileSystemProjectRepository(ProjectRepositoryPort):
         data = asdict(project)
         # Convert non-serializable types
         data = self._make_serializable(data)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=True), encoding="utf-8")
 
     def load(self, project_id: str) -> Any:
         """Load project state from JSON file."""

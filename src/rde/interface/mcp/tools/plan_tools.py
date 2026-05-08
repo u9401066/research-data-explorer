@@ -1438,7 +1438,6 @@ def register_plan_tools(server: Any) -> None:
             ensure_dataset,
         )
         from rde.interface.mcp.tools._shared.project_context import persist_project
-        from rde.interface.mcp.tools._shared.formatting import fmt_checks
         from rde.application.pipeline import PipelinePhase
 
         log_tool_call("check_readiness", {"project_id": project_id})
@@ -1673,13 +1672,17 @@ def register_plan_tools(server: Any) -> None:
             project.advance_to(ProjectStatus.PRE_EXPLORE_CHECK)
             persist_project(project)
 
-            checks_text = fmt_checks(checks)
+            checks_text = "\n".join(
+                f"- [{'通過' if check.get('passed') else '未通過'}] "
+                f"{check.get('id', '')} {check.get('name', '')}: {check.get('detail', '')}"
+                for check in checks
+            )
 
             log_tool_result("check_readiness", f"passed={all_passed}")
 
-            status = "✅ 準備就緒，可進入 Phase 8" if all_passed else "❌ 尚有未通過的檢查項目"
+            status = "通過，準備就緒，可進入 Phase 8" if all_passed else "未通過，請依檢查結果修正"
 
-            return f"# 🔍 準備度檢查 (Phase 5)\n\n{checks_text}\n\n**結果:** {status}"
+            return f"# 準備度檢查 (Phase 7)\n\n{checks_text}\n\n**結果:** {status}"
 
         except Exception as e:
             log_tool_error("check_readiness", e)

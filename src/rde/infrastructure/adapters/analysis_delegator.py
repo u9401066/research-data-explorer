@@ -13,6 +13,8 @@ Usage in Phase 6 tools:
 from __future__ import annotations
 
 import logging
+import math
+import os
 from typing import Any
 
 import numpy as np
@@ -221,14 +223,24 @@ class AnalysisDelegator:
     ) -> dict[str, Any]:
         """Run no-Docker advanced analyses needed for complete non-coder reports."""
         if analysis_type == "logistic_regression":
+            result = self._run_logistic_regression(df, config)
             return {
-                "source": "local-lite (statsmodels)",
-                "result": self._run_logistic_regression(df, config),
+                "source": (
+                    "local-lite (numpy)"
+                    if result.get("engine") == "local-lite.LogisticRidge"
+                    else "local-lite (statsmodels)"
+                ),
+                "result": result,
             }
         if analysis_type in {"multiple_regression", "glm"}:
+            result = self._run_regression_or_glm(df, analysis_type, config)
             return {
-                "source": "local-lite (statsmodels)",
-                "result": self._run_regression_or_glm(df, analysis_type, config),
+                "source": (
+                    "local-lite (numpy)"
+                    if str(result.get("engine", "")).startswith("local-lite.")
+                    else "local-lite (statsmodels)"
+                ),
+                "result": result,
             }
         if analysis_type == "roc_auc":
             return {
@@ -408,8 +420,6 @@ class AnalysisDelegator:
     ) -> dict[str, Any]:
         import warnings
 
-        import statsmodels.api as sm
-
         model_frame, y_raw, x_raw, error = self._prepare_model_frame(df, target, covariates)
         if error:
             return {"error": error}
@@ -424,6 +434,17 @@ class AnalysisDelegator:
                     "suggestion": "Use a 0/1 outcome or choose a continuous-outcome method.",
                 }
             }
+
+        if self._should_use_fast_logit(x_raw, config):
+            return self._fit_binary_logit_lite(
+                target=str(target),
+                covariates=covariates,
+                y=y,
+                x_raw=x_raw,
+                config=config,
+            )
+
+        import statsmodels.api as sm
 
         x = sm.add_constant(x_raw, has_constant="add")
         regularized = False
@@ -466,12 +487,100 @@ class AnalysisDelegator:
             "regularized": regularized,
         }
 
+    def _should_use_fast_logit(self, x_raw: pd.DataFrame, config: dict[str, Any]) -> bool:
+        backend = str(os.environ.get("RDE_LOGIT_BACKEND") or config.get("backend") or "auto").lower()
+        if backend in {"statsmodels", "sm"}:
+            return False
+        if backend in {"numpy", "local-lite", "fast"}:
+            return True
+        return len(x_raw) > 200 or len(x_raw.columns) > 8
+
+    def _fit_binary_logit_lite(
+        self,
+        *,
+        target: str,
+        covariates: list[str],
+        y: pd.Series,
+        x_raw: pd.DataFrame,
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        x_numeric = x_raw.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+        means = x_numeric.mean()
+        stds = x_numeric.std(ddof=0).replace(0, 1.0).fillna(1.0)
+        x_scaled = (x_numeric - means) / stds
+        x_matrix = np.column_stack([np.ones(len(x_scaled)), x_scaled.to_numpy(dtype=float)])
+        y_values = pd.to_numeric(y, errors="coerce").fillna(0.0).to_numpy(dtype=float)
+
+        alpha = float(config.get("regularization_alpha", 1.0))
+        learning_rate = float(config.get("learning_rate", 0.15))
+        max_iter = int(config.get("max_iter", 300))
+        weights = np.zeros(x_matrix.shape[1], dtype=float)
+        penalty = np.r_[0.0, np.repeat(alpha, x_matrix.shape[1] - 1)]
+        for _ in range(max_iter):
+            logits = np.clip(x_matrix @ weights, -30, 30)
+            probabilities = 1.0 / (1.0 + np.exp(-logits))
+            gradient = (x_matrix.T @ (probabilities - y_values)) / len(y_values)
+            gradient += penalty * weights / len(y_values)
+            weights -= learning_rate * gradient
+
+        logits = np.clip(x_matrix @ weights, -30, 30)
+        probabilities = pd.Series(
+            1.0 / (1.0 + np.exp(-logits)),
+            index=x_raw.index,
+            name="predicted_probability",
+        ).clip(0.0, 1.0)
+        names = ["const", *list(x_raw.columns)]
+        params = pd.Series(weights, index=names)
+        null_rate = float(np.clip(y_values.mean(), 1e-9, 1 - 1e-9))
+        pred = np.clip(probabilities.to_numpy(dtype=float), 1e-9, 1 - 1e-9)
+        ll_model = float((y_values * np.log(pred) + (1 - y_values) * np.log(1 - pred)).sum())
+        ll_null = float(
+            (y_values * math.log(null_rate) + (1 - y_values) * math.log(1 - null_rate)).sum()
+        )
+        pseudo_r2 = 1.0 - (ll_model / ll_null) if ll_null else float("nan")
+
+        return {
+            "lite": True,
+            "target": target,
+            "covariates": list(x_raw.columns),
+            "source_covariates": list(x_raw.attrs.get("source_covariates", covariates)),
+            "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
+            "y": y,
+            "x_raw": x_raw,
+            "predictions": probabilities,
+            "params": params,
+            "p_values": {name: None for name in names},
+            "pseudo_r2": float(max(0.0, min(1.0, pseudo_r2))) if not np.isnan(pseudo_r2) else None,
+            "nobs": int(len(y_values)),
+            "regularized": True,
+        }
+
     def _logistic_result_from_fit(
         self,
         fit: dict[str, Any],
         *,
         analysis_type: str = "logistic_regression",
     ) -> dict[str, Any]:
+        if fit.get("lite"):
+            params = {name: float(value) for name, value in fit["params"].items()}
+            odds_ratios = {
+                name: float(np.exp(np.clip(value, -30, 30)))
+                for name, value in fit["params"].items()
+            }
+            return {
+                "analysis_type": analysis_type,
+                "engine": "local-lite.LogisticRidge",
+                "target": fit["target"],
+                "covariates": fit["covariates"],
+                "source_covariates": fit.get("source_covariates", fit["covariates"]),
+                "encoded_covariates": fit.get("encoded_covariates", {}),
+                "nobs": int(fit["nobs"]),
+                "coefficients": params,
+                "odds_ratios": odds_ratios,
+                "p_values": fit.get("p_values", {name: None for name in params}),
+                "pseudo_r2": fit.get("pseudo_r2"),
+                "regularized_fallback": bool(fit["regularized"]),
+            }
         fitted = fit["fitted"]
         params = {name: float(value) for name, value in fitted.params.items()}
         raw_pvalues = getattr(fitted, "pvalues", None)
@@ -520,8 +629,6 @@ class AnalysisDelegator:
         analysis_type: str,
         config: dict[str, Any],
     ) -> dict[str, Any]:
-        import statsmodels.api as sm
-
         target = self._resolve_target(config)
         covariates = self._resolve_covariates(df, config)
         model_frame, y_raw, x_raw, error = self._prepare_model_frame(df, target, covariates)
@@ -529,6 +636,32 @@ class AnalysisDelegator:
             return error
         assert y_raw is not None
         assert x_raw is not None
+
+        if self._should_use_fast_regression(x_raw, config):
+            binary_y = self._binary_target(y_raw)
+            if analysis_type == "glm" and binary_y is not None:
+                fit = self._fit_binary_logit_lite(
+                    target=str(target),
+                    covariates=covariates,
+                    y=binary_y,
+                    x_raw=x_raw,
+                    config=config,
+                )
+                result = self._logistic_result_from_fit(fit, analysis_type="glm")
+                result["interpretation"] = (
+                    "Local-lite GLM used ridge logistic regression for a binary outcome."
+                )
+                return result
+            return self._run_linear_regression_lite(
+                target=str(target),
+                covariates=covariates,
+                y_raw=y_raw,
+                x_raw=x_raw,
+                analysis_type=analysis_type,
+                config=config,
+            )
+
+        import statsmodels.api as sm
 
         y = pd.to_numeric(y_raw, errors="coerce")
         x = sm.add_constant(x_raw, has_constant="add")
@@ -561,6 +694,63 @@ class AnalysisDelegator:
             "interpretation": (
                 "Local adjusted model estimates outcome association after included covariates. "
                 "Use coefficient direction, magnitude, and p-values together with the study design."
+            ),
+        }
+
+    def _should_use_fast_regression(self, x_raw: pd.DataFrame, config: dict[str, Any]) -> bool:
+        backend = str(os.environ.get("RDE_REGRESSION_BACKEND") or config.get("backend") or "auto").lower()
+        if backend in {"statsmodels", "sm"}:
+            return False
+        if backend in {"numpy", "local-lite", "fast"}:
+            return True
+        return len(x_raw) > 200 or len(x_raw.columns) > 8
+
+    def _run_linear_regression_lite(
+        self,
+        *,
+        target: str,
+        covariates: list[str],
+        y_raw: pd.Series,
+        x_raw: pd.DataFrame,
+        analysis_type: str,
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        x_numeric = x_raw.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+        y_values = pd.to_numeric(y_raw, errors="coerce").fillna(0.0).to_numpy(dtype=float)
+        means = x_numeric.mean()
+        stds = x_numeric.std(ddof=0).replace(0, 1.0).fillna(1.0)
+        x_scaled = (x_numeric - means) / stds
+        x_matrix = np.column_stack([np.ones(len(x_scaled)), x_scaled.to_numpy(dtype=float)])
+        alpha = float(config.get("regularization_alpha", 1.0))
+        penalty = np.eye(x_matrix.shape[1]) * alpha
+        penalty[0, 0] = 0.0
+        beta = np.linalg.pinv(x_matrix.T @ x_matrix + penalty) @ x_matrix.T @ y_values
+        fitted = x_matrix @ beta
+        residual = y_values - fitted
+        ss_res = float(np.square(residual).sum())
+        ss_tot = float(np.square(y_values - y_values.mean()).sum())
+        r_squared = 1.0 - ss_res / ss_tot if ss_tot else 0.0
+        nobs = len(y_values)
+        n_predictors = max(1, x_matrix.shape[1] - 1)
+        adj_r_squared = 1.0 - (1.0 - r_squared) * (nobs - 1) / max(1, nobs - n_predictors - 1)
+        names = ["const", *list(x_raw.columns)]
+        coefficients = {name: float(value) for name, value in zip(names, beta, strict=False)}
+        return {
+            "analysis_type": analysis_type,
+            "engine": "local-lite.LinearRidge",
+            "target": target,
+            "covariates": list(x_raw.columns),
+            "source_covariates": list(x_raw.attrs.get("source_covariates", covariates)),
+            "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
+            "nobs": int(nobs),
+            "coefficients": coefficients,
+            "p_values": {name: None for name in coefficients},
+            "r_squared": float(max(0.0, min(1.0, r_squared))),
+            "adj_r_squared": float(max(-1.0, min(1.0, adj_r_squared))),
+            "regularized_fallback": True,
+            "interpretation": (
+                "Local-lite ridge linear model estimates adjusted associations quickly for high-dimensional data. "
+                "Coefficients are on standardized covariate scale; p-values are omitted."
             ),
         }
 

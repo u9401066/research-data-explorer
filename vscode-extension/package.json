@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "13-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {
@@ -184,6 +184,11 @@
       {
         "command": "rde.setupWorkspace",
         "title": "Setup Workspace - 設定 Skills/Prompts/Instructions",
+        "category": "RDE"
+      },
+      {
+        "command": "rde.configureCodex",
+        "title": "Configure Codex MCP",
         "category": "RDE"
       },
       {

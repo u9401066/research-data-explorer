@@ -485,6 +485,45 @@ def test_evaluate_report_readiness_blocks_academic_only_plan_from_production_rep
     )
 
 
+def test_evaluate_report_readiness_promotes_execution_evidence_to_production_tier(
+    tmp_path: Path,
+) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store, include_report=False)
+    store.save(
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+        "analysis_plan_review.json",
+        {
+            "status": "pass",
+            "completeness_tier": "academic_ready",
+            "recommended_analysis_floor": 5,
+            "academic_analysis_target": 5,
+            "production_analysis_target": 5,
+        },
+    )
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 22,
+            "decision_count": 24,
+            "plan_coverage": {"planned": 17, "executed": 22, "coverage": 1.0},
+            "phase6_progress": {"required_coverage": 0.8},
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+        require_report_generation=False,
+    )
+
+    assert readiness["ready"] is True
+    assert readiness["current_tier"] == "production_ready"
+    assert "core_goal:report_generation" not in readiness["missing_requirements"]
+
+
 def test_evaluate_report_readiness_uses_saved_counts_when_called_with_partial_payload(
     tmp_path: Path,
 ) -> None:

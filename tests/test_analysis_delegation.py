@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # mypy: disable-error-code=import-untyped
 
+import builtins
 from typing import Any
 
 import pandas as pd
@@ -107,6 +108,72 @@ def test_delegator_encodes_categorical_covariates_for_local_logistic_regression(
     assert payload["encoded_covariates"]["sex"]
     assert any(name.startswith("sex_") for name in payload["covariates"])
     assert any(name.startswith("sex_") for name in payload["odds_ratios"])
+
+
+def test_delegator_uses_fast_logit_for_high_cardinality_without_statsmodels(
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "statsmodels" or name.startswith("statsmodels."):
+            raise AssertionError("high-cardinality local-lite logistic should not import statsmodels")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    df = pd.DataFrame(
+        {
+            "outcome": [0, 1] * 40,
+            "trial": list(range(80)),
+            "operator": [f"op_{index % 20}" for index in range(80)],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "logistic_regression",
+        {"target": "outcome", "covariates": ["trial", "operator"]},
+    )
+
+    assert result["source"] == "local-lite (numpy)"
+    assert result["result"]["engine"] == "local-lite.LogisticRidge"
+    assert result["result"]["nobs"] == 80
+    assert "operator_op_1" in result["result"]["odds_ratios"]
+
+
+def test_delegator_uses_fast_linear_model_for_high_cardinality_without_statsmodels(
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "statsmodels" or name.startswith("statsmodels."):
+            raise AssertionError("high-cardinality local-lite regression should not import statsmodels")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    df = pd.DataFrame(
+        {
+            "duration": [float(index % 17 + index * 0.2) for index in range(80)],
+            "trial": list(range(80)),
+            "operator": [f"op_{index % 20}" for index in range(80)],
+        }
+    )
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "multiple_regression",
+        {"target": "duration", "covariates": ["trial", "operator"]},
+    )
+
+    assert result["source"] == "local-lite (numpy)"
+    assert result["result"]["engine"] == "local-lite.LinearRidge"
+    assert result["result"]["nobs"] == 80
+    assert "operator_op_1" in result["result"]["coefficients"]
 
 
 def test_delegator_runs_local_roc_auc_without_automl() -> None:

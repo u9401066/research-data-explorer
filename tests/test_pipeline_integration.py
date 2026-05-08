@@ -1288,6 +1288,180 @@ def test_unconfirmed_phase4_stays_blocked_after_session_reload(
     assert "requires explicit user confirmation" in reason
 
 
+def test_phase_gate_reconciles_artifact_backed_progress_in_live_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """External workers may add artifacts after the MCP server has a pipeline in memory."""
+
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+    project, store = _setup_project(tmp_path)
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+
+    phase_payloads = {
+        PipelinePhase.PROJECT_SETUP: {"project.yaml": {"id": project.id}},
+        PipelinePhase.DATA_INTAKE: {"intake_report.json": {"dataset_id": "dataset-1"}},
+        PipelinePhase.SCHEMA_REGISTRY: {"schema.json": {"dataset_id": "dataset-1"}},
+        PipelinePhase.CONCEPT_ALIGNMENT: {
+            "concept_alignment.md": "# alignment",
+            "variable_roles.json": {"confirmed": True},
+        },
+        PipelinePhase.CREATIVE_IDEATION: {
+            "greedy_analysis_candidates.json": {"confirmed": True, "candidates": []},
+            "greedy_analysis_candidates.md": "# candidates",
+            "greedy_execution_schedule.json": {"steps": []},
+            "greedy_execution_schedule.md": "# schedule",
+            "greedy_plan_enrichment.json": {"items": []},
+            "greedy_plan_enrichment.md": "# enrichment",
+            "greedy_statsmodels_base_analysis.py": "# generated",
+        },
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW: {
+            "analysis_plan_review.json": {"confirmed": True},
+            "analysis_plan_review.md": "# review",
+        },
+        PipelinePhase.PLAN_REGISTRATION: {
+            "analysis_plan.yaml": {"locked": True, "analyses": []},
+        },
+    }
+    for phase in [
+        PipelinePhase.PROJECT_SETUP,
+        PipelinePhase.DATA_INTAKE,
+        PipelinePhase.SCHEMA_REGISTRY,
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        PipelinePhase.CREATIVE_IDEATION,
+        PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+        PipelinePhase.PLAN_REGISTRATION,
+    ]:
+        for filename, payload in phase_payloads[phase].items():
+            store.save(phase, filename, payload)
+        pipeline.mark_completed(
+            PhaseResult(
+                phase,
+                datetime.now(),
+                True,
+                {name: "" for name in phase_payloads[phase]},
+                user_confirmed=phase
+                in {
+                    PipelinePhase.CONCEPT_ALIGNMENT,
+                    PipelinePhase.CREATIVE_IDEATION,
+                    PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+                    PipelinePhase.PLAN_REGISTRATION,
+                },
+            )
+        )
+        project.advance_to(ProjectStatus(phase.value))
+
+    assert PipelinePhase.PRE_EXPLORE_CHECK not in pipeline.completed_phases
+    assert ProjectStatus.PRE_EXPLORE_CHECK not in project.completed_phases
+
+    # Simulate a durable runner or timeout fallback writing Phase 7 evidence from
+    # another process. The live MCP server must reconcile this before Phase 8.
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {"all_passed": True, "checks": []},
+    )
+
+    from rde.interface.mcp.tools._shared.project_context import ensure_phase_ready
+
+    ok, reason, _, _ = ensure_phase_ready(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        project_id=project.id,
+    )
+
+    assert ok is True, reason
+    assert PipelinePhase.PRE_EXPLORE_CHECK in pipeline.completed_phases
+    assert ProjectStatus.PRE_EXPLORE_CHECK in project.completed_phases
+
+
+def test_artifact_backed_phase_sync_preserves_failed_readiness_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path))
+    project, store = _setup_project(tmp_path)
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+
+    for phase, filename, payload, confirmed in [
+        (PipelinePhase.PROJECT_SETUP, "project.yaml", {"id": project.id}, False),
+        (PipelinePhase.DATA_INTAKE, "intake_report.json", {"dataset_id": "dataset-1"}, False),
+        (PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"dataset_id": "dataset-1"}, False),
+        (
+            PipelinePhase.CONCEPT_ALIGNMENT,
+            "variable_roles.json",
+            {"confirmed": True},
+            True,
+        ),
+        (
+            PipelinePhase.PLAN_REGISTRATION,
+            "analysis_plan.yaml",
+            {"locked": True, "analyses": []},
+            True,
+        ),
+    ]:
+        store.save(phase, filename, payload)
+        if phase == PipelinePhase.CONCEPT_ALIGNMENT:
+            store.save(phase, "concept_alignment.md", "# alignment")
+        if phase == PipelinePhase.PLAN_REGISTRATION:
+            store.save(
+                PipelinePhase.CREATIVE_IDEATION,
+                "greedy_analysis_candidates.json",
+                {"confirmed": True},
+            )
+            store.save(
+                PipelinePhase.CREATIVE_IDEATION,
+                "greedy_analysis_candidates.md",
+                "# candidates",
+            )
+            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_execution_schedule.json", {})
+            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_execution_schedule.md", "# schedule")
+            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_plan_enrichment.json", {})
+            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_plan_enrichment.md", "# enrichment")
+            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_statsmodels_base_analysis.py", "# py")
+            store.save(
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+                "analysis_plan_review.json",
+                {"confirmed": True},
+            )
+            store.save(PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.md", "# review")
+            for prereq in [
+                PipelinePhase.CREATIVE_IDEATION,
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+            ]:
+                pipeline.mark_completed(
+                    PhaseResult(
+                        prereq,
+                        datetime.now(),
+                        True,
+                        {},
+                        user_confirmed=True,
+                    )
+                )
+                project.advance_to(ProjectStatus(prereq.value))
+        pipeline.mark_completed(
+            PhaseResult(phase, datetime.now(), True, {filename: ""}, user_confirmed=confirmed)
+        )
+        project.advance_to(ProjectStatus(phase.value))
+
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {"all_passed": False, "checks": [{"id": "H-003", "passed": False}]},
+    )
+
+    from rde.interface.mcp.tools._shared.project_context import ensure_phase_ready
+
+    ok, reason, _, _ = ensure_phase_ready(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        project_id=project.id,
+    )
+
+    assert ok is False
+    assert "did not complete successfully" in reason
+
+
 def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 

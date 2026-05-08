@@ -92,14 +92,14 @@ def _make_phase8_ready_project(tmp_path: Path) -> tuple[Project, ArtifactStore]:
         _complete_phase(
             store,
             PipelinePhase.CONCEPT_ALIGNMENT,
-            {"concept_alignment.md": "", "variable_roles.json": {}},
+            {"concept_alignment.md": "", "variable_roles.json": {"confirmed": True}},
             user_confirmed=True,
         ),
         _complete_phase(
             store,
             PipelinePhase.CREATIVE_IDEATION,
             {
-                "greedy_analysis_candidates.json": {},
+                "greedy_analysis_candidates.json": {"confirmed": True},
                 "greedy_analysis_candidates.md": "",
                 "greedy_execution_schedule.json": [],
                 "greedy_execution_schedule.md": "",
@@ -112,7 +112,7 @@ def _make_phase8_ready_project(tmp_path: Path) -> tuple[Project, ArtifactStore]:
         _complete_phase(
             store,
             PipelinePhase.PLAN_COMPLETENESS_REVIEW,
-            {"analysis_plan_review.json": {}, "analysis_plan_review.md": ""},
+            {"analysis_plan_review.json": {"confirmed": True}, "analysis_plan_review.md": ""},
             user_confirmed=True,
         ),
         _complete_phase(

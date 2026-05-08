@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 /**
  * Check if the workspace has a user-defined rde MCP server in .vscode/mcp.json.
@@ -279,4 +280,96 @@ export function countMissingBundledItems(
         missingCodexInstructions,
         total,
     };
+}
+
+export interface CodexRdeMcpConfigOptions {
+    command?: string;
+    projectPath: string;
+    workspacePath?: string;
+    serverName?: string;
+}
+
+export interface CodexRdeMcpConfigResult {
+    changed: boolean;
+    configPath: string;
+}
+
+function tomlString(value: string): string {
+    return JSON.stringify(value);
+}
+
+export function codexConfigPath(homeDir: string = os.homedir()): string {
+    return path.join(homeDir, '.codex', 'config.toml');
+}
+
+export function buildCodexRdeMcpBlock(options: CodexRdeMcpConfigOptions): string {
+    const serverName = options.serverName ?? 'research-data-explorer';
+    const command = options.command || 'uv';
+    const projectPath = path.resolve(options.projectPath);
+    const workspacePath = path.resolve(options.workspacePath ?? options.projectPath);
+    return [
+        '# Managed by Research Data Explorer VS Code extension.',
+        `[mcp_servers.${serverName}]`,
+        `command = ${tomlString(command)}`,
+        `args = ["run", "--directory", ${tomlString(projectPath)}, "python", "-m", "rde"]`,
+        `cwd = ${tomlString(projectPath)}`,
+        '',
+        `[mcp_servers.${serverName}.env]`,
+        `RDE_WORKSPACE = ${tomlString(workspacePath)}`,
+        'PYTHONUTF8 = "1"',
+        'PYTHONIOENCODING = "utf-8"',
+    ].join('\n');
+}
+
+export function upsertCodexRdeMcpConfig(
+    existingContent: string,
+    options: CodexRdeMcpConfigOptions,
+): string {
+    const serverName = options.serverName ?? 'research-data-explorer';
+    const headerPattern = new RegExp(
+        String.raw`^\[mcp_servers\.${escapeRegExp(serverName)}(?:\.env)?\]\s*$`,
+    );
+    const lines = existingContent.replace(/\r\n/g, '\n').split('\n');
+    const kept: string[] = [];
+    let skipping = false;
+
+    for (const line of lines) {
+        if (line.trim() === '# Managed by Research Data Explorer VS Code extension.') {
+            continue;
+        }
+        const startsTable = /^\s*\[.+\]\s*$/.test(line);
+        if (startsTable) {
+            skipping = headerPattern.test(line.trim());
+            if (skipping) {
+                continue;
+            }
+        }
+        if (!skipping) {
+            kept.push(line);
+        }
+    }
+
+    const trimmed = kept.join('\n').trimEnd();
+    const block = buildCodexRdeMcpBlock(options);
+    return `${trimmed ? `${trimmed}\n\n` : ''}${block}\n`;
+}
+
+export function configureCodexRdeMcpConfigFile(
+    configPath: string,
+    options: CodexRdeMcpConfigOptions,
+): CodexRdeMcpConfigResult {
+    const existing = fs.existsSync(configPath)
+        ? fs.readFileSync(configPath, 'utf-8')
+        : '';
+    const updated = upsertCodexRdeMcpConfig(existing, options);
+    const changed = existing !== updated;
+    if (changed) {
+        fs.mkdirSync(path.dirname(configPath), { recursive: true });
+        fs.writeFileSync(configPath, updated, 'utf-8');
+    }
+    return { changed, configPath };
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

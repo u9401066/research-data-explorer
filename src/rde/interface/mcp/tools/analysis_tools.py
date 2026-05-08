@@ -7,6 +7,7 @@ All tools return markdown strings.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -772,6 +773,7 @@ def register_analysis_tools(server: Any) -> None:
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
+            log_tool_result,
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
@@ -946,6 +948,7 @@ def register_analysis_tools(server: Any) -> None:
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
+            log_tool_result,
             log_tool_error,
             fmt_error,
             fmt_table,
@@ -1036,6 +1039,7 @@ def register_analysis_tools(server: Any) -> None:
                 f"{variable_name}: {profile.variable_type}",
             )
 
+            log_tool_result("analyze_variable", f"{variable_name}: {profile.variable_type}")
             return "\n".join(lines)
 
         except Exception as e:
@@ -1063,6 +1067,7 @@ def register_analysis_tools(server: Any) -> None:
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
+            log_tool_result,
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
@@ -1089,6 +1094,8 @@ def register_analysis_tools(server: Any) -> None:
 
         try:
             from dataclasses import replace
+            from datetime import datetime
+            from rde.domain.models.analysis import AnalysisResult
             from rde.application.use_cases.compare_groups import CompareGroupsUseCase
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from rde.infrastructure.adapters import ScipyStatisticalEngine
@@ -1100,21 +1107,56 @@ def register_analysis_tools(server: Any) -> None:
                 [*outcome_variables, group_variable],
             )
 
-            result = use_case.execute(
-                dataset=entry.dataset,
-                raw_data=analysis_df,
-                outcome_variables=outcome_variables,
-                group_variable=group_variable,
-                is_paired=is_paired,
-            )
+            if len(outcome_variables) > 1:
+                single_results = [
+                    use_case.execute(
+                        dataset=entry.dataset,
+                        raw_data=analysis_df,
+                        outcome_variables=[outcome],
+                        group_variable=group_variable,
+                        is_paired=is_paired,
+                    )
+                    for outcome in outcome_variables
+                ]
+                tests = tuple(test for item in single_results for test in item.tests)
+                warnings = tuple(
+                    warning
+                    for item in single_results
+                    for warning in item.warnings
+                )
+                if len(outcome_variables) > 1:
+                    warnings = (
+                        "[S-002] Multiple comparisons: apply Bonferroni/FDR correction.",
+                        *warnings,
+                    )
+                result = AnalysisResult(
+                    dataset_id=entry.dataset.id,
+                    analysis_type="bivariate_comparison",
+                    created_at=datetime.now(),
+                    tests=tests,
+                    summary=f"Compared {len(tests)} variables: "
+                    f"{sum(1 for test in tests if test.is_significant)} significant.",
+                    warnings=warnings,
+                )
+            else:
+                result = use_case.execute(
+                    dataset=entry.dataset,
+                    raw_data=analysis_df,
+                    outcome_variables=outcome_variables,
+                    group_variable=group_variable,
+                    is_paired=is_paired,
+                )
 
-            figures, figure_warnings = _auto_create_group_comparison_figures(
-                project=project,
-                dataset=entry.dataset,
-                dataframe=analysis_df,
-                outcome_variables=outcome_variables,
-                group_variable=group_variable,
-            )
+            if os.environ.get("RDE_COMPARE_AUTO_FIGURES", "0") == "1":
+                figures, figure_warnings = _auto_create_group_comparison_figures(
+                    project=project,
+                    dataset=entry.dataset,
+                    dataframe=analysis_df,
+                    outcome_variables=outcome_variables,
+                    group_variable=group_variable,
+                )
+            else:
+                figures, figure_warnings = [], []
             result = replace(result, figures=tuple(figure["path"] for figure in figures))
             entry.analysis_results.append(result)
 
@@ -1252,6 +1294,7 @@ def register_analysis_tools(server: Any) -> None:
                 ],
             )
 
+            log_tool_result("compare_groups", f"{len(result.tests)} tests")
             return "\n".join(lines)
 
         except ValueError as e:
@@ -1377,6 +1420,7 @@ def register_analysis_tools(server: Any) -> None:
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
+            log_tool_result,
             log_tool_error,
             fmt_error,
             ensure_minimum_sample_size,
@@ -1498,6 +1542,7 @@ def register_analysis_tools(server: Any) -> None:
                 artifacts=[str(table_one_md_path)],
             )
 
+            log_tool_result("generate_table_one", f"{len(cols)} variables")
             return "\n".join(lines)
 
         except Exception as e:

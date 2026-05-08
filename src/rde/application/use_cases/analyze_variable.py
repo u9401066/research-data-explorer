@@ -14,6 +14,7 @@ import pandas as pd
 
 from rde.domain.models.analysis import StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset
+from rde.domain.policies.heuristics import AnalysisHeuristics
 from rde.domain.services.numeric_plausibility import apply_numeric_plausibility_filters
 from rde.domain.models.variable import VariableType
 from rde.domain.policies.soft_constraints import SoftConstraints
@@ -114,22 +115,29 @@ class AnalyzeVariableUseCase:
             }
 
             # S-001: Normality
-            norm_result = self._engine.run_test(filtered_df, "Shapiro-Wilk", [variable_name])
-            norm_p = norm_result.get("p_value")
-            is_normal = norm_p > 0.05 if norm_p is not None else None
+            heuristics = AnalysisHeuristics()
+            if len(valid_col) <= heuristics.normality_large_sample_threshold:
+                norm_result = self._engine.run_test(filtered_df, "Shapiro-Wilk", [variable_name])
+                norm_p = norm_result.get("p_value")
+                is_normal = norm_p > 0.05 if norm_p is not None else None
 
-            if norm_p is not None:
-                normality_test = StatisticalTest(
-                    test_name="Shapiro-Wilk",
-                    category=TestCategory.NORMALITY,
-                    statistic=norm_result.get("statistic", 0),
-                    p_value=norm_p,
-                    variables_involved=(variable_name,),
-                    interpretation=norm_result.get("interpretation", ""),
+                if norm_p is not None:
+                    normality_test = StatisticalTest(
+                        test_name="Shapiro-Wilk",
+                        category=TestCategory.NORMALITY,
+                        statistic=norm_result.get("statistic", 0),
+                        p_value=norm_p,
+                        variables_involved=(variable_name,),
+                        interpretation=norm_result.get("interpretation", ""),
+                    )
+                    s001 = SoftConstraints.s001_normality_check(is_normal, norm_p)
+                    if not s001.passed:
+                        advisories.append(f"[S-001] {s001.suggestion}")
+            else:
+                advisories.append(
+                    "[S-001] Large sample: skipped Shapiro-Wilk; use distribution shape, "
+                    "visual checks, and robust/non-parametric sensitivity when skewed."
                 )
-                s001 = SoftConstraints.s001_normality_check(is_normal, norm_p)
-                if not s001.passed:
-                    advisories.append(f"[S-001] {s001.suggestion}")
 
             # S-004: Skewness transform
             s004 = SoftConstraints.s004_transform_suggestion(skew_val)

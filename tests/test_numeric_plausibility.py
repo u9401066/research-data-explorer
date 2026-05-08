@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+import builtins
+
 import pandas as pd
 
 from rde.application.use_cases.analyze_variable import AnalyzeVariableUseCase
 from rde.domain.models.dataset import Dataset
 from rde.domain.models.variable import Variable, VariableType
 from rde.domain.ports import StatisticalEnginePort
+from rde.infrastructure.adapters.scipy_engine import ScipyStatisticalEngine
 from rde.domain.services.numeric_plausibility import apply_numeric_plausibility_filters
 
 
 class DummyStatisticalEngine(StatisticalEnginePort):
     def __init__(self) -> None:
         self.last_data = None
+        self.run_count = 0
 
     def run_test(self, data, test_name, variables, **kwargs):
+        self.run_count += 1
         self.last_data = data.copy()
         return {"statistic": 0.95, "p_value": 0.2, "interpretation": "ok"}
 
@@ -69,3 +74,44 @@ def test_analyze_variable_excludes_implausible_values_before_statistics() -> Non
     assert any("排除 2 筆不合理值" in advisory for advisory in profile.advisories)
     assert engine.last_data is not None
     assert engine.last_data["bmi"].dropna().tolist() == [24.0, 26.0]
+
+
+def test_analyze_variable_skips_shapiro_for_large_samples() -> None:
+    df = pd.DataFrame({"score": list(range(60))})
+    dataset = Dataset(
+        variables=[
+            Variable(name="score", dtype="int64", variable_type=VariableType.CONTINUOUS),
+        ],
+        row_count=len(df),
+    )
+    engine = DummyStatisticalEngine()
+
+    profile = AnalyzeVariableUseCase(engine).execute(dataset, df, "score")
+
+    assert engine.run_count == 0
+    assert profile.normality_test is None
+    assert profile.advisories is not None
+    assert any("Large sample" in advisory for advisory in profile.advisories)
+
+
+def test_post_hoc_power_uses_local_lite_backend_without_scipy(monkeypatch) -> None:
+    engine = ScipyStatisticalEngine()
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "scipy" or name.startswith("scipy."):
+            raise AssertionError("local-lite post_hoc_power should not import scipy")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.delenv("RDE_STATS_BACKEND", raising=False)
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    result = engine.post_hoc_power(
+        test_name="Mann-Whitney U",
+        effect_size=0.25,
+        n=780,
+        n_groups=2,
+    )
+
+    assert 0.0 <= result["power"] <= 1.0
+    assert result["backend"] == "local-lite"

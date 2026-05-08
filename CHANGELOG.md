@@ -6,6 +6,24 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.12] - 2026-05-08
+
+### 0.4.12 Fixed
+
+- Reconciled live MCP phase gates with durable project artifacts so Codex/RDE tools can resume after session drift without weakening failed readiness or plan-lock checks.
+- Changed `run_audit()` to diagnose stale or incomplete report contracts from project artifacts instead of being blocked by missing in-memory confirmation state.
+- Hardened no-Docker local-lite execution for large routine clinical EDA: large-sample univariate summaries skip slow Shapiro-Wilk checks, Table 1 avoids fragile heavy imports by default, and group tests/post-hoc power use local fallbacks.
+- Added pure headless Matplotlib paths for common histogram, scatter, bar, heatmap, and line figures so publication bundles can be generated without seaborn in the core report path.
+- Added fast numpy-backed local-lite fallbacks for high-cardinality logistic and linear models when statsmodels would be too slow or unavailable.
+- ASCII-escaped JSON/JSONL artifacts so Windows ANSI/CP950 readers do not corrupt audit JSON that contains CJK labels or status symbols.
+
+### 0.4.12 Added
+
+- `scripts/codex_rde_smoke.py --full-yolo` now runs the governed MCP flow from real data through audit and auto-improve, including approval/dashboard/artifact/blocker UX harness artifacts.
+- Regression coverage for artifact-backed phase sync, failed readiness preservation, audit recomputation, no-SciPy/no-seaborn fallback paths, and high-cardinality local-lite models.
+- Regression coverage for Windows ANSI-safe JSON and JSONL artifact reads.
+- README/i18n release documentation now records the real Excel full-yolo validation evidence, no-Docker local-lite behavior, and cross-platform Codex/VSIX configuration expectations.
+
 ## [0.4.11] - 2026-05-07
 
 ### 0.4.11 Fixed

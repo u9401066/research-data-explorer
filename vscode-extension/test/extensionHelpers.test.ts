@@ -5,12 +5,16 @@ import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+    buildCodexRdeMcpBlock,
     buildDevPythonPath,
+    configureCodexRdeMcpConfigFile,
     countMissingBundledItems,
+    codexConfigPath,
     determinePythonPath,
     isBundledToolProject,
     isDevWorkspace,
     shouldSkipMcpRegistration,
+    upsertCodexRdeMcpConfig,
 } from '../src/extensionHelpers';
 
 const tempDirs: string[] = [];
@@ -148,5 +152,71 @@ describe('extensionHelpers', () => {
         expect(missing.missingCodexSkills).toBe(1);
         expect(missing.missingClineRules).toBe(1);
         expect(missing.missingCodexInstructions).toBe(1);
+    });
+
+    it('builds a Codex MCP block for a local RDE project with UTF-8 env', () => {
+        const root = makeTempDir();
+        const workspace = path.join(root, 'workspace');
+        const project = path.join(root, 'bundled', 'tool');
+
+        const block = buildCodexRdeMcpBlock({
+            command: 'uv',
+            projectPath: project,
+            workspacePath: workspace,
+        });
+
+        expect(block).toContain('[mcp_servers.research-data-explorer]');
+        expect(block).toContain('"run", "--directory"');
+        expect(block).toContain(JSON.stringify(path.resolve(project)));
+        expect(block).toContain(`RDE_WORKSPACE = ${JSON.stringify(path.resolve(workspace))}`);
+        expect(block).toContain('PYTHONUTF8 = "1"');
+        expect(block).toContain('PYTHONIOENCODING = "utf-8"');
+    });
+
+    it('upserts Codex MCP config without duplicating the managed RDE block', () => {
+        const root = makeTempDir();
+        const existing = [
+            '[mcp_servers.other]',
+            'command = "node"',
+            '',
+            '[mcp_servers.research-data-explorer]',
+            'command = "old"',
+            '',
+            '[mcp_servers.research-data-explorer.env]',
+            'RDE_WORKSPACE = "old"',
+            '',
+        ].join('\n');
+
+        const once = upsertCodexRdeMcpConfig(existing, {
+            projectPath: path.join(root, 'tool'),
+            workspacePath: path.join(root, 'workspace'),
+        });
+        const twice = upsertCodexRdeMcpConfig(once, {
+            projectPath: path.join(root, 'tool'),
+            workspacePath: path.join(root, 'workspace'),
+        });
+
+        expect(twice).toBe(once);
+        expect(twice).toContain('[mcp_servers.other]');
+        expect((twice.match(/\[mcp_servers\.research-data-explorer\]/g) || [])).toHaveLength(1);
+        expect((twice.match(/\[mcp_servers\.research-data-explorer\.env\]/g) || [])).toHaveLength(1);
+        expect(twice).not.toContain('command = "old"');
+    });
+
+    it('writes the Codex config file idempotently', () => {
+        const home = makeTempDir();
+        const config = codexConfigPath(home);
+        const first = configureCodexRdeMcpConfigFile(config, {
+            projectPath: path.join(home, 'tool'),
+            workspacePath: path.join(home, 'workspace'),
+        });
+        const second = configureCodexRdeMcpConfigFile(config, {
+            projectPath: path.join(home, 'tool'),
+            workspacePath: path.join(home, 'workspace'),
+        });
+
+        expect(first.changed).toBe(true);
+        expect(second.changed).toBe(false);
+        expect(fs.readFileSync(config, 'utf-8')).toContain('[mcp_servers.research-data-explorer]');
     });
 });

@@ -99,6 +99,21 @@ class SessionRegistry:
             self._pipelines[project_id] = PipelineState(project_id=project_id)
         return self._pipelines[project_id]
 
+    def sync_project_from_artifacts(self, project_id: str | None = None) -> Project:
+        """Merge artifact-backed phase progress into live project and pipeline state.
+
+        MCP servers keep state in memory, while durable runners and recovery
+        fallbacks may write artifacts from a different process. Phase gates must
+        trust completed artifacts without weakening failed prerequisite checks.
+        """
+
+        project = self.get_project(project_id)
+        changed = self._repair_project_from_artifacts(project)
+        self._sync_pipeline_from_project(project)
+        if changed:
+            self._save_project_best_effort(project)
+        return project
+
     def _load_project_from_repository(self, project_id: str) -> Project | None:
         from rde.infrastructure.persistence import (
             FileSystemProjectRepository,
@@ -117,6 +132,19 @@ class SessionRegistry:
         self.register_project(project)
         self._rehydrate_pipeline(project)
         return project
+
+    def _save_project_best_effort(self, project: Project) -> None:
+        from rde.infrastructure.persistence import (
+            FileSystemProjectRepository,
+            resolve_projects_base_dir,
+        )
+
+        try:
+            FileSystemProjectRepository(resolve_projects_base_dir()).save(project)
+        except Exception:
+            # Artifact-backed resume should not fail a live tool call merely
+            # because repository metadata cannot be refreshed.
+            pass
 
     def _repair_project_from_artifacts(self, project: Project) -> bool:
         """Backfill legacy project state from existing phase artifacts."""
@@ -162,16 +190,22 @@ class SessionRegistry:
             return
 
         pipeline = PipelineState(project_id=project.id)
+        self._pipelines[project.id] = pipeline
+        self._sync_pipeline_from_project(project)
+
+    def _sync_pipeline_from_project(self, project: Project) -> None:
+        pipeline = self.get_pipeline(project.id)
+        pipeline.is_quick_explore = project.config.get("mode") == "quick_explore"
         completed_statuses = set(project.completed_phases)
         store = ArtifactStore(project.artifacts_dir)
 
+        completed_at = (
+            project.created_at if isinstance(project.created_at, datetime) else datetime.now()
+        )
         for project_status in PIPELINE_ORDER:
             if project_status not in completed_statuses:
                 continue
             pipeline_phase = PipelinePhase(project_status.value)
-            completed_at = (
-                project.created_at if isinstance(project.created_at, datetime) else datetime.now()
-            )
             success = self._artifact_phase_success(
                 store,
                 pipeline_phase,
@@ -182,21 +216,30 @@ class SessionRegistry:
                 pipeline_phase,
                 project_plan_locked=project.plan_locked,
             )
-            pipeline.mark_completed(
-                PhaseResult(
-                    phase=pipeline_phase,
-                    completed_at=completed_at,
-                    success=success,
-                    artifacts={},
-                    user_confirmed=user_confirmed,
+            artifacts = {
+                filename: str(store.get_path(pipeline_phase, filename))
+                for filename in REQUIRED_ARTIFACTS.get(pipeline_phase, [])
+                if store.exists(pipeline_phase, filename)
+            }
+            existing = pipeline.completed_phases.get(pipeline_phase)
+            if existing is None:
+                pipeline.mark_completed(
+                    PhaseResult(
+                        phase=pipeline_phase,
+                        completed_at=completed_at,
+                        success=success,
+                        artifacts=artifacts,
+                        user_confirmed=user_confirmed,
+                    )
                 )
-            )
+            else:
+                existing.success = success
+                existing.artifacts.update(artifacts)
+                existing.user_confirmed = user_confirmed
 
         if project.plan_locked:
             pipeline.plan_locked = True
-            pipeline.plan_locked_at = project.created_at
-
-        self._pipelines[project.id] = pipeline
+            pipeline.plan_locked_at = pipeline.plan_locked_at or project.created_at
 
     def _analysis_plan_artifact_locked(self, store: ArtifactStore) -> bool:
         return self._effective_plan_locked(store, project_plan_locked=False)

@@ -366,6 +366,7 @@ def ensure_phase_ready(
             return False, msg, project, None
 
     session = get_session()
+    project = session.sync_project_from_artifacts(project.id)
     pipeline = session.get_pipeline(project.id)
     can_execute, reason = pipeline.can_execute(phase)
     if not can_execute:

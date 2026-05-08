@@ -1,4 +1,5 @@
 from pathlib import Path
+import builtins
 
 import pandas as pd
 
@@ -82,6 +83,92 @@ def test_grouped_bar_records_chi_square_annotation(tmp_path: Path) -> None:
     assert "precedex_exposure" not in visualizer.last_annotation_summary
     assert "0 n=30" in visualizer.last_annotation_summary
     assert "1 n=30" in visualizer.last_annotation_summary
+
+
+def test_simple_bar_uses_fast_matplotlib_path_without_seaborn(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "seaborn" or name.startswith("seaborn."):
+            raise AssertionError("simple bar charts should not import seaborn")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    df = pd.DataFrame({"outcome": [0, 1, 1, 0, 1, 0]})
+    output_path = tmp_path / "simple_bar.png"
+
+    visualizer = MatplotlibVisualizer()
+    result = visualizer.create_plot(
+        data=df,
+        plot_type="bar",
+        variables=["outcome"],
+        output_path=output_path,
+    )
+
+    assert result == str(output_path)
+    assert output_path.exists()
+    assert visualizer.last_annotation_summary == "n=6; levels=2"
+
+
+def test_histogram_uses_fast_matplotlib_path_without_seaborn(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "seaborn" or name.startswith("seaborn."):
+            raise AssertionError("histograms should not import seaborn")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    df = pd.DataFrame({"duration": [1, 2, 2, 4, 8, 16]})
+    output_path = tmp_path / "histogram.png"
+
+    visualizer = MatplotlibVisualizer()
+    result = visualizer.create_plot(
+        data=df,
+        plot_type="histogram",
+        variables=["duration"],
+        output_path=output_path,
+    )
+
+    assert result == str(output_path)
+    assert output_path.exists()
+    assert visualizer.last_annotation_summary is not None
+    assert "n=6" in visualizer.last_annotation_summary
+
+
+def test_line_plot_uses_local_lite_annotation_without_scipy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "scipy" or name.startswith("scipy."):
+            raise AssertionError("line plot annotations should not import scipy")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    df = pd.DataFrame({"trial": [1, 2, 3, 4, 5], "success": [0, 0, 1, 1, 1]})
+    output_path = tmp_path / "line.png"
+
+    visualizer = MatplotlibVisualizer()
+    result = visualizer.create_plot(
+        data=df,
+        plot_type="line",
+        variables=["trial", "success"],
+        output_path=output_path,
+    )
+
+    assert result == str(output_path)
+    assert output_path.exists()
+    assert visualizer.last_annotation_summary is not None
+    assert "Wilcoxon signed-rank" in visualizer.last_annotation_summary
 
 
 def test_histogram_excludes_implausible_adult_bmi_values(tmp_path: Path) -> None:

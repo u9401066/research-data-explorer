@@ -62,7 +62,7 @@ class DecisionLogger:
     def _append(self, path: Path, data: dict[str, Any]) -> None:
         self._ensure_file(path)
         with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(data, ensure_ascii=False, default=str) + "\n")
+            f.write(json.dumps(data, ensure_ascii=True, default=str) + "\n")
 
     def _count_lines(self, path: Path) -> int:
         if not path.exists():
