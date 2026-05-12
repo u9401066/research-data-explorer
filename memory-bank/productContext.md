@@ -21,6 +21,8 @@ Research Data Explorer (RDE) — MCP Server 提供 13-Phase Auditable EDA Pipeli
 - **Export**: Word (.docx) + PDF 輸出含嵌入圖表
 - **Machine-readable governance**: `.github/agent-control.yaml` 定義 confirm flag、PII override、audit path、delegation、analysis plan schema
 - **Plan-aware execution**: Phase 8 工具會自動比對 Phase 6 鎖定的 analysis_plan.yaml，偏離時自動寫入 deviation log
+- **Multi-workbook coverage**: Phase 1/10/11 readiness now tracks raw workbook and worksheet coverage so reports cannot silently claim completeness when Excel sheets are unreviewed or excluded without rationale
+- **Structured interpretation**: Figure-heavy reports must include structured figure interpretation and literature-aware discussion instead of presenting only tables/plots
 - **Autonomous ideation**: `propose_analysis_plan()` 以 deterministic greedy heuristic 產生 ranked candidates + visualization bundle，輸出 Phase 4 creative ideation blueprint
 - **Methodology guardrails**: Phase 5 會先做 internal review + repair；Phase 6 對 under-scoped plan 預設拒絕鎖定，除非明確 override
 

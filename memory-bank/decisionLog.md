@@ -2,6 +2,10 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-12 | Cut v0.4.13 as the multi-workbook/multi-sheet RDE harness release | The repo now blocks partial raw workbook/sheet coverage, scopes readiness to locked plan variables, requires structured figure interpretation, and has a governed KMU SPARK AKI rerun with production-ready DOCX/PDF outputs and audit grade A 165/165. |
+| 2026-05-12 | Scope Phase 7 readiness to Phase 6 plan and Phase 3 roles | Readiness is a gate for the registered analysis, not a brute-force scan of every workbook-derived column; this prevents irrelevant wide-table checks and makes pre-analysis assumptions auditable. |
+| 2026-05-12 | Treat Phase 6 execution schedule as part of plan adherence | Preparatory scheduled tools such as `apply_cleaning()` are part of the locked execution contract and should not be logged as S-011 deviations merely because they are not listed under `analyses`. |
+| 2026-05-12 | Keep original Excel/docx inputs and generated `data/` project artifacts out of release commits | These files may contain sensitive or local research data; release commits should publish source code, tests, docs, and memory, while local deliverables remain accessible in the workspace. |
 | 2026-05-08 | Cut v0.4.12 as the Codex/RDE full-yolo hardening release | The repo now has artifact-backed MCP phase resume, audit diagnostics, local-lite no-Docker fallback hardening, i18n README alignment, and a real Excel governed smoke that reaches production-ready audit evidence. |
 | 2026-05-08 | Treat README i18n as part of the release contract | Non-data-scientist users and agent operators need the same core-goal, no-Docker, validation, and limitation language in English, Traditional Chinese, and VSIX docs to avoid drift. |
 | 2026-05-08 | ASCII-escape JSON/JSONL artifacts while keeping Markdown UTF-8 | Windows ANSI/CP950 readers can corrupt raw UTF-8 status symbols in machine-readable JSON. Escaping JSON keeps artifacts parseable across shells while preserving decoded Unicode through normal JSON parsers. |

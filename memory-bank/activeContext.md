@@ -1,5 +1,15 @@
 # Active Context
 
+## MEM+ 2026-05-12
+
+- v0.4.13 release focus: multi-workbook/multi-sheet analysis coverage, scoped Phase 7 readiness, structured figure interpretation, formal report export reliability, and scheduled Phase 8 plan-adherence checks.
+- KMU SPARK AKI governed rerun completed on project `d626d6d9`: two Excel workbooks / 19 worksheets were classified as main analysis, derived merge, QC/context, or excluded context before Phase 6 lock.
+- New derived master for the rerun is 50 rows x 118 columns; Phase 8 produced 43 analyses, 27 figures, Table 1, repeated-measures tests, adjusted regressions, and propensity/balance diagnostics.
+- Phase 10/12 DOCX/PDF exports were regenerated and verified locally; report package includes embedded media and `figure_interpretation_harness.json` with 27 structured figure interpretation entries.
+- PubMed Search MCP context was added as `pubmed_literature_context.md` to keep discussion anchored to perioperative AKI, urinary biomarkers, and hypotension literature.
+- Code hardening added raw workbook/sheet coverage readiness, locked-plan/role scoped readiness, and execution-schedule-aware plan adherence.
+- Latest verification for v0.4.13: `.venv\Scripts\python.exe -m pytest -q` = 254 passed, 5 skipped; `.venv\Scripts\python.exe -m ruff check .` = all checks passed; RDE audit grade A, 165/165.
+
 ## MEM+ 2026-05-08
 
 - v0.4.12 release focus: artifact-backed MCP phase resume, audit diagnostic path, no-Docker local-lite performance/fallback hardening, Windows ANSI-safe JSON/JSONL artifacts, full-yolo Codex/RDE runner, i18n README alignment, and release verification evidence.

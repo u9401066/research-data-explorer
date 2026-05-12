@@ -34,3 +34,6 @@ Interface (MCP tools) → Application (Use Cases, Pipeline) → Domain (Pure Log
 11. **Plan-aware execution**: Phase 8 decision logging 延伸為 auto deviation detection，將 S-011 轉為可執行治理機制
 12. **Autonomous ideation stays pre-lock**: greedy EDA 發想層以 Phase 4 `propose_analysis_plan()` 產生 blueprint，不直接繞過 user confirmation 或 plan lock
 13. **Methodology gate before lock**: Phase 5 先用 deterministic review / repair 補足缺失分析家族；Phase 6 再用 methodology gate 阻止 under-scoped plan 被直接鎖定，除非明示 override
+14. **Readiness follows the locked scope**: Phase 7 prechecks use Phase 6 plan variables and Phase 3 role assignments as the primary readiness scope; full-dataset checks are only a fallback.
+15. **Execution schedule is part of the plan contract**: Phase 8 plan-adherence logic checks both planned analyses and scheduled preparation/execution steps.
+16. **Report semantics are gated artifacts**: Structured figure interpretation and literature context are first-class report-readiness evidence, not optional prose embellishments.
