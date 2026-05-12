@@ -11,7 +11,7 @@ Reference comparison: `u9401066/med-paper-assistant`, especially its VSIX releas
 | Area | Before | Fix Applied |
 | --- | --- | --- |
 | Platform claim | README listed Windows/macOS/Linux support. | Documentation now ties support to a CI smoke matrix. |
-| CI evidence | Extension tests and VSIX packaging ran on Ubuntu only. | CI and publish workflows now run VSIX smoke on `ubuntu-latest`, `windows-latest`, `macos-13`, and `macos-14`. |
+| CI evidence | Extension tests and VSIX packaging ran on Ubuntu only. | CI and publish workflows now run VSIX smoke on `ubuntu-latest`, `windows-latest`, `macos-15-intel`, and `macos-14`. |
 | VSIX package shape | Bundled Python project smoke existed, but only local/Ubuntu-gated. | Bundled install-shape smoke is now part of each platform matrix job. |
 | MCP subprocess env | `buildMcpEnv()` only set RDE/Python UTF-8 variables. | MCP env now preserves PATH/HOME/TEMP and Windows/macOS/Linux runtime variables. |
 | uv/tool lookup | Tool lookup checked known uv tool paths but did not search all enriched PATH directories. | Installed-tool discovery now searches enriched PATH first, then platform-specific uv/Homebrew/snap locations. |
@@ -64,14 +64,14 @@ CI verification:
   extension-cross-platform-smoke:
     ubuntu-latest
     windows-latest
-    macos-13
+    macos-15-intel
     macos-14
 
 .github/workflows/publish-extension.yml
   cross-platform-smoke:
     ubuntu-latest
     windows-latest
-    macos-13
+    macos-15-intel
     macos-14
 ```
 

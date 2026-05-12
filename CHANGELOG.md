@@ -16,7 +16,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### 0.4.14 Added
 
-- Added Ubuntu, Windows, macOS Intel, and macOS Apple Silicon VSIX smoke matrices to CI and extension publishing workflows, covering helper tests, bundled Python install-shape checks, VSIX packaging, and package validation before release publishing.
+- Added Ubuntu, Windows, `macos-15-intel`, and `macos-14` VSIX smoke matrices to CI and extension publishing workflows, covering helper tests, bundled Python install-shape checks, VSIX packaging, and package validation before release publishing.
 - Added `uvManager` regression coverage for PATH enrichment, inherited MCP runtime environment, uvx path derivation, and installed-tool discovery.
 
 ## [0.4.13] - 2026-05-12

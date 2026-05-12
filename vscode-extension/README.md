@@ -66,7 +66,7 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 | macOS (Intel/Apple Silicon) | ✅ | Homebrew uv 自動偵測 |
 | Linux (x64) | ✅ | snap/apt uv 支援 |
 
-The extension uses Node `path`, Python `pathlib`, UTF-8 environment variables, ASCII-escaped JSON/JSONL artifacts, and inherited PATH/HOME/TEMP runtime variables for MCP subprocesses. CI now runs VSIX helper tests, bundled-tool install smoke, package, and package validation on `ubuntu-latest`, `windows-latest`, `macos-13`, and `macos-14`; release tags are gated by the same cross-platform VSIX smoke before publishing.
+The extension uses Node `path`, Python `pathlib`, UTF-8 environment variables, ASCII-escaped JSON/JSONL artifacts, and inherited PATH/HOME/TEMP runtime variables for MCP subprocesses. CI now runs VSIX helper tests, bundled-tool install smoke, package, and package validation on `ubuntu-latest`, `windows-latest`, `macos-15-intel`, and `macos-14`; release tags are gated by the same cross-platform VSIX smoke before publishing.
 
 ## MCP Installation Behavior
 
