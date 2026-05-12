@@ -12,6 +12,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 - Hardened VSIX MCP subprocess environments by preserving PATH/HOME/TEMP and platform-specific runtime variables, matching the cross-platform behavior needed for GUI-launched VS Code on macOS and uv cache/tool resolution on Windows.
 - Replaced the VSIX validation script's `bash || powershell` fallback with an explicit platform dispatcher and ASCII status output to avoid noisy WSL/Git Bash failures or mojibake on Windows hosts.
+- Installed `uv` in the Python quality CI job so Codex/RDE MCP smoke tests exercise the same subprocess entrypoint used locally and by the VSIX matrix.
 
 ### 0.4.14 Added
 
