@@ -66,7 +66,7 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 | macOS (Intel/Apple Silicon) | ✅ | Homebrew uv 自動偵測 |
 | Linux (x64) | ✅ | snap/apt uv 支援 |
 
-The 0.4.12 release re-verified the Windows VSIX/Codex path locally and keeps the setup code on Node `path`, Python `pathlib`, UTF-8 environment variables, and ASCII-escaped JSON/JSONL artifacts. Full Linux/macOS confidence should come from the CI matrix, but the extension no longer uses Windows-only path assembly for Codex MCP configuration.
+The 0.4.13 release re-verified the Windows VSIX/Codex path locally and keeps the setup code on Node `path`, Python `pathlib`, UTF-8 environment variables, and ASCII-escaped JSON/JSONL artifacts. Full Linux/macOS confidence should come from the CI matrix, but the extension no longer uses Windows-only path assembly for Codex MCP configuration.
 
 ## MCP Installation Behavior
 
@@ -78,7 +78,7 @@ The 0.4.12 release re-verified the Windows VSIX/Codex path locally and keeps the
 
 ## Release Validation Snapshot
 
-For 0.4.12, the extension-facing path was checked with:
+For 0.4.13, the extension-facing path was checked with:
 
 ```bash
 npm test -- extensionHelpers.test.ts
@@ -87,7 +87,7 @@ python scripts/codex_rde_smoke.py --list-tools-only
 python scripts/codex_rde_smoke.py
 ```
 
-The full governed real-file smoke was also run through the RDE MCP subprocess with `scripts/codex_rde_smoke.py --full-yolo`, producing an audit grade A report with `report_readiness=production_ready` and `core_goal_audit=9/9`.
+The full governed real-file smoke was also run through the RDE MCP subprocess with `scripts/codex_rde_smoke.py --full-yolo`, and the KMU SPARK AKI multi-workbook/multi-sheet rerun produced an audit grade A report with `report_readiness=production_ready`, 43 analyses, 27 figures, and structured figure interpretation artifacts.
 
 ## automl-stat-mcp (進階分析引擎)
 

@@ -421,7 +421,7 @@ If this idea is adopted in the repo, the README should describe it explicitly as
 
 ## Validation Status
 
-The current repository has been validated in five ways for the 0.4.12 release:
+The current repository has been validated in six ways for the 0.4.13 release:
 
 1. Unit and integration tests
    - Run focused contract and harness suites with `python -m pytest ...`
@@ -441,6 +441,11 @@ The current repository has been validated in five ways for the 0.4.12 release:
    - VSIX helper tests cover Codex MCP config generation/upsert, UTF-8 environment variables, and path handling.
    - MCP inventory smoke verifies the live Codex/RDE subprocess exposes the required tool surface.
    - The repository uses `pathlib`, Node `path`, UTF-8 environment settings, and ASCII-escaped JSON/JSONL artifacts instead of shell-specific path assembly or ANSI-sensitive machine-readable output.
+6. Multi-workbook / multi-sheet governed rerun
+   - Project artifact: `data/projects/20260512_143801_kmu_spark_aki_multisheet_full_rerun_d626d6d9`
+   - Derived master: 50 rows x 118 columns from two Excel workbooks and 19 worksheets, with each sheet classified as primary analysis, derived merge, QC/context, or excluded context.
+   - Phase 8 coverage: 43 analyses, including univariate, bivariate, repeated-measures, adjusted regression, propensity/balance diagnostics, Table 1, and 27 report figures.
+   - Audit result: grade A, 165/165, `report_readiness=production_ready`, structured figure interpretation harness present.
 
 The no-Docker local-lite path now defaults away from slow or fragile heavy imports for large routine runs:
 

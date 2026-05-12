@@ -6,6 +6,24 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.13] - 2026-05-12
+
+### 0.4.13 Fixed
+
+- Added raw workbook and worksheet coverage gates so production readiness cannot silently pass when multi-file or multi-sheet Excel inputs are only partially represented.
+- Scoped Phase 7 readiness to locked Phase 6 plan variables and Phase 3 concept roles, preventing wide multi-sheet derived tables from triggering slow or irrelevant full-column prechecks.
+- Treated locked Phase 6 execution schedule steps as part of the plan-adherence contract, so scheduled preparatory actions such as `apply_cleaning()` are not falsely logged as off-plan.
+- Hardened formal DOCX/PDF exports with Word-safe image handling, report asset provenance, and figure preservation across Phase 10 and Phase 12 exports.
+- Strengthened semantic report readiness so structured figure interpretation is required when a visualization manifest exists.
+- Improved numeric-coded categorical handling and plausibility checks so variables such as sex/group indicators are analyzed semantically rather than treated as continuous measures.
+
+### 0.4.13 Added
+
+- Structured figure interpretation harness with evidence role, visual read, statistical support, caveat, reportable claim, and next-analysis fields.
+- Multi-workbook/multi-sheet KMU SPARK AKI rerun artifacts and maintenance documentation for sheet-scope alignment, derived-table strategy, PubMed context, and report verification.
+- Common medical EDA, derived-variable registry, and report asset contract services to support deeper autonomous analysis planning and report assembly.
+- Regression coverage for raw workbook/sheet coverage, scoped readiness, scheduled plan adherence, semantic figure interpretation, report exports, and no-code/autoresearch harness depth.
+
 ## [0.4.12] - 2026-05-08
 
 ### 0.4.12 Fixed

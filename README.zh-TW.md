@@ -108,7 +108,7 @@ VSIX 啟動時會嘗試自動 upsert `~/.codex/config.toml` 的 `research-data-e
 
 ## 目前驗證狀態
 
-0.4.12 release 前已驗證：
+0.4.13 release 前已驗證：
 
 - Python focused contract / harness tests。
 - VSIX helper tests 與 TypeScript compile。
@@ -116,6 +116,7 @@ VSIX 啟動時會嘗試自動 upsert `~/.codex/config.toml` 的 `research-data-e
 - Quick Explore MCP smoke：可從外部 stdio subprocess 產出 Phase 10 report。
 - 真實 Excel governed `--full-yolo` smoke：從 intake/schema/plan/readiness/Phase 8 execution/collect/report/audit/auto-improve 跑到 `production_ready`。
 - Cross-platform entrypoint checks：VSIX helper tests 覆蓋 Codex MCP config upsert、UTF-8 env、Node `path` 與 workspace/project path 產生；JSON/JSONL artifacts 也會 ASCII escape，避免 Windows ANSI/CP950 讀取 audit JSON 時破壞內容。
+- Multi-workbook / multi-sheet governed rerun：兩個 Excel workbook、19 個 worksheet 已完成 sheet-scope alignment，產生 50 rows x 118 columns derived master；Phase 8 跑出 43 個分析、27 張圖、Table 1、多變量模型與 propensity/balance diagnostics；audit grade A，165/165，`report_readiness=production_ready`，且具 structured figure interpretation harness。
 
 真實 Excel full-yolo 驗證摘要：
 
