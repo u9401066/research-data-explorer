@@ -25,7 +25,11 @@ def _sanitize_analysis_frame(
     )
 
     cleaned_df, findings = apply_numeric_plausibility_filters(df, list(variables))
-    return cleaned_df, format_plausibility_markdown(findings), summarize_plausibility_findings(findings)
+    return (
+        cleaned_df,
+        format_plausibility_markdown(findings),
+        summarize_plausibility_findings(findings),
+    )
 
 
 def _normalize_analysis_type(analysis_type: str) -> str:
@@ -553,7 +557,11 @@ def _auto_create_advanced_analysis_figures(
             already_manifested.update(figure["path"] for figure in generated)
         elif target and config.get("covariates"):
             first_covariate = next(
-                (str(value) for value in config.get("covariates", []) if str(value) in dataframe.columns),
+                (
+                    str(value)
+                    for value in config.get("covariates", [])
+                    if str(value) in dataframe.columns
+                ),
                 None,
             )
             if first_covariate and str(target) in dataframe.columns:
@@ -564,7 +572,9 @@ def _auto_create_advanced_analysis_figures(
                     if _plot_type_for_grouped_variable(dataset, str(target)) == "boxplot"
                     else "bar"
                 )
-                variables = [first_covariate, str(target)] if plot_type == "scatter" else [str(target)]
+                variables = (
+                    [first_covariate, str(target)] if plot_type == "scatter" else [str(target)]
+                )
                 output_path = (
                     Path(project.output_dir)
                     / "figures"
@@ -859,11 +869,7 @@ def _format_advanced_analysis_output(
     if artifact_path is not None:
         lines.append(f"\n**Artifact:** {artifact_path}")
 
-    if (
-        not automl_available
-        and source.startswith("local")
-        and not source.startswith("local-lite")
-    ):
+    if not automl_available and source.startswith("local") and not source.startswith("local-lite"):
         lines.append(
             "\n💡 **提示:** automl-stat-mcp 未啟動或不可用；"
             "目前使用本地 fallback，引擎能力可能受限。"
@@ -1297,11 +1303,7 @@ def register_analysis_tools(server: Any) -> None:
                     for outcome in outcome_variables
                 ]
                 tests = tuple(test for item in single_results for test in item.tests)
-                warnings = tuple(
-                    warning
-                    for item in single_results
-                    for warning in item.warnings
-                )
+                warnings = tuple(warning for item in single_results for warning in item.warnings)
                 if len(outcome_variables) > 1:
                     warnings = (
                         "[S-002] Multiple comparisons: apply Bonferroni/FDR correction.",
@@ -2121,7 +2123,8 @@ def register_analysis_tools(server: Any) -> None:
                 "run_repeated_measures",
                 {"variables": var_list, "alpha": alpha},
                 f"Friedman 檢定: {len(var_list)} 個重複測量時間點",
-                f"χ²={stat:.3f}, p={p:.6f}, W={w:.3f}" + (f"; {plausibility_summary}" if plausibility_summary else ""),
+                f"χ²={stat:.3f}, p={p:.6f}, W={w:.3f}"
+                + (f"; {plausibility_summary}" if plausibility_summary else ""),
             )
 
             return "\n".join(lines)

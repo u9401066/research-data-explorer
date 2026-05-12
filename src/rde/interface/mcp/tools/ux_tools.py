@@ -149,9 +149,7 @@ def register_ux_tools(server: Any) -> None:
             from rde.application.session import get_session
 
             pipeline = get_session().get_pipeline(project.id)
-            payload = refresh_ux_harness_artifacts(project, pipeline, store=store)[
-                "artifact_index"
-            ]
+            payload = refresh_ux_harness_artifacts(project, pipeline, store=store)["artifact_index"]
             path = store.get_path(PipelinePhase.PROJECT_SETUP, ARTIFACT_INDEX)
             return fmt_success(
                 "Artifact index built.",
@@ -196,7 +194,13 @@ def _ux_context(
         return False, msg, None, None, None
     from rde.application.session import get_session
 
-    return True, "ready", project, ArtifactStore(project.artifacts_dir), get_session().get_pipeline(project.id)
+    return (
+        True,
+        "ready",
+        project,
+        ArtifactStore(project.artifacts_dir),
+        get_session().get_pipeline(project.id),
+    )
 
 
 def _build_approval_card(project: Any, store: ArtifactStore, pipeline: Any) -> dict[str, Any]:
@@ -266,7 +270,10 @@ def _build_approval_card(project: Any, store: ArtifactStore, pipeline: Any) -> d
             PipelinePhase.CONCEPT_ALIGNMENT,
             "align_concept",
             "align_concept(confirm=true)",
-            ["phase_03_concept_alignment/concept_alignment.md", "phase_03_concept_alignment/variable_roles.json"],
+            [
+                "phase_03_concept_alignment/concept_alignment.md",
+                "phase_03_concept_alignment/variable_roles.json",
+            ],
             "Confirm concept-to-variable mapping before planning.",
         ),
         (

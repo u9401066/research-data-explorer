@@ -144,9 +144,7 @@ def _latest_project_id(workspace: Path) -> str:
 
 def _find_report(workspace: Path) -> Path:
     reports = sorted(
-        (workspace / "data" / "projects").glob(
-            "*/artifacts/phase_10_report_assembly/eda_report.md"
-        )
+        (workspace / "data" / "projects").glob("*/artifacts/phase_10_report_assembly/eda_report.md")
     )
     if not reports:
         raise RuntimeError("No phase_10_report_assembly/eda_report.md artifact was created.")
@@ -155,10 +153,7 @@ def _find_report(workspace: Path) -> Path:
 
 def _load_latest_schema(workspace: Path) -> dict[str, Any]:
     schema_path = (
-        _latest_project_dir(workspace)
-        / "artifacts"
-        / "phase_02_schema_registry"
-        / "schema.json"
+        _latest_project_dir(workspace) / "artifacts" / "phase_02_schema_registry" / "schema.json"
     )
     return json.loads(schema_path.read_text(encoding="utf-8"))
 
@@ -182,7 +177,11 @@ def _infer_roles(schema: dict[str, Any]) -> dict[str, Any]:
     ids = [name for name in names if typed.get(name) == "id"]
 
     group = next(
-        (name for name in binary if contains_any(name, ("group", "treatment", "arm", "\u7d44", "\u4e2d\u7dda"))),
+        (
+            name
+            for name in binary
+            if contains_any(name, ("group", "treatment", "arm", "\u7d44", "\u4e2d\u7dda"))
+        ),
         binary[0] if binary else None,
     )
     success = next(
@@ -190,20 +189,35 @@ def _infer_roles(schema: dict[str, Any]) -> dict[str, Any]:
             name
             for name in binary
             if name != group
-            and contains_any(name, ("success", "mortality", "death", "outcome", "\u6210\u529f", "\u6b7b\u4ea1"))
+            and contains_any(
+                name, ("success", "mortality", "death", "outcome", "\u6210\u529f", "\u6b7b\u4ea1")
+            )
         ),
         next((name for name in binary if name != group), None),
     )
     time_var = next(
-        (name for name in continuous if contains_any(name, ("time", "sec", "minute", "\u6642\u9593"))),
+        (
+            name
+            for name in continuous
+            if contains_any(name, ("time", "sec", "minute", "\u6642\u9593"))
+        ),
         continuous[0] if continuous else None,
     )
     trial = next(
-        (name for name in continuous if name != time_var and contains_any(name, ("trial", "order", "attempt", "\u6b21\u5e8f"))),
+        (
+            name
+            for name in continuous
+            if name != time_var
+            and contains_any(name, ("trial", "order", "attempt", "\u6b21\u5e8f"))
+        ),
         next((name for name in continuous if name != time_var), None),
     )
     puncture = next(
-        (name for name in ordinal if contains_any(name, ("puncture", "attempt", "\u6b21\u6578", "\u7a7f\u523a"))),
+        (
+            name
+            for name in ordinal
+            if contains_any(name, ("puncture", "attempt", "\u6b21\u6578", "\u7a7f\u523a"))
+        ),
         ordinal[0] if ordinal else None,
     )
     operator = next(
@@ -391,6 +405,7 @@ def _run_readiness_direct(repo_root: Path, workspace: Path, project_id: str) -> 
         sys.path.insert(0, src)
         inserted = True
     try:
+
         class Server:
             def __init__(self) -> None:
                 self.tools: dict[str, Any] = {}
@@ -536,7 +551,9 @@ async def run_full_yolo(
                 )
             dataset_id = dataset_ids[-1]
 
-            await _call(session, "build_schema", {"dataset_id": dataset_id, "project_id": project_id})
+            await _call(
+                session, "build_schema", {"dataset_id": dataset_id, "project_id": project_id}
+            )
             await _call(session, "profile_dataset", {"dataset_id": dataset_id})
             await _call(session, "assess_quality", {"dataset_id": dataset_id})
             await _call(session, "get_approval_card", {"project_id": project_id})
@@ -592,10 +609,13 @@ async def run_full_yolo(
             _run_readiness_direct(repo_root, workspace, project_id)
             cleaning_text = await _call(session, "suggest_cleaning", {"dataset_id": dataset_id})
             has_cleaning_actions = bool(re.search(r"(?m)^\s*\d+\.\s+\*\*\[", cleaning_text))
-            no_cleaning_needed = any(
-                marker in cleaning_text.lower()
-                for marker in ("無需清理", "資料品質良好", "no cleaning", "no cleanup")
-            ) or not has_cleaning_actions
+            no_cleaning_needed = (
+                any(
+                    marker in cleaning_text.lower()
+                    for marker in ("無需清理", "資料品質良好", "no cleaning", "no cleanup")
+                )
+                or not has_cleaning_actions
+            )
             if not no_cleaning_needed:
                 await _call(
                     session,

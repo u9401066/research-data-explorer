@@ -1105,7 +1105,9 @@ def test_align_concept_blocks_unknown_variables_and_invalid_roles(
     async def run_flow() -> str:
         server = create_server()
         session = get_session()
-        await server.call_tool("init_project", {"name": "role-validation", "data_dir": str(raw_dir)})
+        await server.call_tool(
+            "init_project", {"name": "role-validation", "data_dir": str(raw_dir)}
+        )
         project = session.get_project()
         await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
         dataset_id = session.list_datasets()[0]
@@ -1126,9 +1128,10 @@ def test_align_concept_blocks_unknown_variables_and_invalid_roles(
 
     assert "Invalid role key" in output
     assert "Unknown variable" in output
-    assert PipelinePhase.CONCEPT_ALIGNMENT not in get_session().get_pipeline(
-        get_session().get_project().id
-    ).completed_phases
+    assert (
+        PipelinePhase.CONCEPT_ALIGNMENT
+        not in get_session().get_pipeline(get_session().get_project().id).completed_phases
+    )
 
 
 def test_rehydrated_dataset_replays_concept_roles_for_planning(
@@ -1416,16 +1419,22 @@ def test_artifact_backed_phase_sync_preserves_failed_readiness_gate(
                 "# candidates",
             )
             store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_execution_schedule.json", {})
-            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_execution_schedule.md", "# schedule")
+            store.save(
+                PipelinePhase.CREATIVE_IDEATION, "greedy_execution_schedule.md", "# schedule"
+            )
             store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_plan_enrichment.json", {})
             store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_plan_enrichment.md", "# enrichment")
-            store.save(PipelinePhase.CREATIVE_IDEATION, "greedy_statsmodels_base_analysis.py", "# py")
+            store.save(
+                PipelinePhase.CREATIVE_IDEATION, "greedy_statsmodels_base_analysis.py", "# py"
+            )
             store.save(
                 PipelinePhase.PLAN_COMPLETENESS_REVIEW,
                 "analysis_plan_review.json",
                 {"confirmed": True},
             )
-            store.save(PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.md", "# review")
+            store.save(
+                PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.md", "# review"
+            )
             for prereq in [
                 PipelinePhase.CREATIVE_IDEATION,
                 PipelinePhase.PLAN_COMPLETENESS_REVIEW,
@@ -1545,7 +1554,10 @@ def test_init_project_persists_project_setup_state(
 ) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 
-    from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+    from rde.infrastructure.persistence import (
+        FileSystemProjectRepository,
+        resolve_projects_base_dir,
+    )
 
     workspace_dir = tmp_path / "workspace"
     raw_dir = workspace_dir / "rawdata"
@@ -1578,7 +1590,10 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
 ) -> None:
     pytest.importorskip("mcp.server.fastmcp")
 
-    from rde.infrastructure.persistence import FileSystemProjectRepository, resolve_projects_base_dir
+    from rde.infrastructure.persistence import (
+        FileSystemProjectRepository,
+        resolve_projects_base_dir,
+    )
 
     workspace_dir = tmp_path / "workspace"
     legacy_dir = workspace_dir / "legacy"
@@ -1899,7 +1914,9 @@ def test_project_bound_dataset_rehydrates_when_schema_dataset_id_changed(
     async def run_flow() -> str:
         server = create_server()
         session = get_session()
-        await server.call_tool("init_project", {"name": "rehydrate-schema-id", "data_dir": str(raw_dir)})
+        await server.call_tool(
+            "init_project", {"name": "rehydrate-schema-id", "data_dir": str(raw_dir)}
+        )
         project = session.get_project()
         await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
         dataset_id = session.list_datasets()[0]

@@ -145,14 +145,14 @@ class TestUser:
     # === Happy Path ===
     def test_create_user_with_valid_data(self):
         """正常建立使用者"""
-        user = User(name="Alice", email="alice@example.com")
+        user = User(name="Alice", email="alice_at_example")
         assert user.name == "Alice"
-        assert user.email == "alice@example.com"
+        assert user.email == "alice_at_example"
 
     # === 邊界條件 ===
     def test_create_user_with_minimum_name_length(self):
         """名稱最小長度"""
-        user = User(name="A", email="a@b.c")
+        user = User(name="A", email="a_at_b")
         assert len(user.name) == 1
 
     @pytest.mark.parametrize("name,expected", [
@@ -161,14 +161,14 @@ class TestUser:
     ])
     def test_name_length_variations(self, name: str, expected: int):
         """名稱長度變化測試"""
-        user = User(name=name, email="test@test.com")
+        user = User(name=name, email="test_at_example")
         assert len(user.name) == expected
 
     # === 錯誤處理 ===
     def test_create_user_with_empty_name_raises_error(self):
         """空名稱應拋出 ValidationError"""
         with pytest.raises(ValidationError, match="Name cannot be empty"):
-            User(name="", email="test@test.com")
+            User(name="", email="test_at_example")
 
     def test_create_user_with_invalid_email_raises_error(self):
         """無效 email 應拋出 ValidationError"""
@@ -179,7 +179,7 @@ class TestUser:
     def test_create_user_with_none_name_raises_error(self):
         """None 名稱應拋出 TypeError"""
         with pytest.raises(TypeError):
-            User(name=None, email="test@test.com")
+            User(name=None, email="test_at_example")
 ```
 
 ### 3️⃣ 整合測試 (Integration Tests)
@@ -201,7 +201,7 @@ class TestUserAPI:
         """POST /users 建立使用者"""
         response = await async_client.post(
             "/api/v1/users",
-            json={"name": "Test User", "email": "test@example.com"}
+            json={"name": "Test User", "email": "test_at_example"}
         )
         assert response.status_code == 201
         data = response.json()
@@ -238,7 +238,7 @@ class TestUserRepository:
 
     async def test_save_and_retrieve_user(self, repository: UserRepository):
         """儲存並取回使用者"""
-        user = User(name="Test", email="test@test.com")
+        user = User(name="Test", email="test_at_example")
         saved_user = await repository.save(user)
 
         retrieved = await repository.get_by_id(saved_user.id)
@@ -247,12 +247,12 @@ class TestUserRepository:
 
     async def test_find_by_email(self, repository: UserRepository):
         """透過 email 查詢"""
-        user = User(name="Test", email="unique@test.com")
+        user = User(name="Test", email="unique_at_example")
         await repository.save(user)
 
-        found = await repository.find_by_email("unique@test.com")
+        found = await repository.find_by_email("unique_at_example")
         assert found is not None
-        assert found.email == "unique@test.com"
+        assert found.email == "unique_at_example"
 ```
 
 #### conftest.py (整合測試 fixtures)
@@ -396,7 +396,7 @@ class TestUserJourney:
 
         # 2. 填寫表單
         await page.fill("input[name='username']", "testuser")
-        await page.fill("input[name='email']", "test@example.com")
+        await page.fill("input[name='email']", "test_at_example")
         await page.fill("input[name='password']", "SecureP@ss123")
         await page.fill("input[name='confirm_password']", "SecureP@ss123")
 
@@ -411,7 +411,7 @@ class TestUserJourney:
         """測試登入登出流程"""
         # 登入
         await page.goto(f"{base_url}/login")
-        await page.fill("input[name='email']", "test@example.com")
+        await page.fill("input[name='email']", "test_at_example")
         await page.fill("input[name='password']", "SecureP@ss123")
         await page.click("button[type='submit']")
 

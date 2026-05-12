@@ -28,7 +28,9 @@ def test_grouped_boxplot_records_statistical_annotation(tmp_path: Path) -> None:
     assert output_path.exists()
     assert visualizer.last_annotation_summary is not None
     assert "Mann-Whitney U" in visualizer.last_annotation_summary
-    assert "p =" in visualizer.last_annotation_summary or "p <" in visualizer.last_annotation_summary
+    assert (
+        "p =" in visualizer.last_annotation_summary or "p <" in visualizer.last_annotation_summary
+    )
     assert "control n=24" in visualizer.last_annotation_summary
     assert "treated n=24" in visualizer.last_annotation_summary
 
@@ -54,7 +56,9 @@ def test_scatter_records_correlation_annotation(tmp_path: Path) -> None:
     assert output_path.exists()
     assert visualizer.last_annotation_summary is not None
     assert "Spearman rho=" in visualizer.last_annotation_summary
-    assert "p =" in visualizer.last_annotation_summary or "p <" in visualizer.last_annotation_summary
+    assert (
+        "p =" in visualizer.last_annotation_summary or "p <" in visualizer.last_annotation_summary
+    )
     assert "n=30" in visualizer.last_annotation_summary
 
 

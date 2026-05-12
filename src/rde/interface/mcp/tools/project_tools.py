@@ -12,11 +12,11 @@ from typing import Any
 def _make_project_folder_slug(name: str, *, max_length: int = 40) -> str:
     """Build a readable and filesystem-safe folder slug from the project name."""
 
-    slug = re.sub(r'[<>:"/\\|?*\s]+', '-', name.strip())
-    slug = re.sub(r'-{2,}', '-', slug).strip(' .-_')
+    slug = re.sub(r'[<>:"/\\|?*\s]+', "-", name.strip())
+    slug = re.sub(r"-{2,}", "-", slug).strip(" .-_")
     if not slug:
-        return 'project'
-    return slug[:max_length].rstrip(' .-_') or 'project'
+        return "project"
+    return slug[:max_length].rstrip(" .-_") or "project"
 
 
 def register_project_tools(server: Any) -> None:

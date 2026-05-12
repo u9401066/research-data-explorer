@@ -43,11 +43,7 @@ def build_config_block(repo_root: Path, *, uv_command: str) -> str:
             "# Managed by Research Data Explorer. Remove this block to opt out.",
             f"[mcp_servers.{SERVER_NAME}]",
             f"command = {_toml_string(uv_command)}",
-            (
-                'args = ["run", "--directory", '
-                f"{_toml_string(root)}, "
-                '"python", "-m", "rde"]'
-            ),
+            ('args = ["run", "--directory", ' f"{_toml_string(root)}, " '"python", "-m", "rde"]'),
             f"cwd = {_toml_string(root)}",
             "",
             f"[mcp_servers.{SERVER_NAME}.env]",

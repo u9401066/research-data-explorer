@@ -10,9 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_codex_skill_documents_rde_mcp_and_phase4_contract() -> None:
-    skill = (ROOT / ".codex" / "skills" / "eda-workflow" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    skill = (ROOT / ".codex" / "skills" / "eda-workflow" / "SKILL.md").read_text(encoding="utf-8")
 
     assert "[mcp_servers.research-data-explorer]" in skill
     assert "scripts/configure_codex_mcp.py --apply" in skill

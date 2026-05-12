@@ -100,11 +100,7 @@ def _save_quality_artifacts(dataset_id: str, report: Any) -> None:
                 "suggestion": getattr(issue, "suggestion", ""),
             }
         )
-    critical = [
-        issue
-        for issue in issues
-        if str(issue.get("severity", "")).lower() == "critical"
-    ]
+    critical = [issue for issue in issues if str(issue.get("severity", "")).lower() == "critical"]
     payload = {
         "dataset_id": getattr(report, "dataset_id", dataset_id),
         "created_at": getattr(report, "created_at", None),

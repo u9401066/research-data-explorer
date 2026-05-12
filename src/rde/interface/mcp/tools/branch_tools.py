@@ -178,7 +178,11 @@ def register_branch_tools(server: Any) -> None:
             branch = board["branches"].get(branch_id)
             if branch is None:
                 return fmt_error(f"Unknown exploration branch: {branch_id}")
-            if branch.status in {BranchStatus.DISCARDED, BranchStatus.PROMOTED, BranchStatus.CRASHED}:
+            if branch.status in {
+                BranchStatus.DISCARDED,
+                BranchStatus.PROMOTED,
+                BranchStatus.CRASHED,
+            }:
                 return fmt_error(f"Branch {branch_id} is closed ({branch.status.value}).")
 
             experiment_id = f"exp_{uuid.uuid4().hex[:10]}"
@@ -414,7 +418,11 @@ def register_branch_tools(server: Any) -> None:
             branch, experiments = _branch_and_experiments(store, branch_id)
             if branch is None:
                 return fmt_error(f"Unknown exploration branch: {branch_id}")
-            if branch.status in {BranchStatus.DISCARDED, BranchStatus.PROMOTED, BranchStatus.CRASHED}:
+            if branch.status in {
+                BranchStatus.DISCARDED,
+                BranchStatus.PROMOTED,
+                BranchStatus.CRASHED,
+            }:
                 return fmt_error(f"Branch {branch_id} is closed ({branch.status.value}).")
             if branch.status != BranchStatus.EVALUATED:
                 return fmt_error(
@@ -979,7 +987,9 @@ def register_branch_tools(server: Any) -> None:
                 "resumed_at": resumed_at,
                 "reason": resume_reason,
             }
-            store.save(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_RESUME_DECISIONS, resume_event)
+            store.save(
+                PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_RESUME_DECISIONS, resume_event
+            )
             store.save(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_RUNS_LOG, resume_event)
             queue = _project_autoresearch_queue(store, run_id)
             budget = store.load(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_BUDGET_STATE) or {}
@@ -1354,7 +1364,9 @@ def _apply_live_evidence_gate(
     gate = dict(updated.get("promotion_gate") or {})
     blockers = list(gate.get("blockers") or [])
     completed = [experiment for experiment in experiments if experiment.status == "completed"]
-    if completed and not any(_experiment_has_live_evidence(store, experiment) for experiment in completed):
+    if completed and not any(
+        _experiment_has_live_evidence(store, experiment) for experiment in completed
+    ):
         blockers.append("missing_live_evidence_artifact")
     blockers = sorted(set(str(blocker) for blocker in blockers if blocker))
     gate["blockers"] = blockers
@@ -1635,7 +1647,9 @@ def _build_plan_amendment(
         "reason": branch.reason,
         "variables": branch.variables,
         "proposed_amendment": {
-            "type": primary_experiment.experiment_type if primary_experiment else branch.branch_type.value,
+            "type": primary_experiment.experiment_type
+            if primary_experiment
+            else branch.branch_type.value,
             "variables": branch.variables,
             "rationale": branch.hypothesis or branch.reason,
             "status": "promotion_candidate",
@@ -1681,10 +1695,9 @@ def _auto_evaluate_autoresearch_branch(
     _save_branch_result(store, branch_id, evaluation=evaluation)
 
     amendment_artifacts: list[str] = []
-    if (
-        evaluation.get("recommendation") == "promote_candidate"
-        and (evaluation.get("promotion_gate") or {}).get("can_promote")
-    ):
+    if evaluation.get("recommendation") == "promote_candidate" and (
+        evaluation.get("promotion_gate") or {}
+    ).get("can_promote"):
         amendment = _build_plan_amendment(project.id, branch, experiments, evaluation)
         amendment["candidate_status"] = "auto_evaluated_requires_confirmed_promotion"
         amendment_json = f"{PLAN_AMENDMENTS_PREFIX}/candidates/{branch_id}.json"
@@ -1952,7 +1965,12 @@ def _execute_autoresearch_next_task(
         },
         "Autoresearch runner executed one branch-scoped queue item.",
         result_summary,
-        artifacts=[str(experiment_path), *contract_artifacts, branch_result_path, *auto_evaluation_artifacts],
+        artifacts=[
+            str(experiment_path),
+            *contract_artifacts,
+            branch_result_path,
+            *auto_evaluation_artifacts,
+        ],
     )
     budget = _update_autoresearch_budget(store, run_id, status="running")
     _save_autoresearch_progress(
@@ -2125,15 +2143,21 @@ def _apply_autoresearch_derived_variables(
             notes.append("Skipped malformed derived-variable spec.")
             continue
         source = str(raw_spec.get("source") or raw_spec.get("source_variable") or "").strip()
-        operation = str(raw_spec.get("operation") or raw_spec.get("type") or "equals").strip().lower()
+        operation = (
+            str(raw_spec.get("operation") or raw_spec.get("type") or "equals").strip().lower()
+        )
         name = str(raw_spec.get("name") or "").strip()
         if not name and source:
             name = f"{_normalize_token(source) or 'derived'}_{operation}"
         if not source or source not in working.columns:
-            notes.append(f"Skipped derived variable `{name or source}` because source `{source}` is absent.")
+            notes.append(
+                f"Skipped derived variable `{name or source}` because source `{source}` is absent."
+            )
             continue
         if not name:
-            notes.append(f"Skipped derived variable for `{source}` because no output name was provided.")
+            notes.append(
+                f"Skipped derived variable for `{source}` because no output name was provided."
+            )
             continue
 
         source_series = working[source]
@@ -2210,8 +2234,7 @@ def _execute_autoresearch_analysis_contract(
             "artifacts": [],
             "metrics": _runner_metrics_for_task(store, task),
             "result_summary": (
-                "Autoresearch branch has no live analysis contract; recorded branch "
-                "ledger only."
+                "Autoresearch branch has no live analysis contract; recorded branch " "ledger only."
             ),
         }
     if str(contract.get("tool") or "") != "run_advanced_analysis":
@@ -2306,7 +2329,9 @@ def _execute_autoresearch_analysis_contract(
                 experiment_id=experiment_id,
                 contract=contract,
             )
-            derived_registry_ref = f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{DERIVED_VARIABLE_REGISTRY}"
+            derived_registry_ref = (
+                f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{DERIVED_VARIABLE_REGISTRY}"
+            )
         else:
             derived_registry_ref = None
         for derived in derived_metadata:
@@ -2902,9 +2927,7 @@ def _build_branch_suggestions(
     analyses = analyses if isinstance(analyses, list) else []
     roles = roles if isinstance(roles, dict) else {}
     variable_index = {
-        str(var.get("name")): var
-        for var in variables
-        if isinstance(var, dict) and var.get("name")
+        str(var.get("name")): var for var in variables if isinstance(var, dict) and var.get("name")
     }
 
     def schema_type(name: str) -> str:
@@ -2929,7 +2952,11 @@ def _build_branch_suggestions(
             n_unique = schema_unique_count(name)
             if n_unique == 2:
                 return True
-            if n_unique is None and allow_unknown_categorical and var_type in {"categorical", "factor"}:
+            if (
+                n_unique is None
+                and allow_unknown_categorical
+                and var_type in {"categorical", "factor"}
+            ):
                 return True
         return False
 
@@ -3166,9 +3193,7 @@ def _build_branch_suggestions(
         binary_outcomes = [
             var
             for var in outcome_vars
-            if (
-                is_binary_schema_var(var, allow_unknown_categorical=False) or var in event_vars
-            )
+            if (is_binary_schema_var(var, allow_unknown_categorical=False) or var in event_vars)
             and is_outcome_like_var(var)
         ]
         if binary_outcomes and covariates:
@@ -3269,7 +3294,9 @@ def _build_branch_suggestions(
                     "experiment_type": "subgroup_interaction",
                     "hypothesis": "Primary association is not driven by a clinically plausible subgroup.",
                     "reason": "Subgroup and interaction checks help detect heterogeneous effects.",
-                    "variables": list(dict.fromkeys(outcome_vars + [str(group_var)] + covariates[:2])),
+                    "variables": list(
+                        dict.fromkeys(outcome_vars + [str(group_var)] + covariates[:2])
+                    ),
                 }
             )
 
@@ -3291,7 +3318,9 @@ def _build_branch_suggestions(
                 "experiment_type": "survival_analysis",
                 "hypothesis": "Time-to-event patterns are consistent across clinically relevant strata.",
                 "reason": "schema.json contains candidate time and event variables.",
-                "variables": list(dict.fromkeys(time_vars[:1] + event_vars[:1] + treatment_vars[:1])),
+                "variables": list(
+                    dict.fromkeys(time_vars[:1] + event_vars[:1] + treatment_vars[:1])
+                ),
                 "analysis_contract": {
                     "tool": "run_advanced_analysis",
                     "analysis_type": "survival_analysis",
@@ -3302,7 +3331,11 @@ def _build_branch_suggestions(
             }
         )
 
-    score_vars = [name for name in numeric if any(token in name.lower() for token in ("score", "risk", "prob"))]
+    score_vars = [
+        name
+        for name in numeric
+        if any(token in name.lower() for token in ("score", "risk", "prob"))
+    ]
     if score_vars and event_vars:
         add(
             {

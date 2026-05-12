@@ -107,7 +107,9 @@ def test_approval_card_points_to_setup_prerequisites_before_phase_three(tmp_path
     register_ux_tools(server)
 
     output = server.tools["get_blocker_playbook"](project.id)
-    card = ArtifactStore(project.artifacts_dir).load(PipelinePhase.PROJECT_SETUP, "blocker_playbook.json")
+    card = ArtifactStore(project.artifacts_dir).load(
+        PipelinePhase.PROJECT_SETUP, "blocker_playbook.json"
+    )
 
     assert "run_intake" in output
     assert card["blockers"][0]["tool"] == "run_intake"

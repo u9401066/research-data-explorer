@@ -417,7 +417,10 @@ def test_medical_natural_language_question_maps_group_success_and_time() -> None
     for entry in proposal.plan_blueprint:
         if entry.get("target_variable") and entry.get("group_variable"):
             assert entry.get("target_variable") != entry.get("group_variable")
-        if entry.get("group_variable") and entry["type"] in {"compare_groups", "generate_table_one"}:
+        if entry.get("group_variable") and entry["type"] in {
+            "compare_groups",
+            "generate_table_one",
+        }:
             assert entry["group_variable"] not in entry.get("variables", [])
 
 
@@ -461,6 +464,5 @@ def test_learning_curve_detection_ignores_id_like_trial_labels() -> None:
     proposal = planner.propose(dataset, max_analyses=6, include_advanced=True)
 
     assert all(
-        ranked.candidate.analysis_type != "learning_curve_cusum"
-        for ranked in proposal.selected
+        ranked.candidate.analysis_type != "learning_curve_cusum" for ranked in proposal.selected
     )

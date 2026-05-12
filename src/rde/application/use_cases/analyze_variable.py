@@ -102,7 +102,9 @@ class AnalyzeVariableUseCase:
             vc = col.value_counts().head(20)
             top_values = [(str(k), int(v)) for k, v in vc.items()]
         elif is_numeric:
-            filtered_df, plausibility_findings = apply_numeric_plausibility_filters(df, [variable_name])
+            filtered_df, plausibility_findings = apply_numeric_plausibility_filters(
+                df, [variable_name]
+            )
             filtered_col = filtered_df[variable_name]
             excluded_invalid_count = sum(
                 finding.excluded_count

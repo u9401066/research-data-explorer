@@ -25,9 +25,7 @@ def build_common_medical_eda_suggestions(
     analyses = analyses if isinstance(analyses, list) else []
     roles = roles if isinstance(roles, dict) else {}
     variable_index = {
-        str(var.get("name")): var
-        for var in variables
-        if isinstance(var, dict) and var.get("name")
+        str(var.get("name")): var for var in variables if isinstance(var, dict) and var.get("name")
     }
 
     def schema_type(name: str) -> str:
@@ -52,7 +50,11 @@ def build_common_medical_eda_suggestions(
             n_unique = schema_unique_count(name)
             if n_unique == 2:
                 return True
-            if n_unique is None and allow_unknown_categorical and var_type in {"categorical", "factor"}:
+            if (
+                n_unique is None
+                and allow_unknown_categorical
+                and var_type in {"categorical", "factor"}
+            ):
                 return True
         return False
 
@@ -286,9 +288,7 @@ def build_common_medical_eda_suggestions(
         binary_outcomes = [
             var
             for var in outcome_vars
-            if (
-                is_binary_schema_var(var, allow_unknown_categorical=False) or var in event_vars
-            )
+            if (is_binary_schema_var(var, allow_unknown_categorical=False) or var in event_vars)
             and is_outcome_like_var(var)
         ]
         if binary_outcomes and covariates:
@@ -328,7 +328,11 @@ def build_common_medical_eda_suggestions(
                 }
             )
 
-        if group_var and is_binary_schema_var(group_var, allow_unknown_categorical=True) and covariates:
+        if (
+            group_var
+            and is_binary_schema_var(group_var, allow_unknown_categorical=True)
+            and covariates
+        ):
             add(
                 {
                     "branch_type": BranchType.PROPENSITY.value,
@@ -428,7 +432,9 @@ def build_common_medical_eda_suggestions(
                 "experiment_type": "survival_analysis",
                 "hypothesis": "Time-to-event patterns are consistent across clinically relevant strata.",
                 "reason": "schema.json contains candidate time and event variables.",
-                "variables": list(dict.fromkeys(time_vars[:1] + event_vars[:1] + treatment_vars[:1])),
+                "variables": list(
+                    dict.fromkeys(time_vars[:1] + event_vars[:1] + treatment_vars[:1])
+                ),
                 "analysis_contract": {
                     "tool": "run_advanced_analysis",
                     "analysis_type": "survival_analysis",
@@ -441,7 +447,9 @@ def build_common_medical_eda_suggestions(
         )
 
     score_vars = [
-        name for name in numeric if any(token in name.lower() for token in ("score", "risk", "prob"))
+        name
+        for name in numeric
+        if any(token in name.lower() for token in ("score", "risk", "prob"))
     ]
     if score_vars and event_vars:
         add(

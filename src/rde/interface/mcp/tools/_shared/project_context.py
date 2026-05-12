@@ -184,7 +184,7 @@ def recover_project_context_from_session(
     if not isinstance(schema, dict) or schema.get("dataset_id") != dataset.id:
         return None, (
             f"Phase 2 schema is not available for dataset `{dataset.id}`. "
-            f"Run `build_schema(dataset_id=\"{dataset.id}\")` before `align_concept()`."
+            f'Run `build_schema(dataset_id="{dataset.id}")` before `align_concept()`.'
         )
 
     metadata = dataset.metadata

@@ -156,7 +156,9 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         if not cols:
             return {"error": "No valid variables found for Table 1."}
 
-        groups = [group for group in sorted(df[group_var].dropna().unique(), key=lambda value: str(value))]
+        groups = [
+            group for group in sorted(df[group_var].dropna().unique(), key=lambda value: str(value))
+        ]
         headers = ["Variable", "Overall"] + [str(group) for group in groups] + ["p"]
         rows: list[list[str]] = []
         table_dict: dict[str, dict[str, str]] = {}
@@ -277,10 +279,9 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
     def _chi_square_sf_approx(self, statistic: float, dof: int) -> float:
         if dof <= 0 or statistic <= 0:
             return 1.0
-        z_value = (
-            (statistic / dof) ** (1.0 / 3.0)
-            - (1.0 - (2.0 / (9.0 * dof)))
-        ) / math.sqrt(2.0 / (9.0 * dof))
+        z_value = ((statistic / dof) ** (1.0 / 3.0) - (1.0 - (2.0 / (9.0 * dof)))) / math.sqrt(
+            2.0 / (9.0 * dof)
+        )
         return max(0.0, min(1.0, 0.5 * math.erfc(z_value / math.sqrt(2.0))))
 
     def _rankdata_average(self, values: np.ndarray) -> np.ndarray:
@@ -895,9 +896,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 ncp = effect_size * np.sqrt(n / (2 * n_groups))
                 crit = stats.t.ppf(1 - alpha / 2, df=n - 2)
                 power = (
-                    1
-                    - stats.t.cdf(crit, df=n - 2, loc=ncp)
-                    + stats.t.cdf(-crit, df=n - 2, loc=ncp)
+                    1 - stats.t.cdf(crit, df=n - 2, loc=ncp) + stats.t.cdf(-crit, df=n - 2, loc=ncp)
                 )
             elif test_name in ("One-way ANOVA", "Kruskal-Wallis"):
                 # F-test: f2 = eta2 / (1 - eta2)

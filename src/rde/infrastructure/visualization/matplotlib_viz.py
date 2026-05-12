@@ -148,7 +148,9 @@ class MatplotlibVisualizer(VisualizationPort):
         if summary:
             summary_parts.append(summary)
         summary_parts.extend(plausibility_lines)
-        self.last_annotation_summary = "; ".join(summary_parts) if summary_parts else "; ".join(cleaned)
+        self.last_annotation_summary = (
+            "; ".join(summary_parts) if summary_parts else "; ".join(cleaned)
+        )
 
     def _format_p_value(self, p_value: float | None) -> str:
         if p_value is None or pd.isna(p_value):
@@ -163,10 +165,9 @@ class MatplotlibVisualizer(VisualizationPort):
     def _chi_square_sf_approx(self, statistic: float, dof: int) -> float:
         if dof <= 0 or statistic <= 0:
             return 1.0
-        z_value = (
-            (statistic / dof) ** (1.0 / 3.0)
-            - (1.0 - (2.0 / (9.0 * dof)))
-        ) / math.sqrt(2.0 / (9.0 * dof))
+        z_value = ((statistic / dof) ** (1.0 / 3.0) - (1.0 - (2.0 / (9.0 * dof)))) / math.sqrt(
+            2.0 / (9.0 * dof)
+        )
         return max(0.0, min(1.0, 0.5 * math.erfc(z_value / math.sqrt(2.0))))
 
     def _chi_square_test_lite(self, contingency: pd.DataFrame) -> tuple[float, float]:
@@ -339,7 +340,9 @@ class MatplotlibVisualizer(VisualizationPort):
 
         groups = [sub.loc[sub[group_var] == group, value_var] for group in aligned_order]
         labels = [str(group) for group in aligned_order]
-        valid_groups = [(label, values) for label, values in zip(labels, groups) if not values.empty]
+        valid_groups = [
+            (label, values) for label, values in zip(labels, groups) if not values.empty
+        ]
         if len(valid_groups) < 2:
             self._set_annotation(
                 ax,
@@ -450,7 +453,12 @@ class MatplotlibVisualizer(VisualizationPort):
         p_text = self._format_p_value(float(p_value))
         self._set_annotation(
             ax,
-            [f"Wilcoxon W = {statistic:.1f}", p_text, f"median Δ = {median_delta:.2f}", f"n = {len(sub)}"],
+            [
+                f"Wilcoxon W = {statistic:.1f}",
+                p_text,
+                f"median Δ = {median_delta:.2f}",
+                f"n = {len(sub)}",
+            ],
             summary=f"Wilcoxon signed-rank; {p_text}; median delta={median_delta:.2f}; n={len(sub)}",
             context=[x_var, y_var],
         )
@@ -573,8 +581,15 @@ class MatplotlibVisualizer(VisualizationPort):
                 width = 0.8 / max(1, len(categories))
                 x_positions = list(range(len(groups)))
                 for index, category in enumerate(categories):
-                    offsets = [x + (index - (len(categories) - 1) / 2.0) * width for x in x_positions]
-                    ax.bar(offsets, proportions[category].to_numpy(dtype=float), width=width, label=str(category))
+                    offsets = [
+                        x + (index - (len(categories) - 1) / 2.0) * width for x in x_positions
+                    ]
+                    ax.bar(
+                        offsets,
+                        proportions[category].to_numpy(dtype=float),
+                        width=width,
+                        label=str(category),
+                    )
                 ax.set_xticks(x_positions)
                 ax.set_xticklabels([str(item) for item in groups])
                 ax.set_title(f"{var} by {group_var}")
@@ -677,12 +692,17 @@ class MatplotlibVisualizer(VisualizationPort):
         ax.set_yticklabels(numeric_vars)
         for row in range(len(numeric_vars)):
             for col in range(len(numeric_vars)):
-                ax.text(col, row, f"{corr.iloc[row, col]:.2f}", ha="center", va="center", fontsize=8)
+                ax.text(
+                    col, row, f"{corr.iloc[row, col]:.2f}", ha="center", va="center", fontsize=8
+                )
         fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
         ax.set_title("Correlation Heatmap")
         self._set_annotation(
             ax,
-            [f"variables = {len(numeric_vars)}", f"complete rows = {len(df[numeric_vars].dropna())}"],
+            [
+                f"variables = {len(numeric_vars)}",
+                f"complete rows = {len(df[numeric_vars].dropna())}",
+            ],
             summary=f"variables={len(numeric_vars)}; complete_rows={len(df[numeric_vars].dropna())}",
             context=numeric_vars,
         )

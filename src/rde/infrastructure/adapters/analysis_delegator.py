@@ -311,35 +311,60 @@ class AnalysisDelegator:
         covariates: list[str],
     ) -> tuple[pd.DataFrame | None, pd.Series | None, pd.DataFrame | None, dict[str, Any] | None]:
         if not target or target not in df.columns:
-            return None, None, None, {
-                "error": "Advanced local analysis requires a valid target variable.",
-                "suggestion": "Provide target_variable with an existing schema column.",
-            }
+            return (
+                None,
+                None,
+                None,
+                {
+                    "error": "Advanced local analysis requires a valid target variable.",
+                    "suggestion": "Provide target_variable with an existing schema column.",
+                },
+            )
         if not covariates:
-            return None, None, None, {
-                "error": "Advanced local analysis requires at least one covariate.",
-                "suggestion": "Provide covariates such as age, severity, or baseline risk variables.",
-            }
+            return (
+                None,
+                None,
+                None,
+                {
+                    "error": "Advanced local analysis requires at least one covariate.",
+                    "suggestion": "Provide covariates such as age, severity, or baseline risk variables.",
+                },
+            )
         columns = [target, *covariates]
         working = df[columns].copy().dropna()
         if working.empty or len(working) < 3:
-            return None, None, None, {
-                "error": "Not enough complete rows for local advanced analysis.",
-                "suggestion": "Check missingness or reduce the covariate list.",
-            }
+            return (
+                None,
+                None,
+                None,
+                {
+                    "error": "Not enough complete rows for local advanced analysis.",
+                    "suggestion": "Check missingness or reduce the covariate list.",
+                },
+            )
         y = working[target]
         x, encoded_covariates = self._encode_covariates(working, covariates)
         if x.empty:
-            return None, None, None, {
-                "error": "No usable covariate columns after local encoding.",
-                "suggestion": "Use covariates with variation, or simplify high-missing predictors.",
-            }
+            return (
+                None,
+                None,
+                None,
+                {
+                    "error": "No usable covariate columns after local encoding.",
+                    "suggestion": "Use covariates with variation, or simplify high-missing predictors.",
+                },
+            )
         model_frame = pd.concat([y.rename(target), x], axis=1).dropna()
         if len(model_frame) < 3:
-            return None, None, None, {
-                "error": "Not enough encoded complete rows for local advanced analysis.",
-                "suggestion": "Check missingness, sparse categories, or reduce the covariate list.",
-            }
+            return (
+                None,
+                None,
+                None,
+                {
+                    "error": "Not enough encoded complete rows for local advanced analysis.",
+                    "suggestion": "Check missingness, sparse categories, or reduce the covariate list.",
+                },
+            )
         encoded_x = model_frame[list(x.columns)]
         encoded_x.attrs["source_covariates"] = covariates
         encoded_x.attrs["encoded_covariates"] = encoded_covariates
@@ -488,7 +513,9 @@ class AnalysisDelegator:
         }
 
     def _should_use_fast_logit(self, x_raw: pd.DataFrame, config: dict[str, Any]) -> bool:
-        backend = str(os.environ.get("RDE_LOGIT_BACKEND") or config.get("backend") or "auto").lower()
+        backend = str(
+            os.environ.get("RDE_LOGIT_BACKEND") or config.get("backend") or "auto"
+        ).lower()
         if backend in {"statsmodels", "sm"}:
             return False
         if backend in {"numpy", "local-lite", "fast"}:
@@ -615,10 +642,10 @@ class AnalysisDelegator:
         result = self._logistic_result_from_fit(fit)
         result.update(
             {
-            "interpretation": (
-                "Local logistic regression estimates adjusted associations for a binary outcome. "
-                "Odds ratios above 1 indicate higher odds after adjustment; review p-values and confidence intervals before drawing conclusions."
-            ),
+                "interpretation": (
+                    "Local logistic regression estimates adjusted associations for a binary outcome. "
+                    "Odds ratios above 1 indicate higher odds after adjustment; review p-values and confidence intervals before drawing conclusions."
+                ),
             }
         )
         return result
@@ -698,7 +725,9 @@ class AnalysisDelegator:
         }
 
     def _should_use_fast_regression(self, x_raw: pd.DataFrame, config: dict[str, Any]) -> bool:
-        backend = str(os.environ.get("RDE_REGRESSION_BACKEND") or config.get("backend") or "auto").lower()
+        backend = str(
+            os.environ.get("RDE_REGRESSION_BACKEND") or config.get("backend") or "auto"
+        ).lower()
         if backend in {"statsmodels", "sm"}:
             return False
         if backend in {"numpy", "local-lite", "fast"}:
@@ -829,7 +858,9 @@ class AnalysisDelegator:
         if test_type in {"ttest", "t_test", "two_sample_ttest"}:
             analyzer = TTestIndPower()
             if nobs1 is not None:
-                power = analyzer.power(effect_size=effect_size, nobs1=float(nobs1), alpha=alpha, ratio=ratio)
+                power = analyzer.power(
+                    effect_size=effect_size, nobs1=float(nobs1), alpha=alpha, ratio=ratio
+                )
                 solved_nobs1 = float(nobs1)
             else:
                 target_power = float(power_target or 0.8)
@@ -847,7 +878,9 @@ class AnalysisDelegator:
             k_groups = int(config.get("k_groups", config.get("groups", 3)))
             if nobs1 is not None:
                 solved_nobs1 = float(nobs1)
-                power = analyzer.power(effect_size=effect_size, nobs=float(nobs1), alpha=alpha, k_groups=k_groups)
+                power = analyzer.power(
+                    effect_size=effect_size, nobs=float(nobs1), alpha=alpha, k_groups=k_groups
+                )
             else:
                 target_power = float(power_target or 0.8)
                 solved_nobs1 = float(
@@ -864,7 +897,9 @@ class AnalysisDelegator:
             n_bins = int(config.get("n_bins", 2))
             if nobs1 is not None:
                 solved_nobs1 = float(nobs1)
-                power = analyzer.power(effect_size=effect_size, nobs=float(nobs1), alpha=alpha, n_bins=n_bins)
+                power = analyzer.power(
+                    effect_size=effect_size, nobs=float(nobs1), alpha=alpha, n_bins=n_bins
+                )
             else:
                 target_power = float(power_target or 0.8)
                 solved_nobs1 = float(
@@ -981,7 +1016,9 @@ class AnalysisDelegator:
             for covariate in covariates:
                 treated_mask = data["treatment"] == 1
                 control_mask = data["treatment"] == 0
-                weights = data[weight_column] if weight_column and weight_column in data.columns else None
+                weights = (
+                    data[weight_column] if weight_column and weight_column in data.columns else None
+                )
                 treated_weights = weights.loc[treated_mask] if weights is not None else None
                 control_weights = weights.loc[control_mask] if weights is not None else None
                 treated_values = data.loc[treated_mask, covariate]
@@ -994,7 +1031,12 @@ class AnalysisDelegator:
                 if treated_var is not None and control_var is not None:
                     pooled_sd = float(np.sqrt((treated_var + control_var) / 2))
                 smd = None
-                if pooled_sd and not np.isnan(pooled_sd) and treated_mean is not None and control_mean is not None:
+                if (
+                    pooled_sd
+                    and not np.isnan(pooled_sd)
+                    and treated_mean is not None
+                    and control_mean is not None
+                ):
                     smd = float((treated_mean - control_mean) / pooled_sd)
                 diagnostics[covariate] = {
                     "treated_mean": treated_mean,
@@ -1028,7 +1070,8 @@ class AnalysisDelegator:
             if not available_controls:
                 break
             distances = (
-                control_pool.loc[available_controls, "propensity_score"] - treated_row["propensity_score"]
+                control_pool.loc[available_controls, "propensity_score"]
+                - treated_row["propensity_score"]
             ).abs()
             control_index = distances.idxmin()
             distance = float(distances.loc[control_index])
@@ -1037,7 +1080,9 @@ class AnalysisDelegator:
                     "treated_row_index": str(treated_index),
                     "control_row_index": str(control_index),
                     "treated_propensity_score": float(treated_row["propensity_score"]),
-                    "control_propensity_score": float(control_pool.loc[control_index, "propensity_score"]),
+                    "control_propensity_score": float(
+                        control_pool.loc[control_index, "propensity_score"]
+                    ),
                     "score_distance": distance,
                 }
             )
@@ -1048,19 +1093,21 @@ class AnalysisDelegator:
             for index in (pair["treated_row_index"], pair["control_row_index"])
         ]
         matched_existing_indices = [
-            index
-            for index in valid.index
-            if str(index) in set(matched_indices)
+            index for index in valid.index if str(index) in set(matched_indices)
         ]
         matched = valid.loc[matched_existing_indices].copy()
-        matched_balance_diagnostics = _balance_for(matched, fit["covariates"]) if not matched.empty else {}
+        matched_balance_diagnostics = (
+            _balance_for(matched, fit["covariates"]) if not matched.empty else {}
+        )
         matching_summary = {
             "method": "nearest_neighbor_no_replacement",
             "matched_pairs": len(matched_pairs),
             "matched_rows": int(len(matched)),
             "treated_available": int((valid["treatment"] == 1).sum()),
             "control_available": int((valid["treatment"] == 0).sum()),
-            "mean_score_distance": float(np.mean([pair["score_distance"] for pair in matched_pairs]))
+            "mean_score_distance": float(
+                np.mean([pair["score_distance"] for pair in matched_pairs])
+            )
             if matched_pairs
             else None,
             "max_score_distance": float(max(pair["score_distance"] for pair in matched_pairs))
@@ -1157,7 +1204,12 @@ class AnalysisDelegator:
         time_col = config.get("time_variable") or config.get("time_column")
         event_col = self._resolve_target(config) or config.get("event_column")
         group_col = config.get("group_variable") or config.get("group_var")
-        if not time_col or time_col not in df.columns or not event_col or event_col not in df.columns:
+        if (
+            not time_col
+            or time_col not in df.columns
+            or not event_col
+            or event_col not in df.columns
+        ):
             return {
                 "error": "Kaplan-Meier summary requires valid time and event variables.",
                 "suggestion": "Provide time_variable and target_variable/event column.",
@@ -1198,7 +1250,12 @@ class AnalysisDelegator:
         time_col = config.get("time_variable") or config.get("time_column")
         event_col = self._resolve_target(config) or config.get("event_column")
         covariates = self._resolve_covariates(df, config)
-        if not time_col or time_col not in df.columns or not event_col or event_col not in df.columns:
+        if (
+            not time_col
+            or time_col not in df.columns
+            or not event_col
+            or event_col not in df.columns
+        ):
             return {
                 "error": "Cox regression requires valid time and event variables.",
                 "suggestion": "Provide time_variable, target_variable/event column, and covariates.",
@@ -1215,7 +1272,9 @@ class AnalysisDelegator:
                 "error": "No usable covariate columns after local Cox encoding.",
                 "suggestion": "Use covariates with variation, or simplify sparse categorical predictors.",
             }
-        model_frame = pd.concat([durations.rename("_time"), events.rename("_event"), exog], axis=1).dropna()
+        model_frame = pd.concat(
+            [durations.rename("_time"), events.rename("_event"), exog], axis=1
+        ).dropna()
         if len(model_frame) < 5:
             return {
                 "error": "Not enough complete rows for local Cox regression.",
@@ -1233,9 +1292,13 @@ class AnalysisDelegator:
                 "error": f"Local Cox regression failed: {exc}",
                 "suggestion": "Use Kaplan-Meier summary or configure the optional advanced engine.",
             }
-        params = {name: float(value) for name, value in zip(encoded_columns, fitted.params, strict=False)}
+        params = {
+            name: float(value) for name, value in zip(encoded_columns, fitted.params, strict=False)
+        }
         hazard_ratios = {name: float(np.exp(value)) for name, value in params.items()}
-        p_values = {name: float(value) for name, value in zip(encoded_columns, fitted.pvalues, strict=False)}
+        p_values = {
+            name: float(value) for name, value in zip(encoded_columns, fitted.pvalues, strict=False)
+        }
         return {
             "analysis_type": "cox_regression",
             "engine": "statsmodels.PHReg",

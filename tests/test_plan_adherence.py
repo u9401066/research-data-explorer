@@ -168,9 +168,7 @@ class TestCheckPlanAdherence:
         assert reason is not None
         assert "compare_groups" in reason
 
-    def test_advanced_analysis_time_variable_mismatch_is_a_deviation(
-        self, tmp_path: Path
-    ) -> None:
+    def test_advanced_analysis_time_variable_mismatch_is_a_deviation(self, tmp_path: Path) -> None:
         project = _make_project(tmp_path)
         _write_plan(
             project,

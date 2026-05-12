@@ -338,7 +338,9 @@ def test_promotion_gate_blocks_unconfirmed_and_low_score(tmp_path: Path) -> None
                 "metrics": {"evidence_score": 25, "stability_score": 30},
             },
         )
-        await server.call_tool("evaluate_branch", {"project_id": project.id, "branch_id": branch_id})
+        await server.call_tool(
+            "evaluate_branch", {"project_id": project.id, "branch_id": branch_id}
+        )
         unconfirmed = await server.call_tool(
             "promote_branch_to_plan_amendment",
             {"project_id": project.id, "branch_id": branch_id, "confirm": False},
@@ -434,8 +436,12 @@ def test_promotion_requires_persisted_audit_artifacts(tmp_path: Path) -> None:
                 },
             },
         )
-        await server.call_tool("evaluate_branch", {"project_id": project.id, "branch_id": branch_id})
-        evaluation_events = store.load(PipelinePhase.EXECUTE_EXPLORATION, "branch_evaluations.jsonl")
+        await server.call_tool(
+            "evaluate_branch", {"project_id": project.id, "branch_id": branch_id}
+        )
+        evaluation_events = store.load(
+            PipelinePhase.EXECUTE_EXPLORATION, "branch_evaluations.jsonl"
+        )
         gate_path = Path(evaluation_events[-1]["gate_artifact"])
         gate_path.unlink()
         result = await server.call_tool(
@@ -493,7 +499,9 @@ def test_promotion_requires_confirmed_locked_plan_even_in_quick_context(tmp_path
                 },
             },
         )
-        await server.call_tool("evaluate_branch", {"project_id": project.id, "branch_id": branch_id})
+        await server.call_tool(
+            "evaluate_branch", {"project_id": project.id, "branch_id": branch_id}
+        )
         result = await server.call_tool(
             "promote_branch_to_plan_amendment",
             {"project_id": project.id, "branch_id": branch_id, "confirm": True},
@@ -584,8 +592,12 @@ def test_promotion_requires_successful_readiness_even_after_rehydration_like_sta
                 },
             },
         )
-        await server.call_tool("evaluate_branch", {"project_id": project.id, "branch_id": branch_id})
-        store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", {"all_passed": False})
+        await server.call_tool(
+            "evaluate_branch", {"project_id": project.id, "branch_id": branch_id}
+        )
+        store.save(
+            PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", {"all_passed": False}
+        )
         result = await server.call_tool(
             "promote_branch_to_plan_amendment",
             {"project_id": project.id, "branch_id": branch_id, "confirm": True},
@@ -635,7 +647,9 @@ def test_promotion_revalidates_live_experiment_evidence_artifacts(tmp_path: Path
                 },
             },
         )
-        await server.call_tool("evaluate_branch", {"project_id": project.id, "branch_id": branch_id})
+        await server.call_tool(
+            "evaluate_branch", {"project_id": project.id, "branch_id": branch_id}
+        )
         experiments = store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl")
         artifact = experiments[-1]["artifacts"][0].split(
             f"{PipelinePhase.EXECUTE_EXPLORATION.value}/",
@@ -739,7 +753,9 @@ def test_promotion_writes_plan_amendment_without_rewriting_locked_plan(tmp_path:
                 },
             },
         )
-        await server.call_tool("evaluate_branch", {"project_id": project.id, "branch_id": branch_id})
+        await server.call_tool(
+            "evaluate_branch", {"project_id": project.id, "branch_id": branch_id}
+        )
         result = await server.call_tool(
             "promote_branch_to_plan_amendment",
             {"project_id": project.id, "branch_id": branch_id, "confirm": True},
@@ -903,7 +919,9 @@ def test_start_autoresearch_run_persists_empty_queue_artifacts_when_no_suggestio
     pytest.importorskip("mcp.server.fastmcp")
     project, store = _make_phase8_ready_project(tmp_path)
     store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": []})
-    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"locked": True, "analyses": []})
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"locked": True, "analyses": []}
+    )
 
     async def run_flow() -> str:
         server = create_server()
@@ -1040,8 +1058,7 @@ def test_run_autoresearch_next_task_reclaims_expired_lease(tmp_path: Path) -> No
     assert "task_id: `" + first_task_id + "`" in output
     assert any(event["event_type"] == "work_item_lease_reclaimed" for event in events)
     assert any(
-        event["task_id"] == first_task_id and event["status"] == "completed"
-        for event in events
+        event["task_id"] == first_task_id and event["status"] == "completed" for event in events
     )
 
 
@@ -1192,7 +1209,9 @@ def test_resume_autoresearch_run_blocks_completed_or_failed_budget_runs(tmp_path
     pytest.importorskip("mcp.server.fastmcp")
     project, store = _make_phase8_ready_project(tmp_path)
     store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": []})
-    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"locked": True, "analyses": []})
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"locked": True, "analyses": []}
+    )
 
     async def completed_flow() -> str:
         server = create_server()
@@ -1518,7 +1537,12 @@ def test_branch_suggestions_create_derived_propensity_for_multilevel_group() -> 
 
     schema = {
         "variables": [
-            {"name": "drug_code", "variable_type": "categorical", "n_unique": 4, "missing_rate": 0.0},
+            {
+                "name": "drug_code",
+                "variable_type": "categorical",
+                "n_unique": 4,
+                "missing_rate": 0.0,
+            },
             {"name": "Creatinine_normalized", "variable_type": "continuous", "missing_rate": 0.0},
             {"name": "NGAL_normalized", "variable_type": "continuous", "missing_rate": 0.0},
             {"name": "Age", "variable_type": "continuous", "missing_rate": 0.0},
@@ -1542,9 +1566,7 @@ def test_branch_suggestions_create_derived_propensity_for_multilevel_group() -> 
     }
 
     suggestions = _build_branch_suggestions(schema, plan, roles)
-    propensity = [
-        item for item in suggestions if item.get("experiment_type") == "propensity_score"
-    ]
+    propensity = [item for item in suggestions if item.get("experiment_type") == "propensity_score"]
     adjusted_targets = {
         item.get("analysis_contract", {}).get("target_variable")
         for item in suggestions
@@ -1649,7 +1671,12 @@ def test_autoresearch_derived_variables_write_registry(tmp_path: Path) -> None:
 def test_autoresearch_auto_evaluation_writes_candidate_without_confirmed_promotion(
     tmp_path: Path,
 ) -> None:
-    from rde.domain.models.exploration_branch import BranchEvent, BranchStatus, BranchType, ExperimentEvent
+    from rde.domain.models.exploration_branch import (
+        BranchEvent,
+        BranchStatus,
+        BranchType,
+        ExperimentEvent,
+    )
     from rde.interface.mcp.tools.branch_tools import (
         _auto_evaluate_autoresearch_branch,
         _event_id,

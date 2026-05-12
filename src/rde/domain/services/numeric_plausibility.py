@@ -38,7 +38,9 @@ class NumericPlausibilityFinding:
         if self.adult_excluded_count:
             details.append(f"adult-range n={self.adult_excluded_count}")
         detail_text = f" ({', '.join(details)})" if details else ""
-        return f"{self.variable_name}: excluded {self.excluded_count} implausible values{detail_text}"
+        return (
+            f"{self.variable_name}: excluded {self.excluded_count} implausible values{detail_text}"
+        )
 
     def markdown_line(self) -> str:
         details: list[str] = []
@@ -116,7 +118,9 @@ def apply_numeric_plausibility_filters(
     findings: list[NumericPlausibilityFinding] = []
     age_column = _find_age_column(cleaned)
     age_series = (
-        pd.to_numeric(cleaned[age_column], errors="coerce") if age_column and age_column in cleaned else None
+        pd.to_numeric(cleaned[age_column], errors="coerce")
+        if age_column and age_column in cleaned
+        else None
     )
 
     seen: set[str] = set()

@@ -988,7 +988,9 @@ class AutonomousEDAPlanner:
             group_variable = groups[0]
             grouped_targets = [
                 variable
-                for variable in self._unique_variables(outcomes + predictors + categorical + continuous)
+                for variable in self._unique_variables(
+                    outcomes + predictors + categorical + continuous
+                )
                 if variable.name != group_variable.name
             ]
             table_one_vars = self._limit_variables(
@@ -1379,11 +1381,19 @@ class AutonomousEDAPlanner:
             production_target=production_target,
             has_missing_checks=has_missing_checks,
         )
-        if not has_missing_checks and len(selected) >= recommended_floor and len(selected) < academic_target:
+        if (
+            not has_missing_checks
+            and len(selected) >= recommended_floor
+            and len(selected) < academic_target
+        ):
             warnings.append(
                 f"Review repaired this plan to minimum completeness, but academic-ready coverage would target about {academic_target} analyses."
             )
-        elif not has_missing_checks and len(selected) >= academic_target and len(selected) < production_target:
+        elif (
+            not has_missing_checks
+            and len(selected) >= academic_target
+            and len(selected) < production_target
+        ):
             warnings.append(
                 f"Review achieved academic-ready coverage; production-ready planning would target about {production_target} analyses."
             )
@@ -1547,7 +1557,10 @@ class AutonomousEDAPlanner:
     ) -> str:
         if has_missing_checks or final_analysis_count < recommended_floor:
             return "underpowered"
-        if candidate_pool_size >= PRODUCTION_ANALYSIS_TARGET and final_analysis_count >= production_target:
+        if (
+            candidate_pool_size >= PRODUCTION_ANALYSIS_TARGET
+            and final_analysis_count >= production_target
+        ):
             return "production_ready"
         if final_analysis_count >= academic_target:
             return "academic_ready"
@@ -1614,8 +1627,12 @@ class AutonomousEDAPlanner:
         if not has_groups:
             return []
 
-        final_descriptive = repaired_descriptive if repaired_descriptive is not None else descriptive_count
-        final_analytical = repaired_analytical if repaired_analytical is not None else analytical_count
+        final_descriptive = (
+            repaired_descriptive if repaired_descriptive is not None else descriptive_count
+        )
+        final_analytical = (
+            repaired_analytical if repaired_analytical is not None else analytical_count
+        )
         checks: list[ReviewCheck] = []
         requirements = [
             (
@@ -1673,10 +1690,15 @@ class AutonomousEDAPlanner:
         for entry in analyses:
             if not isinstance(entry, dict) or self._entry_family(entry) != "visualization":
                 continue
-            if self._visualization_category(
-                str(entry.get("plot_type") or ""),
-                str(entry.get("group_variable")) if entry.get("group_variable") is not None else None,
-            ) == "descriptive":
+            if (
+                self._visualization_category(
+                    str(entry.get("plot_type") or ""),
+                    str(entry.get("group_variable"))
+                    if entry.get("group_variable") is not None
+                    else None,
+                )
+                == "descriptive"
+            ):
                 descriptive += 1
             else:
                 analytical += 1
@@ -1698,7 +1720,9 @@ class AutonomousEDAPlanner:
         ]
         additional_viz.sort(
             key=lambda viz: (
-                0 if self._visualization_category(viz.plot_type, viz.group_variable) == "descriptive" else 1,
+                0
+                if self._visualization_category(viz.plot_type, viz.group_variable) == "descriptive"
+                else 1,
                 viz.plot_type,
                 viz.variables,
             )
@@ -2495,7 +2519,11 @@ class AutonomousEDAPlanner:
         )
         if event is None:
             event = self._first_keyword_match(
-                [variable for variable in variables if variable.variable_type == VariableType.BINARY],
+                [
+                    variable
+                    for variable in variables
+                    if variable.variable_type == VariableType.BINARY
+                ],
                 ("event", "death", "mortality", "complication", "failure"),
             )
         time_var = self._first_keyword_match(
@@ -2646,7 +2674,9 @@ class AutonomousEDAPlanner:
         variables: list[Variable],
         question_terms: tuple[str, ...],
     ) -> list[Variable]:
-        base_rank = {variable.name: index for index, variable in enumerate(self._sort_variables(variables))}
+        base_rank = {
+            variable.name: index for index, variable in enumerate(self._sort_variables(variables))
+        }
         return sorted(
             variables,
             key=lambda variable: (
@@ -2728,6 +2758,8 @@ class AutonomousEDAPlanner:
         }:
             return False
         lowered = variable.name.lower()
-        if "id" in lowered and not self._name_has_keyword(lowered, ("trial", "case_order", "attempt")):
+        if "id" in lowered and not self._name_has_keyword(
+            lowered, ("trial", "case_order", "attempt")
+        ):
             return False
         return True

@@ -117,7 +117,9 @@ def test_delegator_uses_fast_logit_for_high_cardinality_without_statsmodels(
 
     def guarded_import(name, *args, **kwargs):
         if name == "statsmodels" or name.startswith("statsmodels."):
-            raise AssertionError("high-cardinality local-lite logistic should not import statsmodels")
+            raise AssertionError(
+                "high-cardinality local-lite logistic should not import statsmodels"
+            )
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", guarded_import)
@@ -150,7 +152,9 @@ def test_delegator_uses_fast_linear_model_for_high_cardinality_without_statsmode
 
     def guarded_import(name, *args, **kwargs):
         if name == "statsmodels" or name.startswith("statsmodels."):
-            raise AssertionError("high-cardinality local-lite regression should not import statsmodels")
+            raise AssertionError(
+                "high-cardinality local-lite regression should not import statsmodels"
+            )
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", guarded_import)
@@ -260,7 +264,12 @@ def test_delegator_propensity_score_local_lite_returns_score_diagnostics() -> No
     assert result["source"] == "local-lite (statsmodels)"
     assert ps_result["analysis_type"] == "propensity_score"
     assert ps_result["propensity_score_summary"]["count"] == 12
-    assert 0 <= ps_result["propensity_score_summary"]["min"] <= ps_result["propensity_score_summary"]["max"] <= 1
+    assert (
+        0
+        <= ps_result["propensity_score_summary"]["min"]
+        <= ps_result["propensity_score_summary"]["max"]
+        <= 1
+    )
     assert ps_result["propensity_scores_sample"][0]["propensity_score"] >= 0
     assert len(ps_result["propensity_scores"]) == 12
     assert ps_result["propensity_scores_truncated"] is False
@@ -304,7 +313,16 @@ def test_delegator_kaplan_meier_local_lite_returns_stratified_summary() -> None:
         {
             "time": [3, 5, 8, 10, 4, 6, 9, 12],
             "event": [1, 1, 0, 1, 1, 0, 1, 0],
-            "treatment": ["control", "control", "control", "control", "treated", "treated", "treated", "treated"],
+            "treatment": [
+                "control",
+                "control",
+                "control",
+                "control",
+                "treated",
+                "treated",
+                "treated",
+                "treated",
+            ],
         }
     )
     delegator = AnalysisDelegator()

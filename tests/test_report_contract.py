@@ -1183,7 +1183,9 @@ def test_semantic_report_quality_requires_structured_figure_harness(
         },
         store,
     )
-    assert "semantic_quality:structured_figure_interpretation" not in repaired["missing_requirements"]
+    assert (
+        "semantic_quality:structured_figure_interpretation" not in repaired["missing_requirements"]
+    )
 
 
 def test_evaluate_report_readiness_promotes_execution_evidence_to_production_tier(
@@ -1300,7 +1302,9 @@ def test_no_code_and_agent_harness_goals_require_project_evidence(tmp_path: Path
     assert "core_goal:agent_friendly_harness" in readiness["missing_requirements"]
 
 
-def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp_path: Path) -> None:
+def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(
+    tmp_path: Path,
+) -> None:
     project = type("ProjectStub", (), {})()
     project.output_dir = tmp_path / "project"
     project.artifacts_dir = project.output_dir / "artifacts"
@@ -1407,9 +1411,7 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
     assert readiness["ready"] is True
     assert readiness["target_tier"] == "production_ready"
     assert readiness["core_goal_audit"]["ready"] is True
-    assert {
-        check["id"] for check in readiness["core_goal_audit"]["checks"] if check["passed"]
-    } >= {
+    assert {check["id"] for check in readiness["core_goal_audit"]["checks"] if check["passed"]} >= {
         "data_understanding",
         "analysis_planning",
         "reproducible_exploration",
@@ -1615,9 +1617,7 @@ def test_run_audit_recomputes_readiness_instead_of_trusting_stale_results_summar
             completed_at=datetime.now(),
             success=True,
             artifacts={
-                "eda_report.md": str(
-                    store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
-                )
+                "eda_report.md": str(store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))
             },
         )
     )
@@ -1692,7 +1692,9 @@ def test_run_audit_recomputes_plan_adherence_without_branch_inflation(
             phase=PipelinePhase.REPORT_ASSEMBLY,
             completed_at=datetime.now(),
             success=True,
-            artifacts={"eda_report.md": str(store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))},
+            artifacts={
+                "eda_report.md": str(store.get_path(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))
+            },
         )
     )
 
@@ -1968,9 +1970,13 @@ def test_build_phase10_export_report_includes_table_and_figures(tmp_path: Path) 
 
     assert report.title == "Demo Final Report"
     assert any(section.title == "Table 1 — Baseline Characteristics" for section in report.sections)
-    stat_section = next(section for section in report.sections if section.section_id == "statistical_analyses")
+    stat_section = next(
+        section for section in report.sections if section.section_id == "statistical_analyses"
+    )
     assert len(stat_section.figures) == 3
-    variable_section = next(section for section in report.sections if section.section_id == "variable_profiles")
+    variable_section = next(
+        section for section in report.sections if section.section_id == "variable_profiles"
+    )
     assert variable_section.tables[0]["headers"] == ["A", "B"]
     assert asset_summary["table"]["included"] is True
     assert asset_summary["figures"]["included_count"] == 3

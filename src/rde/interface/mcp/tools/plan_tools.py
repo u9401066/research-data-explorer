@@ -127,7 +127,9 @@ def _infer_variable_roles_from_question(
 
     planner = AutonomousEDAPlanner()
     analyzable = [
-        variable for variable in variables if variable.is_analyzable() and not variable.is_pii_suspect
+        variable
+        for variable in variables
+        if variable.is_analyzable() and not variable.is_pii_suspect
     ]
     question_terms = planner._question_terms(research_question)
     outcomes = planner._pick_outcomes(analyzable, question_terms=question_terms)
@@ -334,7 +336,9 @@ def _merge_methodology_expansion(
             viz_key = (
                 str(entry.get("plot_type", "")).lower(),
                 tuple(str(value) for value in entry.get("variables", [])),
-                str(entry.get("group_variable")) if entry.get("group_variable") is not None else None,
+                str(entry.get("group_variable"))
+                if entry.get("group_variable") is not None
+                else None,
             )
             if viz_key in existing_visualizations:
                 continue
@@ -521,8 +525,12 @@ def _render_methodology_review_markdown(review: dict[str, Any]) -> str:
     lines = ["# 📏 Plan Methodology Review\n"]
     lines.append(f"- **status:** {review.get('status', 'unknown')}")
     lines.append(f"- **recommended analysis floor:** {review.get('recommended_analysis_floor', 0)}")
-    lines.append(f"- **academic analysis target:** {review.get('academic_analysis_target', review.get('recommended_analysis_floor', 0))}")
-    lines.append(f"- **production analysis target:** {review.get('production_analysis_target', review.get('academic_analysis_target', review.get('recommended_analysis_floor', 0)))}")
+    lines.append(
+        f"- **academic analysis target:** {review.get('academic_analysis_target', review.get('recommended_analysis_floor', 0))}"
+    )
+    lines.append(
+        f"- **production analysis target:** {review.get('production_analysis_target', review.get('academic_analysis_target', review.get('recommended_analysis_floor', 0)))}"
+    )
     lines.append(f"- **completeness tier:** {review.get('completeness_tier', 'unknown')}")
     lines.append(f"- **candidate pool size:** {review.get('candidate_pool_size', 0)}")
     lines.append(f"- **requested analysis budget:** {review.get('requested_analysis_budget', 0)}")
@@ -1704,7 +1712,9 @@ def register_plan_tools(server: Any) -> None:
                         normality_details.append(f"{variable}: n={n_obs} too small")
                         continue
                     if n_obs > 5000:
-                        normality_details.append(f"{variable}: n={n_obs} too large for Shapiro preview")
+                        normality_details.append(
+                            f"{variable}: n={n_obs} too large for Shapiro preview"
+                        )
                         continue
                     try:
                         from scipy import stats
@@ -1792,9 +1802,7 @@ def register_plan_tools(server: Any) -> None:
                 from rde.domain.services.collinearity_checker import check_collinearity
 
                 collinearity_variables = [
-                    c
-                    for c in readiness_scope.get("collinearity_variables", [])
-                    if c in df.columns
+                    c for c in readiness_scope.get("collinearity_variables", []) if c in df.columns
                 ][:30]
                 report = check_collinearity(df, variables=collinearity_variables)
                 if report.has_collinearity:

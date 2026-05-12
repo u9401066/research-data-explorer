@@ -58,9 +58,7 @@ def register_audit_tools(server: Any) -> None:
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
             if not store.exists(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"):
-                return fmt_error(
-                    "Missing artifacts for phase_10_report_assembly: eda_report.md"
-                )
+                return fmt_error("Missing artifacts for phase_10_report_assembly: eda_report.md")
 
             checks: list[dict] = []
             total_score = 0
@@ -715,9 +713,7 @@ def register_audit_tools(server: Any) -> None:
             },
         )
 
-        ok, msg, project, _ = ensure_phase_ready(
-            PipelinePhase.AUTO_IMPROVE, project_id=project_id
-        )
+        ok, msg, project, _ = ensure_phase_ready(PipelinePhase.AUTO_IMPROVE, project_id=project_id)
         if not ok:
             return fmt_error(msg)
         assert project is not None
@@ -1037,9 +1033,7 @@ def _generate_suggestions(checks: list[dict]) -> list[str]:
                 readiness_gaps.append("publication bundle")
             if readiness_gaps:
                 suggestions.append(
-                    "若要直接輸出終版完整報告，請先補齊 "
-                    + "、".join(readiness_gaps)
-                    + "。"
+                    "若要直接輸出終版完整報告，請先補齊 " + "、".join(readiness_gaps) + "。"
                 )
             else:
                 suggestions.append("若要直接輸出終版完整報告，請先補齊 readiness contract 缺口。")
@@ -1052,20 +1046,17 @@ def _generate_suggestions(checks: list[dict]) -> list[str]:
         elif cat == "data_quality_evidence":
             details = str(c.get("details", ""))
             suggestions.append(
-                "補齊 Phase 2 profile_dataset()/assess_quality() durable artifacts。"
-                + details
+                "補齊 Phase 2 profile_dataset()/assess_quality() durable artifacts。" + details
             )
         elif cat == "semantic_report_quality":
             details = str(c.get("details", ""))
             suggestions.append(
-                "補齊語意報告品質：研究問題對齊、表圖解讀、限制與後續建議。"
-                + details
+                "補齊語意報告品質：研究問題對齊、表圖解讀、限制與後續建議。" + details
             )
         elif cat == "core_goal_audit":
             details = str(c.get("details", ""))
             suggestions.append(
-                "Complete the RDE core contract before claiming production readiness: "
-                + details
+                "Complete the RDE core contract before claiming production readiness: " + details
             )
     return suggestions
 
@@ -1255,9 +1246,7 @@ def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> st
         )
     analysis_depth = report_readiness.get("analysis_depth") or {}
     if isinstance(analysis_depth, dict) and analysis_depth:
-        lines.append(
-            f"- **analysis depth:** {'met' if analysis_depth.get('ready') else 'not met'}"
-        )
+        lines.append(f"- **analysis depth:** {'met' if analysis_depth.get('ready') else 'not met'}")
     semantic_quality = report_readiness.get("semantic_report_quality") or {}
     if isinstance(semantic_quality, dict) and semantic_quality:
         lines.append(
@@ -1349,7 +1338,9 @@ def _split_markdown_h3_sections(markdown: str) -> tuple[str, list[tuple[str, str
 
 def _strip_markdown_image_lines(text: str) -> str:
     lines = [
-        line for line in str(text or "").splitlines() if not re.match(r"^!\[[^\]]*\]\([^)]*\)\s*$", line.strip())
+        line
+        for line in str(text or "").splitlines()
+        if not re.match(r"^!\[[^\]]*\]\([^)]*\)\s*$", line.strip())
     ]
     return "\n".join(lines).strip()
 
@@ -1418,7 +1409,9 @@ def _build_phase10_figure_gallery(project: Any, store: Any, markdown: str) -> st
         existing = figure_notes.get(figure_path.name, {})
         is_appendix = str(entry.get("category", "")).strip().lower() == "quality_control"
         if is_appendix:
-            fallback_heading = f"Appendix Figure A{appendix_index}. {_humanize_figure_stem(figure_path.stem)}"
+            fallback_heading = (
+                f"Appendix Figure A{appendix_index}. {_humanize_figure_stem(figure_path.stem)}"
+            )
             appendix_index += 1
         else:
             fallback_heading = f"Figure {main_index}. {_humanize_figure_stem(figure_path.stem)}"
@@ -1537,7 +1530,9 @@ def _build_phase10_source_markdown(
     return "\n".join(lines).strip() + "\n"
 
 
-def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -> tuple[Any, dict[str, Any]]:
+def _build_phase10_export_report(
+    project: Any, store: Any, *, title: str = ""
+) -> tuple[Any, dict[str, Any]]:
     from rde.application.pipeline import PipelinePhase
     from rde.domain.models.report import EDAReport, ReportSection
     from rde.interface.mcp.tools.report_tools import (
@@ -1551,7 +1546,9 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
         raise ValueError("找不到 phase_12_auto_improve/final_report.md")
 
     normalized_markdown = _normalize_project_paths(str(final_markdown), project)
-    inferred_title, preamble_lines, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
+    inferred_title, preamble_lines, parsed_sections = _split_markdown_h2_sections(
+        normalized_markdown
+    )
     sections = _section_lookup(parsed_sections)
     dataset_id = project.dataset_ids[-1] if getattr(project, "dataset_ids", None) else "unknown"
     schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
@@ -1604,9 +1601,7 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
     table_one_markdown = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
     table_rows = _parse_table_markdown_rows(table_one_markdown)
     table_payload = (
-        {"headers": table_rows[0], "rows": table_rows[1:]}
-        if len(table_rows) >= 2
-        else None
+        {"headers": table_rows[0], "rows": table_rows[1:]} if len(table_rows) >= 2 else None
     )
     table_notes = "\n".join(_extract_table_markdown_notes(table_one_markdown))
     report.add_section(
@@ -1653,7 +1648,9 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
                         [
                             (
                                 "擴充分析：手術別 subgroup / interaction 與 ordinal 複核",
-                                sections.get("擴充分析：手術別 subgroup / interaction 與 ordinal 複核", ""),
+                                sections.get(
+                                    "擴充分析：手術別 subgroup / interaction 與 ordinal 複核", ""
+                                ),
                             ),
                             (
                                 "補充圖表與最低發表包完成狀態",
@@ -1831,7 +1828,9 @@ def _build_phase10_export_manifest(
                 store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"),
                 project,
             ),
-            "exists": store.exists(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"),
+            "exists": store.exists(
+                PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"
+            ),
         },
     }
 
@@ -1868,7 +1867,9 @@ def _build_phase10_final_report(
     lines = [base_report, "\n---\n", "## Phase 12 Finalization\n"]
     if audit:
         lines.append(f"- **audit grade:** {audit.get('grade', '?')}")
-        lines.append(f"- **audit score:** {audit.get('total_score', '?')}/{audit.get('max_score', '?')}")
+        lines.append(
+            f"- **audit score:** {audit.get('total_score', '?')}/{audit.get('max_score', '?')}"
+        )
     auto_fixed = _as_string_list(improvement_log.get("auto_fixed", []))
     manual_suggestions = _as_string_list(improvement_log.get("manual_suggestions", []))
     lines.append(f"- **auto-fixed items:** {len(auto_fixed)}")

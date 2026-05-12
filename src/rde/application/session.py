@@ -172,7 +172,9 @@ class SessionRegistry:
         )
 
         changed = False
-        current_completed = [status for status in PIPELINE_ORDER if status in project.completed_phases]
+        current_completed = [
+            status for status in PIPELINE_ORDER if status in project.completed_phases
+        ]
         if current_completed != repaired_completed:
             project.completed_phases = repaired_completed
             changed = True

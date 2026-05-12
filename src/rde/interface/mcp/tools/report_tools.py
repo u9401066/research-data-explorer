@@ -37,7 +37,9 @@ def _safe_visualization_filename(filename: str) -> str:
         or "/" in candidate
         or "\\" in candidate
     ):
-        raise ValueError("output_filename must be a simple filename inside the project figures directory.")
+        raise ValueError(
+            "output_filename must be a simple filename inside the project figures directory."
+        )
     stem = re.sub(r"[^A-Za-z0-9._-]+", "_", path.stem).strip("._-") or "figure"
     suffix = path.suffix.lower() if path.suffix else ".png"
     if suffix != ".png":
@@ -246,9 +248,7 @@ def _build_formal_research_report(
     pubmed_context = store.load(PipelinePhase.REPORT_ASSEMBLY, "pubmed_literature_context.md")
     table_rows = _parse_table_markdown_rows(table_one)
     table_payload = (
-        {"headers": table_rows[0], "rows": table_rows[1:]}
-        if len(table_rows) >= 2
-        else None
+        {"headers": table_rows[0], "rows": table_rows[1:]} if len(table_rows) >= 2 else None
     )
 
     report = EDAReport(
@@ -563,9 +563,7 @@ def register_report_tools(server: Any) -> None:
             ]
 
             if branch_decision_count:
-                lines.append(
-                    f"- **Branch-scoped exploratory decisions:** {branch_decision_count}"
-                )
+                lines.append(f"- **Branch-scoped exploratory decisions:** {branch_decision_count}")
 
             if plan_coverage:
                 lines.append(
@@ -1136,8 +1134,7 @@ def register_report_tools(server: Any) -> None:
                 f"- **匯出樣式:** formal research report\n"
                 f"- **嵌入圖表:** {fig_count} 張\n"
                 f"- **Formal source:** {formal_source_path}\n"
-                f"- **Claim provenance:** {provenance_path}\n"
-                + "\n".join(lines),
+                f"- **Claim provenance:** {provenance_path}\n" + "\n".join(lines),
             )
 
         except ImportError as e:
@@ -1412,7 +1409,8 @@ def _load_phase6_markdown_bundle(
     filenames = [
         name
         for name in store.list_phase_artifacts(PipelinePhase.EXECUTE_EXPLORATION)
-        if name.startswith(prefix) and name.endswith(".md")
+        if name.startswith(prefix)
+        and name.endswith(".md")
         and not any(name.startswith(excluded) for excluded in exclude_prefixes)
     ]
     if not filenames:
@@ -1553,7 +1551,18 @@ def _flatten_variable_roles(variable_roles: dict | None) -> dict[str, str]:
                 roles[str(nested_key)] = str(nested_value or key_text)
         elif raw:
             raw_text = str(raw)
-            if key_text.lower() in {"outcome", "target", "endpoint", "group", "exposure", "treatment", "covariate", "confounder", "adjuster", "predictor"}:
+            if key_text.lower() in {
+                "outcome",
+                "target",
+                "endpoint",
+                "group",
+                "exposure",
+                "treatment",
+                "covariate",
+                "confounder",
+                "adjuster",
+                "predictor",
+            }:
                 roles[raw_text] = key_text
             else:
                 roles[key_text] = raw_text
@@ -1611,9 +1620,7 @@ def _formal_abstract(
     loaded_file = (intake or {}).get("loaded_file", "study dataset")
     normalization = (intake or {}).get("normalization") if isinstance(intake, dict) else {}
     loaded_sheet = (
-        normalization.get("selected_sheet_name")
-        if isinstance(normalization, dict)
-        else None
+        normalization.get("selected_sheet_name") if isinstance(normalization, dict) else None
     )
     dataset_label = f"`{loaded_file}`"
     if loaded_sheet:
@@ -1698,16 +1705,32 @@ def _formal_variable_summary(schema: dict | None, *, variable_roles: dict | None
     if not variables:
         return "未取得 schema registry，因此無法產生研究變項摘要。"
     role_map = _flatten_variable_roles(variable_roles)
-    outcomes = [name for name, role in role_map.items() if _role_matches(role, ("outcome", "target", "endpoint", "dependent"))]
-    groups = [name for name, role in role_map.items() if _role_matches(role, ("group", "exposure", "treatment", "arm"))]
-    covariates = [name for name, role in role_map.items() if _role_matches(role, ("covariate", "confounder", "adjuster", "baseline", "predictor"))]
+    outcomes = [
+        name
+        for name, role in role_map.items()
+        if _role_matches(role, ("outcome", "target", "endpoint", "dependent"))
+    ]
+    groups = [
+        name
+        for name, role in role_map.items()
+        if _role_matches(role, ("group", "exposure", "treatment", "arm"))
+    ]
+    covariates = [
+        name
+        for name, role in role_map.items()
+        if _role_matches(role, ("covariate", "confounder", "adjuster", "baseline", "predictor"))
+    ]
     type_counts: dict[str, int] = {}
     for var in variables:
         vtype = str(var.get("variable_type") or var.get("type") or "unknown")
         type_counts[vtype] = type_counts.get(vtype, 0) + 1
     lines = [f"Schema registry 共列出 {len(variables)} 個變項。"]
     if type_counts:
-        lines.append("變項型態分布：" + "、".join(f"{key}: {value}" for key, value in sorted(type_counts.items())) + "。")
+        lines.append(
+            "變項型態分布："
+            + "、".join(f"{key}: {value}" for key, value in sorted(type_counts.items()))
+            + "。"
+        )
     if outcomes:
         lines.append("主要 outcome / endpoint 變項：" + "、".join(outcomes[:12]) + "。")
     if groups:
@@ -1732,7 +1755,9 @@ def _formal_key_findings(results: dict | None) -> str:
     lines = ["審計候選結果如下，仍需正式方法學確認："]
     for item in publishable:
         variables = ", ".join(item.get("variables", []))
-        lines.append(f"- {variables}: {item.get('test_name', 'test')}，p={item.get('p_value', 'NA')}")
+        lines.append(
+            f"- {variables}: {item.get('test_name', 'test')}，p={item.get('p_value', 'NA')}"
+        )
     return "\n".join(lines)
 
 
@@ -1752,14 +1777,18 @@ def _formal_statistical_summary(project: Any, store: Any, results: dict | None) 
     entries = _resolved_visualization_manifest_entries(project, store)
     p_candidates = []
     for entry in entries:
-        p_text, p_value = _extract_p_value(str(entry.get("summary") or entry.get("stats_summary") or ""))
+        p_text, p_value = _extract_p_value(
+            str(entry.get("summary") or entry.get("stats_summary") or "")
+        )
         if p_value is not None and p_value < 0.05:
             p_candidates.append(
                 f"{entry.get('plot_type', 'figure')} ({', '.join(str(v) for v in entry.get('variables', []))}; {p_text})"
             )
     if p_candidates:
         lines.append(
-            "候選關聯訊號包含：" + "；".join(p_candidates[:8]) + "。這些訊號需以 multiplicity-aware 方式解讀。"
+            "候選關聯訊號包含："
+            + "；".join(p_candidates[:8])
+            + "。這些訊號需以 multiplicity-aware 方式解讀。"
         )
     return "\n".join(lines) if lines else "尚無統計分析摘要可供正式報告使用。"
 
@@ -1780,7 +1809,9 @@ def _formal_conclusions(
         "若組別稀疏、缺失率偏高或共線性存在，非顯著結果不可解讀為沒有差異或沒有實質意義。",
     ]
     if isinstance(readiness, dict) and readiness.get("missing_requirements"):
-        lines.append("正式發表前仍需補齊：" + "、".join(readiness.get("missing_requirements", [])) + "。")
+        lines.append(
+            "正式發表前仍需補齊：" + "、".join(readiness.get("missing_requirements", [])) + "。"
+        )
     if pubmed_context.strip():
         lines.append(
             "後續討論應明確連結 PubMed context，並區分既有文獻支持、資料內探索訊號與仍需驗證的推論。"
@@ -1915,7 +1946,9 @@ def _interpret_table_one(table_one: str | None, schema: dict | None) -> str:
             "are added."
         )
     if notes:
-        lines.append("- Source table notes: " + "; ".join(note.lstrip("- ").strip() for note in notes[:3]))
+        lines.append(
+            "- Source table notes: " + "; ".join(note.lstrip("- ").strip() for note in notes[:3])
+        )
     lines.append(
         "- Recommendation: report medians/IQRs alongside means/SDs, preserve the sparse-code warning, "
         "and avoid interpreting non-significant sparse-group contrasts as evidence of equivalence."
@@ -1993,11 +2026,12 @@ def _figure_interpretation_harness_entry(
             f"{primary} is shown as a univariate distribution. {distribution} "
             "Use this panel to judge skewness, outliers, and whether parametric summaries are fragile."
         )
-        statistical_support = stats_summary or "No formal inferential statistic is attached to this descriptive figure."
-        validity_caveat = "Distributional shape should affect summary choice and downstream parametric assumptions."
-        reportable_claim = (
-            f"{primary} can be described as an exploratory distributional profile, not as an association or effect estimate."
+        statistical_support = (
+            stats_summary
+            or "No formal inferential statistic is attached to this descriptive figure."
         )
+        validity_caveat = "Distributional shape should affect summary choice and downstream parametric assumptions."
+        reportable_claim = f"{primary} can be described as an exploratory distributional profile, not as an association or effect estimate."
         next_analysis = (
             "For manuscript reporting, pair this with median/IQR and consider log or rank-based "
             "analysis if the distribution is skewed."
@@ -2017,7 +2051,9 @@ def _figure_interpretation_harness_entry(
         )
         evidence_role = "Group contrast screening"
         visual_read = f"{primary} is compared{comparator}. {signal}{sparse}"
-        statistical_support = stats_summary or "No test annotation is available; treat the figure as descriptive."
+        statistical_support = (
+            stats_summary or "No test annotation is available; treat the figure as descriptive."
+        )
         validity_caveat = (
             "Sparse cells and unbalanced strata can make apparent group differences unstable."
             if sparse_groups
@@ -2039,14 +2075,14 @@ def _figure_interpretation_harness_entry(
         else:
             signal = f"The observed association is weak or statistically uncertain ({p_text})."
         evidence_role = "Crude association screening"
-        visual_read = f"The scatter plot evaluates the relationship among {variables_text}. {signal}"
-        statistical_support = stats_summary or "No correlation/model statistic is attached to this scatter plot."
-        validity_caveat = (
-            "Crude associations can be driven by leverage points, scale, missingness, or confounding."
+        visual_read = (
+            f"The scatter plot evaluates the relationship among {variables_text}. {signal}"
         )
-        reportable_claim = (
-            f"The figure supports only a hypothesis-generating association review for {variables_text}."
+        statistical_support = (
+            stats_summary or "No correlation/model statistic is attached to this scatter plot."
         )
+        validity_caveat = "Crude associations can be driven by leverage points, scale, missingness, or confounding."
+        reportable_claim = f"The figure supports only a hypothesis-generating association review for {variables_text}."
         next_analysis = (
             "Use this to guide adjusted modeling rather than as a standalone conclusion; inspect leverage "
             "points because the cohort is small."
@@ -2057,9 +2093,13 @@ def _figure_interpretation_harness_entry(
             "The heatmap summarizes covariate structure and potential collinearity before modeling. "
             f"It should be read with the readiness warning: {stats_summary or 'correlation structure review'}."
         )
-        statistical_support = stats_summary or "No pairwise statistic summary is attached to this heatmap."
+        statistical_support = (
+            stats_summary or "No pairwise statistic summary is attached to this heatmap."
+        )
         validity_caveat = "Correlation structure is not an effect estimate and should not be treated as endpoint evidence."
-        reportable_claim = "The heatmap supports model-building caution, especially around redundant covariates."
+        reportable_claim = (
+            "The heatmap supports model-building caution, especially around redundant covariates."
+        )
         next_analysis = (
             "Avoid putting highly redundant anthropometric variables into the same small-sample model "
             "unless the model is explicitly sensitivity-oriented."
@@ -2070,20 +2110,26 @@ def _figure_interpretation_harness_entry(
             "The propensity figure is a balance/overlap diagnostic for the derived treatment contrast, "
             "not a causal estimate by itself."
         )
-        statistical_support = stats_summary or "No balance metric summary is attached to this propensity figure."
+        statistical_support = (
+            stats_summary or "No balance metric summary is attached to this propensity figure."
+        )
         validity_caveat = "Propensity diagnostics require common support, balance thresholds, and exposure-definition provenance."
-        reportable_claim = "The figure can support balance assessment only, not a treatment-effect conclusion."
+        reportable_claim = (
+            "The figure can support balance assessment only, not a treatment-effect conclusion."
+        )
         next_analysis = (
             "Report the derived exposure definition, inspect overlap, and use the weighted/matched balance "
             "table before presenting any adjusted treatment contrast."
         )
     else:
         evidence_role = "Exploratory visual evidence"
-        visual_read = (
-            f"The figure displays {variables[0] if variables else 'an analysis artifact'} for exploratory review."
+        visual_read = f"The figure displays {variables[0] if variables else 'an analysis artifact'} for exploratory review."
+        statistical_support = (
+            stats_summary or "No statistical annotation is attached to this figure."
         )
-        statistical_support = stats_summary or "No statistical annotation is attached to this figure."
-        validity_caveat = "The evidentiary role is unclear until it is linked to a prespecified question."
+        validity_caveat = (
+            "The evidentiary role is unclear until it is linked to a prespecified question."
+        )
         reportable_claim = f"The figure is supporting context for {variables_text}."
         next_analysis = "Treat as supporting context and link it to a specific model or table before publication."
 
@@ -2195,7 +2241,9 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
         if not isinstance(result, dict):
             continue
         target = result.get("target") or payload.get("config", {}).get("target") or "target"
-        analysis_type = result.get("analysis_type") or payload.get("analysis_type") or "advanced analysis"
+        analysis_type = (
+            result.get("analysis_type") or payload.get("analysis_type") or "advanced analysis"
+        )
         p_values = result.get("p_values") if isinstance(result.get("p_values"), dict) else {}
         significant_terms = [
             f"{term} (p={float(p):.3g})"
@@ -2204,9 +2252,7 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
         ]
         r_squared = result.get("adj_r_squared", result.get("r_squared"))
         fit_text = (
-            f"; adjusted R²={float(r_squared):.3f}"
-            if isinstance(r_squared, (int, float))
-            else ""
+            f"; adjusted R²={float(r_squared):.3f}" if isinstance(r_squared, (int, float)) else ""
         )
         if significant_terms:
             interpretation = (
@@ -2240,7 +2286,9 @@ def _interpret_pubmed_context(pubmed_context: str) -> str:
         )
 
     key_context = _extract_markdown_section(pubmed_context, "Key Context For This RDE Report")
-    interpretation = _extract_markdown_section(pubmed_context, "How It Should Affect Interpretation")
+    interpretation = _extract_markdown_section(
+        pubmed_context, "How It Should Affect Interpretation"
+    )
     references = _extract_markdown_section(pubmed_context, "PubMed MCP Seed References")
     lines = [
         "- The PubMed context artifact is available and should be treated as the external evidence frame "
@@ -2255,7 +2303,9 @@ def _interpret_pubmed_context(pubmed_context: str) -> str:
     if references:
         pmid_count = len(re.findall(r"^\|\s*\d+", references, flags=re.MULTILINE))
         if pmid_count:
-            lines.append(f"\n- Seed reference table contains {pmid_count} PubMed-backed context items.")
+            lines.append(
+                f"\n- Seed reference table contains {pmid_count} PubMed-backed context items."
+            )
     return "\n".join(lines)
 
 
@@ -2289,7 +2339,10 @@ def _build_interpretation_recommendations(
         )
     missing = (readiness or {}).get("missing_requirements") if isinstance(readiness, dict) else []
     if missing:
-        lines.append("- Remaining readiness gaps should be resolved before confirmatory claims: " + ", ".join(missing))
+        lines.append(
+            "- Remaining readiness gaps should be resolved before confirmatory claims: "
+            + ", ".join(missing)
+        )
     if pubmed_context.strip():
         lines.append(
             "- In the discussion, explicitly separate literature-supported background, dataset-derived "
@@ -2556,27 +2609,23 @@ def _summarize_exploration_branches(store: Any) -> dict[str, Any]:
                     "status": "",
                     "hypothesis": "",
                     "risk_level": "",
-                "experiment_count": 0,
-                "experiment_types": [],
-                "evidence_artifacts": [],
-                "metrics_preview": [],
-                "recommendation": "",
-                "overall_score": None,
-                "blockers": [],
-                "component_scores": {},
-                "review_artifact": "",
-                "gate_artifact": "",
-            },
-        )
+                    "experiment_count": 0,
+                    "experiment_types": [],
+                    "evidence_artifacts": [],
+                    "metrics_preview": [],
+                    "recommendation": "",
+                    "overall_score": None,
+                    "blockers": [],
+                    "component_scores": {},
+                    "review_artifact": "",
+                    "gate_artifact": "",
+                },
+            )
             branch_payload = payload.get("branch")
             if isinstance(branch_payload, dict):
                 branch["status"] = str(branch_payload.get("status") or branch["status"])
-                branch["hypothesis"] = str(
-                    branch_payload.get("hypothesis") or branch["hypothesis"]
-                )
-                branch["risk_level"] = str(
-                    branch_payload.get("risk_level") or branch["risk_level"]
-                )
+                branch["hypothesis"] = str(branch_payload.get("hypothesis") or branch["hypothesis"])
+                branch["risk_level"] = str(branch_payload.get("risk_level") or branch["risk_level"])
             experiments = payload.get("experiments")
             if isinstance(experiments, list):
                 branch["experiment_count"] = max(branch["experiment_count"], len(experiments))
@@ -2692,9 +2741,11 @@ def _evaluate_report_readiness(
         ):
             if key not in normalized_results and key in persisted_results:
                 normalized_results[key] = persisted_results[key]
-    review = store.load(
-        PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json"
-    ) or store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json") or {}
+    review = (
+        store.load(PipelinePhase.PLAN_COMPLETENESS_REVIEW, "analysis_plan_review.json")
+        or store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan_review.json")
+        or {}
+    )
     target_tier = _normalize_completion_tier(
         DEFAULT_HEURISTIC_POLICY.reporting.default_completion_target
     )
@@ -2839,7 +2890,11 @@ def _evaluate_raw_data_coverage(store: Any) -> dict[str, Any]:
 
     intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json") or {}
     coverage_artifact = store.load(PipelinePhase.DATA_INTAKE, "raw_data_coverage.json")
-    coverage = coverage_artifact if isinstance(coverage_artifact, dict) else _raw_coverage_from_intake(intake)
+    coverage = (
+        coverage_artifact
+        if isinstance(coverage_artifact, dict)
+        else _raw_coverage_from_intake(intake)
+    )
     unloaded_files = [str(item) for item in coverage.get("unloaded_loadable_files") or []]
     unselected_sheets = [
         item
@@ -2875,7 +2930,9 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
     roles = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {}
     decisions = _as_list(store.load(PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl"))
     experiments = _as_list(store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl"))
-    manifest = _as_list(store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json"))
+    manifest = _as_list(
+        store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json")
+    )
     registry = store.load(PipelinePhase.EXECUTE_EXPLORATION, "derived_variable_registry.json") or {}
     derived_entries = registry.get("derived_variables") if isinstance(registry, dict) else []
     derived_entries = derived_entries if isinstance(derived_entries, list) else []
@@ -3177,11 +3234,7 @@ def _evaluate_semantic_report_quality(
 
     lower = report_text.lower()
     figure_harness = store.load(PipelinePhase.REPORT_ASSEMBLY, "figure_interpretation_harness.json")
-    figure_entries = (
-        figure_harness.get("entries")
-        if isinstance(figure_harness, dict)
-        else []
-    )
+    figure_entries = figure_harness.get("entries") if isinstance(figure_harness, dict) else []
     figure_entries = figure_entries if isinstance(figure_entries, list) else []
     has_visualization_manifest = store.exists(
         PipelinePhase.EXECUTE_EXPLORATION,
@@ -3317,9 +3370,7 @@ def _execution_adjusted_completion_tier(
         or 0
     )
     academic_target = int(
-        review.get("academic_analysis_target")
-        or review.get("recommended_analysis_floor")
-        or 0
+        review.get("academic_analysis_target") or review.get("recommended_analysis_floor") or 0
     )
 
     if production_target and total_analyses >= production_target and coverage_ready:
@@ -3352,18 +3403,13 @@ def _evaluate_core_goal_audit(
     has_results = total_analyses > 0 or bool(results.get("publishable_items"))
     has_assembled_report = has(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
     has_project_manifest = has(PipelinePhase.PROJECT_SETUP, "project.yaml")
-    has_results_summary = (
-        has(PipelinePhase.COLLECT_RESULTS, "results_summary.json") or has_results
-    )
+    has_results_summary = has(PipelinePhase.COLLECT_RESULTS, "results_summary.json") or has_results
     has_approval_card = has(PipelinePhase.PROJECT_SETUP, "approval_card.json")
     has_harness_dashboard = has(PipelinePhase.PROJECT_SETUP, "harness_dashboard.json")
     has_artifact_index = has(PipelinePhase.PROJECT_SETUP, "artifact_index.json")
     has_blocker_playbook = has(PipelinePhase.PROJECT_SETUP, "blocker_playbook.json")
     has_ux_harness_bundle = (
-        has_approval_card
-        and has_harness_dashboard
-        and has_artifact_index
-        and has_blocker_playbook
+        has_approval_card and has_harness_dashboard and has_artifact_index and has_blocker_playbook
     )
     has_no_code_evidence = (
         has_project_manifest
@@ -3737,7 +3783,9 @@ def _upsert_visualization_manifest(
 
     output_path = _figure_manifest_output_path(project, result_path)
     if output_path is None:
-        raise ValueError("Visualization output path must stay inside the project figures directory.")
+        raise ValueError(
+            "Visualization output path must stay inside the project figures directory."
+        )
 
     normalized_vars = [str(value) for value in variables]
     key = (str(plot_type).lower(), tuple(normalized_vars), group_var)
@@ -3776,7 +3824,9 @@ def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, A
     from rde.application.pipeline import PipelinePhase
 
     valid_entries = [
-        entry for entry in _resolved_visualization_manifest_entries(project, store) if entry.get("exists")
+        entry
+        for entry in _resolved_visualization_manifest_entries(project, store)
+        if entry.get("exists")
     ]
 
     descriptive = sum(1 for entry in valid_entries if entry.get("category") == "descriptive")

@@ -7,7 +7,11 @@ from rde.domain.models.variable import VariableType
 from rde.domain.policies import DEFAULT_HEURISTIC_POLICY
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.services.collinearity_checker import check_collinearity
-from rde.domain.services.variable_classifier import PII_PATTERNS, PII_VALUE_PATTERNS, VariableClassifier
+from rde.domain.services.variable_classifier import (
+    PII_PATTERNS,
+    PII_VALUE_PATTERNS,
+    VariableClassifier,
+)
 
 
 def test_report_required_sections_are_driven_by_policy() -> None:
