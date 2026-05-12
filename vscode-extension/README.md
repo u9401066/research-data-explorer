@@ -66,7 +66,7 @@ Or in VS Code: `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 | macOS (Intel/Apple Silicon) | ✅ | Homebrew uv 自動偵測 |
 | Linux (x64) | ✅ | snap/apt uv 支援 |
 
-The 0.4.13 release re-verified the Windows VSIX/Codex path locally and keeps the setup code on Node `path`, Python `pathlib`, UTF-8 environment variables, and ASCII-escaped JSON/JSONL artifacts. Full Linux/macOS confidence should come from the CI matrix, but the extension no longer uses Windows-only path assembly for Codex MCP configuration.
+The extension uses Node `path`, Python `pathlib`, UTF-8 environment variables, ASCII-escaped JSON/JSONL artifacts, and inherited PATH/HOME/TEMP runtime variables for MCP subprocesses. CI now runs VSIX helper tests, bundled-tool install smoke, package, and package validation on `ubuntu-latest`, `windows-latest`, `macos-13`, and `macos-14`; release tags are gated by the same cross-platform VSIX smoke before publishing.
 
 ## MCP Installation Behavior
 
@@ -78,13 +78,14 @@ The 0.4.13 release re-verified the Windows VSIX/Codex path locally and keeps the
 
 ## Release Validation Snapshot
 
-For 0.4.13, the extension-facing path was checked with:
+For 0.4.14, the extension-facing path was checked with:
 
 ```bash
-npm test -- extensionHelpers.test.ts
+npm test -- test/utils.test.ts test/extensionHelpers.test.ts test/uvManager.test.ts
 npm run compile
-python scripts/codex_rde_smoke.py --list-tools-only
-python scripts/codex_rde_smoke.py
+npm run test:install-smoke
+npm run package -- --no-yarn
+npm run validate -- --skip-tests
 ```
 
 The full governed real-file smoke was also run through the RDE MCP subprocess with `scripts/codex_rde_smoke.py --full-yolo`, and the KMU SPARK AKI multi-workbook/multi-sheet rerun produced an audit grade A report with `report_readiness=production_ready`, 43 analyses, 27 figures, and structured figure interpretation artifacts.

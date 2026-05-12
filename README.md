@@ -421,7 +421,7 @@ If this idea is adopted in the repo, the README should describe it explicitly as
 
 ## Validation Status
 
-The current repository has been validated in six ways for the 0.4.13 release:
+The current repository has been validated in six ways for the 0.4.14 release:
 
 1. Unit and integration tests
    - Run focused contract and harness suites with `python -m pytest ...`
@@ -438,9 +438,10 @@ The current repository has been validated in six ways for the 0.4.13 release:
    - audit artifact: `.tmp/codex-full-yolo-final15/data/projects/20260508_124523_codex-rde-full-yolo_bf7434f6/artifacts/phase_11_audit_review/audit_report.json`
    - audit result: grade A, 130/130, `report_readiness=production_ready`, `core_goal_audit=9/9`, publication bundle `4/3` descriptive figures and `6/6` analytical figures
 5. Cross-platform entrypoint checks
-   - VSIX helper tests cover Codex MCP config generation/upsert, UTF-8 environment variables, and path handling.
-   - MCP inventory smoke verifies the live Codex/RDE subprocess exposes the required tool surface.
-   - The repository uses `pathlib`, Node `path`, UTF-8 environment settings, and ASCII-escaped JSON/JSONL artifacts instead of shell-specific path assembly or ANSI-sensitive machine-readable output.
+    - VSIX helper tests cover Codex MCP config generation/upsert, UTF-8 environment variables, and path handling.
+    - CI now runs VSIX helper tests, bundled Python install-shape smoke, package, and package validation on Ubuntu, Windows, macOS Intel, and macOS Apple Silicon before release publishing.
+    - MCP inventory smoke verifies the live Codex/RDE subprocess exposes the required tool surface.
+    - The repository uses `pathlib`, Node `path`, inherited PATH/HOME/TEMP runtime variables, UTF-8 environment settings, and ASCII-escaped JSON/JSONL artifacts instead of shell-specific path assembly or ANSI-sensitive machine-readable output.
 6. Multi-workbook / multi-sheet governed rerun
    - Project artifact: `data/projects/20260512_143801_kmu_spark_aki_multisheet_full_rerun_d626d6d9`
    - Derived master: 50 rows x 118 columns from two Excel workbooks and 19 worksheets, with each sheet classified as primary analysis, derived merge, QC/context, or excluded context.

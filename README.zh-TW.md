@@ -108,14 +108,15 @@ VSIX 啟動時會嘗試自動 upsert `~/.codex/config.toml` 的 `research-data-e
 
 ## 目前驗證狀態
 
-0.4.13 release 前已驗證：
+0.4.14 release 前已驗證：
 
 - Python focused contract / harness tests。
 - VSIX helper tests 與 TypeScript compile。
 - MCP live tool inventory smoke：可看到 49 個 RDE tools，包含 `init_project`、`run_intake`、`build_schema`、`propose_analysis_plan`、`run_audit`。
 - Quick Explore MCP smoke：可從外部 stdio subprocess 產出 Phase 10 report。
 - 真實 Excel governed `--full-yolo` smoke：從 intake/schema/plan/readiness/Phase 8 execution/collect/report/audit/auto-improve 跑到 `production_ready`。
-- Cross-platform entrypoint checks：VSIX helper tests 覆蓋 Codex MCP config upsert、UTF-8 env、Node `path` 與 workspace/project path 產生；JSON/JSONL artifacts 也會 ASCII escape，避免 Windows ANSI/CP950 讀取 audit JSON 時破壞內容。
+- Cross-platform entrypoint checks：VSIX helper tests 覆蓋 Codex MCP config upsert、UTF-8 env、Node `path`、workspace/project path 產生，以及 MCP subprocess 的 PATH/HOME/TEMP 等平台 runtime env；JSON/JSONL artifacts 也會 ASCII escape，避免 Windows ANSI/CP950 讀取 audit JSON 時破壞內容。
+- GitHub Actions 已加入 Ubuntu / Windows / macOS Intel / macOS Apple Silicon VSIX smoke matrix，release 發布前會跑 helper tests、bundled Python install-shape smoke、package 與 package validation。
 - Multi-workbook / multi-sheet governed rerun：兩個 Excel workbook、19 個 worksheet 已完成 sheet-scope alignment，產生 50 rows x 118 columns derived master；Phase 8 跑出 43 個分析、27 張圖、Table 1、多變量模型與 propensity/balance diagnostics；audit grade A，165/165，`report_readiness=production_ready`，且具 structured figure interpretation harness。
 
 真實 Excel full-yolo 驗證摘要：
@@ -140,7 +141,7 @@ plan adherence: 100%
 1. Docker 與 `automl-stat-mcp` 是可選重型引擎；核心 no-Docker 報告路徑使用 local-lite。
 2. 某些 vendor payload 在特定資料集上仍可能因 endpoint contract 回 422，RDE 會保留 fallback artifact。
 3. 特殊分析如果超出目前 schema、delegator 或 vendor contract，需要客製整合，不應承諾為通用內建工具。
-4. 本機已驗證 Windows 路徑與 VSIX/Codex helper；Linux/macOS 仍建議用 CI matrix 做實機驗證。
+4. 本機可驗證 Windows 路徑與 VSIX/Codex helper；Linux/macOS Intel/Apple Silicon 的實機證據由 GitHub Actions VSIX smoke matrix 提供。
 
 ## Repository Layout
 

@@ -26,6 +26,7 @@ tests/**
 
 # Development files
 scripts/dev.sh
+scripts/run-validate.cjs
 scripts/validate-build.sh
 scripts/validate-build.ps1
 *.log

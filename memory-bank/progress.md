@@ -2,11 +2,13 @@
 
 ## MEM+ 2026-05-12
 
+- [x] v0.4.14 release package prepared: VSIX multi-platform matrix, MCP subprocess env inheritance, native validation dispatcher, ASCII validation output, and uvManager regression coverage.
 - [x] v0.4.13 release package prepared: multi-workbook/multi-sheet raw coverage gates, scoped Phase 7 readiness, scheduled plan-adherence checks, structured figure interpretation, and formal export hardening.
 - [x] KMU SPARK AKI rerun completed as governed RDE project `d626d6d9`, with 50 x 118 derived master table, 43 Phase 8 analyses, 27 figures, PubMed context, Phase 10/12 DOCX/PDF exports, and audit grade A 165/165.
 - [x] Raw workbook/sheet scope alignment artifact created; each of 19 sheets is classified as primary/derived merge, QC/context, or excluded context.
 - [x] Regression verification passed: `.venv\Scripts\python.exe -m pytest -q` = 254 passed, 5 skipped; `.venv\Scripts\python.exe -m ruff check .` = all checks passed.
 - [x] Release metadata bumped to 0.4.13 across Python package, VSIX package, changelog, README, and memory bank.
+- [x] VSIX multi-platform hardening completed after comparing MedPaper Assistant: CI/publish workflows now run Ubuntu/Windows/macOS Intel/macOS Apple Silicon smoke, MCP env preserves platform runtime variables, validation uses a native dispatcher, and extension tests/package validation pass locally under Node 20.
 
 ## MEM+ 2026-05-08
 
@@ -56,9 +58,7 @@
 
 ## Doing
 
-- Prepare segmented git commits, push branch, and publish `v0.4.13` tag.
-
-- 整理 soft-budget expansion / execution schedule 後的最終文件與 memory bank 狀態
+- Push v0.4.14 branch/tag and wait for GitHub Actions to finish green.
 
 ## Next
 

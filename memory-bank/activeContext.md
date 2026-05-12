@@ -2,6 +2,8 @@
 
 ## MEM+ 2026-05-12
 
+- v0.4.14 release focus: VSIX multi-platform CI/runtime hardening so installs are guarded on Ubuntu, Windows, macOS Intel, and macOS Apple Silicon before publishing.
+- Latest v0.4.14 local verification: Node 20 extension tests passed (40 tests), bundled-tool install smoke passed, VSIX package produced successfully, package validation passed, workflow YAML parsed, and `git diff --check` passed.
 - v0.4.13 release focus: multi-workbook/multi-sheet analysis coverage, scoped Phase 7 readiness, structured figure interpretation, formal report export reliability, and scheduled Phase 8 plan-adherence checks.
 - KMU SPARK AKI governed rerun completed on project `d626d6d9`: two Excel workbooks / 19 worksheets were classified as main analysis, derived merge, QC/context, or excluded context before Phase 6 lock.
 - New derived master for the rerun is 50 rows x 118 columns; Phase 8 produced 43 analyses, 27 figures, Table 1, repeated-measures tests, adjusted regressions, and propensity/balance diagnostics.
@@ -9,6 +11,7 @@
 - PubMed Search MCP context was added as `pubmed_literature_context.md` to keep discussion anchored to perioperative AKI, urinary biomarkers, and hypotension literature.
 - Code hardening added raw workbook/sheet coverage readiness, locked-plan/role scoped readiness, and execution-schedule-aware plan adherence.
 - Latest verification for v0.4.13: `.venv\Scripts\python.exe -m pytest -q` = 254 passed, 5 skipped; `.venv\Scripts\python.exe -m ruff check .` = all checks passed; RDE audit grade A, 165/165.
+- Post-release VSIX multi-platform audit found the practical gap was CI/runtime evidence rather than package metadata: CI now has Ubuntu/Windows/macOS Intel/macOS Apple Silicon VSIX smoke jobs, MCP subprocess env preserves PATH/HOME/TEMP platform variables, validation dispatches to the native platform script, and `docs/vsix_multiplatform_audit_20260512.md` records the MedPaper comparison.
 
 ## MEM+ 2026-05-08
 

@@ -2,6 +2,8 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-05-12 | Cut v0.4.14 as the VSIX multi-platform hardening release | CI/publish workflows now gate VSIX packaging with Ubuntu, Windows, macOS Intel, and macOS Apple Silicon smoke; MCP subprocess env inheritance and native validation dispatch reduce install-success/startup-failure drift. |
+| 2026-05-12 | Gate VSIX releases with Ubuntu/Windows/macOS Intel/macOS Apple Silicon smoke and preserve MCP subprocess runtime env | RDE already had platform-neutral package metadata, but practical multi-platform operation depends on PATH/HOME/TEMP/uv discovery and real runner evidence; matching the MedPaper pattern reduces VSIX installs that succeed but fail at MCP startup. |
 | 2026-05-12 | Cut v0.4.13 as the multi-workbook/multi-sheet RDE harness release | The repo now blocks partial raw workbook/sheet coverage, scopes readiness to locked plan variables, requires structured figure interpretation, and has a governed KMU SPARK AKI rerun with production-ready DOCX/PDF outputs and audit grade A 165/165. |
 | 2026-05-12 | Scope Phase 7 readiness to Phase 6 plan and Phase 3 roles | Readiness is a gate for the registered analysis, not a brute-force scan of every workbook-derived column; this prevents irrelevant wide-table checks and makes pre-analysis assumptions auditable. |
 | 2026-05-12 | Treat Phase 6 execution schedule as part of plan adherence | Preparatory scheduled tools such as `apply_cleaning()` are part of the locked execution contract and should not be logged as S-011 deviations merely because they are not listed under `analyses`. |

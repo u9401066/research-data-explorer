@@ -24,10 +24,12 @@ function getExtraPathDirs(): string[] {
 
     if (process.platform === 'win32') {
         const localAppData = process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
+        const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
         dirs.push(
             path.join(localAppData, 'uv', 'bin'),
             path.join(homeDir, '.local', 'bin'),
             path.join(homeDir, '.cargo', 'bin'),
+            path.join(programFiles, 'uv'),
         );
     } else {
         dirs.push(
@@ -64,6 +66,24 @@ export function enrichPath(basePath: string): string {
     const toAdd = extraDirs.filter(d => !existing.has(d));
     if (toAdd.length === 0) { return basePath; }
     return [...toAdd, basePath].join(path.delimiter);
+}
+
+/**
+ * Get PATH directories after GUI-safe enrichment, preserving order.
+ */
+export function getPathDirectories(basePath: string): string[] {
+    const seen = new Set<string>();
+    const dirs: string[] = [];
+
+    for (const dir of enrichPath(basePath).split(path.delimiter)) {
+        if (!dir || seen.has(dir)) {
+            continue;
+        }
+        seen.add(dir);
+        dirs.push(dir);
+    }
+
+    return dirs;
 }
 
 /**
@@ -129,7 +149,7 @@ export async function findUvPath(log?: (msg: string) => void): Promise<string | 
     const paths = getUvSearchPaths();
     const _log = log || (() => { /* noop */ });
 
-    const enrichedPath = enrichPath(process.env.PATH || '');
+    const enrichedPath = enrichPath(process.env.PATH || process.env.Path || '');
 
     for (const uvPath of paths) {
         try {
@@ -161,7 +181,7 @@ export async function installUvHeadless(log?: (msg: string) => void): Promise<st
     _log(`Running: ${command}`);
 
     try {
-        const enrichedPath = enrichPath(process.env.PATH || '');
+        const enrichedPath = enrichPath(process.env.PATH || process.env.Path || '');
         await execAsync(command, {
             timeout: 120000,
             env: { ...process.env, PATH: enrichedPath },
@@ -219,6 +239,32 @@ export function buildMcpEnv(options: {
     }
     env['PYTHONUTF8'] = '1';
     env['PYTHONIOENCODING'] = 'utf-8';
+
+    const pathValue = process.env.PATH || process.env.Path;
+    if (pathValue) {
+        env['PATH'] = enrichPath(pathValue);
+    }
+
+    for (const key of [
+        'HOME',
+        'SHELL',
+        'LANG',
+        'LC_ALL',
+        'TMPDIR',
+        'USERPROFILE',
+        'APPDATA',
+        'LOCALAPPDATA',
+        'SYSTEMROOT',
+        'COMSPEC',
+        'TEMP',
+        'TMP',
+    ]) {
+        const value = process.env[key];
+        if (value) {
+            env[key] = value;
+        }
+    }
+
     return env;
 }
 
@@ -228,23 +274,29 @@ export function buildMcpEnv(options: {
 export function findInstalledTool(name: string): string | null {
     const ext = process.platform === 'win32' ? '.exe' : '';
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+    const binName = `${name}${ext}`;
 
-    const candidates: string[] = [];
+    const candidates: string[] = getPathDirectories(process.env.PATH || process.env.Path || '')
+        .map(dir => path.join(dir, binName));
 
     if (process.platform === 'win32') {
         const localAppData = process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
+        const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
         candidates.push(
-            path.join(localAppData, 'uv', 'bin', `${name}${ext}`),
-            path.join(homeDir, '.local', 'bin', `${name}${ext}`),
-            path.join(homeDir, '.cargo', 'bin', `${name}${ext}`),
+            path.join(localAppData, 'uv', 'bin', binName),
+            path.join(homeDir, '.local', 'bin', binName),
+            path.join(homeDir, '.cargo', 'bin', binName),
+            path.join(programFiles, 'uv', binName),
         );
     } else {
         candidates.push(
-            path.join(homeDir, '.local', 'bin', `${name}${ext}`),
-            path.join(homeDir, '.cargo', 'bin', `${name}${ext}`),
+            path.join(homeDir, '.local', 'bin', binName),
+            path.join(homeDir, '.cargo', 'bin', binName),
+            path.join('/usr/local/bin', binName),
+            path.join('/snap/bin', binName),
         );
         if (process.platform === 'darwin') {
-            candidates.push(path.join('/opt/homebrew/bin', `${name}${ext}`));
+            candidates.push(path.join('/opt/homebrew/bin', binName));
         }
     }
 
@@ -255,6 +307,13 @@ export function findInstalledTool(name: string): string | null {
     }
 
     return null;
+}
+
+function quoteShellCommand(command: string): string {
+    if (/^[A-Za-z0-9_./:\\-]+$/.test(command)) {
+        return command;
+    }
+    return `"${command.replace(/"/g, '\\"')}"`;
 }
 
 /**
@@ -270,13 +329,15 @@ export async function ensureInstalledTool(
     const binary = binaryName || packageName;
     const installed = findInstalledTool(binary);
 
-    const enrichedPath = enrichPath(process.env.PATH || '');
+    const enrichedPath = enrichPath(process.env.PATH || process.env.Path || '');
     const execOpts = { timeout: 120000, env: { ...process.env, PATH: enrichedPath } };
+    const uvPath = await findUvPath(log) || 'uv';
+    const uvCommand = quoteShellCommand(uvPath);
 
     if (installed) {
         _log(`${packageName} already installed at ${installed}, attempting upgrade...`);
         try {
-            await execAsync(`uv tool upgrade ${packageName}`, execOpts);
+            await execAsync(`${uvCommand} tool upgrade ${packageName}`, execOpts);
             _log(`${packageName} upgraded successfully`);
         } catch {
             _log(`${packageName} upgrade skipped (may already be latest)`);
@@ -286,7 +347,7 @@ export async function ensureInstalledTool(
 
     _log(`Installing ${packageName} via uv tool install...`);
     try {
-        await execAsync(`uv tool install ${packageName}`, execOpts);
+        await execAsync(`${uvCommand} tool install ${packageName}`, execOpts);
         _log(`${packageName} installed successfully`);
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);

@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "13-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.4.13",
+  "version": "0.4.14",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {
@@ -231,7 +231,7 @@
     "test:install-smoke": "npm run prepare:bundle && node ./scripts/run-with-npm-node.cjs ./scripts/install-smoke.mjs",
     "test:watch": "node ./scripts/run-with-npm-node.cjs ./node_modules/vitest/vitest.mjs",
     "lint": "node ./scripts/run-with-npm-node.cjs ./node_modules/eslint/bin/eslint.js src --ext ts",
-    "validate": "bash ./scripts/validate-build.sh || powershell -File ./scripts/validate-build.ps1",
+    "validate": "node ./scripts/run-with-npm-node.cjs ./scripts/run-validate.cjs",
     "package": "node ./scripts/run-with-npm-node.cjs ./node_modules/@vscode/vsce/vsce package"
   },
   "devDependencies": {

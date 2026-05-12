@@ -6,6 +6,18 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.4.14] - 2026-05-12
+
+### 0.4.14 Fixed
+
+- Hardened VSIX MCP subprocess environments by preserving PATH/HOME/TEMP and platform-specific runtime variables, matching the cross-platform behavior needed for GUI-launched VS Code on macOS and uv cache/tool resolution on Windows.
+- Replaced the VSIX validation script's `bash || powershell` fallback with an explicit platform dispatcher and ASCII status output to avoid noisy WSL/Git Bash failures or mojibake on Windows hosts.
+
+### 0.4.14 Added
+
+- Added Ubuntu, Windows, macOS Intel, and macOS Apple Silicon VSIX smoke matrices to CI and extension publishing workflows, covering helper tests, bundled Python install-shape checks, VSIX packaging, and package validation before release publishing.
+- Added `uvManager` regression coverage for PATH enrichment, inherited MCP runtime environment, uvx path derivation, and installed-tool discovery.
+
 ## [0.4.13] - 2026-05-12
 
 ### 0.4.13 Fixed

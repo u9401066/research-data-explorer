@@ -15,9 +15,9 @@ check_file() {
     local file="$1"
     local label="$2"
     if [ -f "$file" ]; then
-        echo "  ✓ $label"
+        echo "  [OK] $label"
     else
-        echo "  ✗ $label (MISSING: $file)"
+        echo "  [MISSING] $label (MISSING: $file)"
         ERRORS=$((ERRORS + 1))
     fi
 }
@@ -28,9 +28,9 @@ check_dir() {
     if [ -d "$dir" ]; then
         local count
         count=$(find "$dir" -type f | wc -l | tr -d ' ')
-        echo "  ✓ $label ($count files)"
+        echo "  [OK] $label ($count files)"
     else
-        echo "  ⚠ $label (directory not found)"
+        echo "  [WARN] $label (directory not found)"
         WARNINGS=$((WARNINGS + 1))
     fi
 }

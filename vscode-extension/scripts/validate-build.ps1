@@ -18,9 +18,9 @@ $Warnings = 0
 function Check-File {
     param([string]$Path, [string]$Label)
     if (Test-Path $Path) {
-        Write-Host "  ✓ $Label" -ForegroundColor Green
+        Write-Host "  [OK] $Label" -ForegroundColor Green
     } else {
-        Write-Host "  ✗ $Label (MISSING)" -ForegroundColor Red
+        Write-Host "  [MISSING] $Label" -ForegroundColor Red
         $script:Errors++
     }
 }
@@ -29,9 +29,9 @@ function Check-Dir {
     param([string]$Path, [string]$Label)
     if (Test-Path $Path) {
         $count = (Get-ChildItem $Path -Recurse -File).Count
-        Write-Host "  ✓ $Label ($count files)" -ForegroundColor Green
+        Write-Host "  [OK] $Label ($count files)" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠ $Label (directory not found)" -ForegroundColor Yellow
+        Write-Host "  [WARN] $Label (directory not found)" -ForegroundColor Yellow
         $script:Warnings++
     }
 }
