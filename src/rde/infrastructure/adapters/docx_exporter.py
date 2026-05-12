@@ -56,11 +56,16 @@ class DocxExporter(DocumentExporterPort):
         title_para = doc.add_heading(rpt.title, level=0)
         title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        meta_lines = [
-            f"Dataset: {rpt.dataset_id}",
-            f"Project: {rpt.project_id}",
-            f"Generated: {rpt.created_at.strftime('%Y-%m-%d %H:%M')}",
-        ]
+        formal_profile = rpt.metadata.get("_export_profile") == "formal_research_report"
+        meta_lines = (
+            []
+            if formal_profile
+            else [
+                f"Dataset: {rpt.dataset_id}",
+                f"Project: {rpt.project_id}",
+                f"Generated: {rpt.created_at.strftime('%Y-%m-%d %H:%M')}",
+            ]
+        )
         for line in meta_lines:
             p = doc.add_paragraph(line)
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -72,9 +77,11 @@ class DocxExporter(DocumentExporterPort):
             self._render_section(doc, section, figures_dir)
 
         # ── Metadata footer ──────────────────────────────────────────
-        doc.add_heading("Metadata", level=2)
-        for k, v in rpt.metadata.items():
-            doc.add_paragraph(f"{k}: {v}", style="List Bullet")
+        public_metadata = {k: v for k, v in rpt.metadata.items() if not str(k).startswith("_")}
+        if public_metadata:
+            doc.add_heading("Metadata", level=2)
+            for k, v in public_metadata.items():
+                doc.add_paragraph(f"{k}: {v}", style="List Bullet")
 
         # ── Save ─────────────────────────────────────────────────────
         output_path = Path(output_path)
@@ -128,8 +135,6 @@ class DocxExporter(DocumentExporterPort):
         figures_dir: Path | None,
     ) -> None:
         """Render a single ReportSection into the Word document."""
-        from docx.shared import Inches
-
         doc.add_heading(section.title, level=2)
 
         # ── Content (parse markdown-like text) ───────────────────────
@@ -145,9 +150,12 @@ class DocxExporter(DocumentExporterPort):
             if not fig_path.is_absolute() and figures_dir:
                 fig_path = figures_dir / fig_path.name
             if fig_path.exists():
-                doc.add_picture(str(fig_path), width=Inches(self.FIGURE_WIDTH_INCHES))
-                cap = doc.add_paragraph(f"Figure: {fig_path.stem}")
-                cap.style = doc.styles["Caption"] if "Caption" in doc.styles else None
+                self._add_picture_with_caption(
+                    doc,
+                    fig_path,
+                    f"Figure: {fig_path.stem}",
+                    width_inches=self.FIGURE_WIDTH_INCHES,
+                )
 
     def _add_markdown_content(
         self, doc: Any, content: str, figures_dir: Path | None = None
@@ -159,7 +167,7 @@ class DocxExporter(DocumentExporterPort):
         blockquotes (> text), horizontal rules (---), figure references,
         fenced code blocks (```).
         """
-        from docx.shared import Pt, RGBColor, Inches
+        from docx.shared import Pt, RGBColor
 
         lines = content.split("\n")
         i = 0
@@ -215,10 +223,28 @@ class DocxExporter(DocumentExporterPort):
                 i += 1
                 continue
 
-            # Figure reference — check BEFORE blockquote (figures are often inside > lines)
+            # Markdown image reference — check BEFORE blockquote.
             line_for_fig = stripped
             if line_for_fig.startswith("> "):
                 line_for_fig = line_for_fig[2:].strip()
+            image_match = self._match_markdown_image(line_for_fig)
+            if image_match and figures_dir:
+                alt_text, target = image_match
+                fig_path = self._resolve_figure_path(target, figures_dir)
+                if fig_path and fig_path.exists():
+                    self._add_picture_with_caption(
+                        doc,
+                        fig_path,
+                        alt_text or f"Figure: {fig_path.stem}",
+                        width_inches=self.FIGURE_WIDTH_INCHES,
+                    )
+                else:
+                    p = doc.add_paragraph()
+                    self._add_formatted_run(p, line_for_fig)
+                i += 1
+                continue
+
+            # Legacy figure reference — check BEFORE blockquote.
             line_for_fig_clean = self._strip_md_formatting(line_for_fig)
             fig_match = re.search(
                 r"\[.*?(?:Figure|Fig|圖)\s*\d*[:\s]+([^\]]+\.png)\]",
@@ -226,15 +252,14 @@ class DocxExporter(DocumentExporterPort):
             )
             if fig_match and figures_dir:
                 fig_name = fig_match.group(1).strip()
-                fig_path = figures_dir / fig_name
-                if fig_path.exists():
-                    doc.add_picture(str(fig_path), width=Inches(self.FIGURE_WIDTH_INCHES))
-                    cap = doc.add_paragraph(f"Figure: {fig_path.stem}")
-                    cap_fmt = cap.paragraph_format
-                    cap_fmt.alignment = 1  # CENTER
-                    for run in cap.runs:
-                        run.font.size = Pt(9)
-                        run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+                fig_path = self._resolve_figure_path(fig_name, figures_dir)
+                if fig_path and fig_path.exists():
+                    self._add_picture_with_caption(
+                        doc,
+                        fig_path,
+                        f"Figure: {fig_path.stem}",
+                        width_inches=self.FIGURE_WIDTH_INCHES,
+                    )
                 else:
                     p = doc.add_paragraph()
                     self._add_formatted_run(p, line_for_fig)
@@ -379,6 +404,54 @@ class DocxExporter(DocumentExporterPort):
 
         doc.add_paragraph()  # spacing
 
+    def _add_picture_with_caption(
+        self,
+        doc: Any,
+        fig_path: Path,
+        caption: str,
+        *,
+        width_inches: float,
+    ) -> None:
+        """Insert a Word-safe figure with a centered caption."""
+        from docx.shared import Inches, Pt, RGBColor
+
+        p = doc.add_paragraph()
+        p.paragraph_format.alignment = 1  # CENTER
+        run = p.add_run()
+        image_source = self._docx_ready_image_source(fig_path)
+        if hasattr(image_source, "seek"):
+            image_source.seek(0)
+        run.add_picture(image_source, width=Inches(width_inches))
+
+        cap = doc.add_paragraph(caption)
+        cap_fmt = cap.paragraph_format
+        cap_fmt.alignment = 1  # CENTER
+        for run in cap.runs:
+            run.font.size = Pt(9)
+            run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    def _docx_ready_image_source(self, fig_path: Path) -> Any:
+        """Return an RGB PNG stream so Word/PDF renderers avoid alpha issues."""
+        import io
+
+        try:
+            from PIL import Image
+        except ImportError:
+            return str(fig_path)
+
+        try:
+            with Image.open(fig_path) as image:
+                rgba = image.convert("RGBA")
+                background = Image.new("RGB", rgba.size, "white")
+                background.paste(rgba, mask=rgba.getchannel("A"))
+                buffer = io.BytesIO()
+                background.save(buffer, format="PNG", optimize=True)
+                buffer.seek(0)
+                return buffer
+        except Exception:
+            logger.exception("Failed to normalize image for DOCX export: %s", fig_path)
+            return str(fig_path)
+
     def _build_pdf_html(
         self,
         report: EDAReport,
@@ -388,8 +461,6 @@ class DocxExporter(DocumentExporterPort):
 
         Embeds figures as base64 data URIs so the HTML/PDF is portable.
         """
-        import base64
-
         lines = [
             "<!DOCTYPE html>",
             '<html lang="zh-TW">',
@@ -418,9 +489,13 @@ class DocxExporter(DocumentExporterPort):
             "<body>",
             f"<h1>{report.title}</h1>",
             '<div class="metadata">',
-            f"<p>Dataset: {report.dataset_id} | "
-            f"Project: {report.project_id} | "
-            f"Generated: {report.created_at.strftime('%Y-%m-%d %H:%M')}</p>",
+            ""
+            if report.metadata.get("_export_profile") == "formal_research_report"
+            else (
+                f"<p>Dataset: {report.dataset_id} | "
+                f"Project: {report.project_id} | "
+                f"Generated: {report.created_at.strftime('%Y-%m-%d %H:%M')}</p>"
+            ),
             "</div>",
             "<hr>",
         ]
@@ -432,6 +507,15 @@ class DocxExporter(DocumentExporterPort):
             for para in section.content.split("\n"):
                 para = para.strip()
                 if not para:
+                    continue
+                image_match = self._match_markdown_image(para)
+                if image_match and figures_dir:
+                    alt_text, target = image_match
+                    fig_path = self._resolve_figure_path(target, figures_dir)
+                    if fig_path and fig_path.exists():
+                        lines.append(self._figure_to_html(fig_path, alt_text))
+                    else:
+                        lines.append(f"<p>{self._md_to_html_inline(para)}</p>")
                     continue
                 if para.startswith("### "):
                     lines.append(f"<h3>{para[4:]}</h3>")
@@ -454,18 +538,15 @@ class DocxExporter(DocumentExporterPort):
                 if not fig_path.is_absolute() and figures_dir:
                     fig_path = figures_dir / fig_path.name
                 if fig_path.exists():
-                    data = base64.b64encode(fig_path.read_bytes()).decode()
-                    suffix = fig_path.suffix.lstrip(".").lower()
-                    mime = f"image/{suffix}" if suffix != "jpg" else "image/jpeg"
-                    lines.append(f'<img src="data:{mime};base64,{data}">')
-                    lines.append(f'<p class="caption">Figure: {fig_path.stem}</p>')
+                    lines.append(self._figure_to_html(fig_path, f"Figure: {fig_path.stem}"))
 
-        # Metadata
-        lines.append("<h2>Metadata</h2>")
-        lines.append("<ul>")
-        for k, v in report.metadata.items():
-            lines.append(f"<li><strong>{k}:</strong> {v}</li>")
-        lines.append("</ul>")
+        public_metadata = {k: v for k, v in report.metadata.items() if not str(k).startswith("_")}
+        if public_metadata:
+            lines.append("<h2>Metadata</h2>")
+            lines.append("<ul>")
+            for k, v in public_metadata.items():
+                lines.append(f"<li><strong>{k}:</strong> {v}</li>")
+            lines.append("</ul>")
 
         lines.extend(["</body>", "</html>"])
         return "\n".join(lines)
@@ -476,6 +557,37 @@ class DocxExporter(DocumentExporterPort):
         text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
         text = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", text)
         return text
+
+    @staticmethod
+    def _match_markdown_image(text: str) -> tuple[str, str] | None:
+        match = re.match(r"^!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)\s*$", text.strip())
+        if not match:
+            return None
+        return match.group(1).strip(), match.group(2).strip("<>")
+
+    @staticmethod
+    def _resolve_figure_path(target: str, figures_dir: Path | None) -> Path | None:
+        if not target:
+            return None
+        candidate = Path(target)
+        if candidate.is_absolute():
+            return candidate
+        if figures_dir is None:
+            return candidate
+        direct = figures_dir / candidate
+        if direct.exists():
+            return direct
+        return figures_dir / candidate.name
+
+    @staticmethod
+    def _figure_to_html(fig_path: Path, caption: str) -> str:
+        import base64
+
+        data = base64.b64encode(fig_path.read_bytes()).decode()
+        suffix = fig_path.suffix.lstrip(".").lower()
+        mime = f"image/{suffix}" if suffix != "jpg" else "image/jpeg"
+        safe_caption = DocxExporter._md_to_html_inline(caption)
+        return f'<img src="data:{mime};base64,{data}">\n<p class="caption">{safe_caption}</p>'
 
     @staticmethod
     def _dict_to_html_table(tbl: dict[str, Any]) -> str:

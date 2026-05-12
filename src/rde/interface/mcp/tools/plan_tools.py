@@ -1,4 +1,4 @@
-"""Plan Tools — Phase 3 (Concept Alignment), Phase 4 (Plan Registration), Phase 5 (Pre-check).
+"""Plan Tools — Phase 3-7 concept alignment, planning, registration, and readiness.
 
 All tools return markdown strings.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from rde.domain.models.variable import VariableRole, VariableType
+from rde.domain.models.variable import VariableRole
 
 
 _ROLE_ALIASES = {
@@ -178,6 +178,131 @@ def _normalized_plan_family(entry: dict[str, Any]) -> str | None:
         "table_one": "generate_table_one",
     }
     return alias_map.get(normalized, normalized)
+
+
+_READINESS_VARIABLE_KEYS = {
+    "variables",
+    "outcome_variables",
+    "outcomes",
+    "covariates",
+    "predictors",
+    "target_variable",
+    "dependent_variable",
+    "group_variable",
+    "time_variable",
+    "subject_variable",
+    "id_variable",
+}
+
+
+def _append_unique(values: list[str], value: object) -> None:
+    text = str(value).strip()
+    if text and text not in values:
+        values.append(text)
+
+
+def _collect_plan_variable_names(value: Any, names: list[str]) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in _READINESS_VARIABLE_KEYS:
+                _collect_plan_variable_names(item, names)
+            elif isinstance(item, (dict, list, tuple)):
+                _collect_plan_variable_names(item, names)
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _collect_plan_variable_names(item, names)
+        return
+    if isinstance(value, str):
+        _append_unique(names, value)
+
+
+def _collect_role_variable_names(roles: dict[str, Any] | None, names: list[str]) -> None:
+    if not isinstance(roles, dict):
+        return
+
+    role_map = roles.get("variable_roles")
+    if isinstance(role_map, dict):
+        for variable in role_map:
+            _append_unique(names, variable)
+
+    for key, value in roles.items():
+        if key == "variable_roles":
+            continue
+        role = _normalize_role_key(key)
+        if role is None or role == VariableRole.UNASSIGNED:
+            continue
+        _collect_plan_variable_names(value, names)
+
+
+def _build_readiness_variable_scope(
+    *,
+    variables: list[Any],
+    plan: dict[str, Any] | None,
+    roles: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return the Phase 7 variable scope implied by the locked plan.
+
+    Phase 7 is a gate for the registered analysis, not a brute-force scan of
+    every raw or derived worksheet column. Keeping the scope explicit prevents
+    wide multi-sheet workbooks from timing out and makes the readiness artifact
+    auditable.
+    """
+
+    variable_index = {variable.name: variable for variable in variables}
+    planned_names: list[str] = []
+    _collect_role_variable_names(roles, planned_names)
+
+    if isinstance(plan, dict):
+        for analysis in plan.get("analyses", []) or []:
+            _collect_plan_variable_names(analysis, planned_names)
+
+    present = [name for name in planned_names if name in variable_index]
+    missing = [name for name in planned_names if name not in variable_index]
+    if present:
+        scoped = present
+        source = "locked_plan_and_concept_roles"
+    else:
+        scoped = [variable.name for variable in variables]
+        source = "full_dataset_fallback"
+
+    continuous: list[str] = []
+    collinearity: list[str] = []
+    missing_pattern: list[str] = []
+    groups: list[str] = []
+
+    for name in scoped:
+        variable = variable_index.get(name)
+        if variable is None:
+            continue
+        role = getattr(variable.role, "value", str(variable.role))
+        variable_type = getattr(variable.variable_type, "value", str(variable.variable_type))
+        if role == VariableRole.GROUP.value:
+            groups.append(name)
+        if role == VariableRole.ID.value or variable_type == "id":
+            continue
+        missing_pattern.append(name)
+        if variable_type in {"continuous", "biomarker"} and role != VariableRole.GROUP.value:
+            continuous.append(name)
+            collinearity.append(name)
+
+    return {
+        "source": source,
+        "variables": scoped,
+        "continuous_variables": continuous,
+        "collinearity_variables": collinearity,
+        "missing_pattern_variables": missing_pattern,
+        "group_variables": groups,
+        "missing_from_dataset": missing,
+        "counts": {
+            "planned_or_role_variables": len(planned_names),
+            "scoped_variables": len(scoped),
+            "continuous_variables": len(continuous),
+            "collinearity_variables": len(collinearity),
+            "missing_pattern_variables": len(missing_pattern),
+            "missing_from_dataset": len(missing),
+        },
+    }
 
 
 def _merge_methodology_expansion(
@@ -1400,7 +1525,7 @@ def register_plan_tools(server: Any) -> None:
             script_text = "- **statsmodels base script:** `analysis_statsmodels_base.py`\n"
 
             return (
-                f"🔒 分析計畫已鎖定 (Phase 4)\n\n"
+                f"🔒 分析計畫已鎖定 (Phase 6)\n\n"
                 f"- **顯著水準 (α):** {alpha}\n"
                 f"- **缺失值策略:** {missing_strategy}\n"
                 f"- **多重比較校正:** {multiple_comparison_method}\n"
@@ -1420,7 +1545,7 @@ def register_plan_tools(server: Any) -> None:
 
     @server.tool()
     def check_readiness(project_id: str | None = None) -> str:
-        """執行探索前準備度檢查（Phase 5）。
+        """執行探索前準備度檢查（Phase 7）。
 
         驗證 H-003 (樣本量 ≥10), H-004 (PII), H-007 (計畫已鎖定),
         H-008 (artifact gate), S-001 (常態性提醒), S-005 (缺失模式),
@@ -1465,6 +1590,24 @@ def register_plan_tools(server: Any) -> None:
             pipeline = session.get_pipeline(project.id)
             store = ArtifactStore(project.artifacts_dir)
             dataset_ok, dataset_msg, dataset_entry = ensure_dataset(project=project)
+            plan_artifact = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+            role_artifact = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {}
+            readiness_scope: dict[str, Any] = {
+                "source": "unavailable",
+                "variables": [],
+                "continuous_variables": [],
+                "collinearity_variables": [],
+                "missing_pattern_variables": [],
+                "group_variables": [],
+                "missing_from_dataset": [],
+                "counts": {},
+            }
+            if dataset_ok and dataset_entry is not None:
+                readiness_scope = _build_readiness_variable_scope(
+                    variables=dataset_entry.dataset.variables,
+                    plan=plan_artifact if isinstance(plan_artifact, dict) else {},
+                    roles=role_artifact if isinstance(role_artifact, dict) else {},
+                )
 
             checks: list[dict[str, Any]] = []
             all_passed = True
@@ -1549,13 +1692,10 @@ def register_plan_tools(server: Any) -> None:
             # S-001: Normality hint
             if dataset_ok and dataset_entry is not None:
                 df = dataset_entry.dataframe
-                continuous = [
-                    v.name
-                    for v in dataset_entry.dataset.variables
-                    if v.variable_type.value == "continuous"
-                ]
+                continuous = list(readiness_scope.get("continuous_variables", []))
                 normality_details: list[str] = []
-                for variable in continuous[:10]:
+                normality_limit = 20
+                for variable in continuous[:normality_limit]:
                     if variable not in df.columns:
                         continue
                     series = pd.to_numeric(df[variable], errors="coerce").dropna()
@@ -1581,16 +1721,26 @@ def register_plan_tools(server: Any) -> None:
                         "id": "S-001",
                         "name": "常態性檢定提醒",
                         "passed": True,
-                        "detail": f"有 {len(continuous)} 個連續變數，建議執行常態性檢定",
+                        "detail": (
+                            f"scope={readiness_scope.get('source')}; "
+                            f"checked {min(len(continuous), normality_limit)}/{len(continuous)} "
+                            "planned continuous variables"
+                        ),
                     }
                 )
                 if normality_details:
-                    checks[-1]["detail"] = "; ".join(normality_details)
+                    prefix = checks[-1]["detail"]
+                    checks[-1]["detail"] = prefix + "; " + "; ".join(normality_details)
 
             # S-005: Missing pattern analysis
             if dataset_ok and dataset_entry is not None:
                 df = dataset_entry.dataframe
-                missing_cols = [c for c in df.columns if df[c].isna().sum() > 0]
+                missing_scope = [
+                    c
+                    for c in readiness_scope.get("missing_pattern_variables", [])
+                    if c in df.columns
+                ]
+                missing_cols = [c for c in missing_scope if df[c].isna().sum() > 0]
                 if missing_cols:
                     try:
                         from rde.infrastructure.adapters import ScipyStatisticalEngine
@@ -1604,7 +1754,11 @@ def register_plan_tools(server: Any) -> None:
                                 "id": "S-005",
                                 "name": "缺失模式分析",
                                 "passed": True,
-                                "detail": f"模式: {pattern}，建議: {rec}",
+                                "detail": (
+                                    f"scope={readiness_scope.get('source')}; "
+                                    f"{len(missing_cols)}/{len(missing_scope)} scoped variables missing. "
+                                    f"模式: {pattern}，建議: {rec}"
+                                ),
                             }
                         )
                     except Exception:
@@ -1613,7 +1767,10 @@ def register_plan_tools(server: Any) -> None:
                                 "id": "S-005",
                                 "name": "缺失模式分析",
                                 "passed": True,
-                                "detail": f"{len(missing_cols)} 個變數有缺失值",
+                                "detail": (
+                                    f"scope={readiness_scope.get('source')}; "
+                                    f"{len(missing_cols)}/{len(missing_scope)} scoped variables missing"
+                                ),
                             }
                         )
                 else:
@@ -1622,7 +1779,10 @@ def register_plan_tools(server: Any) -> None:
                             "id": "S-005",
                             "name": "缺失模式分析",
                             "passed": True,
-                            "detail": "無缺失值",
+                            "detail": (
+                                f"scope={readiness_scope.get('source')}; "
+                                f"0/{len(missing_scope)} scoped variables missing"
+                            ),
                         }
                     )
 
@@ -1631,14 +1791,23 @@ def register_plan_tools(server: Any) -> None:
                 df = dataset_entry.dataframe
                 from rde.domain.services.collinearity_checker import check_collinearity
 
-                report = check_collinearity(df)
+                collinearity_variables = [
+                    c
+                    for c in readiness_scope.get("collinearity_variables", [])
+                    if c in df.columns
+                ][:30]
+                report = check_collinearity(df, variables=collinearity_variables)
                 if report.has_collinearity:
                     checks.append(
                         {
                             "id": "S-007",
                             "name": "共線性預檢",
                             "passed": True,
-                            "detail": f"⚠️ 高相關: {', '.join(report.format_warnings())}",
+                            "detail": (
+                                f"scope={readiness_scope.get('source')}; "
+                                f"checked {len(collinearity_variables)} planned continuous variables. "
+                                f"⚠️ 高相關: {', '.join(report.format_warnings())}"
+                            ),
                         }
                     )
                 else:
@@ -1647,7 +1816,11 @@ def register_plan_tools(server: Any) -> None:
                             "id": "S-007",
                             "name": "共線性預檢",
                             "passed": True,
-                            "detail": "無明顯共線性",
+                            "detail": (
+                                f"scope={readiness_scope.get('source')}; "
+                                f"checked {len(collinearity_variables)} planned continuous variables. "
+                                "無明顯共線性"
+                            ),
                         }
                     )
 
@@ -1656,6 +1829,7 @@ def register_plan_tools(server: Any) -> None:
                 "project_id": project.id,
                 "all_passed": all_passed,
                 "checks": checks,
+                "scope": readiness_scope,
                 "checked_at": datetime.now().isoformat(),
             }
             store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", checklist)

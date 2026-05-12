@@ -1078,6 +1078,7 @@ def register_branch_tools(server: Any) -> None:
                         f"- task_id: `{result['task_id']}`",
                         f"- branch_id: `{result['branch_id']}`",
                         f"- experiment_id: `{result['experiment_id']}`",
+                        f"- task_status: {result['status']}",
                         f"- remaining_tasks: {result['remaining_tasks']}",
                     ]
                 ),
@@ -1644,6 +1645,98 @@ def _build_plan_amendment(
     }
 
 
+def _auto_evaluate_autoresearch_branch(
+    project: Any,
+    store: ArtifactStore,
+    branch_id: str,
+) -> dict[str, Any]:
+    """Evaluate autoresearch output without mutating the locked plan."""
+
+    branch, experiments = _branch_and_experiments(store, branch_id)
+    if branch is None or not experiments:
+        return {}
+    if branch.status in {BranchStatus.DISCARDED, BranchStatus.PROMOTED, BranchStatus.CRASHED}:
+        return {}
+    if any(experiment.status in {"failed", "crashed", "error"} for experiment in experiments):
+        return {}
+
+    evaluation = ExplorationBranchEvaluator().evaluate(branch, experiments)
+    evaluation = _apply_live_evidence_gate(evaluation, store, experiments)
+    experiment_ids = _current_experiment_ids(experiments)
+    event = BranchEvent(
+        branch_id=branch_id,
+        event_id=_event_id("branch"),
+        event_type="branch_auto_evaluated",
+        project_id=project.id,
+        branch_type=branch.branch_type,
+        status=BranchStatus.EVALUATED,
+        hypothesis=branch.hypothesis,
+        reason="Autoresearch runner evaluated branch evidence after execution.",
+        parent_plan_item=branch.parent_plan_item,
+        variables=branch.variables,
+        risk_level=branch.risk_level,
+        payload={"evaluation": evaluation, "experiment_ids": experiment_ids},
+    )
+    store.save(PipelinePhase.EXECUTE_EXPLORATION, BRANCH_LOG, event.to_dict())
+    _save_branch_result(store, branch_id, evaluation=evaluation)
+
+    amendment_artifacts: list[str] = []
+    if (
+        evaluation.get("recommendation") == "promote_candidate"
+        and (evaluation.get("promotion_gate") or {}).get("can_promote")
+    ):
+        amendment = _build_plan_amendment(project.id, branch, experiments, evaluation)
+        amendment["candidate_status"] = "auto_evaluated_requires_confirmed_promotion"
+        amendment_json = f"{PLAN_AMENDMENTS_PREFIX}/candidates/{branch_id}.json"
+        amendment_md = f"{PLAN_AMENDMENTS_PREFIX}/candidates/{branch_id}.md"
+        store.get_path(PipelinePhase.EXECUTE_EXPLORATION, amendment_json).parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        amendment_json_path = store.save(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            amendment_json,
+            amendment,
+        )
+        amendment_md_path = store.save(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            amendment_md,
+            _format_plan_amendment_markdown(amendment),
+        )
+        amendment_artifacts = [str(amendment_json_path), str(amendment_md_path)]
+
+    review_path = _save_promotion_review(store, branch, evaluation, experiments)
+    gate_path = _save_promotion_gate(
+        store,
+        branch,
+        evaluation,
+        experiments,
+        review_path=review_path,
+        amendment_artifacts=amendment_artifacts,
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        BRANCH_EVALUATIONS_LOG,
+        {
+            "event_type": "branch_auto_evaluated",
+            "project_id": project.id,
+            "branch_id": branch_id,
+            "evaluation": evaluation,
+            "experiment_ids": experiment_ids,
+            "experiment_count": len(experiments),
+            "review_artifact": review_path,
+            "gate_artifact": gate_path,
+            "amendment_artifacts": amendment_artifacts,
+        },
+    )
+    return {
+        "evaluation": evaluation,
+        "review_artifact": review_path,
+        "gate_artifact": gate_path,
+        "amendment_artifacts": amendment_artifacts,
+    }
+
+
 def _execute_autoresearch_next_task(
     project: Any,
     store: ArtifactStore,
@@ -1723,11 +1816,29 @@ def _execute_autoresearch_next_task(
         parents=True,
         exist_ok=True,
     )
-    metrics = _runner_metrics_for_task(store, task)
-    result_summary = (
-        "Autoresearch runner executed an auditable branch task. "
-        "This branch remains exploratory until evaluate_branch() and promotion confirmation."
+    contract_result = _execute_autoresearch_analysis_contract(
+        project,
+        store,
+        task,
+        branch_id=branch_id,
+        experiment_id=experiment_id,
+        variables=variables,
     )
+    metrics = contract_result.get("metrics") or _runner_metrics_for_task(store, task)
+    result_summary = str(
+        contract_result.get("result_summary")
+        or (
+            "Autoresearch runner recorded an auditable branch task without a live "
+            "analysis contract. This branch remains exploratory until "
+            "evaluate_branch() and promotion confirmation."
+        )
+    )
+    experiment_status = str(contract_result.get("status") or "completed")
+    contract_artifacts = [str(path) for path in contract_result.get("artifacts") or []]
+    experiment_artifacts = [
+        f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{experiment_artifact}",
+        *contract_artifacts,
+    ]
     experiment = ExperimentEvent(
         project_id=project.id,
         branch_id=branch_id,
@@ -1741,8 +1852,8 @@ def _execute_autoresearch_next_task(
         },
         result_summary=result_summary,
         metrics=metrics,
-        artifacts=[f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{experiment_artifact}"],
-        status="completed",
+        artifacts=experiment_artifacts,
+        status=experiment_status,
     )
     experiment_path = store.save(
         PipelinePhase.EXECUTE_EXPLORATION,
@@ -1752,7 +1863,8 @@ def _execute_autoresearch_next_task(
             "experiment_id": experiment_id,
             "scope": "branch",
             "exploratory": True,
-            "runner_generated": True,
+            "runner_generated": bool(metrics.get("runner_generated", True)),
+            "contract_execution": contract_result,
             "run_id": run_id,
             "task_id": task_id,
             "task": task,
@@ -1768,7 +1880,7 @@ def _execute_autoresearch_next_task(
             "project_id": project.id,
             "branch_id": branch_id,
             "experiment_id": experiment_id,
-            "status": "completed",
+            "status": experiment_status,
             "experiment_type": experiment.experiment_type,
             "artifact": str(experiment_path),
             "run_id": run_id,
@@ -1785,7 +1897,9 @@ def _execute_autoresearch_next_task(
             event_type="branch_experiment_recorded",
             project_id=project.id,
             branch_type=branch_type,
-            status=BranchStatus.EXPERIMENTING,
+            status=BranchStatus.CRASHED
+            if experiment_status in {"failed", "crashed", "error"}
+            else BranchStatus.EXPERIMENTING,
             hypothesis=str(task.get("hypothesis") or ""),
             reason=result_summary,
             variables=variables,
@@ -1794,20 +1908,37 @@ def _execute_autoresearch_next_task(
         ).to_dict(),
     )
     _, branch_result_path = _save_branch_result(store, branch_id)
+    auto_evaluation = {}
+    if experiment_status not in {"failed", "crashed", "error"}:
+        auto_evaluation = _auto_evaluate_autoresearch_branch(project, store, branch_id)
+    auto_evaluation_artifacts = [
+        str(path)
+        for path in [
+            auto_evaluation.get("review_artifact"),
+            auto_evaluation.get("gate_artifact"),
+            *(auto_evaluation.get("amendment_artifacts") or []),
+        ]
+        if path
+    ]
     _append_autoresearch_work_update(
         store,
         task,
         {
-            "event_type": "work_item_completed",
-            "status": "completed",
+            "event_type": "work_item_failed"
+            if experiment_status in {"failed", "crashed", "error"}
+            else "work_item_completed",
+            "status": "failed"
+            if experiment_status in {"failed", "crashed", "error"}
+            else "completed",
             "branch_id": branch_id,
             "experiment_id": experiment_id,
             "completed_at": datetime.now().isoformat(),
             "artifacts": [
-                f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{experiment_artifact}",
+                *experiment_artifacts,
                 branch_result_path,
+                *auto_evaluation_artifacts,
             ],
-            "error": None,
+            "error": contract_result.get("error"),
         },
     )
     _log_branch_decision(
@@ -1821,16 +1952,20 @@ def _execute_autoresearch_next_task(
         },
         "Autoresearch runner executed one branch-scoped queue item.",
         result_summary,
-        artifacts=[str(experiment_path), branch_result_path],
+        artifacts=[str(experiment_path), *contract_artifacts, branch_result_path, *auto_evaluation_artifacts],
     )
     budget = _update_autoresearch_budget(store, run_id, status="running")
-    _save_autoresearch_progress(store, run_id, "task_completed")
+    _save_autoresearch_progress(
+        store,
+        run_id,
+        "task_failed" if experiment_status in {"failed", "crashed", "error"} else "task_completed",
+    )
     if int(budget.get("remaining_tasks") or 0) == 0:
         _complete_autoresearch_run_if_idle(project, store, run_id)
         budget = _update_autoresearch_budget(store, run_id, status="completed")
     return {
         "ok": True,
-        "status": "completed",
+        "status": experiment_status,
         "run_id": run_id,
         "task_id": task_id,
         "branch_id": branch_id,
@@ -1957,6 +2092,499 @@ def _branch_type_from_value(value: Any) -> BranchType:
         return BranchType.YOLO
 
 
+def _apply_autoresearch_derived_variables(
+    dataframe: Any,
+    contract: dict[str, Any],
+) -> tuple[Any, list[str], list[dict[str, Any]]]:
+    specs = contract.get("derived_variables") or []
+    if not isinstance(specs, list) or not specs:
+        return dataframe, [], []
+
+    import pandas as pd
+
+    def scalar(value: Any) -> Any:
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
+            pass
+        if hasattr(value, "item"):
+            try:
+                return value.item()
+            except (TypeError, ValueError):
+                pass
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
+    working = dataframe.copy()
+    notes: list[str] = []
+    metadata: list[dict[str, Any]] = []
+    for raw_spec in specs:
+        if not isinstance(raw_spec, dict):
+            notes.append("Skipped malformed derived-variable spec.")
+            continue
+        source = str(raw_spec.get("source") or raw_spec.get("source_variable") or "").strip()
+        operation = str(raw_spec.get("operation") or raw_spec.get("type") or "equals").strip().lower()
+        name = str(raw_spec.get("name") or "").strip()
+        if not name and source:
+            name = f"{_normalize_token(source) or 'derived'}_{operation}"
+        if not source or source not in working.columns:
+            notes.append(f"Skipped derived variable `{name or source}` because source `{source}` is absent.")
+            continue
+        if not name:
+            notes.append(f"Skipped derived variable for `{source}` because no output name was provided.")
+            continue
+
+        source_series = working[source]
+        nonmissing = source_series.dropna()
+        if operation == "dominant_vs_other":
+            counts = nonmissing.value_counts()
+            if len(counts) < 2:
+                notes.append(
+                    f"Skipped `{name}` because `{source}` has fewer than two observed levels."
+                )
+                continue
+            positive_value = counts.index[0]
+            comparison = source_series == positive_value
+            value_counts = {str(scalar(index)): int(count) for index, count in counts.items()}
+        elif operation in {"equals", "eq", "is"}:
+            positive_value = raw_spec.get("value")
+            comparison = source_series == positive_value
+            if not bool(comparison.fillna(False).any()):
+                comparison = source_series.astype(str) == str(positive_value)
+            value_counts = {}
+        elif operation in {"in", "one_of"}:
+            raw_values = raw_spec.get("values") or []
+            values = list(raw_values) if isinstance(raw_values, list) else [raw_values]
+            positive_value = [scalar(value) for value in values]
+            comparison = source_series.isin(values)
+            if not bool(comparison.fillna(False).any()):
+                comparison = source_series.astype(str).isin([str(value) for value in values])
+            value_counts = {}
+        else:
+            notes.append(f"Skipped `{name}` because operation `{operation}` is unsupported.")
+            continue
+
+        derived = comparison.fillna(False).astype(float)
+        derived.loc[source_series.isna()] = pd.NA
+        working[name] = derived
+        positive_count = int((derived == 1).sum())
+        negative_count = int((derived == 0).sum())
+        missing_count = int(derived.isna().sum())
+        metadata.append(
+            {
+                "name": name,
+                "source": source,
+                "operation": operation,
+                "positive_value": scalar(positive_value),
+                "positive_count": positive_count,
+                "negative_count": negative_count,
+                "missing_count": missing_count,
+                "value_counts": value_counts,
+            }
+        )
+        notes.append(
+            f"Derived `{name}` from `{source}` using `{operation}` "
+            f"(positive={scalar(positive_value)}, n1={positive_count}, "
+            f"n0={negative_count}, missing={missing_count})."
+        )
+
+    return working, notes, metadata
+
+
+def _execute_autoresearch_analysis_contract(
+    project: Any,
+    store: ArtifactStore,
+    task: dict[str, Any],
+    *,
+    branch_id: str,
+    experiment_id: str,
+    variables: list[str],
+) -> dict[str, Any]:
+    contract = dict(task.get("analysis_contract") or {})
+    if not contract:
+        return {
+            "executed": False,
+            "status": "completed",
+            "artifacts": [],
+            "metrics": _runner_metrics_for_task(store, task),
+            "result_summary": (
+                "Autoresearch branch has no live analysis contract; recorded branch "
+                "ledger only."
+            ),
+        }
+    if str(contract.get("tool") or "") != "run_advanced_analysis":
+        return {
+            "executed": False,
+            "status": "completed",
+            "artifacts": [],
+            "metrics": _runner_metrics_for_task(store, task),
+            "result_summary": (
+                f"Autoresearch contract tool `{contract.get('tool')}` is not executable "
+                "by the branch runner yet; recorded branch ledger only."
+            ),
+        }
+
+    from rde.infrastructure.adapters import get_analysis_delegator
+    from rde.interface.mcp.tools._shared import ensure_dataset
+    from rde.interface.mcp.tools.analysis_tools import (
+        _format_advanced_analysis_output,
+        _sanitize_analysis_frame,
+        _summarize_advanced_analysis_result,
+    )
+
+    ok, message, entry = ensure_dataset(None, project=project)
+    if not ok or entry is None:
+        return {
+            "executed": False,
+            "status": "failed",
+            "artifacts": [],
+            "metrics": _runner_metrics_for_task(store, task),
+            "result_summary": (
+                "Autoresearch live analysis contract skipped because the project "
+                f"dataset was unavailable: {message}"
+            ),
+            "error": message,
+        }
+
+    analysis_type = str(contract.get("analysis_type") or task.get("experiment_type") or "")
+    target_variable = contract.get("target_variable")
+    group_variable = contract.get("group_variable")
+    covariates = [str(value) for value in contract.get("covariates") or []]
+    config: dict[str, Any] = {
+        "variables": [],
+        "project_name": f"rde_branch_{entry.dataset.id}",
+        "user_id": f"rde-{project.id}",
+        "branch_id": branch_id,
+        "experiment_id": experiment_id,
+    }
+    branch_backend = contract.get("backend")
+    if branch_backend:
+        config["backend"] = str(branch_backend)
+    elif analysis_type in {
+        "glm",
+        "logistic_regression",
+        "multiple_regression",
+        "propensity_score",
+        "roc_auc",
+    }:
+        config["backend"] = "fast"
+        config["regularization_alpha"] = 1.0
+        config["max_iter"] = 200
+    if target_variable:
+        config["target"] = str(target_variable)
+        config["variables"].append(str(target_variable))
+    if group_variable:
+        config["group_var"] = str(group_variable)
+        config["variables"].append(str(group_variable))
+    if covariates:
+        config["covariates"] = covariates
+        config["variables"].extend(covariates)
+    for variable in variables:
+        if variable not in config["variables"]:
+            config["variables"].append(variable)
+    config["variables"] = list(dict.fromkeys(config["variables"]))
+
+    try:
+        analysis_source_df, derived_notes, derived_metadata = _apply_autoresearch_derived_variables(
+            entry.dataframe,
+            contract,
+        )
+        derived_registry_entries: list[dict[str, Any]] = []
+        derived_registry_path: str | None = None
+        if derived_metadata:
+            from rde.domain.services.derived_variable_registry import (
+                DERIVED_VARIABLE_REGISTRY,
+                upsert_derived_variable_registry,
+            )
+
+            derived_registry_entries, derived_registry_path = upsert_derived_variable_registry(
+                store,
+                derived_metadata,
+                branch_id=branch_id,
+                experiment_id=experiment_id,
+                contract=contract,
+            )
+            derived_registry_ref = f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{DERIVED_VARIABLE_REGISTRY}"
+        else:
+            derived_registry_ref = None
+        for derived in derived_metadata:
+            derived_name = str(derived.get("name") or "")
+            if derived_name and derived_name not in config["variables"]:
+                config["variables"].append(derived_name)
+        config["variables"] = list(dict.fromkeys(config["variables"]))
+        analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
+            analysis_source_df,
+            config["variables"],
+        )
+        delegator = get_analysis_delegator()
+        result = delegator.run_analysis(analysis_df, analysis_type, config)
+        source = str(result.get("source") or "unknown")
+        analysis_result = result.get("result") or {}
+        metrics = _metrics_from_live_analysis_result(
+            analysis_result,
+            row_count=int(entry.dataset.row_count or len(entry.dataframe)),
+        )
+        metrics.update(
+            {
+                "runner_generated": False,
+                "contract_executed": True,
+                "analysis_type": analysis_type,
+                "source": source,
+            }
+        )
+
+        artifact_name = (
+            f"{BRANCH_RESULTS_PREFIX}/{branch_id}/experiments/"
+            f"{experiment_id}_{_normalize_token(analysis_type) or 'analysis'}.json"
+        )
+        artifact_payload = {
+            "branch_id": branch_id,
+            "experiment_id": experiment_id,
+            "analysis_contract": contract,
+            "config": config,
+            "source": source,
+            "analysis_result": analysis_result,
+            "plausibility_notes": plausibility_notes,
+            "plausibility_summary": plausibility_summary,
+            "derived_variables": derived_metadata,
+            "derived_variable_notes": derived_notes,
+            "derived_variable_registry_entries": derived_registry_entries,
+            "derived_variable_registry_artifact": derived_registry_ref,
+        }
+        store.get_path(PipelinePhase.EXECUTE_EXPLORATION, artifact_name).parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        artifact_path = store.save(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            artifact_name,
+            artifact_payload,
+        )
+
+        if isinstance(analysis_result, dict) and analysis_result.get("error"):
+            error = str(analysis_result.get("error"))
+            markdown = "\n".join(
+                [
+                    f"# Autoresearch Contract Failed: {analysis_type}",
+                    "",
+                    f"- branch_id: `{branch_id}`",
+                    f"- experiment_id: `{experiment_id}`",
+                    f"- source: {source}",
+                    f"- error: {error}",
+                    f"- suggestion: {analysis_result.get('suggestion', '')}",
+                ]
+            )
+            md_name = artifact_name.replace(".json", ".md")
+            md_path = store.save(PipelinePhase.EXECUTE_EXPLORATION, md_name, markdown)
+            return {
+                "executed": True,
+                "status": "failed",
+                "artifacts": [
+                    f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{artifact_name}",
+                    f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{md_name}",
+                    *([derived_registry_ref] if derived_registry_ref else []),
+                ],
+                "metrics": metrics,
+                "result_summary": f"live {analysis_type} failed: {error}",
+                "error": error,
+                "artifact_path": str(artifact_path),
+                "markdown_path": str(md_path),
+            }
+
+        rendered = _format_advanced_analysis_output(
+            analysis_type=analysis_type,
+            source=source,
+            analysis_result=analysis_result,
+            artifact_path=artifact_path,
+            automl_available=delegator.automl_available,
+        )
+        figures: list[dict[str, str]] = []
+        figure_warnings: list[str] = []
+        if bool(contract.get("create_figures")):
+            from rde.interface.mcp.tools.analysis_tools import (
+                _auto_create_advanced_analysis_figures,
+            )
+
+            figures, figure_warnings = _auto_create_advanced_analysis_figures(
+                project=project,
+                dataset=entry.dataset,
+                dataframe=analysis_df,
+                analysis_type=analysis_type,
+                source=source,
+                analysis_result=analysis_result,
+                config=config,
+            )
+        else:
+            figure_warnings.append(
+                "Autoresearch branch runner skipped automatic figure generation; "
+                "use create_visualization or set analysis_contract.create_figures=true "
+                "when branch-specific figures are required."
+            )
+        if figures:
+            rendered += "\n\n## Figures\n" + "\n".join(
+                f"- `{figure['path']}` ({figure['plot_type']})" for figure in figures
+            )
+        if figure_warnings:
+            rendered += "\n\n## Figure fallback warnings\n" + "\n".join(
+                f"- {warning}" for warning in figure_warnings
+            )
+        if derived_notes:
+            rendered += "\n\n## Branch-derived variables\n" + "\n".join(
+                f"- {note}" for note in derived_notes
+            )
+            if derived_registry_path:
+                rendered += (
+                    "\n"
+                    f"- registry: `{PipelinePhase.EXECUTE_EXPLORATION.value}/"
+                    "derived_variable_registry.json`"
+                )
+        if plausibility_notes:
+            rendered += "\n\n## 資料合理性防護\n" + "\n".join(
+                f"- {note}" for note in plausibility_notes
+            )
+        md_name = artifact_name.replace(".json", ".md")
+        md_path = store.save(PipelinePhase.EXECUTE_EXPLORATION, md_name, rendered)
+        artifact_refs = [
+            f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{artifact_name}",
+            f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{md_name}",
+            *([derived_registry_ref] if derived_registry_ref else []),
+            *[figure["path"] for figure in figures],
+        ]
+        summary = _summarize_advanced_analysis_result(analysis_result)
+        if plausibility_summary:
+            summary = f"{summary}; {plausibility_summary}"
+        if derived_metadata:
+            summary = f"{summary}; derived_variables={len(derived_metadata)}"
+        return {
+            "executed": True,
+            "status": "completed",
+            "artifacts": artifact_refs,
+            "metrics": metrics,
+            "result_summary": f"live {analysis_type}: source={source}; {summary}",
+            "artifact_path": str(artifact_path),
+            "markdown_path": str(md_path),
+        }
+    except Exception as exc:
+        return {
+            "executed": True,
+            "status": "failed",
+            "artifacts": [],
+            "metrics": {
+                "runner_generated": False,
+                "contract_executed": True,
+                "analysis_type": analysis_type,
+                "n": int(entry.dataset.row_count or len(entry.dataframe)),
+            },
+            "result_summary": f"live {analysis_type} crashed: {exc}",
+            "error": str(exc),
+        }
+
+
+def _metrics_from_live_analysis_result(
+    analysis_result: Any,
+    *,
+    row_count: int,
+) -> dict[str, Any]:
+    metrics: dict[str, Any] = {"n": row_count, "sample_size": row_count}
+    if not isinstance(analysis_result, dict):
+        return metrics
+    for key in ("nobs", "n_complete", "n_total", "count"):
+        if key in analysis_result:
+            metrics[key] = analysis_result[key]
+            break
+    if "propensity_score_summary" in analysis_result:
+        summary = analysis_result.get("propensity_score_summary") or {}
+        if isinstance(summary, dict) and "count" in summary:
+            metrics["nobs"] = summary["count"]
+    p_values = analysis_result.get("p_values")
+    if isinstance(p_values, dict):
+        numeric_p_values = [
+            float(value)
+            for name, value in p_values.items()
+            if name != "const" and value is not None
+        ]
+        metrics["p_values"] = p_values
+        if numeric_p_values:
+            metrics["p_value"] = min(numeric_p_values)
+    coefficients = analysis_result.get("coefficients")
+    if isinstance(coefficients, dict):
+        numeric_coefficients = [
+            abs(float(value))
+            for name, value in coefficients.items()
+            if name != "const" and value is not None
+        ]
+        metrics["coefficients"] = coefficients
+        if numeric_coefficients:
+            metrics["effect_size"] = max(numeric_coefficients)
+    odds_ratios = analysis_result.get("odds_ratios")
+    if isinstance(odds_ratios, dict):
+        metrics["odds_ratios"] = odds_ratios
+        non_const = [
+            float(value)
+            for name, value in odds_ratios.items()
+            if name != "const" and value is not None
+        ]
+        if non_const:
+            metrics["odds_ratio"] = max(non_const, key=lambda value: abs(value - 1.0))
+    if "r_squared" in analysis_result:
+        metrics["r_squared"] = analysis_result["r_squared"]
+        metrics.setdefault("effect_size", analysis_result["r_squared"])
+    if "adj_r_squared" in analysis_result:
+        metrics["adj_r_squared"] = analysis_result["adj_r_squared"]
+    if "pseudo_r2" in analysis_result:
+        metrics["pseudo_r2"] = analysis_result["pseudo_r2"]
+        metrics.setdefault("effect_size", analysis_result["pseudo_r2"])
+    common_support = analysis_result.get("common_support")
+    if isinstance(common_support, dict):
+        metrics["common_support"] = common_support
+        if "in_support_fraction" in common_support:
+            metrics["effect_size"] = common_support["in_support_fraction"]
+    balance = analysis_result.get("balance_diagnostics")
+    if isinstance(balance, dict):
+        metrics["balance_diagnostics"] = balance
+        smds: list[float] = []
+        for item in balance.values():
+            if isinstance(item, dict) and item.get("standardized_mean_difference") is not None:
+                smds.append(abs(float(item["standardized_mean_difference"])))
+        if smds:
+            metrics["standardized_mean_difference"] = max(smds)
+    weighted_balance = analysis_result.get("weighted_balance_diagnostics")
+    if isinstance(weighted_balance, dict):
+        metrics["weighted_balance_diagnostics"] = weighted_balance
+        weighted_smds = [
+            abs(float(item["standardized_mean_difference"]))
+            for item in weighted_balance.values()
+            if isinstance(item, dict) and item.get("standardized_mean_difference") is not None
+        ]
+        if weighted_smds:
+            metrics["weighted_standardized_mean_difference"] = max(weighted_smds)
+    matched_balance = analysis_result.get("matched_balance_diagnostics")
+    if isinstance(matched_balance, dict):
+        metrics["matched_balance_diagnostics"] = matched_balance
+        matched_smds = [
+            abs(float(item["standardized_mean_difference"]))
+            for item in matched_balance.values()
+            if isinstance(item, dict) and item.get("standardized_mean_difference") is not None
+        ]
+        if matched_smds:
+            metrics["matched_standardized_mean_difference"] = max(matched_smds)
+    if "matching_summary" in analysis_result:
+        metrics["matching_summary"] = analysis_result["matching_summary"]
+    if "power" in analysis_result:
+        metrics["power"] = analysis_result["power"]
+    if metrics.get("common_support") and metrics.get("standardized_mean_difference") is not None:
+        support = metrics.get("common_support") or {}
+        support_fraction = float(support.get("in_support_fraction") or 0.0)
+        max_smd = abs(float(metrics.get("standardized_mean_difference") or 0.0))
+        metrics.setdefault("evidence_score", min(95.0, 55.0 + support_fraction * 35.0))
+        metrics.setdefault("stability_score", max(40.0, 90.0 - max_smd * 30.0))
+    metrics.setdefault("sample_support", 75.0 if row_count >= 30 else 45.0)
+    metrics.setdefault("alignment_score", 80.0)
+    return metrics
+
+
 def _runner_metrics_for_task(store: ArtifactStore, task: dict[str, Any]) -> dict[str, Any]:
     schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {}
     row_count = 0
@@ -1966,17 +2594,17 @@ def _runner_metrics_for_task(store: ArtifactStore, task: dict[str, Any]) -> dict
         except (TypeError, ValueError):
             row_count = 0
     variables = task.get("variables") or []
-    return {
+    metrics = {
         "runner_generated": True,
+        "contract_executed": False,
         "n": row_count,
         "sample_size": row_count,
-        "effect_size": 0.0,
-        "p_value": 1.0,
-        "evidence_score": 55.0,
-        "stability_score": 65.0,
         "alignment_score": 70.0 if variables else 50.0,
         "sample_support": 75.0 if row_count >= 30 else 45.0,
     }
+    if task.get("analysis_contract"):
+        metrics["contract_available"] = True
+    return metrics
 
 
 def _update_autoresearch_budget(
@@ -2262,11 +2890,103 @@ def _build_branch_suggestions(
     plan: dict[str, Any],
     roles: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
+    from rde.domain.services.common_medical_eda_pack import (
+        build_common_medical_eda_suggestions,
+    )
+
+    return build_common_medical_eda_suggestions(schema, plan, roles)
+
     variables = schema.get("variables") if isinstance(schema, dict) else []
     variables = variables if isinstance(variables, list) else []
     analyses = plan.get("analyses") if isinstance(plan, dict) else []
     analyses = analyses if isinstance(analyses, list) else []
     roles = roles if isinstance(roles, dict) else {}
+    variable_index = {
+        str(var.get("name")): var
+        for var in variables
+        if isinstance(var, dict) and var.get("name")
+    }
+
+    def schema_type(name: str) -> str:
+        var = variable_index.get(name) or {}
+        return str(var.get("variable_type", "")).lower()
+
+    def schema_unique_count(name: str) -> int | None:
+        var = variable_index.get(name) or {}
+        raw = var.get("n_unique")
+        if raw is None:
+            raw = var.get("unique_count")
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def is_binary_schema_var(name: str, *, allow_unknown_categorical: bool = False) -> bool:
+        var_type = schema_type(name)
+        if var_type in {"binary", "boolean"}:
+            return True
+        if var_type in {"categorical", "factor", "ordinal", "integer", "numeric"}:
+            n_unique = schema_unique_count(name)
+            if n_unique == 2:
+                return True
+            if n_unique is None and allow_unknown_categorical and var_type in {"categorical", "factor"}:
+                return True
+        return False
+
+    def is_multilevel_treatment_var(name: str) -> bool:
+        var_type = schema_type(name)
+        if var_type not in {"categorical", "factor", "ordinal", "integer", "numeric"}:
+            return False
+        n_unique = schema_unique_count(name)
+        return n_unique is not None and 3 <= n_unique <= 12
+
+    def is_outcome_like_var(name: str) -> bool:
+        lowered = name.lower()
+        if name in role_outcomes:
+            return True
+        if name in role_groups:
+            return False
+        if any(
+            token in lowered
+            for token in (
+                "sex",
+                "gender",
+                "age",
+                "height",
+                "weight",
+                "bmi",
+                "baseline",
+                "treat",
+                "group",
+                "arm",
+                "exposure",
+            )
+        ):
+            return False
+        return any(
+            token in lowered or token in name
+            for token in (
+                "outcome",
+                "endpoint",
+                "event",
+                "status",
+                "death",
+                "mortality",
+                "relapse",
+                "progression",
+                "readmission",
+                "aki",
+                "renal",
+                "creatinine",
+                "ngal",
+                "kim",
+                "cystatin",
+                "結果",
+                "事件",
+                "死亡",
+                "腎",
+            )
+        )
 
     numeric = [
         str(var.get("name"))
@@ -2314,7 +3034,7 @@ def _build_branch_suggestions(
     time_vars = list(dict.fromkeys(role_times + time_vars))
     event_vars = [
         name
-        for name in categorical + numeric
+        for name in all_names
         if any(
             token in name.lower()
             for token in (
@@ -2328,6 +3048,7 @@ def _build_branch_suggestions(
                 "progression",
             )
         )
+        and is_binary_schema_var(name, allow_unknown_categorical=True)
     ]
     event_vars = list(dict.fromkeys(role_events + event_vars))
     treatment_vars = [
@@ -2370,7 +3091,8 @@ def _build_branch_suggestions(
 
     planned_entries = [entry for entry in analyses if isinstance(entry, dict)] or [{}]
     for analysis in planned_entries:
-        outcome_vars = _analysis_outcomes(analysis) or role_outcomes or numeric[:1] or categorical[:1]
+        analysis_outcomes = _analysis_outcomes(analysis)
+        outcome_vars = role_outcomes or analysis_outcomes or numeric[:1] or categorical[:1]
         group_var = analysis.get("group_variable") or analysis.get("group_var")
         if not group_var and role_groups:
             group_var = role_groups[0]
@@ -2392,25 +3114,83 @@ def _build_branch_suggestions(
                 }
             )
 
-        if outcome_vars and covariates:
+        continuous_outcomes = [
+            outcome
+            for outcome in outcome_vars
+            if schema_type(outcome) in {"continuous", "numeric", "integer"}
+        ]
+        if continuous_outcomes and covariates:
             add(
                 {
                     "branch_type": BranchType.ADJUSTED_MODEL.value,
                     "experiment_type": "adjusted_model",
-                    "hypothesis": "Adjustment for plausible covariates preserves the planned signal.",
+                    "hypothesis": (
+                        f"Adjustment for plausible covariates preserves the planned signal "
+                        f"for {continuous_outcomes[0]}."
+                    ),
                     "reason": "schema.json contains covariates not already in the primary plan.",
-                    "variables": list(dict.fromkeys(outcome_vars + covariates)),
+                    "variables": list(dict.fromkeys([continuous_outcomes[0]] + covariates)),
                     "analysis_contract": {
                         "tool": "run_advanced_analysis",
                         "analysis_type": "multiple_regression",
-                        "target_variable": outcome_vars[0],
+                        "target_variable": continuous_outcomes[0],
                         "covariates": covariates,
+                        "create_figures": True,
                     },
                 }
             )
+            for outcome in continuous_outcomes[1:4]:
+                add(
+                    {
+                        "branch_type": BranchType.ADJUSTED_MODEL.value,
+                        "experiment_type": "adjusted_model",
+                        "hypothesis": (
+                            "Autoresearch covariate-adjusted model checks a secondary "
+                            f"clinical outcome: {outcome}."
+                        ),
+                        "reason": (
+                            "schema.json contains multiple clinical outcomes; autonomous "
+                            "RDE should not stop after one adjusted model."
+                        ),
+                        "variables": list(dict.fromkeys([outcome] + covariates)),
+                        "analysis_contract": {
+                            "tool": "run_advanced_analysis",
+                            "analysis_type": "multiple_regression",
+                            "target_variable": outcome,
+                            "covariates": covariates,
+                            "create_figures": True,
+                        },
+                    }
+                )
 
-        binary_outcomes = [var for var in outcome_vars if var in categorical or var in event_vars]
+        binary_outcomes = [
+            var
+            for var in outcome_vars
+            if (
+                is_binary_schema_var(var, allow_unknown_categorical=False) or var in event_vars
+            )
+            and is_outcome_like_var(var)
+        ]
         if binary_outcomes and covariates:
+            add(
+                {
+                    "branch_type": BranchType.ADJUSTED_MODEL.value,
+                    "experiment_type": "adjusted_model",
+                    "hypothesis": "Adjusted model is required for the binary clinical endpoint.",
+                    "reason": (
+                        "Medical EDA should surface a generic adjusted-model branch even "
+                        "when the executable model is logistic regression."
+                    ),
+                    "variables": list(dict.fromkeys(binary_outcomes[:1] + covariates)),
+                    "analysis_contract": {
+                        "tool": "run_advanced_analysis",
+                        "analysis_type": "logistic_regression",
+                        "target_variable": binary_outcomes[0],
+                        "covariates": covariates,
+                        "create_figures": True,
+                    },
+                }
+            )
             add(
                 {
                     "branch_type": BranchType.ADJUSTED_MODEL.value,
@@ -2423,11 +3203,16 @@ def _build_branch_suggestions(
                         "analysis_type": "logistic_regression",
                         "target_variable": binary_outcomes[0],
                         "covariates": covariates,
+                        "create_figures": True,
                     },
                 }
             )
 
-        if group_var and covariates:
+        if (
+            group_var
+            and is_binary_schema_var(str(group_var), allow_unknown_categorical=True)
+            and covariates
+        ):
             add(
                 {
                     "branch_type": BranchType.PROPENSITY.value,
@@ -2440,6 +3225,39 @@ def _build_branch_suggestions(
                         "analysis_type": "propensity_score",
                         "group_variable": str(group_var),
                         "covariates": covariates,
+                        "create_figures": True,
+                    },
+                }
+            )
+        elif group_var and is_multilevel_treatment_var(str(group_var)) and covariates:
+            safe_group = _normalize_token(str(group_var)) or "group"
+            derived_group = f"{safe_group}_dominant_vs_other"
+            add(
+                {
+                    "branch_type": BranchType.PROPENSITY.value,
+                    "experiment_type": "propensity_score",
+                    "hypothesis": (
+                        "Dominant treatment/exposure level remains comparable with other "
+                        "levels after propensity scoring."
+                    ),
+                    "reason": (
+                        "The main exposure is multi-level, so autonomous RDE creates a "
+                        "branch-local binary contrast before propensity scoring."
+                    ),
+                    "variables": list(dict.fromkeys([derived_group, str(group_var)] + covariates)),
+                    "analysis_contract": {
+                        "tool": "run_advanced_analysis",
+                        "analysis_type": "propensity_score",
+                        "group_variable": derived_group,
+                        "covariates": covariates,
+                        "derived_variables": [
+                            {
+                                "name": derived_group,
+                                "source": str(group_var),
+                                "operation": "dominant_vs_other",
+                            }
+                        ],
+                        "create_figures": True,
                     },
                 }
             )

@@ -33,6 +33,132 @@ def _pii_gate_message(
     )
 
 
+def _build_raw_data_coverage(
+    *,
+    loadable_files: list[Any],
+    loaded_file_name: str,
+    normalization: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize whether Phase 1 covered all raw workbooks and sheets."""
+    loadable_entries: list[dict[str, Any]] = []
+    for item in loadable_files:
+        name = str(getattr(item, "file_name", ""))
+        loadable_entries.append(
+            {
+                "file_name": name,
+                "file_path": str(getattr(item, "file_path", "")),
+                "file_format": str(getattr(item, "file_format", "")),
+                "file_size_bytes": int(getattr(item, "file_size_bytes", 0) or 0),
+                "loaded": name == loaded_file_name,
+            }
+        )
+
+    unloaded_files = [
+        item["file_name"] for item in loadable_entries if not bool(item.get("loaded"))
+    ]
+    sheet_assessments = normalization.get("sheet_assessments") or []
+    unselected_candidate_sheets = [
+        {
+            "file_name": loaded_file_name,
+            "sheet_name": str(item.get("sheet_name", "")),
+            "classification": str(item.get("classification", "")),
+            "score": item.get("score"),
+            "row_count": item.get("row_count"),
+            "column_count": item.get("column_count"),
+            "reasons": item.get("reasons") or [],
+        }
+        for item in sheet_assessments
+        if isinstance(item, dict)
+        and str(item.get("classification", "")) == "data_candidate"
+        and not bool(item.get("selected"))
+    ]
+    selected_sheets = [
+        {
+            "file_name": loaded_file_name,
+            "sheet_name": str(item.get("sheet_name", "")),
+            "classification": str(item.get("classification", "")),
+            "score": item.get("score"),
+            "row_count": item.get("row_count"),
+            "column_count": item.get("column_count"),
+        }
+        for item in sheet_assessments
+        if isinstance(item, dict) and bool(item.get("selected"))
+    ]
+    if normalization.get("selected_sheet_name") and not selected_sheets:
+        selected_sheets.append(
+            {
+                "file_name": loaded_file_name,
+                "sheet_name": str(normalization.get("selected_sheet_name")),
+                "classification": "selected",
+                "score": None,
+                "row_count": None,
+                "column_count": None,
+            }
+        )
+
+    requires_review = bool(unloaded_files or unselected_candidate_sheets)
+    recommendations: list[str] = []
+    if unloaded_files:
+        recommendations.append(
+            "Load or explicitly exclude every loadable raw file before claiming whole-dataset coverage."
+        )
+    if unselected_candidate_sheets:
+        recommendations.append(
+            "Review unselected Excel sheets classified as data_candidate; load, merge, or document exclusion rationale."
+        )
+
+    return {
+        "status": "partial_raw_coverage" if requires_review else "complete_raw_coverage",
+        "loaded_files": [loaded_file_name],
+        "loadable_files": loadable_entries,
+        "unloaded_loadable_files": unloaded_files,
+        "selected_sheets": selected_sheets,
+        "unselected_data_candidate_sheets": unselected_candidate_sheets,
+        "requires_review": requires_review,
+        "recommendations": recommendations,
+    }
+
+
+def _format_raw_data_coverage_markdown(coverage: dict[str, Any]) -> str:
+    """Render raw workbook/sheet coverage as a human-readable artifact."""
+    lines = [
+        "# Raw Data Coverage",
+        "",
+        f"- **Status:** {coverage.get('status', 'unknown')}",
+        f"- **Requires review:** {'yes' if coverage.get('requires_review') else 'no'}",
+        f"- **Loaded files:** {', '.join(coverage.get('loaded_files') or []) or 'none'}",
+    ]
+    unloaded = coverage.get("unloaded_loadable_files") or []
+    if unloaded:
+        lines.append(f"- **Unloaded loadable files:** {', '.join(str(item) for item in unloaded)}")
+    selected_sheets = coverage.get("selected_sheets") or []
+    if selected_sheets:
+        lines.append("")
+        lines.append("## Selected Sheets")
+        for item in selected_sheets:
+            lines.append(
+                f"- {item.get('file_name')}: {item.get('sheet_name')} "
+                f"({item.get('row_count', '?')} rows x {item.get('column_count', '?')} columns)"
+            )
+    unselected = coverage.get("unselected_data_candidate_sheets") or []
+    if unselected:
+        lines.append("")
+        lines.append("## Unselected Data-Candidate Sheets")
+        for item in unselected:
+            lines.append(
+                f"- {item.get('file_name')}: {item.get('sheet_name')} "
+                f"({item.get('row_count', '?')} rows x {item.get('column_count', '?')} columns; "
+                f"score={item.get('score', 'NA')})"
+            )
+    recommendations = coverage.get("recommendations") or []
+    if recommendations:
+        lines.append("")
+        lines.append("## Recommendations")
+        for item in recommendations:
+            lines.append(f"- {item}")
+    return "\n".join(lines) + "\n"
+
+
 def register_discovery_tools(server: Any) -> None:
     """Register data discovery MCP tools."""
 
@@ -286,7 +412,13 @@ def register_discovery_tools(server: Any) -> None:
             dataset = Dataset(metadata=metadata)
             df, variables, row_count, report = loader.load(metadata)
             dataset.mark_loaded(variables, row_count)
-            dataset.tags["normalization_report"] = report.as_dict()
+            normalization = report.as_dict()
+            dataset.tags["normalization_report"] = normalization
+            raw_coverage = _build_raw_data_coverage(
+                loadable_files=loadable_files,
+                loaded_file_name=first_file.file_name,
+                normalization=normalization,
+            )
 
             # Step 3: PII check (H-004)
             pii_vars = [v.name for v in variables if v.is_pii_suspect]
@@ -315,7 +447,8 @@ def register_discovery_tools(server: Any) -> None:
                 "dataset_id": dataset.id,
                 "row_count": row_count,
                 "column_count": len(variables),
-                "normalization": report.as_dict(),
+                "normalization": normalization,
+                "raw_data_coverage": raw_coverage,
                 "pii_suspects": pii_vars,
                 "rejections": [
                     {"file": f.file_name, "reason": f.rejection_reason} for f in rejected_files
@@ -329,6 +462,12 @@ def register_discovery_tools(server: Any) -> None:
             if ok and project is not None:
                 store = ArtifactStore(project.artifacts_dir)
                 store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", intake_report)
+                store.save(PipelinePhase.DATA_INTAKE, "raw_data_coverage.json", raw_coverage)
+                store.save(
+                    PipelinePhase.DATA_INTAKE,
+                    "raw_data_coverage.md",
+                    _format_raw_data_coverage_markdown(raw_coverage),
+                )
 
                 pipeline = session.get_pipeline(project.id)
                 pipeline.mark_started(PipelinePhase.DATA_INTAKE)
@@ -349,6 +488,16 @@ def register_discovery_tools(server: Any) -> None:
                 rejected_info = "\n**被拒絕的檔案:**\n" + "\n".join(
                     f"- {f.file_name}: {f.rejection_reason}" for f in rejected_files
                 )
+            coverage_warning = ""
+            if raw_coverage.get("requires_review"):
+                unloaded = raw_coverage.get("unloaded_loadable_files") or []
+                unselected = raw_coverage.get("unselected_data_candidate_sheets") or []
+                coverage_warning = (
+                    "\n⚠️ **Raw coverage 需要確認:** "
+                    f"尚有 {len(unloaded)} 個可載入檔案與 "
+                    f"{len(unselected)} 個 data-like 分頁未納入本次 loaded dataset。"
+                    "\n請檢查 `raw_data_coverage.json`，後續報告不可宣稱已完整覆蓋全部 raw data。"
+                )
 
             log_tool_result("run_intake", f"loaded {first_file.file_name}, {row_count} rows")
 
@@ -362,7 +511,7 @@ def register_discovery_tools(server: Any) -> None:
                 f"- **資料集 ID:** `{dataset.id}`\n"
                 f"- **列數:** {row_count:,}\n"
                 f"- **變數數:** {len(variables)}\n"
-                f"{pii_warning}{rejected_info}\n\n"
+                f"{pii_warning}{coverage_warning}{rejected_info}\n\n"
                 f"**下一步:** 使用 `build_schema()` 建立 schema (Phase 2)。"
             )
 
@@ -407,6 +556,7 @@ def register_discovery_tools(server: Any) -> None:
             from rde.application.session import get_session
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.domain.models.project import ProjectStatus
+            from rde.domain.models.variable import VariableType
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from rde.domain.services.variable_classifier import VariableClassifier
 
@@ -477,8 +627,12 @@ def register_discovery_tools(server: Any) -> None:
                     "is_pii_suspect": v.is_pii_suspect,
                 }
 
-                # Add descriptive stats for numeric variables
-                if v.name in df.columns and pd.api.types.is_numeric_dtype(df[v.name]):
+                # Add descriptive stats only for numeric measurement variables.
+                if (
+                    v.name in df.columns
+                    and pd.api.types.is_numeric_dtype(df[v.name])
+                    and v.variable_type in {VariableType.CONTINUOUS, VariableType.BIOMARKER}
+                ):
                     desc = df[v.name].describe()
                     var_info["stats"] = {
                         "mean": round(float(desc.get("mean", 0)), 4),

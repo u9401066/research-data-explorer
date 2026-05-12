@@ -6,13 +6,20 @@ from rde.application.pipeline import PhaseResult, PipelinePhase
 from rde.application.session import get_session
 from rde.interface.mcp.tools.report_tools import (
     _build_appendix,
+    _build_claim_provenance_manifest,
+    _build_figure_interpretation_harness,
+    _build_formal_research_report,
     _build_recommendations,
+    _build_report_from_assembled_markdown,
+    _count_report_figure_references,
     _evaluate_report_readiness,
     _format_analyses,
     _format_baseline_table,
     _format_data_overview,
     _format_data_quality,
+    _format_figure_gallery,
     _format_variable_profiles,
+    _build_interpretation_discussion,
     _summarize_exploration_branches,
     _summarize_publication_deliverables,
 )
@@ -26,6 +33,7 @@ from rde.interface.mcp.tools.audit_tools import (
 from rde.application.use_cases.export_report import ExportReportUseCase
 from rde.application.use_cases.generate_report import GenerateReportUseCase
 from rde.domain.models.project import Project
+from rde.infrastructure.adapters.docx_exporter import DocxExporter
 from rde.infrastructure.adapters.markdown_renderer import MarkdownReportRenderer
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 
@@ -72,7 +80,38 @@ def _save_production_readiness_context(
         },
     )
     store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"loaded_file": "demo.csv"})
-    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": [{"name": "age"}]})
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "row_count": 10,
+            "column_count": 1,
+            "variables": [{"name": "age", "variable_type": "continuous", "missing_rate": 0.0}],
+        },
+    )
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "profile_summary.json",
+        {
+            "dataset_id": "demo",
+            "row_count": 10,
+            "column_count": 1,
+            "overall_missing_rate": 0.0,
+            "engine": "pytest",
+            "variables": [{"name": "age", "missing_rate": 0.0}],
+        },
+    )
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "quality_report.json",
+        {
+            "dataset_id": "demo",
+            "overall_score": 100.0,
+            "critical_issue_count": 0,
+            "is_analysis_ready": True,
+            "issues": [],
+        },
+    )
     store.save(PipelinePhase.CONCEPT_ALIGNMENT, "concept_alignment.md", "# Concept\n")
     store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", {"analyses": []})
     store.save(
@@ -86,7 +125,18 @@ def _save_production_readiness_context(
         {"phase": "phase_08_execute_exploration", "action": "compare_groups"},
     )
     if include_report:
-        store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", "# EDA Report\n")
+        store.save(
+            PipelinePhase.REPORT_ASSEMBLY,
+            "eda_report.md",
+            (
+                "# EDA Report\n\n"
+                "## Interpretation and Literature Context\n"
+                "Table 1 and Figure evidence are interpreted with limitations, missingness caveats, "
+                "and actionable recommendations for the next analysis round.\n\n"
+                "## Recommendations\n"
+                "- Recommendation: continue validation.\n"
+            ),
+        )
 
 
 def _minimum_bundle() -> dict:
@@ -99,6 +149,435 @@ def _minimum_bundle() -> dict:
         "minimum_publication_bundle_met": True,
         "missing_components": [],
     }
+
+
+def test_build_report_from_assembled_markdown_preserves_phase10_source_sections(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-report-source",
+        name="report-source",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.dataset_ids.append("fallback-dataset")
+    markdown = """# Source EDA Report
+
+**Dataset:** canonical-dataset
+**Project:** proj-report-source
+**Generated:** 2026-05-12 09:06
+
+---
+
+## Data Overview
+
+overview
+
+## Data Quality
+
+quality
+
+## Variable Profiles
+
+profiles
+
+## Table 1 — Baseline Characteristics
+
+table
+
+## Key Findings
+
+findings
+
+## Statistical Analyses
+
+statistics
+
+## Advanced Analyses
+
+model details
+
+## Figure Gallery
+
+![Figure 1. Demo](../../figures/demo.png)
+
+## Appendix A: Decision Log
+
+decision log
+
+## Recommendations
+
+recommendations
+"""
+
+    report = _build_report_from_assembled_markdown(project, markdown)
+
+    titles = [section.title for section in report.sections]
+    assert report.title == "Source EDA Report"
+    assert report.dataset_id == "canonical-dataset"
+    assert report.created_at.strftime("%Y-%m-%d %H:%M") == "2026-05-12 09:06"
+    assert "Advanced Analyses" in titles
+    assert "Figure Gallery" in titles
+    assert "Appendix A: Decision Log" in titles
+    assert _count_report_figure_references(report) == 1
+    assert report.validate_integrity() == []
+
+
+def test_export_report_attach_figures_respects_markdown_image_references(
+    tmp_path: Path,
+) -> None:
+    figures_dir = tmp_path / "figures"
+    figures_dir.mkdir()
+    (figures_dir / "demo.png").write_bytes(b"not-a-real-png")
+
+    report = EDAReport(
+        id="r1",
+        dataset_id="d1",
+        project_id="p1",
+        title="Report",
+    )
+    for index, section_id in enumerate(
+        [
+            "data_overview",
+            "data_quality",
+            "variable_profiles",
+            "key_findings",
+            "statistical_analyses",
+            "interpretation_discussion",
+            "recommendations",
+        ],
+        1,
+    ):
+        content = "![Figure 1. Demo](../../figures/demo.png)" if index == 5 else "ok"
+        report.add_section(
+            ReportSection(section_id=section_id, title=section_id, content=content, order=index)
+        )
+
+    use_case = ExportReportUseCase(DocxExporter())
+    use_case._attach_figures(report, figures_dir)
+
+    assert all(section.figures == [] for section in report.sections)
+
+
+def test_format_figure_gallery_preserves_manifest_entries_that_reuse_image_file(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-figure-gallery",
+        name="figure-gallery",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    (project.output_dir / "figures").mkdir(parents=True)
+    (project.output_dir / "figures" / "shared.png").write_bytes(b"fake")
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {
+                "plot_type": "scatter",
+                "variables": ["outcome", "age"],
+                "output_path": "figures/shared.png",
+            },
+            {
+                "plot_type": "scatter",
+                "variables": ["outcome", "bmi"],
+                "output_path": "figures/shared.png",
+            },
+        ],
+    )
+
+    rendered = _format_figure_gallery(project, store)
+
+    assert rendered.count("![Figure") == 2
+    assert "Figure 1. scatter outcome, age" in rendered
+    assert "Figure 2. scatter outcome, bmi" in rendered
+
+
+def test_build_interpretation_discussion_links_figures_table_and_pubmed_context(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-interpretation",
+        name="interpretation",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    (project.output_dir / "figures").mkdir(parents=True)
+    (project.output_dir / "figures" / "biomarker.png").write_bytes(b"fake")
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {
+                "plot_type": "boxplot",
+                "variables": ["NGAL_normalized"],
+                "group_var": "medication_code",
+                "output_path": "figures/biomarker.png",
+                "stats_summary": "Kruskal-Wallis H; p = 0.344; 1.0 n=2, 2.0 n=1",
+            }
+        ],
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "advanced_analysis_multiple_regression.json",
+        {
+            "analysis_type": "multiple_regression",
+            "config": {"target": "NGAL_normalized"},
+            "result": {
+                "analysis_type": "multiple_regression",
+                "target": "NGAL_normalized",
+                "p_values": {"age": 0.2},
+                "adj_r_squared": 0.1,
+            },
+        },
+    )
+    pubmed_context = """# PubMed Literature Context
+
+## Key Context For This RDE Report
+
+Serum creatinine and urine output remain delayed functional markers; NGAL, KIM-1, and Cystatin C are exploratory early biomarkers.
+
+## PubMed MCP Seed References
+
+| PMID | Year | Title | Relevance |
+| --- | --- | --- | --- |
+| 123 | 2025 | AKI biomarkers | Context |
+
+## How It Should Affect Interpretation
+
+- Treat the current biomarkers as exploratory signals for hypothesis generation.
+"""
+
+    rendered = _build_interpretation_discussion(
+        project,
+        store,
+        results={"deliverables": {"minimum_publication_bundle_met": True}},
+        readiness={"missing_requirements": []},
+        schema={"row_count": 51},
+        table_one=(
+            "| Variable | Overall | 1.0 | 2.0 | p |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| NGAL_normalized | 1.0 (2.0) | 1.0 (nan) | 2.0 (nan) | NA |\n"
+            "- **分組變數:** medication_code"
+        ),
+        pubmed_context=pubmed_context,
+    )
+
+    assert "Table 1 Interpretation" in rendered
+    assert "Figure-by-Figure Interpretation" in rendered
+    assert "Figure 1. boxplot" in rendered
+    assert "Evidence role" in rendered
+    assert "Visual read" in rendered
+    assert "Statistical support" in rendered
+    assert "Validity caveat" in rendered
+    assert "Reportable claim" in rendered
+    assert "Next analysis" in rendered
+    assert "Sparse cells" in rendered
+    assert "Literature Context" in rendered
+    assert "delayed functional markers" in rendered
+    assert "NGAL, KIM-1, and Cystatin C" in rendered
+
+    harness = _build_figure_interpretation_harness(project, store)
+    assert harness[0]["evidence_role"] == "Group contrast screening"
+    assert harness[0]["validity_caveat"]
+    assert harness[0]["reportable_claim"]
+
+
+def test_build_formal_research_report_excludes_internal_audit_dump(tmp_path: Path) -> None:
+    project = Project(
+        id="proj-formal",
+        name="formal",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.dataset_ids.append("d1")
+    (project.output_dir / "figures").mkdir(parents=True)
+    (project.output_dir / "figures" / "figure.png").write_bytes(b"fake")
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"loaded_file": "demo.xlsx"})
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "row_count": 51,
+            "column_count": 18,
+            "variables": [
+                {"name": "Creatinine_normalized"},
+                {"name": "NGAL_normalized"},
+                {"name": "Age"},
+            ],
+        },
+    )
+    store.save(
+        PipelinePhase.PRE_EXPLORE_CHECK,
+        "readiness_checklist.json",
+        {"checks": [{"id": "H-003", "passed": True}]},
+    )
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {"total_analyses": 2, "deliverables": {"descriptive_figures": 1, "analytical_figures": 1}},
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "table_one.md",
+        "| Variable | Overall | p |\n| --- | --- | --- |\n| Creatinine_normalized | 1.0 (nan) | NA |",
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {
+                "plot_type": "histogram",
+                "variables": ["Creatinine_normalized"],
+                "output_path": "figures/figure.png",
+                "stats_summary": "n=51; mean=1.0; median=1.0; SD=0.1",
+            }
+        ],
+    )
+    store.save(
+        PipelinePhase.REPORT_ASSEMBLY,
+        "pubmed_literature_context.md",
+        "## Key Context For This RDE Report\n\nCreatinine is delayed; biomarkers are exploratory.",
+    )
+
+    report = _build_formal_research_report(
+        project,
+        store,
+        "# Internal Report\n\n## Appendix A: Decision Log\nphase_08_execute_exploration",
+        title="Formal Report",
+    )
+    rendered = MarkdownReportRenderer().render_markdown(report)
+
+    assert report.validate_integrity() == []
+    assert "## Appendix A" not in rendered
+    assert "decision_log" not in rendered
+    assert "phase_08_execute_exploration" not in rendered
+    assert "Artifact:" not in rendered
+    assert "## Figures" in rendered
+    assert "圖說與解讀" in rendered
+
+
+def test_build_formal_research_report_uses_generic_study_narrative(tmp_path: Path) -> None:
+    project = Project(
+        id="proj-generic-formal",
+        name="generic-formal",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.dataset_ids.append("d1")
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"loaded_file": "demo.csv"})
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "row_count": 20,
+            "column_count": 3,
+            "variables": [
+                {"name": "exposure_group", "variable_type": "categorical"},
+                {"name": "score_change", "variable_type": "continuous"},
+                {"name": "age", "variable_type": "continuous"},
+            ],
+        },
+    )
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "concept_alignment.md",
+        "研究問題: Does exposure group relate to score change?",
+    )
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "variable_roles.json",
+        {"group": "exposure_group", "outcome": "score_change", "covariates": ["age"]},
+    )
+    store.save(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json", {"checks": []})
+    store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", {"total_analyses": 1})
+
+    report = _build_formal_research_report(
+        project,
+        store,
+        "# Internal Report\n\n## Appendix A: Decision Log\nphase_08_execute_exploration",
+        title="Generic Report",
+    )
+    rendered = MarkdownReportRenderer().render_markdown(report)
+
+    assert "Does exposure group relate to score change?" in rendered
+    assert "exposure_group" in rendered
+    assert "score_change" in rendered
+    assert "AKI" not in rendered
+    assert "NGAL" not in rendered
+
+
+def test_build_claim_provenance_manifest_links_tables_figures_results_and_literature(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-claim-manifest",
+        name="claim-manifest",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    (project.output_dir / "figures").mkdir(parents=True)
+    (project.output_dir / "figures" / "figure.png").write_bytes(b"fake")
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md", "| A | B |\n| --- | --- |")
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {
+                "plot_type": "scatter",
+                "variables": ["age", "score"],
+                "output_path": "figures/figure.png",
+                "stats_summary": "r=0.4; p=0.02",
+            }
+        ],
+    )
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {
+            "publishable_items": [
+                {
+                    "test_name": "Pearson",
+                    "variables": ["age", "score"],
+                    "p_value": 0.02,
+                    "effect_size": 0.4,
+                    "review_status": "audit_required",
+                }
+            ]
+        },
+    )
+    store.save(PipelinePhase.REPORT_ASSEMBLY, "pubmed_literature_context.md", "Context")
+
+    manifest = _build_claim_provenance_manifest(
+        project,
+        store,
+        report_source="pytest",
+    )
+
+    claim_types = {claim["claim_type"] for claim in manifest["claims"]}
+    assert manifest["claim_count"] >= 4
+    assert "baseline_table" in claim_types
+    assert "figure_evidence" in claim_types
+    assert "candidate_statistical_signal" in claim_types
+    assert "literature_context" in claim_types
+
+
+def test_docx_exporter_normalizes_rgba_images_to_rgb_stream(tmp_path: Path) -> None:
+    from PIL import Image
+
+    fig_path = tmp_path / "rgba.png"
+    Image.new("RGBA", (10, 10), (255, 0, 0, 64)).save(fig_path)
+
+    stream = DocxExporter()._docx_ready_image_source(fig_path)
+    normalized = Image.open(stream)
+
+    assert normalized.mode == "RGB"
 
 
 def test_summarize_exploration_branches_reads_phase8_branch_ledgers(tmp_path: Path) -> None:
@@ -308,6 +787,7 @@ def test_export_use_case_accepts_project_scoped_figures_dir(tmp_path: Path) -> N
             "variable_profiles",
             "key_findings",
             "statistical_analyses",
+            "interpretation_discussion",
             "recommendations",
         ],
         start=1,
@@ -485,6 +965,227 @@ def test_evaluate_report_readiness_blocks_academic_only_plan_from_production_rep
     )
 
 
+def test_report_readiness_requires_phase2_profile_and_quality_artifacts(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-quality-contract",
+        name="quality-contract",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+
+    for filename in ("profile_summary.json", "quality_report.json"):
+        store.get_path(PipelinePhase.SCHEMA_REGISTRY, filename).unlink()
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 8,
+            "decision_count": 8,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert readiness["ready"] is False
+    assert readiness["data_quality"]["ready"] is False
+    assert "data_quality:profile_summary" in readiness["missing_requirements"]
+    assert "data_quality:quality_report" in readiness["missing_requirements"]
+
+
+def test_report_readiness_flags_unresolved_raw_workbook_sheet_coverage(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-raw-coverage-contract",
+        name="raw-coverage-contract",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+    store.save(
+        PipelinePhase.DATA_INTAKE,
+        "intake_report.json",
+        {
+            "total_files": 2,
+            "loadable": 2,
+            "loaded_file": "results.xlsx",
+            "row_count": 51,
+            "column_count": 18,
+            "normalization": {
+                "selected_sheet_name": "raw-4hr",
+                "sheet_selection_mode": "auto",
+                "sheet_assessments": [
+                    {
+                        "sheet_name": "raw-4hr",
+                        "classification": "data_candidate",
+                        "selected": True,
+                        "score": 2.4,
+                    },
+                    {
+                        "sheet_name": "raw-24hr",
+                        "classification": "data_candidate",
+                        "selected": False,
+                        "score": 2.3,
+                    },
+                ],
+            },
+        },
+    )
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 8,
+            "decision_count": 8,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert readiness["ready"] is False
+    assert readiness["data_quality"]["ready"] is False
+    assert "data_quality:raw_file_coverage" in readiness["missing_requirements"]
+    assert "data_quality:raw_sheet_coverage" in readiness["missing_requirements"]
+    raw_coverage = readiness["data_quality"]["raw_data_coverage"]
+    assert raw_coverage["ready"] is False
+    assert len(raw_coverage["unloaded_loadable_files"]) == 1
+    assert raw_coverage["unselected_data_candidate_sheets"][0]["sheet_name"] == "raw-24hr"
+
+
+def test_format_data_overview_surfaces_partial_raw_coverage() -> None:
+    rendered = _format_data_overview(
+        {
+            "total_files": 2,
+            "loadable": 2,
+            "loaded_file": "results.xlsx",
+            "row_count": 51,
+            "column_count": 18,
+            "normalization": {
+                "selected_sheet_name": "raw-4hr",
+                "sheet_selection_mode": "auto",
+                "sheet_assessments": [
+                    {
+                        "sheet_name": "raw-4hr",
+                        "classification": "data_candidate",
+                        "selected": True,
+                    },
+                    {
+                        "sheet_name": "raw-24hr",
+                        "classification": "data_candidate",
+                        "selected": False,
+                    },
+                ],
+            },
+        },
+        {"variables": [{"name": "Creatinine_normalized"}]},
+    )
+
+    assert "**載入分頁:** raw-4hr" in rendered
+    assert "**Raw 檔案掃描:** 2 / 2 可載入" in rendered
+    assert "Raw coverage 注意" in rendered
+    assert "1 個 data-like 分頁" in rendered
+
+
+def test_report_readiness_requires_semantic_report_quality(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-semantic-contract",
+        name="semantic-contract",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+    store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", "# EDA Report\n\nshort")
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 8,
+            "decision_count": 8,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert readiness["ready"] is False
+    assert readiness["semantic_report_quality"]["ready"] is False
+    assert any(
+        item.startswith("semantic_quality:interpretation_narrative")
+        for item in readiness["missing_requirements"]
+    )
+
+
+def test_semantic_report_quality_requires_structured_figure_harness(
+    tmp_path: Path,
+) -> None:
+    project = Project(
+        id="proj-figure-harness-contract",
+        name="figure-harness-contract",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    (project.output_dir / "figures").mkdir(parents=True)
+    (project.output_dir / "figures" / "figure.png").write_bytes(b"fake")
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+        [
+            {
+                "plot_type": "scatter",
+                "variables": ["age", "score"],
+                "output_path": "figures/figure.png",
+                "stats_summary": "r=0.4; p=0.02",
+            }
+        ],
+    )
+    store.save(
+        PipelinePhase.REPORT_ASSEMBLY,
+        "eda_report.md",
+        (
+            "# EDA Report\n\n"
+            "## Interpretation and Literature Context\n"
+            "Figure evidence and Table 1 are interpreted with limitations, missingness caveats, "
+            "and actionable recommendations.\n\n"
+            "## Recommendations\n"
+            "- Recommendation: continue validation.\n"
+        ),
+    )
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 8,
+            "decision_count": 8,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+    assert readiness["semantic_report_quality"]["ready"] is False
+    assert "semantic_quality:structured_figure_interpretation" in readiness["missing_requirements"]
+
+    harness = _build_figure_interpretation_harness(project, store)
+    store.save(
+        PipelinePhase.REPORT_ASSEMBLY,
+        "figure_interpretation_harness.json",
+        {"entry_count": len(harness), "entries": harness},
+    )
+
+    repaired = _evaluate_report_readiness(
+        {
+            "total_analyses": 8,
+            "decision_count": 8,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+    assert "semantic_quality:structured_figure_interpretation" not in repaired["missing_requirements"]
+
+
 def test_evaluate_report_readiness_promotes_execution_evidence_to_production_tier(
     tmp_path: Path,
 ) -> None:
@@ -629,7 +1330,38 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
         },
     )
     store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", {"loaded_file": "demo.csv"})
-    store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": [{"name": "age"}]})
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "row_count": 10,
+            "column_count": 1,
+            "variables": [{"name": "age", "variable_type": "continuous", "missing_rate": 0.0}],
+        },
+    )
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "profile_summary.json",
+        {
+            "dataset_id": "demo",
+            "row_count": 10,
+            "column_count": 1,
+            "overall_missing_rate": 0.0,
+            "engine": "pytest",
+            "variables": [{"name": "age", "missing_rate": 0.0}],
+        },
+    )
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "quality_report.json",
+        {
+            "dataset_id": "demo",
+            "overall_score": 100.0,
+            "critical_issue_count": 0,
+            "is_analysis_ready": True,
+            "issues": [],
+        },
+    )
     store.save(
         PipelinePhase.CONCEPT_ALIGNMENT,
         "concept_alignment.md",
@@ -650,7 +1382,18 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
         "decision_log.jsonl",
         {"phase": "phase_08_execute_exploration", "action": "compare_groups"},
     )
-    store.save(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md", "# EDA Report\n")
+    store.save(
+        PipelinePhase.REPORT_ASSEMBLY,
+        "eda_report.md",
+        (
+            "# EDA Report\n\n"
+            "## Interpretation and Literature Context\n"
+            "Table 1 and Figure evidence are interpreted with limitations, missingness caveats, "
+            "and actionable recommendations.\n\n"
+            "## Recommendations\n"
+            "- Recommendation: continue validation.\n"
+        ),
+    )
 
     readiness = _evaluate_report_readiness(
         {
@@ -675,6 +1418,150 @@ def test_evaluate_report_readiness_accepts_production_ready_plan_with_bundle(tmp
         "no_code_operation",
         "agent_friendly_harness",
     }
+
+
+def test_report_readiness_flags_missing_medical_analysis_depth(tmp_path: Path) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "variables": [
+                {"name": "drug_code", "variable_type": "categorical", "n_unique": 4},
+                {"name": "Creatinine_normalized", "variable_type": "continuous"},
+                {"name": "NGAL_normalized", "variable_type": "continuous"},
+                {"name": "Age", "variable_type": "continuous"},
+                {"name": "Sex_1_2", "variable_type": "binary", "n_unique": 2},
+            ]
+        },
+    )
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "variable_roles.json",
+        {
+            "outcome": ["Creatinine_normalized", "NGAL_normalized"],
+            "group": ["drug_code"],
+            "covariates": ["Age", "Sex_1_2"],
+        },
+    )
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        {
+            "locked": True,
+            "analyses": [
+                {
+                    "type": "compare_groups",
+                    "variables": ["Creatinine_normalized", "NGAL_normalized"],
+                    "group_variable": "drug_code",
+                }
+            ],
+        },
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "decision_log.jsonl",
+        {"phase": "phase_08_execute_exploration", "action": "compare_groups"},
+    )
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 5,
+            "decision_count": 5,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert readiness["ready"] is False
+    assert "multivariable" in readiness["analysis_depth"]["missing_requirements"]
+    assert "propensity_score" in readiness["analysis_depth"]["missing_requirements"]
+    assert "derived_variable_provenance" in readiness["analysis_depth"]["missing_requirements"]
+    assert any(item.startswith("analysis_depth:") for item in readiness["missing_requirements"])
+
+
+def test_report_readiness_accepts_completed_medical_analysis_depth(tmp_path: Path) -> None:
+    project = type("ProjectStub", (), {})()
+    project.output_dir = tmp_path / "project"
+    project.artifacts_dir = project.output_dir / "artifacts"
+    project.output_dir.mkdir(parents=True)
+
+    store = ArtifactStore(project.artifacts_dir)
+    _save_production_readiness_context(store)
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "variables": [
+                {"name": "treatment", "variable_type": "binary", "n_unique": 2},
+                {"name": "outcome", "variable_type": "continuous"},
+                {"name": "age", "variable_type": "continuous"},
+                {"name": "severity", "variable_type": "continuous"},
+            ]
+        },
+    )
+    store.save(
+        PipelinePhase.CONCEPT_ALIGNMENT,
+        "variable_roles.json",
+        {
+            "outcome": ["outcome"],
+            "group": ["treatment"],
+            "covariates": ["age", "severity"],
+        },
+    )
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        {
+            "locked": True,
+            "analyses": [
+                {
+                    "type": "compare_groups",
+                    "variables": ["outcome"],
+                    "group_variable": "treatment",
+                }
+            ],
+        },
+    )
+    for action, parameters in [
+        ("generate_table_one", {}),
+        ("compare_groups", {}),
+        ("run_advanced_analysis", {"analysis_type": "multiple_regression"}),
+        ("run_advanced_analysis", {"analysis_type": "propensity_score"}),
+    ]:
+        store.save(
+            PipelinePhase.EXECUTE_EXPLORATION,
+            "decision_log.jsonl",
+            {
+                "phase": "phase_08_execute_exploration",
+                "action": action,
+                "parameters": parameters,
+            },
+        )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "branch_evaluations.jsonl",
+        {"event_type": "branch_auto_evaluated", "branch_id": "br-1"},
+    )
+
+    readiness = _evaluate_report_readiness(
+        {
+            "total_analyses": 8,
+            "decision_count": 8,
+            "deliverables": _minimum_bundle(),
+        },
+        store,
+    )
+
+    assert readiness["ready"] is True
+    assert readiness["analysis_depth"]["ready"] is True
+    assert "core_goal:analysis_depth" not in readiness["missing_requirements"]
 
 
 def test_run_audit_recomputes_readiness_instead_of_trusting_stale_results_summary(
@@ -933,6 +1820,66 @@ def test_export_final_report_recomputes_readiness_instead_of_trusting_stale_impr
     assert not store.exists(PipelinePhase.AUTO_IMPROVE, "final_report_export_manifest.json")
 
 
+def test_auto_improve_repairs_profile_quality_semantic_and_claim_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
+    project = Project(
+        id="proj-auto-improve-repair",
+        name="auto-improve-repair",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    project.data_dir.mkdir(parents=True)
+    project.output_dir.mkdir(parents=True)
+    store = ArtifactStore(project.artifacts_dir)
+    store.save(PipelinePhase.AUDIT_REVIEW, "audit_report.json", {"grade": "C", "checks": []})
+    store.save(
+        PipelinePhase.SCHEMA_REGISTRY,
+        "schema.json",
+        {
+            "dataset_id": "d1",
+            "row_count": 10,
+            "column_count": 2,
+            "variables": [
+                {"name": "group", "variable_type": "categorical", "missing_rate": 0.0},
+                {"name": "outcome", "variable_type": "continuous", "missing_rate": 0.1},
+            ],
+        },
+    )
+    store.save(
+        PipelinePhase.COLLECT_RESULTS,
+        "results_summary.json",
+        {"total_analyses": 1, "decision_count": 1, "deliverables": _minimum_bundle()},
+    )
+
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+    pipeline.mark_completed(
+        PhaseResult(
+            phase=PipelinePhase.AUDIT_REVIEW,
+            completed_at=datetime.now(),
+            success=True,
+            artifacts={"audit_report.json": ""},
+        )
+    )
+
+    server = _ToolCapture()
+    register_audit_tools(server)
+
+    output = server.tools["auto_improve"](project.id)
+
+    assert "Phase 12" in output
+    assert store.exists(PipelinePhase.SCHEMA_REGISTRY, "profile_summary.json")
+    assert store.exists(PipelinePhase.SCHEMA_REGISTRY, "quality_report.json")
+    assert store.exists(PipelinePhase.REPORT_ASSEMBLY, "semantic_report_quality.json")
+    assert store.exists(PipelinePhase.REPORT_ASSEMBLY, "claim_provenance_manifest.json")
+    log = store.load(PipelinePhase.AUTO_IMPROVE, "improvement_log.json")
+    assert log["claim_provenance"]["artifact"].endswith("claim_provenance_manifest.json")
+
+
 def test_evaluate_report_readiness_blocks_when_core_goal_artifacts_are_missing(
     tmp_path: Path,
 ) -> None:
@@ -989,7 +1936,7 @@ def test_build_phase10_export_report_includes_table_and_figures(tmp_path: Path) 
     store.save(
         PipelinePhase.AUTO_IMPROVE,
         "final_report.md",
-        "# Demo Final Report\n\n## 研究問題\n內容\n\n## Phase 10 Finalization\n- done",
+        "# Demo Final Report\n\n## 研究問題\n內容\n\n## Phase 12 Finalization\n- done",
     )
     store.save(
         PipelinePhase.EXECUTE_EXPLORATION,
@@ -1005,8 +1952,12 @@ def test_build_phase10_export_report_includes_table_and_figures(tmp_path: Path) 
                 "stats_summary": "Chi-square; p < 0.001",
             },
             {
-                "output_path": str(project.output_dir / "figures" / "age_years_distribution.png"),
+                "output_path": "figures/age_years_distribution.png",
                 "stats_summary": "n=10",
+            },
+            {
+                "output_path": str(project.output_dir / "figures" / "crbd_by_precedex.png"),
+                "stats_summary": "",
             },
         ],
     )
@@ -1018,11 +1969,11 @@ def test_build_phase10_export_report_includes_table_and_figures(tmp_path: Path) 
     assert report.title == "Demo Final Report"
     assert any(section.title == "Table 1 — Baseline Characteristics" for section in report.sections)
     stat_section = next(section for section in report.sections if section.section_id == "statistical_analyses")
-    assert len(stat_section.figures) == 2
+    assert len(stat_section.figures) == 3
     variable_section = next(section for section in report.sections if section.section_id == "variable_profiles")
     assert variable_section.tables[0]["headers"] == ["A", "B"]
     assert asset_summary["table"]["included"] is True
-    assert asset_summary["figures"]["included_count"] == 2
+    assert asset_summary["figures"]["included_count"] == 3
 
 
 def test_build_phase10_source_markdown_includes_table_gallery_and_relative_paths(
@@ -1181,7 +2132,7 @@ def test_build_phase10_final_report_appends_readiness_and_improvement_summary() 
     )
 
     assert "# EDA Report" in final_report
-    assert "## Phase 10 Finalization" in final_report
+    assert "## Phase 12 Finalization" in final_report
     assert "## Production Readiness" in final_report
     assert "production-ready" in final_report
     assert "## Auto-fixed Items" in final_report

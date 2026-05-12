@@ -9,6 +9,7 @@ Enforces H-006 (Output Sanitization) on all exported content.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from rde.domain.models.report import EDAReport, ReportSection
@@ -110,6 +111,7 @@ class ExportReportUseCase:
         for section in report.sections:
             for f in section.figures:
                 attached.add(Path(f).name)
+            attached.update(self._figure_names_referenced_in_markdown(section.content))
 
         unattached = [f for f in all_figs if f.name not in attached]
         if not unattached:
@@ -145,3 +147,10 @@ class ExportReportUseCase:
             if target:
                 for fig in remaining:
                     target.figures.append(str(fig))
+
+    def _figure_names_referenced_in_markdown(self, content: str) -> set[str]:
+        """Return figure filenames already referenced by markdown image links."""
+        names: set[str] = set()
+        for match in re.finditer(r"!\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", content):
+            names.add(Path(match.group(1).strip("<>")).name)
+        return names

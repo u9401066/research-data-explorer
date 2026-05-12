@@ -6,7 +6,7 @@ import pandas as pd
 
 from rde.application.use_cases.analyze_variable import AnalyzeVariableUseCase
 from rde.domain.models.dataset import Dataset
-from rde.domain.models.variable import Variable, VariableType
+from rde.domain.models.variable import Variable, VariableRole, VariableType
 from rde.domain.ports import StatisticalEnginePort
 from rde.infrastructure.adapters.scipy_engine import ScipyStatisticalEngine
 from rde.domain.services.numeric_plausibility import apply_numeric_plausibility_filters
@@ -74,6 +74,52 @@ def test_analyze_variable_excludes_implausible_values_before_statistics() -> Non
     assert any("排除 2 筆不合理值" in advisory for advisory in profile.advisories)
     assert engine.last_data is not None
     assert engine.last_data["bmi"].dropna().tolist() == [24.0, 26.0]
+
+
+def test_analyze_variable_respects_numeric_coded_binary_semantics() -> None:
+    df = pd.DataFrame({"Sex_1_2": pd.Series([1, 2, 2, None, 1], dtype="float64")})
+    dataset = Dataset(
+        variables=[
+            Variable(name="Sex_1_2", dtype="float64", variable_type=VariableType.BINARY),
+        ],
+        row_count=len(df),
+    )
+    engine = DummyStatisticalEngine()
+
+    profile = AnalyzeVariableUseCase(engine).execute(dataset, df, "Sex_1_2")
+
+    assert profile.variable_type == "binary"
+    assert profile.count == 4
+    assert profile.missing_count == 1
+    assert profile.n_unique == 2
+    assert profile.descriptive is None
+    assert profile.normality_test is None
+    assert dict(profile.top_values or []) == {"1.0": 2, "2.0": 2}
+    assert engine.run_count == 0
+
+
+def test_analyze_variable_respects_numeric_coded_group_role() -> None:
+    df = pd.DataFrame({"treatment_code": [0, 1, 3, 3, None]})
+    dataset = Dataset(
+        variables=[
+            Variable(
+                name="treatment_code",
+                dtype="float64",
+                variable_type=VariableType.CONTINUOUS,
+                role=VariableRole.GROUP,
+            ),
+        ],
+        row_count=len(df),
+    )
+    engine = DummyStatisticalEngine()
+
+    profile = AnalyzeVariableUseCase(engine).execute(dataset, df, "treatment_code")
+
+    assert profile.variable_type == "categorical"
+    assert profile.descriptive is None
+    assert profile.normality_test is None
+    assert dict(profile.top_values or []) == {"3.0": 2, "0.0": 1, "1.0": 1}
+    assert engine.run_count == 0
 
 
 def test_analyze_variable_skips_shapiro_for_large_samples() -> None:

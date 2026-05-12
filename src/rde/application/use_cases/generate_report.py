@@ -72,9 +72,10 @@ class GenerateReportUseCase:
             ("baseline_table", "Table 1 — Baseline Characteristics", 4),
             ("key_findings", "Key Findings", 5),
             ("statistical_analyses", "Statistical Analyses", 6),
-            ("learning_curve_cusum", "Learning Curve CUSUM", 7),
-            ("sensitivity_analysis", "Sensitivity Analysis", 8),
-            ("recommendations", "Recommendations", 9),
+            ("interpretation_discussion", "Interpretation and Literature Context", 7),
+            ("learning_curve_cusum", "Learning Curve CUSUM", 8),
+            ("sensitivity_analysis", "Sensitivity Analysis", 9),
+            ("recommendations", "Recommendations", 10),
         ]
 
         for section_id, title, order in section_builders:

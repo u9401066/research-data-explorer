@@ -24,7 +24,7 @@ from rde.application.pipeline import (
 from rde.domain.models.cleaning import CleaningPlan
 from rde.domain.models.dataset import Dataset
 from rde.domain.models.profile import DataProfile
-from rde.domain.models.project import PIPELINE_ORDER, Project, ProjectStatus
+from rde.domain.models.project import PIPELINE_ORDER, Project
 from rde.domain.models.quality import QualityReport
 from rde.domain.models.analysis import AnalysisResult
 from rde.infrastructure.persistence.artifact_store import ArtifactStore

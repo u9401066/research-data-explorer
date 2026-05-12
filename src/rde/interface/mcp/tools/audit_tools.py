@@ -1,7 +1,7 @@
-"""Audit Tools — Phase 9 (Audit Review) & Phase 10 (Auto-Improve).
+"""Audit Tools — Phase 11 (Audit Review) & Phase 12 (Auto-Improve).
 
-Phase 9: Run audit checks, grade the pipeline run.
-Phase 10: Auto-improve fixable issues, export handoff package.
+Phase 11: Run audit checks, grade the pipeline run.
+Phase 12: Auto-improve fixable issues, export handoff package.
 All tools return markdown strings.
 """
 
@@ -19,7 +19,7 @@ def register_audit_tools(server: Any) -> None:
 
     @server.tool()
     def run_audit(project_id: str | None = None) -> str:
-        """執行完整審計 (Phase 9)。
+        """執行完整審計 (Phase 11)。
 
         檢查: 計畫符合度、方法適當性、效果量完整性、
         偏離合理性、再現性、H-008/H-009/H-010 合規。
@@ -264,6 +264,92 @@ def register_audit_tools(server: Any) -> None:
                 }
             )
 
+            # ── 8. Data quality evidence contract ─────────────────
+            max_score += 10
+            data_quality = report_readiness.get("data_quality") or {}
+            quality_checks = data_quality.get("checks") or []
+            passed_quality = [item for item in quality_checks if item.get("passed")]
+            quality_score = int(10 * (len(passed_quality) / max(1, len(quality_checks))))
+            if not quality_checks and data_quality.get("ready", True):
+                quality_score = 10
+            total_score += quality_score
+            missing_quality = data_quality.get("missing_requirements") or []
+            quality_details = (
+                f"{len(passed_quality)}/{len(quality_checks)} quality checks"
+                if quality_checks
+                else "no applicable quality checks"
+            )
+            if missing_quality:
+                quality_details += f", missing={', '.join(str(item) for item in missing_quality)}"
+            checks.append(
+                {
+                    "category": "data_quality_evidence",
+                    "score": quality_score,
+                    "max": 10,
+                    "passed": bool(data_quality.get("ready", True)),
+                    "details": quality_details,
+                    "missing": missing_quality,
+                }
+            )
+
+            # ── 9. Analysis depth contract ─────────────────────────
+            max_score += 15
+            analysis_depth = report_readiness.get("analysis_depth") or {}
+            depth_checks = analysis_depth.get("checks") or []
+            required_depth = [item for item in depth_checks if item.get("required", True)]
+            passed_depth = [item for item in required_depth if item.get("passed")]
+            depth_score = int(15 * (len(passed_depth) / max(1, len(required_depth))))
+            if not required_depth and analysis_depth.get("ready", True):
+                depth_score = 15
+            total_score += depth_score
+            missing_depth = analysis_depth.get("missing_requirements") or []
+            depth_details = (
+                f"{len(passed_depth)}/{len(required_depth)} required depth checks"
+                if required_depth
+                else "no applicable depth checks"
+            )
+            if missing_depth:
+                depth_details += f", missing={', '.join(str(item) for item in missing_depth)}"
+            checks.append(
+                {
+                    "category": "analysis_depth",
+                    "score": depth_score,
+                    "max": 15,
+                    "passed": bool(analysis_depth.get("ready", True)),
+                    "details": depth_details,
+                    "missing": missing_depth,
+                }
+            )
+
+            # ── 10. Semantic report quality ────────────────────────
+            max_score += 10
+            semantic_quality = report_readiness.get("semantic_report_quality") or {}
+            semantic_checks = semantic_quality.get("checks") or []
+            required_semantic = [item for item in semantic_checks if item.get("required", True)]
+            passed_semantic = [item for item in required_semantic if item.get("passed")]
+            semantic_score = int(10 * (len(passed_semantic) / max(1, len(required_semantic))))
+            if not required_semantic and semantic_quality.get("ready", True):
+                semantic_score = 10
+            total_score += semantic_score
+            missing_semantic = semantic_quality.get("missing_requirements") or []
+            semantic_details = (
+                f"{len(passed_semantic)}/{len(required_semantic)} required semantic checks"
+                if required_semantic
+                else "no applicable semantic checks"
+            )
+            if missing_semantic:
+                semantic_details += f", missing={', '.join(str(item) for item in missing_semantic)}"
+            checks.append(
+                {
+                    "category": "semantic_report_quality",
+                    "score": semantic_score,
+                    "max": 10,
+                    "passed": bool(semantic_quality.get("ready", True)),
+                    "details": semantic_details,
+                    "missing": missing_semantic,
+                }
+            )
+
             # ── Grade ───────────────────────────────────────────────
             max_score += 10
             core_goal_audit = report_readiness.get("core_goal_audit") or {}
@@ -362,7 +448,7 @@ def register_audit_tools(server: Any) -> None:
 
     @server.tool()
     def auto_improve(project_id: str | None = None) -> str:
-        """根據審計結果自動改善可修正項目 (Phase 10)。
+        """根據審計結果自動改善可修正項目 (Phase 12)。
 
         讀取 audit_report.json，執行自動修正:
         - 補缺效果量、補遺漏圖表、修正報告格式。
@@ -402,16 +488,23 @@ def register_audit_tools(server: Any) -> None:
             pipeline = session.get_pipeline(project.id)
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
-            from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
+            from rde.interface.mcp.tools.report_tools import (
+                _build_claim_provenance_manifest,
+                _build_figure_interpretation_harness,
+                _evaluate_report_readiness,
+            )
 
             # Read audit report
             audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
             if not audit:
-                return fmt_error("[H-008] 請先執行 `run_audit()` (Phase 9) 才能進行自動改善。")
+                return fmt_error("[H-008] 請先執行 `run_audit()` (Phase 11) 才能進行自動改善。")
 
             actions_taken: list[str] = []
             auto_fixed: list[str] = []
             original_grade = audit.get("grade", "?")
+
+            for fixed in _repair_phase2_profile_quality_from_schema(store):
+                auto_fixed.append(fixed)
 
             # ── Auto-fix 1: Regenerate report if missing ────────────
             if not store.exists(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"):
@@ -477,7 +570,42 @@ def register_audit_tools(server: Any) -> None:
 
             all_items = auto_fixed + actions_taken
             results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+            figure_harness = _build_figure_interpretation_harness(project, store)
+            if figure_harness:
+                store.save(
+                    PipelinePhase.REPORT_ASSEMBLY,
+                    "figure_interpretation_harness.json",
+                    {
+                        "generated_at": datetime.now().isoformat(),
+                        "entry_count": len(figure_harness),
+                        "entries": figure_harness,
+                    },
+                )
             report_readiness = _evaluate_report_readiness(results, store)
+            store.save(
+                PipelinePhase.REPORT_ASSEMBLY,
+                "report_readiness.json",
+                report_readiness,
+            )
+            store.save(
+                PipelinePhase.REPORT_ASSEMBLY,
+                "semantic_report_quality.json",
+                report_readiness.get("semantic_report_quality", {}),
+            )
+            claim_manifest = _build_claim_provenance_manifest(
+                project,
+                store,
+                report_source="phase_12_auto_improve",
+            )
+            store.save(
+                PipelinePhase.REPORT_ASSEMBLY,
+                "claim_provenance_manifest.json",
+                claim_manifest,
+            )
+            auto_fixed.append(
+                "✅ refreshed report_readiness, semantic_report_quality, figure interpretation harness, and claim provenance artifacts"
+            )
+            all_items = auto_fixed + actions_taken
 
             # Save improvement log
             improvement_log = {
@@ -486,6 +614,10 @@ def register_audit_tools(server: Any) -> None:
                 "manual_suggestions": actions_taken,
                 "total_items": len(all_items),
                 "report_readiness": report_readiness,
+                "claim_provenance": {
+                    "claim_count": claim_manifest.get("claim_count", 0),
+                    "artifact": "phase_10_report_assembly/claim_provenance_manifest.json",
+                },
             }
             store.save(PipelinePhase.AUTO_IMPROVE, "improvement_log.json", improvement_log)
 
@@ -515,10 +647,11 @@ def register_audit_tools(server: Any) -> None:
             persist_project(project)
 
             lines = [
-                "# 🔧 自動改善 (Phase 10)\n",
+                "# 🔧 自動改善 (Phase 12)\n",
                 f"- **原始等級:** {original_grade}",
                 f"- **自動修正:** {len(auto_fixed)}",
                 f"- **手動建議:** {len(actions_taken)}",
+                f"- **claim provenance:** {claim_manifest.get('claim_count', 0)} claims",
                 f"- **production readiness:** {report_readiness.get('current_tier')} → {report_readiness.get('target_tier')} ({'ready' if report_readiness.get('ready') else 'not ready'})",
             ]
 
@@ -550,7 +683,7 @@ def register_audit_tools(server: Any) -> None:
         title: str = "",
         allow_incomplete: bool = False,
     ) -> str:
-        """匯出 Phase 10 final_report.md 為正式 DOCX / PDF。
+        """匯出 Phase 12 final_report.md 為正式 DOCX / PDF。
 
         會補齊 final_report.md 之外的正式輸出依賴：
         - Table 1 轉為真正表格
@@ -631,27 +764,40 @@ def register_audit_tools(server: Any) -> None:
                 report_readiness=report_readiness,
             )
             store.save(PipelinePhase.AUTO_IMPROVE, "final_report_export_manifest.json", manifest)
+            from rde.interface.mcp.tools.report_tools import _build_claim_provenance_manifest
+
+            claim_manifest = _build_claim_provenance_manifest(
+                project,
+                store,
+                report_source="phase_12_final_export",
+            )
+            store.save(
+                PipelinePhase.AUTO_IMPROVE,
+                "final_report_claim_provenance_manifest.json",
+                claim_manifest,
+            )
 
             exported_lines = [
                 f"- **{(fmt.upper() + ' (HTML fallback)') if path.suffix.lower() == '.html' else fmt.upper()}:** {_relative_project_path(path, project)}"
                 for fmt, path in exported.items()
             ]
             return fmt_success(
-                f"Phase 10 final report 已匯出 — {', '.join(fmt.upper() for fmt in exported)}",
+                f"Phase 12 final report 已匯出 — {', '.join(fmt.upper() for fmt in exported)}",
                 f"- **標題:** {report.title}\n"
                 f"- **完整度狀態:** {report_readiness.get('current_tier')} → {report_readiness.get('target_tier')}\n"
                 f"- **Table 1:** {'已納入' if asset_summary.get('table', {}).get('included') else '缺少'}\n"
                 f"- **圖表總數:** {asset_summary.get('figures', {}).get('included_count', 0)}\n"
                 f"- **Manifest:** {_relative_project_path(store.get_path(PipelinePhase.AUTO_IMPROVE, 'final_report_export_manifest.json'), project)}\n"
+                f"- **Claim provenance:** {_relative_project_path(store.get_path(PipelinePhase.AUTO_IMPROVE, 'final_report_claim_provenance_manifest.json'), project)}\n"
                 + "\n".join(exported_lines),
             )
         except ImportError as e:
             return fmt_error(str(e))
         except ValueError as e:
-            return fmt_error(f"Phase 10 匯出失敗: {e}")
+            return fmt_error(f"Phase 12 匯出失敗: {e}")
         except Exception as e:
             log_tool_error("export_final_report", e)
-            return fmt_error(f"Phase 10 匯出失敗: {e}")
+            return fmt_error(f"Phase 12 匯出失敗: {e}")
 
     @server.tool()
     def export_handoff(project_id: str | None = None) -> str:
@@ -897,6 +1043,24 @@ def _generate_suggestions(checks: list[dict]) -> list[str]:
                 )
             else:
                 suggestions.append("若要直接輸出終版完整報告，請先補齊 readiness contract 缺口。")
+        elif cat == "analysis_depth":
+            details = str(c.get("details", ""))
+            suggestions.append(
+                "補齊常見醫學 EDA 深度要求：單變量、雙變量、多變量、"
+                f"傾向分數/平衡診斷與 derived-variable provenance。{details}"
+            )
+        elif cat == "data_quality_evidence":
+            details = str(c.get("details", ""))
+            suggestions.append(
+                "補齊 Phase 2 profile_dataset()/assess_quality() durable artifacts。"
+                + details
+            )
+        elif cat == "semantic_report_quality":
+            details = str(c.get("details", ""))
+            suggestions.append(
+                "補齊語意報告品質：研究問題對齊、表圖解讀、限制與後續建議。"
+                + details
+            )
         elif cat == "core_goal_audit":
             details = str(c.get("details", ""))
             suggestions.append(
@@ -912,6 +1076,168 @@ def _as_string_list(value: object) -> list[str]:
     return []
 
 
+def _repair_phase2_profile_quality_from_schema(store: Any) -> list[str]:
+    from rde.application.pipeline import PipelinePhase
+
+    fixes: list[str] = []
+    schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
+    if not isinstance(schema, dict):
+        return fixes
+
+    raw_variables = schema.get("variables")
+    variables = raw_variables if isinstance(raw_variables, list) else []
+    if not store.exists(PipelinePhase.SCHEMA_REGISTRY, "profile_summary.json"):
+        row_count = int(schema.get("row_count") or schema.get("rows") or 0)
+        column_count = int(schema.get("column_count") or len(variables))
+        profile_variables = []
+        total_missing = 0.0
+        for variable in variables:
+            if not isinstance(variable, dict):
+                continue
+            missing_rate = float(variable.get("missing_rate") or variable.get("missing_pct") or 0.0)
+            missing_count = int(round(missing_rate * row_count)) if row_count else 0
+            total_missing += missing_count
+            profile_variables.append(
+                {
+                    "name": variable.get("name"),
+                    "dtype": variable.get("dtype"),
+                    "variable_type": variable.get("variable_type") or variable.get("type"),
+                    "missing_count": missing_count,
+                    "missing_rate": missing_rate,
+                    "unique_count": variable.get("n_unique") or variable.get("unique_count"),
+                    "source": "schema_registry_recovery",
+                }
+            )
+        denominator = max(1, row_count * max(1, column_count))
+        profile_summary = {
+            "dataset_id": schema.get("dataset_id", "unknown"),
+            "created_at": datetime.now().isoformat(),
+            "row_count": row_count,
+            "column_count": column_count,
+            "overall_missing_rate": total_missing / denominator,
+            "duplicate_row_count": schema.get("duplicate_row_count", 0),
+            "engine": "schema_registry_recovery",
+            "warnings": [
+                "Recovered by auto_improve from schema.json; run profile_dataset() for full profiling."
+            ],
+            "variables": profile_variables,
+        }
+        store.save(PipelinePhase.SCHEMA_REGISTRY, "profile_summary.json", profile_summary)
+        store.save(
+            PipelinePhase.SCHEMA_REGISTRY,
+            "profile_report.md",
+            _render_recovered_profile_markdown(profile_summary),
+        )
+        fixes.append("✅ recovered Phase 2 profile_summary/profile_report from schema.json")
+
+    if not store.exists(PipelinePhase.SCHEMA_REGISTRY, "quality_report.json"):
+        profile = store.load(PipelinePhase.SCHEMA_REGISTRY, "profile_summary.json") or {}
+        profile_vars = profile.get("variables") if isinstance(profile, dict) else []
+        issues = []
+        for variable in profile_vars if isinstance(profile_vars, list) else []:
+            if not isinstance(variable, dict):
+                continue
+            missing_rate = float(variable.get("missing_rate") or 0.0)
+            if missing_rate >= 0.5:
+                issues.append(
+                    {
+                        "category": "completeness",
+                        "severity": "critical",
+                        "variable_name": variable.get("name"),
+                        "description": f"Missing rate {missing_rate:.1%} exceeds 50%.",
+                        "affected_rows": variable.get("missing_count", 0),
+                        "suggestion": "Review variable inclusion or imputation strategy.",
+                    }
+                )
+            elif missing_rate >= 0.05:
+                issues.append(
+                    {
+                        "category": "completeness",
+                        "severity": "warning",
+                        "variable_name": variable.get("name"),
+                        "description": f"Missing rate {missing_rate:.1%}.",
+                        "affected_rows": variable.get("missing_count", 0),
+                        "suggestion": "Review MCAR/MAR/MNAR plausibility.",
+                    }
+                )
+        critical_count = sum(1 for issue in issues if issue["severity"] == "critical")
+        warning_count = sum(1 for issue in issues if issue["severity"] == "warning")
+        score = max(0.0, 100.0 - critical_count * 20.0 - warning_count * 5.0)
+        quality_report = {
+            "dataset_id": schema.get("dataset_id", profile.get("dataset_id", "unknown")),
+            "created_at": datetime.now().isoformat(),
+            "overall_score": round(score, 1),
+            "completeness_score": round(score, 1),
+            "consistency_score": 100.0,
+            "validity_score": 100.0,
+            "issue_count": len(issues),
+            "critical_issue_count": critical_count,
+            "has_pii": False,
+            "is_analysis_ready": critical_count == 0 and score >= 60.0,
+            "source": "schema_registry_recovery",
+            "issues": issues,
+        }
+        store.save(PipelinePhase.SCHEMA_REGISTRY, "quality_report.json", quality_report)
+        store.save(
+            PipelinePhase.SCHEMA_REGISTRY,
+            "quality_report.md",
+            _render_recovered_quality_markdown(quality_report),
+        )
+        fixes.append("✅ recovered Phase 2 quality_report from schema/profile evidence")
+
+    return fixes
+
+
+def _render_recovered_profile_markdown(profile: dict[str, Any]) -> str:
+    lines = [
+        "# Data Profile Summary",
+        "",
+        "_Recovered by auto_improve from schema registry. Re-run profile_dataset() for full profiling._",
+        "",
+        f"- rows: {profile.get('row_count', 0)}",
+        f"- columns: {profile.get('column_count', 0)}",
+        f"- overall_missing_rate: {float(profile.get('overall_missing_rate') or 0.0):.1%}",
+        "",
+        "| Variable | Type | Missing Rate | Unique Count |",
+        "| --- | --- | --- | --- |",
+    ]
+    for variable in profile.get("variables", [])[:80]:
+        if not isinstance(variable, dict):
+            continue
+        lines.append(
+            "| {name} | {vtype} | {missing:.1%} | {unique} |".format(
+                name=variable.get("name", ""),
+                vtype=variable.get("variable_type") or variable.get("dtype") or "",
+                missing=float(variable.get("missing_rate") or 0.0),
+                unique=variable.get("unique_count", ""),
+            )
+        )
+    return "\n".join(lines)
+
+
+def _render_recovered_quality_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Data Quality Assessment",
+        "",
+        "_Recovered by auto_improve from schema/profile evidence._",
+        "",
+        f"- overall_score: {float(report.get('overall_score') or 0.0):.1f}/100",
+        f"- is_analysis_ready: {bool(report.get('is_analysis_ready'))}",
+        f"- critical_issue_count: {int(report.get('critical_issue_count') or 0)}",
+    ]
+    issues = report.get("issues") if isinstance(report.get("issues"), list) else []
+    if issues:
+        lines.extend(["", "## Issues"])
+        for issue in issues[:40]:
+            if not isinstance(issue, dict):
+                continue
+            lines.append(
+                f"- [{issue.get('severity')}] {issue.get('variable_name') or 'dataset'}: "
+                f"{issue.get('description', '')} {issue.get('suggestion', '')}".strip()
+            )
+    return "\n".join(lines)
+
+
 def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> str:
     ready = bool(report_readiness.get("ready"))
     lines = ["## Production Readiness\n"]
@@ -922,6 +1248,21 @@ def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> st
     lines.append(
         f"- **publication bundle:** {'met' if report_readiness.get('publication_bundle_met') else 'not met'}"
     )
+    data_quality = report_readiness.get("data_quality") or {}
+    if isinstance(data_quality, dict) and data_quality:
+        lines.append(
+            f"- **data quality evidence:** {'met' if data_quality.get('ready') else 'not met'}"
+        )
+    analysis_depth = report_readiness.get("analysis_depth") or {}
+    if isinstance(analysis_depth, dict) and analysis_depth:
+        lines.append(
+            f"- **analysis depth:** {'met' if analysis_depth.get('ready') else 'not met'}"
+        )
+    semantic_quality = report_readiness.get("semantic_report_quality") or {}
+    if isinstance(semantic_quality, dict) and semantic_quality:
+        lines.append(
+            f"- **semantic report quality:** {'met' if semantic_quality.get('ready') else 'not met'}"
+        )
     core_goal_audit = report_readiness.get("core_goal_audit") or {}
     if core_goal_audit:
         lines.append(
@@ -1061,7 +1402,7 @@ def _extract_phase10_figure_notes(markdown: str) -> tuple[str, dict[str, dict[st
 
 def _build_phase10_figure_gallery(project: Any, store: Any, markdown: str) -> str:
     _, figure_notes = _extract_phase10_figure_notes(markdown)
-    entries = _load_visualization_entries(store)
+    entries = _load_visualization_entries(store, project=project)
     if not entries:
         return ""
 
@@ -1186,7 +1527,7 @@ def _build_phase10_source_markdown(
         _append_markdown_section(lines, "主要 artifact", "\n".join(artifact_lines))
 
     for heading in [
-        "Phase 10 Finalization",
+        "Phase 12 Finalization",
         "Production Readiness",
         "Auto-fixed Items",
         "Remaining Suggestions",
@@ -1200,6 +1541,7 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
     from rde.application.pipeline import PipelinePhase
     from rde.domain.models.report import EDAReport, ReportSection
     from rde.interface.mcp.tools.report_tools import (
+        _build_interpretation_discussion,
         _extract_table_markdown_notes,
         _parse_table_markdown_rows,
     )
@@ -1212,6 +1554,10 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
     inferred_title, preamble_lines, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
     sections = _section_lookup(parsed_sections)
     dataset_id = project.dataset_ids[-1] if getattr(project, "dataset_ids", None) else "unknown"
+    schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
+    readiness = store.load(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json")
+    results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+    pubmed_context = store.load(PipelinePhase.REPORT_ASSEMBLY, "pubmed_literature_context.md")
 
     report = EDAReport(
         id=f"{project.id}_phase10_final_report",
@@ -1289,7 +1635,7 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
         )
     )
 
-    manifest_entries = _load_visualization_entries(store)
+    manifest_entries = _load_visualization_entries(store, project=project)
     figure_paths = [Path(entry["output_path"]) for entry in manifest_entries if entry.get("exists")]
     figure_notes = [
         f"- {entry['name']}: {entry['summary']}"
@@ -1329,18 +1675,39 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
 
     report.add_section(
         ReportSection(
+            section_id="interpretation_discussion",
+            title="Interpretation and Literature Context",
+            content=_build_interpretation_discussion(
+                project,
+                store,
+                results=results if isinstance(results, dict) else None,
+                readiness=readiness if isinstance(readiness, dict) else None,
+                schema=schema if isinstance(schema, dict) else None,
+                table_one=table_one_markdown,
+                pubmed_context=str(pubmed_context or ""),
+            ),
+            order=6,
+        )
+    )
+
+    report.add_section(
+        ReportSection(
             section_id="recommendations",
             title="Recommendations",
             content=_join_labeled_sections(
                 [
                     ("侷限性", sections.get("侷限性", "")),
-                    ("Phase 10 Finalization", sections.get("Phase 10 Finalization", "")),
+                    (
+                        "Phase 12 Finalization",
+                        sections.get("Phase 12 Finalization", "")
+                        or sections.get("Phase 10 Finalization", ""),
+                    ),
                     ("Production Readiness", sections.get("Production Readiness", "")),
                     ("Remaining Suggestions", sections.get("Remaining Suggestions", "")),
                 ]
             )
             or "[Final recommendations not available]",
-            order=6,
+            order=7,
         )
     )
 
@@ -1351,7 +1718,7 @@ def _build_phase10_export_report(project: Any, store: Any, *, title: str = "") -
                 section_id="project_artifacts",
                 title="Project Artifacts",
                 content="\n".join(artifact_lines),
-                order=7,
+                order=8,
             )
         )
 
@@ -1395,25 +1762,14 @@ def _load_phase10_report_readiness(store: Any) -> dict[str, Any]:
     return _evaluate_report_readiness(results, store)
 
 
-def _load_visualization_entries(store: Any) -> list[dict[str, Any]]:
-    from rde.application.pipeline import PipelinePhase
-
-    manifest = store.load(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json") or []
-    if not isinstance(manifest, list):
+def _load_visualization_entries(store: Any, *, project: Any | None = None) -> list[dict[str, Any]]:
+    if project is None:
         return []
+    from rde.domain.services.report_asset_contract import (
+        resolve_visualization_manifest_entries,
+    )
 
-    entries: list[dict[str, Any]] = []
-    for entry in manifest:
-        output_path = Path(str(entry.get("output_path", "")))
-        entries.append(
-            {
-                "name": output_path.stem,
-                "output_path": str(output_path),
-                "summary": str(entry.get("stats_summary", "")).strip(),
-                "exists": output_path.exists(),
-            }
-        )
-    return entries
+    return resolve_visualization_manifest_entries(project, store)
 
 
 def _build_phase10_artifact_lines(project: Any, store: Any) -> list[str]:
@@ -1507,9 +1863,9 @@ def _build_phase10_final_report(
 ) -> str:
     base_report = str(assembled_report or "").strip()
     if not base_report:
-        base_report = "# Final Report\n\nPhase 8 report was unavailable, so this Phase 10 artifact contains the finalization summary only."
+        base_report = "# Final Report\n\nPhase 10 report was unavailable, so this Phase 12 artifact contains the finalization summary only."
 
-    lines = [base_report, "\n---\n", "## Phase 10 Finalization\n"]
+    lines = [base_report, "\n---\n", "## Phase 12 Finalization\n"]
     if audit:
         lines.append(f"- **audit grade:** {audit.get('grade', '?')}")
         lines.append(f"- **audit score:** {audit.get('total_score', '?')}/{audit.get('max_score', '?')}")

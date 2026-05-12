@@ -1703,6 +1703,124 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
     assert len(persisted.dataset_ids) == 1
 
 
+def test_check_readiness_scopes_prechecks_to_locked_plan_variables(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+
+    rows = 12
+    data: dict[str, list[object]] = {
+        f"noise_{idx:02d}": [float(i + idx) for i in range(rows)] for idx in range(24)
+    }
+    data.update(
+        {
+            "treatment": ["A", "B"] * 6,
+            "outcome": [1.2, 1.4, 1.1, 1.5, 1.3, 1.6, 1.2, 1.7, 1.4, 1.8, 1.5, 1.9],
+            "age": [61, 58, 64, 55, 67, 59, 62, 60, 66, 57, 63, 68],
+            "score": [3.2, 2.9, 3.5, 2.7, 3.1, 2.8, 3.0, 2.6, 3.4, 2.5, 3.3, 3.6],
+        }
+    )
+    source_csv = raw_dir / "wide_project_dataset.csv"
+    DataFrame(data).to_csv(source_csv, index=False)
+
+    def _textify(result: object) -> str:
+        content = getattr(result, "content", None)
+        blocks = content if isinstance(content, (list, tuple)) else [result]
+        parts: list[str] = []
+        for block in blocks:
+            text = getattr(block, "text", None)
+            parts.append(text if isinstance(text, str) else str(block))
+        return "\n".join(parts)
+
+    async def run_flow() -> tuple[str, Project]:
+        server = create_server()
+        session = get_session()
+        await server.call_tool(
+            "init_project",
+            {
+                "name": "plan-scoped-readiness",
+                "data_dir": str(raw_dir),
+                "research_question": "Does treatment affect outcome?",
+            },
+        )
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[-1]
+        await server.call_tool(
+            "build_schema",
+            {"dataset_id": dataset_id, "project_id": project.id},
+        )
+        await server.call_tool(
+            "align_concept",
+            {
+                "project_id": project.id,
+                "research_question": "Does treatment affect outcome?",
+                "variable_roles": {
+                    "outcome": "outcome",
+                    "group": "treatment",
+                    "covariates": ["age", "score"],
+                },
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "max_analyses": 2,
+                "confirm": False,
+            },
+        )
+        await server.call_tool(
+            "propose_analysis_plan",
+            {
+                "project_id": project.id,
+                "dataset_id": dataset_id,
+                "confirm": True,
+            },
+        )
+        await server.call_tool(
+            "register_analysis_plan",
+            {
+                "project_id": project.id,
+                "analyses": [
+                    {
+                        "type": "compare_groups",
+                        "variables": ["outcome"],
+                        "group_variable": "treatment",
+                        "rationale": "Compare outcome by treatment group",
+                    },
+                    {
+                        "type": "correlation_matrix",
+                        "variables": ["outcome", "age", "score"],
+                        "rationale": "Check planned outcome/covariate associations",
+                    },
+                ],
+                "allow_methodology_override": True,
+                "confirm": True,
+            },
+        )
+        readiness = await server.call_tool("check_readiness", {"project_id": project.id})
+        return _textify(readiness), project
+
+    readiness_output, project = asyncio.run(run_flow())
+    store = ArtifactStore(project.artifacts_dir)
+    checklist = store.load(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json")
+    scoped_variables = set(checklist["scope"]["variables"])
+
+    assert checklist["scope"]["source"] == "locked_plan_and_concept_roles"
+    assert {"outcome", "treatment", "age", "score"}.issubset(scoped_variables)
+    assert not any(name.startswith("noise_") for name in scoped_variables)
+    assert "noise_00" not in readiness_output
+    assert "scope=locked_plan_and_concept_roles" in readiness_output
+
+
 def test_project_bound_dataset_rehydrates_after_session_reset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1764,6 +1882,54 @@ def test_project_bound_dataset_rehydrates_after_session_reset(
         "petal_width",
         "species",
     ]
+
+
+def test_project_bound_dataset_rehydrates_when_schema_dataset_id_changed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    workspace_dir = tmp_path / "workspace"
+    raw_dir = workspace_dir / "rawdata"
+    raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("RDE_WORKSPACE", str(workspace_dir))
+    csv_path = raw_dir / "demo.csv"
+    csv_path.write_text("x,y\n1,2\n3,4\n", encoding="utf-8")
+
+    async def run_flow() -> str:
+        server = create_server()
+        session = get_session()
+        await server.call_tool("init_project", {"name": "rehydrate-schema-id", "data_dir": str(raw_dir)})
+        project = session.get_project()
+        await server.call_tool("run_intake", {"directory": str(raw_dir), "project_id": project.id})
+        dataset_id = session.list_datasets()[0]
+        await server.call_tool("build_schema", {"dataset_id": dataset_id, "project_id": project.id})
+        store = ArtifactStore(project.artifacts_dir)
+        schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
+        schema["dataset_id"] = "schema-dataset-id"
+        store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", schema)
+        project.dataset_ids = ["schema-dataset-id"]
+        return project.id
+
+    project_id = asyncio.run(run_flow())
+
+    import rde.application.session as session_module
+    from rde.interface.mcp.tools._shared.project_context import (
+        ensure_dataset,
+        ensure_project_context,
+    )
+
+    session_module._session = None
+    ok, message, project = ensure_project_context(project_id)
+    assert ok, message
+    assert project is not None
+
+    ok, message, entry = ensure_dataset(project=project)
+
+    assert ok, message
+    assert entry is not None
+    assert entry.dataset.id == "schema-dataset-id"
+    assert entry.dataset.row_count == 2
 
 
 def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(

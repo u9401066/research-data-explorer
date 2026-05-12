@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from rde.domain.models.report import REQUIRED_SECTIONS
+from rde.domain.models.variable import VariableType
 from rde.domain.policies import DEFAULT_HEURISTIC_POLICY
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.services.collinearity_checker import check_collinearity
@@ -50,6 +51,48 @@ def test_variable_classifier_does_not_treat_regular_dates_as_phone_numbers() -> 
     )
 
     assert variable.is_pii_suspect is False
+
+
+def test_variable_classifier_treats_numeric_coded_drug_column_as_categorical() -> None:
+    classifier = VariableClassifier()
+
+    variable = classifier.classify(
+        name="降血壓用藥_1_NTG_2_Trandate_3_1_2",
+        dtype="float64",
+        n_unique=7,
+        n_total=51,
+        sample_values=[1, 2, 3, 1, 2, 3, 4],
+    )
+
+    assert variable.variable_type == VariableType.CATEGORICAL
+
+
+def test_variable_classifier_keeps_low_cardinality_plain_numeric_as_ordinal() -> None:
+    classifier = VariableClassifier()
+
+    variable = classifier.classify(
+        name="severity_grade",
+        dtype="int64",
+        n_unique=5,
+        n_total=100,
+        sample_values=[1, 2, 3, 4, 5],
+    )
+
+    assert variable.variable_type == VariableType.ORDINAL
+
+
+def test_variable_classifier_keeps_small_sample_measurements_continuous() -> None:
+    classifier = VariableClassifier()
+
+    variable = classifier.classify(
+        name="petal_length",
+        dtype="float64",
+        n_unique=8,
+        n_total=12,
+        sample_values=[1.4, 1.5, 4.1, 4.5, 5.1, 5.6],
+    )
+
+    assert variable.variable_type == VariableType.CONTINUOUS
 
 
 def test_collinearity_checker_uses_policy_threshold_by_default() -> None:

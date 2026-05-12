@@ -20,12 +20,13 @@ class MarkdownReportRenderer(ReportRendererPort):
 
         lines.append(f"# {rpt.title}")
         lines.append("")
-        lines.append(f"**Dataset:** {rpt.dataset_id}")
-        lines.append(f"**Project:** {rpt.project_id}")
-        lines.append(f"**Generated:** {rpt.created_at.strftime('%Y-%m-%d %H:%M')}")
-        lines.append("")
-        lines.append("---")
-        lines.append("")
+        if rpt.metadata.get("_export_profile") != "formal_research_report":
+            lines.append(f"**Dataset:** {rpt.dataset_id}")
+            lines.append(f"**Project:** {rpt.project_id}")
+            lines.append(f"**Generated:** {rpt.created_at.strftime('%Y-%m-%d %H:%M')}")
+            lines.append("")
+            lines.append("---")
+            lines.append("")
 
         for section in rpt.sections:
             lines.append(f"## {section.title}")
@@ -48,11 +49,13 @@ class MarkdownReportRenderer(ReportRendererPort):
             lines.append("")
 
         # Metadata footer
-        lines.append("## Metadata")
-        lines.append("")
-        for k, v in rpt.metadata.items():
-            lines.append(f"- **{k}:** {v}")
-        lines.append("")
+        public_metadata = {k: v for k, v in rpt.metadata.items() if not str(k).startswith("_")}
+        if public_metadata:
+            lines.append("## Metadata")
+            lines.append("")
+            for k, v in public_metadata.items():
+                lines.append(f"- **{k}:** {v}")
+            lines.append("")
 
         return "\n".join(lines)
 

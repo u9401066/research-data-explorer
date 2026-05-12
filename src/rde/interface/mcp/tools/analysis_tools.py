@@ -7,6 +7,7 @@ All tools return markdown strings.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from pathlib import Path
@@ -105,6 +106,7 @@ def _summarize_advanced_analysis_result(analysis_result: Any) -> str:
 
 def _unique_phase_artifact_filename(phase_dir: Path, filename: str) -> str:
     """Return filename or a numeric-suffixed variant that does not overwrite."""
+    filename = _shorten_artifact_filename(phase_dir, filename)
     candidate = phase_dir / filename
     if not candidate.exists():
         return filename
@@ -116,6 +118,33 @@ def _unique_phase_artifact_filename(phase_dir: Path, filename: str) -> str:
         if not (phase_dir / unique_name).exists():
             return unique_name
         counter += 1
+
+
+def _shorten_artifact_filename(phase_dir: Path, filename: str) -> str:
+    """Keep generated artifact paths portable on Windows.
+
+    Analysis artifact names often include user column names.  A valid filename
+    can still fail when the full project path crosses the classic Windows
+    MAX_PATH boundary, so shorten the leaf name and add a stable hash.
+    """
+    path = Path(filename)
+    parent = path.parent
+    target_dir = phase_dir if str(parent) == "." else phase_dir / parent
+    name = path.name
+    suffix = path.suffix
+    stem = path.stem
+    max_path_len = 240
+    max_name_len = min(180, max(40, max_path_len - len(str(target_dir.resolve())) - 1))
+    full_len = len(str((target_dir / name).resolve()))
+    if len(name) <= max_name_len and full_len <= max_path_len:
+        return filename
+
+    digest = hashlib.sha1(filename.encode("utf-8")).hexdigest()[:10]
+    budget = max(8, max_name_len - len(digest) - len(suffix) - 1)
+    short_name = f"{stem[:budget].rstrip('._-')}_{digest}{suffix}"
+    if str(parent) == ".":
+        return short_name
+    return str(parent / short_name)
 
 
 def _safe_filename_token(value: object, *, fallback: str = "value") -> str:
@@ -318,6 +347,143 @@ def _create_kaplan_meier_figure(
     return {"path": _project_relative_path(project, output_path), "plot_type": "kaplan_meier"}
 
 
+def _create_propensity_score_figure(
+    *,
+    project: Any,
+    analysis_result: dict[str, Any],
+    analysis_type: str,
+) -> dict[str, str] | None:
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    score_rows = analysis_result.get("propensity_scores")
+    if not isinstance(score_rows, list) or not score_rows:
+        score_rows = analysis_result.get("propensity_scores_sample")
+    if not isinstance(score_rows, list) or not score_rows:
+        return None
+
+    working = pd.DataFrame(score_rows)
+    if not {"treatment", "propensity_score"}.issubset(working.columns):
+        return None
+    working["treatment"] = pd.to_numeric(working["treatment"], errors="coerce")
+    working["propensity_score"] = pd.to_numeric(working["propensity_score"], errors="coerce")
+    working = working.dropna(subset=["treatment", "propensity_score"])
+    if working.empty or working["treatment"].nunique() < 2:
+        return None
+
+    output_dir = Path(project.output_dir) / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    treatment_variable = str(analysis_result.get("treatment_variable") or "treatment")
+    output_path = output_dir / (
+        f"advanced_{_safe_filename_token(analysis_type)}_"
+        f"{_safe_filename_token(treatment_variable)}.png"
+    )
+
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    for value, label in [(0, "control/other"), (1, "treated/exposed")]:
+        scores = working.loc[working["treatment"] == value, "propensity_score"]
+        if scores.empty:
+            continue
+        ax.hist(scores, bins=10, alpha=0.55, density=True, label=label)
+    common_support = analysis_result.get("common_support") or {}
+    overlap_min = common_support.get("overlap_min")
+    overlap_max = common_support.get("overlap_max")
+    if overlap_min is not None and overlap_max is not None:
+        ax.axvspan(float(overlap_min), float(overlap_max), color="0.85", alpha=0.35)
+    ax.set_xlabel("Estimated propensity score")
+    ax.set_ylabel("Density")
+    ax.set_xlim(0, 1)
+    ax.set_title(f"Propensity score overlap: {treatment_variable}")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return {
+        "path": _project_relative_path(project, output_path),
+        "plot_type": "propensity_score_histogram",
+    }
+
+
+def _create_propensity_love_plot_figure(
+    *,
+    project: Any,
+    analysis_result: dict[str, Any],
+    analysis_type: str,
+) -> dict[str, str] | None:
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    balance_sets = [
+        ("before", analysis_result.get("balance_diagnostics")),
+        ("iptw", analysis_result.get("weighted_balance_diagnostics")),
+        ("matched", analysis_result.get("matched_balance_diagnostics")),
+    ]
+    rows: list[dict[str, Any]] = []
+    for stage, diagnostics in balance_sets:
+        if not isinstance(diagnostics, dict):
+            continue
+        for covariate, values in diagnostics.items():
+            if not isinstance(values, dict):
+                continue
+            smd = values.get("standardized_mean_difference")
+            if smd is None:
+                continue
+            rows.append(
+                {
+                    "covariate": str(covariate),
+                    "stage": stage,
+                    "abs_smd": abs(float(smd)),
+                }
+            )
+    if not rows:
+        return None
+
+    working = pd.DataFrame(rows)
+    covariates = (
+        working.groupby("covariate")["abs_smd"].max().sort_values(ascending=True).index.tolist()
+    )
+    if not covariates:
+        return None
+    working["y"] = working["covariate"].map({name: index for index, name in enumerate(covariates)})
+
+    output_dir = Path(project.output_dir) / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    treatment_variable = str(analysis_result.get("treatment_variable") or "treatment")
+    output_path = output_dir / (
+        f"advanced_{_safe_filename_token(analysis_type)}_"
+        f"{_safe_filename_token(treatment_variable)}_love.png"
+    )
+
+    fig_height = max(4.0, 0.36 * len(covariates) + 1.6)
+    fig, ax = plt.subplots(figsize=(7.2, fig_height))
+    markers = {"before": "o", "iptw": "s", "matched": "^"}
+    labels = {"before": "Before", "iptw": "IPTW", "matched": "Matched"}
+    for stage in ("before", "iptw", "matched"):
+        subset = working.loc[working["stage"] == stage]
+        if subset.empty:
+            continue
+        ax.scatter(
+            subset["abs_smd"],
+            subset["y"],
+            marker=markers[stage],
+            label=labels[stage],
+            alpha=0.85,
+        )
+    ax.axvline(0.1, color="0.35", linestyle="--", linewidth=1)
+    ax.set_yticks(range(len(covariates)), covariates)
+    ax.set_xlabel("Absolute standardized mean difference")
+    ax.set_ylabel("Covariate")
+    ax.set_title(f"Propensity balance Love plot: {treatment_variable}")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return {
+        "path": _project_relative_path(project, output_path),
+        "plot_type": "propensity_love_plot",
+    }
+
+
 def _auto_create_advanced_analysis_figures(
     *,
     project: Any,
@@ -358,6 +524,19 @@ def _auto_create_advanced_analysis_figures(
                 analysis_result=analysis_result,
                 analysis_type=analysis_type,
             )
+        elif normalized == "propensity_score":
+            figure = _create_propensity_score_figure(
+                project=project,
+                analysis_result=analysis_result,
+                analysis_type=analysis_type,
+            )
+            love_plot = _create_propensity_love_plot_figure(
+                project=project,
+                analysis_result=analysis_result,
+                analysis_type=analysis_type,
+            )
+            if love_plot is not None:
+                figures.append(love_plot)
 
         if figure is not None:
             figures.append(figure)
@@ -773,7 +952,6 @@ def register_analysis_tools(server: Any) -> None:
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
-            log_tool_result,
             log_tool_error,
             fmt_error,
             ensure_phase_ready,
@@ -1344,17 +1522,34 @@ def register_analysis_tools(server: Any) -> None:
 
         try:
             from rde.domain.services.collinearity_checker import check_collinearity
+            from rde.domain.models.variable import VariableRole, VariableType
 
             df = entry.dataframe
+            measurement_types = {VariableType.CONTINUOUS, VariableType.BIOMARKER}
+            non_measurement_roles = {VariableRole.GROUP, VariableRole.ID}
+            variable_types = _variable_type_lookup(entry.dataset)
+            variable_roles = {variable.name: variable.role for variable in entry.dataset.variables}
             if variables:
                 numeric_cols = [
-                    v for v in variables if v in df.columns and pd.api.types.is_numeric_dtype(df[v])
+                    v
+                    for v in variables
+                    if v in df.columns
+                    and pd.api.types.is_numeric_dtype(df[v])
+                    and variable_types.get(v) in measurement_types
+                    and variable_roles.get(v) not in non_measurement_roles
                 ]
             else:
-                numeric_cols = df.select_dtypes(include="number").columns.tolist()
+                numeric_cols = [
+                    v.name
+                    for v in entry.dataset.variables
+                    if v.name in df.columns
+                    and pd.api.types.is_numeric_dtype(df[v.name])
+                    and v.variable_type in measurement_types
+                    and v.role not in non_measurement_roles
+                ]
 
             if len(numeric_cols) < 2:
-                return fmt_error("需要至少 2 個數值變數進行相關性分析。")
+                return fmt_error("需要至少 2 個連續/biomarker 數值變數進行相關性分析。")
 
             analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
                 df,

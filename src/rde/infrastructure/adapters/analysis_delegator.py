@@ -946,25 +946,135 @@ class AnalysisDelegator:
                 }
             )
 
-        balance_diagnostics: dict[str, dict[str, float | None]] = {}
-        for covariate in fit["covariates"]:
-            treated = pd.to_numeric(
-                valid.loc[valid["treatment"] == 1, covariate],
-                errors="coerce",
-            ).dropna()
-            control = pd.to_numeric(
-                valid.loc[valid["treatment"] == 0, covariate],
-                errors="coerce",
-            ).dropna()
-            pooled_sd = float(np.sqrt((treated.var(ddof=1) + control.var(ddof=1)) / 2))
-            smd = None
-            if pooled_sd and not np.isnan(pooled_sd):
-                smd = float((treated.mean() - control.mean()) / pooled_sd)
-            balance_diagnostics[covariate] = {
-                "treated_mean": float(treated.mean()) if not treated.empty else None,
-                "control_mean": float(control.mean()) if not control.empty else None,
-                "standardized_mean_difference": smd,
-            }
+        def _weighted_mean(values: pd.Series, weights: pd.Series | None = None) -> float | None:
+            values = pd.to_numeric(values, errors="coerce")
+            if weights is None:
+                values = values.dropna()
+                return float(values.mean()) if not values.empty else None
+            weights = pd.to_numeric(weights, errors="coerce")
+            frame = pd.DataFrame({"value": values, "weight": weights}).dropna()
+            if frame.empty or float(frame["weight"].sum()) <= 0:
+                return None
+            return float(np.average(frame["value"], weights=frame["weight"]))
+
+        def _weighted_var(values: pd.Series, weights: pd.Series | None = None) -> float | None:
+            values = pd.to_numeric(values, errors="coerce")
+            if weights is None:
+                values = values.dropna()
+                if len(values) < 2:
+                    return None
+                return float(values.var(ddof=1))
+            weights = pd.to_numeric(weights, errors="coerce")
+            frame = pd.DataFrame({"value": values, "weight": weights}).dropna()
+            if frame.empty or float(frame["weight"].sum()) <= 0:
+                return None
+            mean = float(np.average(frame["value"], weights=frame["weight"]))
+            return float(np.average((frame["value"] - mean) ** 2, weights=frame["weight"]))
+
+        def _balance_for(
+            data: pd.DataFrame,
+            covariates: list[str],
+            *,
+            weight_column: str | None = None,
+        ) -> dict[str, dict[str, float | None]]:
+            diagnostics: dict[str, dict[str, float | None]] = {}
+            for covariate in covariates:
+                treated_mask = data["treatment"] == 1
+                control_mask = data["treatment"] == 0
+                weights = data[weight_column] if weight_column and weight_column in data.columns else None
+                treated_weights = weights.loc[treated_mask] if weights is not None else None
+                control_weights = weights.loc[control_mask] if weights is not None else None
+                treated_values = data.loc[treated_mask, covariate]
+                control_values = data.loc[control_mask, covariate]
+                treated_mean = _weighted_mean(treated_values, treated_weights)
+                control_mean = _weighted_mean(control_values, control_weights)
+                treated_var = _weighted_var(treated_values, treated_weights)
+                control_var = _weighted_var(control_values, control_weights)
+                pooled_sd = None
+                if treated_var is not None and control_var is not None:
+                    pooled_sd = float(np.sqrt((treated_var + control_var) / 2))
+                smd = None
+                if pooled_sd and not np.isnan(pooled_sd) and treated_mean is not None and control_mean is not None:
+                    smd = float((treated_mean - control_mean) / pooled_sd)
+                diagnostics[covariate] = {
+                    "treated_mean": treated_mean,
+                    "control_mean": control_mean,
+                    "standardized_mean_difference": smd,
+                }
+            return diagnostics
+
+        balance_diagnostics = _balance_for(valid, fit["covariates"])
+
+        clipped_scores = valid["propensity_score"].clip(1e-6, 1 - 1e-6)
+        treatment_rate = float(valid["treatment"].mean()) if len(valid) else 0.0
+        valid = valid.copy()
+        valid["iptw_weight"] = np.where(
+            valid["treatment"] == 1,
+            treatment_rate / clipped_scores,
+            (1.0 - treatment_rate) / (1.0 - clipped_scores),
+        )
+        valid["matching_weight"] = 0.0
+        weighted_balance_diagnostics = _balance_for(
+            valid,
+            fit["covariates"],
+            weight_column="iptw_weight",
+        )
+
+        matched_pairs: list[dict[str, Any]] = []
+        treated_pool = valid.loc[valid["treatment"] == 1].copy()
+        control_pool = valid.loc[valid["treatment"] == 0].copy()
+        available_controls = list(control_pool.index)
+        for treated_index, treated_row in treated_pool.sort_values("propensity_score").iterrows():
+            if not available_controls:
+                break
+            distances = (
+                control_pool.loc[available_controls, "propensity_score"] - treated_row["propensity_score"]
+            ).abs()
+            control_index = distances.idxmin()
+            distance = float(distances.loc[control_index])
+            matched_pairs.append(
+                {
+                    "treated_row_index": str(treated_index),
+                    "control_row_index": str(control_index),
+                    "treated_propensity_score": float(treated_row["propensity_score"]),
+                    "control_propensity_score": float(control_pool.loc[control_index, "propensity_score"]),
+                    "score_distance": distance,
+                }
+            )
+            available_controls.remove(control_index)
+        matched_indices = [
+            index
+            for pair in matched_pairs
+            for index in (pair["treated_row_index"], pair["control_row_index"])
+        ]
+        matched_existing_indices = [
+            index
+            for index in valid.index
+            if str(index) in set(matched_indices)
+        ]
+        matched = valid.loc[matched_existing_indices].copy()
+        matched_balance_diagnostics = _balance_for(matched, fit["covariates"]) if not matched.empty else {}
+        matching_summary = {
+            "method": "nearest_neighbor_no_replacement",
+            "matched_pairs": len(matched_pairs),
+            "matched_rows": int(len(matched)),
+            "treated_available": int((valid["treatment"] == 1).sum()),
+            "control_available": int((valid["treatment"] == 0).sum()),
+            "mean_score_distance": float(np.mean([pair["score_distance"] for pair in matched_pairs]))
+            if matched_pairs
+            else None,
+            "max_score_distance": float(max(pair["score_distance"] for pair in matched_pairs))
+            if matched_pairs
+            else None,
+        }
+        iptw_weight_summary = {
+            "method": "stabilized_iptw",
+            "count": int(valid["iptw_weight"].count()),
+            "min": float(valid["iptw_weight"].min()),
+            "max": float(valid["iptw_weight"].max()),
+            "mean": float(valid["iptw_weight"].mean()),
+            "std": float(valid["iptw_weight"].std()),
+        }
 
         return {
             "analysis_type": "propensity_score",
@@ -985,15 +1095,32 @@ class AnalysisDelegator:
                     "row_index": str(index),
                     "treatment": int(row["treatment"]),
                     "propensity_score": float(row["propensity_score"]),
+                    "iptw_weight": float(row["iptw_weight"]),
                 }
                 for index, row in valid.head(10).iterrows()
             ],
+            "propensity_scores": [
+                {
+                    "row_index": str(index),
+                    "treatment": int(row["treatment"]),
+                    "propensity_score": float(row["propensity_score"]),
+                    "iptw_weight": float(row["iptw_weight"]),
+                }
+                for index, row in valid.head(500).iterrows()
+            ],
+            "propensity_scores_truncated": int(len(valid)) > 500,
             "common_support": common_support,
             "balance_diagnostics": balance_diagnostics,
+            "weighted_balance_diagnostics": weighted_balance_diagnostics,
+            "matched_balance_diagnostics": matched_balance_diagnostics,
+            "iptw_weight_summary": iptw_weight_summary,
+            "matched_pairs": matched_pairs[:500],
+            "matched_pairs_truncated": int(len(matched_pairs)) > 500,
+            "matching_summary": matching_summary,
             "propensity_model": model_result,
             "interpretation": (
-                "Local propensity analysis estimates treatment probability from covariates. "
-                "It is a lightweight scoring fallback, not a full matching or weighting workflow."
+                "Local propensity analysis estimates treatment probability from covariates "
+                "and reports overlap, IPTW balance, and nearest-neighbor matching diagnostics."
             ),
         }
 

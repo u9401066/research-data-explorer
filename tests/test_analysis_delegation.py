@@ -262,9 +262,16 @@ def test_delegator_propensity_score_local_lite_returns_score_diagnostics() -> No
     assert ps_result["propensity_score_summary"]["count"] == 12
     assert 0 <= ps_result["propensity_score_summary"]["min"] <= ps_result["propensity_score_summary"]["max"] <= 1
     assert ps_result["propensity_scores_sample"][0]["propensity_score"] >= 0
+    assert len(ps_result["propensity_scores"]) == 12
+    assert ps_result["propensity_scores_truncated"] is False
     assert ps_result["common_support"]["treated_min"] <= ps_result["common_support"]["treated_max"]
     assert "age" in ps_result["balance_diagnostics"]
     assert "standardized_mean_difference" in ps_result["balance_diagnostics"]["age"]
+    assert "age" in ps_result["weighted_balance_diagnostics"]
+    assert "age" in ps_result["matched_balance_diagnostics"]
+    assert ps_result["iptw_weight_summary"]["count"] == 12
+    assert ps_result["matching_summary"]["matched_pairs"] > 0
+    assert ps_result["matched_pairs"]
 
 
 def test_delegator_propensity_score_encodes_categorical_covariates() -> None:

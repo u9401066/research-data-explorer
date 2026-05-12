@@ -12,7 +12,6 @@
 # =============================================================================
 $ErrorActionPreference = "Stop"
 
-[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -20,14 +19,13 @@ function Read-JsonFileSafe {
     param([string]$Path)
     try {
         if (Test-Path $Path -ErrorAction SilentlyContinue) {
-            $encoding = New-Object System.Text.UTF8Encoding($false, $true)
-            $content = [System.IO.File]::ReadAllText($Path, $encoding)
+            $content = Get-Content $Path -Raw -ErrorAction Stop
             if ($content -and $content.Trim().Length -gt 0) {
                 return ($content | ConvertFrom-Json -ErrorAction Stop)
             }
         }
     } catch {
-        return $null
+        Remove-Item $Path -Force -ErrorAction SilentlyContinue
     }
     return $null
 }
@@ -39,22 +37,6 @@ function Write-Utf8NoBomFile {
     )
     $encoding = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
-}
-
-function Clear-HookStateFile {
-    param([string]$Path)
-    try {
-        if (Test-Path $Path -ErrorAction SilentlyContinue) {
-            $archiveDir = Join-Path (Split-Path $Path -Parent) "_archive"
-            if (-not (Test-Path $archiveDir)) {
-                New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
-            }
-            $stamp = Get-Date -Format "yyyyMMddTHHmmssfff"
-            $leaf = Split-Path $Path -Leaf
-            Move-Item -LiteralPath $Path -Destination (Join-Path $archiveDir "$stamp-$leaf") -Force
-        }
-    } catch {
-    }
 }
 
 function Get-PolicyArray {
@@ -264,9 +246,9 @@ try {
 
     if ($toolName -match 'unified_search') {
         if ($pipeline -and $pipeline -ne 'null') {
-            Clear-HookStateFile -Path "$stateDir/last_search_eval.json"
-            Clear-HookStateFile -Path "$stateDir/last_research_eval.json"
-            Clear-HookStateFile -Path "$stateDir/pending_complexity.json"
+            Remove-Item "$stateDir/last_search_eval.json" -Force -ErrorAction SilentlyContinue
+            Remove-Item "$stateDir/last_research_eval.json" -Force -ErrorAction SilentlyContinue
+            Remove-Item "$stateDir/pending_complexity.json" -Force -ErrorAction SilentlyContinue
             exit 0
         }
 
@@ -367,8 +349,8 @@ This guard applies only to Copilot runtime hooks, not to all MCP clients.
 
         $isRemediation = $knownHookTool -and (Test-ToolInPolicySection -Policy $policy -Section "rules" -Name "feedbackRemediation" -ToolName $toolName)
         if ($isRemediation) {
-            Clear-HookStateFile -Path "$stateDir/last_search_eval.json"
-            Clear-HookStateFile -Path "$stateDir/last_research_eval.json"
+            Remove-Item "$stateDir/last_search_eval.json" -Force -ErrorAction SilentlyContinue
+            Remove-Item "$stateDir/last_research_eval.json" -Force -ErrorAction SilentlyContinue
             exit 0
         }
 

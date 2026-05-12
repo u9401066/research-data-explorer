@@ -28,6 +28,20 @@ ID_NAME_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Numeric columns with these names usually encode categories rather than
+# measurements. Keep this conservative: the unique-count guard below must also
+# pass before the classifier treats them as categorical.
+CODED_CATEGORY_NAME_PATTERNS = re.compile(
+    r"(?:sex|gender|group|arm|treat|drug|medication|用藥|藥物|性別|組別|分組|類別|分類|"
+    r"(?:^|_)\d+[_-])",
+    re.IGNORECASE,
+)
+
+ORDINAL_NAME_PATTERNS = re.compile(
+    r"(?:grade|stage|severity|rank|level|score|分級|等級|級別|程度|評分)",
+    re.IGNORECASE,
+)
+
 # Common date-like patterns for string detection
 _DATE_PATTERNS = [
     re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}"),  # 2025-03-02
@@ -95,6 +109,16 @@ class VariableClassifier:
                 return VariableType.ID
             if n_unique == 2:
                 return VariableType.BINARY
+            if (
+                n_unique <= DEFAULT_HEURISTIC_POLICY.classification.numeric_ordinal_unique_max
+                and CODED_CATEGORY_NAME_PATTERNS.search(name)
+            ):
+                return VariableType.CATEGORICAL
+            if (
+                n_unique <= DEFAULT_HEURISTIC_POLICY.classification.numeric_ordinal_unique_max
+                and ORDINAL_NAME_PATTERNS.search(name)
+            ):
+                return VariableType.ORDINAL
             if (
                 n_total > 0
                 and n_unique / n_total

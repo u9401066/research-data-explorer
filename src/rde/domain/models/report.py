@@ -25,6 +25,7 @@ REQUIRED_SECTIONS = [
     "variable_profiles",
     "key_findings",
     "statistical_analyses",
+    "interpretation_discussion",
     "recommendations",
 ]
 
@@ -163,6 +164,9 @@ class EDAReport:
                 "limitation": "recommendations",
                 "executive": "key_findings",
                 "finding": "key_findings",
+                "interpretation": "interpretation_discussion",
+                "discussion": "interpretation_discussion",
+                "literature": "interpretation_discussion",
                 "pipeline": "recommendations",
             }
             for keyword, mapped_id in id_map.items():

@@ -62,6 +62,12 @@ def _recover_project_dataset_ids(project: Project) -> list[str]:
         if isinstance(dataset_id, str) and dataset_id.strip():
             recovered.append(dataset_id.strip())
 
+    schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
+    if isinstance(schema, dict):
+        dataset_id = schema.get("dataset_id")
+        if isinstance(dataset_id, str) and dataset_id.strip():
+            recovered.append(dataset_id.strip())
+
     alignment = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json")
     if isinstance(alignment, dict):
         dataset_id = alignment.get("dataset")
@@ -75,9 +81,9 @@ def project_dataset_ids(project: Project | None = None) -> list[str]:
     """Return dataset ids scoped to the current project when available."""
     session = get_session()
     if project is not None:
-        if project.dataset_ids:
-            return list(dict.fromkeys(project.dataset_ids))
         recovered = _recover_project_dataset_ids(project)
+        if project.dataset_ids:
+            return list(dict.fromkeys([*project.dataset_ids, *recovered]))
         if recovered:
             return recovered
 
@@ -87,9 +93,9 @@ def project_dataset_ids(project: Project | None = None) -> list[str]:
         except KeyError:
             active_project = None
         if active_project is not None:
-            if active_project.dataset_ids:
-                return list(dict.fromkeys(active_project.dataset_ids))
             recovered = _recover_project_dataset_ids(active_project)
+            if active_project.dataset_ids:
+                return list(dict.fromkeys([*active_project.dataset_ids, *recovered]))
             if recovered:
                 return recovered
 
@@ -258,7 +264,21 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
     """Reload a project-bound dataset from intake artifacts after MCP session reset."""
     store = ArtifactStore(project.artifacts_dir)
     intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
-    if not isinstance(intake, dict) or intake.get("dataset_id") != dataset_id:
+    if not isinstance(intake, dict):
+        return None
+
+    schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
+    alignment = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json")
+    valid_dataset_ids = {
+        value
+        for value in (
+            intake.get("dataset_id"),
+            schema.get("dataset_id") if isinstance(schema, dict) else None,
+            alignment.get("dataset") if isinstance(alignment, dict) else None,
+        )
+        if isinstance(value, str) and value.strip()
+    }
+    if dataset_id not in valid_dataset_ids:
         return None
 
     loaded_file = intake.get("loaded_file")
@@ -288,7 +308,6 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
     dataset.mark_loaded(variables, row_count)
     dataset.tags["normalization_report"] = report.as_dict()
 
-    alignment = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json")
     if isinstance(alignment, dict):
         raw_roles = alignment.get("variable_roles")
         if isinstance(raw_roles, dict):
@@ -326,13 +345,23 @@ def ensure_dataset(
         ids = project_dataset_ids(project)
         if not ids:
             return False, "尚未載入任何資料集。請先使用 load_dataset()。", None
-        if project is not None and not project.dataset_ids and len(ids) > 1:
+        recovered_ids = _recover_project_dataset_ids(project) if project is not None else []
+        if project is not None and not project.dataset_ids and not recovered_ids and len(ids) > 1:
             return (
                 False,
                 "此專案尚未綁定資料集，且目前 session 有多份資料集。"
                 "請先用 run_intake()/load_dataset() 綁定資料，或明確指定 dataset_id。",
                 None,
             )
+        if project is not None:
+            for candidate_id in reversed(ids):
+                try:
+                    entry = session.get_dataset_entry(candidate_id)
+                    return True, f"資料集: {candidate_id}", entry
+                except KeyError:
+                    entry = _rehydrate_dataset_from_project(project, candidate_id)
+                    if entry is not None:
+                        return True, f"資料集: {candidate_id} (rehydrated)", entry
         resolved_dataset_id = ids[-1] if project is not None else ids[0]
 
     try:
@@ -597,35 +626,42 @@ def _planned_named_fields_match(entry: dict, parameters: dict) -> bool:
     return True
 
 
+_PLAN_TOOL_TYPE_MAP = {
+    "compare_groups": {
+        "compare_groups",
+        "group_comparison",
+        "t_test",
+        "mann_whitney",
+        "chi_square",
+    },
+    "analyze_variable": {"analyze_variable", "univariate", "descriptive"},
+    "correlation_matrix": {"correlation_matrix", "correlation", "collinearity"},
+    "generate_table_one": {"generate_table_one", "table_one", "table_1", "baseline"},
+    "run_advanced_analysis": {"run_advanced_analysis"},
+    "run_repeated_measures": {"run_repeated_measures", "repeated_measures", "friedman"},
+    "apply_cleaning": {"apply_cleaning", "cleaning", "clean"},
+    "suggest_cleaning": {"suggest_cleaning", "cleaning", "clean"},
+    "create_visualization": {"create_visualization", "visualization", "plot", "chart"},
+}
+
+
+def _plan_tool_synonyms(tool_name: str, parameters: dict) -> set[str]:
+    normalized_tool_name = _normalize_plan_value(tool_name)
+    synonyms = {
+        _normalize_plan_value(value)
+        for value in _PLAN_TOOL_TYPE_MAP.get(normalized_tool_name, {normalized_tool_name})
+    }
+    if normalized_tool_name == "run_advanced_analysis" and parameters.get("analysis_type"):
+        synonyms.add(_normalize_plan_value(parameters["analysis_type"]))
+    return synonyms
+
+
 def _check_plan_adherence_against_analyses(
     analyses: list,
     tool_name: str,
     parameters: dict,
 ) -> bool:
-    tool_type_map = {
-        "compare_groups": {
-            "compare_groups",
-            "group_comparison",
-            "t_test",
-            "mann_whitney",
-            "chi_square",
-        },
-        "analyze_variable": {"analyze_variable", "univariate", "descriptive"},
-        "correlation_matrix": {"correlation_matrix", "correlation", "collinearity"},
-        "generate_table_one": {"generate_table_one", "table_one", "table_1", "baseline"},
-        "run_advanced_analysis": {"run_advanced_analysis"},
-        "run_repeated_measures": {"run_repeated_measures", "repeated_measures", "friedman"},
-        "apply_cleaning": {"apply_cleaning", "cleaning", "clean"},
-        "suggest_cleaning": {"suggest_cleaning", "cleaning", "clean"},
-        "create_visualization": {"create_visualization", "visualization", "plot", "chart"},
-    }
-    normalized_tool_name = _normalize_plan_value(tool_name)
-    synonyms = {
-        _normalize_plan_value(value)
-        for value in tool_type_map.get(normalized_tool_name, {normalized_tool_name})
-    }
-    if normalized_tool_name == "run_advanced_analysis" and parameters.get("analysis_type"):
-        synonyms.add(_normalize_plan_value(parameters["analysis_type"]))
+    synonyms = _plan_tool_synonyms(tool_name, parameters)
 
     param_vars = _plan_values(
         parameters,
@@ -665,6 +701,50 @@ def _check_plan_adherence_against_analyses(
     return False
 
 
+def _check_plan_adherence_against_schedule(
+    schedule: list,
+    tool_name: str,
+    parameters: dict,
+) -> bool:
+    synonyms = _plan_tool_synonyms(tool_name, parameters)
+    param_vars = _plan_values(
+        parameters,
+        (
+            "outcome_variables",
+            "outcome_variable",
+            "variables",
+            "variable_name",
+            "target_variable",
+            "group_variable",
+            "group_var",
+            "group",
+            "time_variable",
+            "time_var",
+            "score_variable",
+            "score_var",
+        ),
+    )
+
+    for step in schedule:
+        if not isinstance(step, dict):
+            continue
+        step_names = {
+            _normalize_plan_value(step.get("tool_name", "")),
+            _normalize_plan_value(step.get("analysis_label", "")),
+            _normalize_plan_value(step.get("step_id", "")),
+        }
+        if not step_names.intersection(synonyms):
+            continue
+        if not _planned_named_fields_match(step, parameters):
+            continue
+
+        planned_vars = _plan_values(step, ("variables",))
+        if not planned_vars or not param_vars or param_vars.intersection(planned_vars):
+            return True
+
+    return False
+
+
 def check_plan_adherence(
     project: "Project",
     tool_name: str,
@@ -688,8 +768,13 @@ def check_plan_adherence(
     if analyses:
         if _check_plan_adherence_against_analyses(analyses, tool_name, parameters):
             return True, None
+        execution_schedule = plan.get("execution_schedule", [])
+        if _check_plan_adherence_against_schedule(execution_schedule, tool_name, parameters):
+            return True, None
         return False, (
             f"Tool '{tool_name}' is not covered by the locked analysis plan "
-            f"({len(analyses)} planned analyses checked)."
+            f"({len(analyses)} planned analyses and "
+            f"{len(execution_schedule) if isinstance(execution_schedule, list) else 0} "
+            "schedule steps checked)."
         )
     return True, None  # empty plan → nothing to check

@@ -236,6 +236,7 @@ class ReportingHeuristics:
         "variable_profiles",
         "key_findings",
         "statistical_analyses",
+        "interpretation_discussion",
         "recommendations",
     )
     heading_alias_map: dict[str, str] = field(
@@ -248,6 +249,9 @@ class ReportingHeuristics:
             "limitation": "recommendations",
             "executive": "key_findings",
             "finding": "key_findings",
+            "interpretation": "interpretation_discussion",
+            "discussion": "interpretation_discussion",
+            "literature": "interpretation_discussion",
             "pipeline": "recommendations",
         }
     )

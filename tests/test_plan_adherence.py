@@ -29,11 +29,17 @@ def _make_project(tmp_path: Path) -> Project:
     return project
 
 
-def _write_plan(project: Project, analyses: list[dict]) -> None:
+def _write_plan(
+    project: Project,
+    analyses: list[dict],
+    execution_schedule: list[dict] | None = None,
+) -> None:
     """Write a minimal analysis_plan.yaml under the project's artifact store."""
     phase_dir = project.artifacts_dir / PipelinePhase.PLAN_REGISTRATION.value
     phase_dir.mkdir(parents=True, exist_ok=True)
     plan = {"project_id": project.id, "analyses": analyses}
+    if execution_schedule is not None:
+        plan["execution_schedule"] = execution_schedule
     (phase_dir / "analysis_plan.yaml").write_text(
         yaml.dump(plan, allow_unicode=True), encoding="utf-8"
     )
@@ -113,6 +119,26 @@ class TestCheckPlanAdherence:
                 "group_variable": "operator_id",
             },
         )
+        assert ok is True
+        assert reason is None
+
+    def test_tool_matches_locked_execution_schedule(self, tmp_path: Path) -> None:
+        project = _make_project(tmp_path)
+        _write_plan(
+            project,
+            [{"type": "compare_groups", "variables": ["outcome"]}],
+            execution_schedule=[
+                {
+                    "step_id": "apply_cleaning",
+                    "tool_name": "apply_cleaning",
+                    "analysis_label": "apply_cleaning",
+                    "variables": [],
+                }
+            ],
+        )
+
+        ok, reason = check_plan_adherence(project, "apply_cleaning", {"approved_indices": []})
+
         assert ok is True
         assert reason is None
 

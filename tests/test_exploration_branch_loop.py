@@ -4,11 +4,14 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from rde.application.pipeline import PhaseResult, PipelinePhase
 from rde.application.session import get_session
+from rde.domain.models.dataset import Dataset
 from rde.domain.models.project import Project
+from rde.domain.models.variable import Variable, VariableType
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 from rde.interface.mcp.server import create_server
 
@@ -1326,6 +1329,58 @@ def test_run_autoresearch_queue_drains_until_idle_and_completes_run(tmp_path: Pa
     assert "status: completed" in status_output
 
 
+def test_autoresearch_executes_live_advanced_analysis_contract(tmp_path: Path) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+    project, store = _make_phase8_ready_project(tmp_path)
+    df = pd.DataFrame(
+        {
+            "treatment": ["a", "b"] * 20,
+            "outcome": [float(i) for i in range(40)],
+            "age": [30 + (i % 8) for i in range(40)],
+            "severity": [1 + (i % 4) for i in range(40)],
+        }
+    )
+    dataset = Dataset(
+        id="demo-dataset",
+        variables=[
+            Variable("treatment", "object", VariableType.CATEGORICAL, n_unique=2),
+            Variable("outcome", "float64", VariableType.CONTINUOUS, n_unique=40),
+            Variable("age", "float64", VariableType.CONTINUOUS, n_unique=8),
+            Variable("severity", "float64", VariableType.CONTINUOUS, n_unique=4),
+        ],
+        row_count=len(df),
+    )
+    get_session().register_dataset(dataset, df)
+    project.dataset_ids = [dataset.id]
+
+    async def run_flow() -> str:
+        server = create_server()
+        await server.call_tool(
+            "start_autoresearch_run",
+            {"project_id": project.id, "max_tasks": 3, "max_branches": 3},
+        )
+        result = await server.call_tool(
+            "run_autoresearch_queue",
+            {"project_id": project.id, "max_tasks": 3, "lease_owner": "pytest-live"},
+        )
+        return _textify_tool_result(result)
+
+    output = asyncio.run(run_flow())
+
+    experiments = store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl")
+    assert isinstance(experiments, list)
+    live = [event for event in experiments if event["metrics"].get("contract_executed") is True]
+    assert live
+    assert live[-1]["metrics"]["runner_generated"] is False
+    assert live[-1]["metrics"]["source"] in {
+        "local-lite",
+        "local-lite (numpy)",
+        "local-lite (statsmodels)",
+    }
+    assert any("multiple_regression" in artifact for artifact in live[-1]["artifacts"])
+    assert "processed_tasks: 3" in output
+
+
 def test_run_autoresearch_next_task_blocks_without_active_pending_work(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
     project, _ = _make_phase8_ready_project(tmp_path)
@@ -1372,6 +1427,8 @@ def test_branch_suggestions_cover_common_medical_eda_patterns() -> None:
     experiment_types = {item["experiment_type"] for item in suggestions}
 
     assert {
+        "univariate_scan",
+        "bivariate_scan",
         "adjusted_model",
         "logistic_regression",
         "propensity_score",
@@ -1380,3 +1437,311 @@ def test_branch_suggestions_cover_common_medical_eda_patterns() -> None:
         "repeated_measures",
         "missing_strategy",
     } <= experiment_types
+
+
+def test_common_medical_eda_pack_is_domain_service() -> None:
+    from rde.domain.services.common_medical_eda_pack import (
+        build_common_medical_eda_suggestions,
+    )
+
+    suggestions = build_common_medical_eda_suggestions(
+        {
+            "variables": [
+                {"name": "drug_code", "variable_type": "categorical", "n_unique": 4},
+                {"name": "Creatinine_normalized", "variable_type": "continuous"},
+                {"name": "Age", "variable_type": "continuous"},
+                {"name": "Sex_1_2", "variable_type": "binary", "n_unique": 2},
+            ]
+        },
+        {
+            "analyses": [
+                {
+                    "type": "compare_groups",
+                    "variables": ["Creatinine_normalized"],
+                    "group_variable": "drug_code",
+                }
+            ]
+        },
+        {
+            "research_question": "Explore baseline creatinine and covariates.",
+            "variable_roles": {
+                "Creatinine_normalized": "outcome",
+                "drug_code": "group",
+                "Age": "covariate",
+                "Sex_1_2": "covariate",
+            },
+            "outcome": ["Creatinine_normalized"],
+            "group": ["drug_code"],
+            "covariates": ["Age", "Sex_1_2"],
+        },
+    )
+
+    propensity = next(item for item in suggestions if item["experiment_type"] == "propensity_score")
+    assert propensity["suggestion_pack"] == "common_medical_eda"
+    assert propensity["analysis_contract"]["group_variable"] == "drug_code_dominant_vs_other"
+    assert propensity["analysis_contract"]["derived_variables"][0]["source"] == "drug_code"
+    assert "research_question" not in propensity["analysis_contract"]["covariates"]
+
+
+def test_branch_suggestions_do_not_use_nonbinary_categorical_logistic_target() -> None:
+    from rde.interface.mcp.tools.branch_tools import _build_branch_suggestions
+
+    schema = {
+        "variables": [
+            {
+                "name": "antihypertensive_drug_code",
+                "variable_type": "categorical",
+                "n_unique": 7,
+                "missing_rate": 0.02,
+            },
+            {"name": "age", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "bmi", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "baseline_creatinine", "variable_type": "continuous", "missing_rate": 0.0},
+        ]
+    }
+    plan = {
+        "analyses": [
+            {
+                "type": "compare_groups",
+                "variables": ["antihypertensive_drug_code"],
+            }
+        ]
+    }
+
+    suggestions = _build_branch_suggestions(schema, plan)
+
+    assert all(item["experiment_type"] != "logistic_regression" for item in suggestions)
+
+
+def test_branch_suggestions_create_derived_propensity_for_multilevel_group() -> None:
+    from rde.interface.mcp.tools.branch_tools import _build_branch_suggestions
+
+    schema = {
+        "variables": [
+            {"name": "drug_code", "variable_type": "categorical", "n_unique": 4, "missing_rate": 0.0},
+            {"name": "Creatinine_normalized", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "NGAL_normalized", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "Age", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "BMI", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "Sex_1_2", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
+        ]
+    }
+    plan = {
+        "analyses": [
+            {
+                "type": "compare_groups",
+                "variables": ["Creatinine_normalized", "NGAL_normalized"],
+                "group_variable": "drug_code",
+            }
+        ]
+    }
+    roles = {
+        "outcome": ["Creatinine_normalized", "NGAL_normalized"],
+        "group": ["drug_code"],
+        "covariates": ["Age", "BMI", "Sex_1_2"],
+    }
+
+    suggestions = _build_branch_suggestions(schema, plan, roles)
+    propensity = [
+        item for item in suggestions if item.get("experiment_type") == "propensity_score"
+    ]
+    adjusted_targets = {
+        item.get("analysis_contract", {}).get("target_variable")
+        for item in suggestions
+        if item.get("experiment_type") == "adjusted_model"
+    }
+
+    assert "Creatinine_normalized" in adjusted_targets
+    assert "NGAL_normalized" in adjusted_targets
+    assert propensity
+    contract = propensity[0]["analysis_contract"]
+    assert contract["group_variable"] == "drug_code_dominant_vs_other"
+    assert contract["create_figures"] is True
+    assert contract["derived_variables"] == [
+        {
+            "name": "drug_code_dominant_vs_other",
+            "source": "drug_code",
+            "operation": "dominant_vs_other",
+        }
+    ]
+
+
+def test_autoresearch_derived_dominant_binary_contrast() -> None:
+    from rde.interface.mcp.tools.branch_tools import _apply_autoresearch_derived_variables
+
+    df = pd.DataFrame({"drug_code": [3, 3, 2, 3, 1, None]})
+
+    derived, notes, metadata = _apply_autoresearch_derived_variables(
+        df,
+        {
+            "derived_variables": [
+                {
+                    "name": "drug_code_dominant_vs_other",
+                    "source": "drug_code",
+                    "operation": "dominant_vs_other",
+                }
+            ]
+        },
+    )
+
+    values = derived["drug_code_dominant_vs_other"].tolist()
+    assert values[:5] == [1.0, 1.0, 0.0, 1.0, 0.0]
+    assert pd.isna(values[5])
+    assert metadata[0]["positive_value"] == 3.0
+    assert metadata[0]["positive_count"] == 3
+    assert "Derived `drug_code_dominant_vs_other`" in notes[0]
+
+
+def test_autoresearch_derived_variables_write_registry(tmp_path: Path) -> None:
+    from rde.interface.mcp.tools.branch_tools import _execute_autoresearch_analysis_contract
+
+    project, store = _make_phase8_ready_project(tmp_path)
+    df = pd.DataFrame(
+        {
+            "drug_code": [1, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2],
+            "age": [40, 42, 45, 48, 50, 52, 44, 46, 49, 53, 55, 57],
+            "bmi": [22, 23, 25, 27, 26, 28, 24, 29, 30, 31, 25, 26],
+        }
+    )
+    dataset = Dataset(
+        id="derived-dataset",
+        variables=[
+            Variable("drug_code", "int64", VariableType.CATEGORICAL, n_unique=3),
+            Variable("age", "int64", VariableType.CONTINUOUS, n_unique=10),
+            Variable("bmi", "int64", VariableType.CONTINUOUS, n_unique=9),
+        ],
+        row_count=len(df),
+    )
+    get_session().register_dataset(dataset, df)
+    project.dataset_ids = [dataset.id]
+
+    result = _execute_autoresearch_analysis_contract(
+        project,
+        store,
+        {
+            "experiment_type": "propensity_score",
+            "analysis_contract": {
+                "tool": "run_advanced_analysis",
+                "analysis_type": "propensity_score",
+                "group_variable": "drug_code_dominant_vs_other",
+                "covariates": ["age", "bmi"],
+                "derived_variables": [
+                    {
+                        "name": "drug_code_dominant_vs_other",
+                        "source": "drug_code",
+                        "operation": "dominant_vs_other",
+                    }
+                ],
+            },
+        },
+        branch_id="br-derived",
+        experiment_id="exp-derived",
+        variables=["drug_code_dominant_vs_other", "drug_code", "age", "bmi"],
+    )
+
+    registry = store.load(PipelinePhase.EXECUTE_EXPLORATION, "derived_variable_registry.json")
+    assert result["status"] == "completed"
+    assert registry["derived_variables"][0]["name"] == "drug_code_dominant_vs_other"
+    assert registry["derived_variables"][0]["branch_id"] == "br-derived"
+    assert "phase_08_execute_exploration/derived_variable_registry.json" in result["artifacts"]
+
+
+def test_autoresearch_auto_evaluation_writes_candidate_without_confirmed_promotion(
+    tmp_path: Path,
+) -> None:
+    from rde.domain.models.exploration_branch import BranchEvent, BranchStatus, BranchType, ExperimentEvent
+    from rde.interface.mcp.tools.branch_tools import (
+        _auto_evaluate_autoresearch_branch,
+        _event_id,
+    )
+
+    project, store = _make_phase8_ready_project(tmp_path)
+    branch_id = "br-auto-candidate"
+    experiment_id = "exp-auto-candidate"
+    artifact_name = f"branch_results/{branch_id}/experiments/{experiment_id}.json"
+    store.get_path(PipelinePhase.EXECUTE_EXPLORATION, artifact_name).parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    store.save(PipelinePhase.EXECUTE_EXPLORATION, artifact_name, {"ok": True})
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "exploration_branches.jsonl",
+        BranchEvent(
+            branch_id=branch_id,
+            event_id=_event_id("branch"),
+            event_type="branch_opened",
+            project_id=project.id,
+            branch_type=BranchType.ADJUSTED_MODEL,
+            status=BranchStatus.OPEN,
+            hypothesis="Adjusted exploratory branch is strong.",
+            variables=["outcome", "treatment", "age"],
+        ).to_dict(),
+    )
+    store.save(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "experiment_ledger.jsonl",
+        ExperimentEvent(
+            project_id=project.id,
+            branch_id=branch_id,
+            experiment_id=experiment_id,
+            experiment_type="adjusted_model",
+            result_summary="Strong stable adjusted effect.",
+            metrics={
+                "evidence_score": 94,
+                "stability_score": 92,
+                "alignment_score": 88,
+                "sample_support": 82,
+                "n": 80,
+                "p_value": 0.01,
+                "effect_size": 0.45,
+                "ci_low": 0.12,
+                "ci_high": 0.78,
+            },
+            artifacts=[f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{artifact_name}"],
+        ).to_dict(),
+    )
+
+    result = _auto_evaluate_autoresearch_branch(project, store, branch_id)
+
+    assert result["evaluation"]["recommendation"] == "promote_candidate"
+    assert store.exists(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        f"plan_amendments/candidates/{branch_id}.json",
+    )
+    assert store.exists(PipelinePhase.EXECUTE_EXPLORATION, "branch_evaluations.jsonl")
+    assert not store.exists(PipelinePhase.EXECUTE_EXPLORATION, "plan_amendments.jsonl")
+
+
+def test_branch_suggestions_do_not_treat_baseline_binary_covariate_as_outcome() -> None:
+    from rde.interface.mcp.tools.branch_tools import _build_branch_suggestions
+
+    schema = {
+        "variables": [
+            {"name": "Sex_1_2", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
+            {"name": "Age", "variable_type": "continuous", "missing_rate": 0.0},
+            {"name": "BMI", "variable_type": "continuous", "missing_rate": 0.0},
+            {
+                "name": "Creatinine_normalized",
+                "variable_type": "continuous",
+                "missing_rate": 0.0,
+            },
+        ]
+    }
+    plan = {
+        "analyses": [
+            {
+                "type": "generate_table_one",
+                "variables": ["Sex_1_2", "Age", "BMI", "Creatinine_normalized"],
+            }
+        ]
+    }
+
+    suggestions = _build_branch_suggestions(schema, plan)
+
+    logistic_targets = [
+        item.get("analysis_contract", {}).get("target_variable")
+        for item in suggestions
+        if item.get("experiment_type") == "logistic_regression"
+    ]
+    assert "Sex_1_2" not in logistic_targets

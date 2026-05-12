@@ -16,7 +16,7 @@ from rde.domain.models.analysis import StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset
 from rde.domain.policies.heuristics import AnalysisHeuristics
 from rde.domain.services.numeric_plausibility import apply_numeric_plausibility_filters
-from rde.domain.models.variable import VariableType
+from rde.domain.models.variable import VariableRole, VariableType
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.ports import StatisticalEnginePort
 
@@ -28,7 +28,7 @@ class UnivariateProfile:
     """Profile of a single variable produced by the use case."""
 
     variable_name: str
-    variable_type: str  # "continuous" or "categorical"
+    variable_type: str  # "continuous", "biomarker", "binary", "categorical", etc.
     count: int
     missing_count: int
     missing_rate: float
@@ -77,9 +77,31 @@ class AnalyzeVariableUseCase:
         # Determine variable type from domain model
         var = next((v for v in dataset.variables if v.name == variable_name), None)
         var_type_enum = var.variable_type if var else None
+        var_role_enum = var.role if var else None
+        semantic_categorical_types = {
+            VariableType.CATEGORICAL,
+            VariableType.BINARY,
+            VariableType.ORDINAL,
+            VariableType.DATETIME,
+            VariableType.TEXT,
+            VariableType.ID,
+        }
+        semantic_categorical_roles = {VariableRole.GROUP, VariableRole.ID}
+        is_semantic_categorical = (
+            var_type_enum in semantic_categorical_types
+            or var_role_enum in semantic_categorical_roles
+        )
         is_numeric = pd.api.types.is_numeric_dtype(col)
 
-        if is_numeric:
+        if is_semantic_categorical:
+            var_type = (
+                var_type_enum.value
+                if var_type_enum in semantic_categorical_types
+                else "categorical"
+            )
+            vc = col.value_counts().head(20)
+            top_values = [(str(k), int(v)) for k, v in vc.items()]
+        elif is_numeric:
             filtered_df, plausibility_findings = apply_numeric_plausibility_filters(df, [variable_name])
             filtered_col = filtered_df[variable_name]
             excluded_invalid_count = sum(
@@ -90,7 +112,7 @@ class AnalyzeVariableUseCase:
             missing_count += excluded_invalid_count
             missing_rate = missing_count / max(n_total, 1)
             n_unique = int(filtered_col.nunique())
-            var_type = "continuous"
+            var_type = var_type_enum.value if var_type_enum is not None else "continuous"
             valid_col = filtered_col.dropna()
 
             if excluded_invalid_count:
