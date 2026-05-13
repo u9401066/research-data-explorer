@@ -1099,66 +1099,86 @@
           </div>
         </section>
 
-        <section class="page" data-page="code-truth-zh">
-          <div class="section-header">
-            <div>
-              <p class="kicker">Code-Verified Contract</p>
-              <h3>網站內容如何對齊真實程式碼</h3>
-            </div>
-            <p>以下數字與說明是從目前 repo 的 code path 反查，不是從舊 README 複製。若程式碼改變，這些來源也應同步更新。</p>
-          </div>
-
+        <section class="page" data-page="engineer-zh">
+          <p class="kicker">Engineer Section</p>
+          <h3>工程師分區：設計、架構與程式碼對照</h3>
+          <p>
+            這一區給維護者、導入團隊與需要審查系統可信度的人使用。一般使用者只需要知道：網站不是重新想像 RDE，而是把目前 repo 中可追溯的程式碼契約、MCP tools、VSIX harness、agent-control 與 audit gate 翻譯成可閱讀的說明。
+          </p>
           <div class="grid two">
-            <article class="card">
-              <h4>Pipeline state machine</h4>
-              <p><code>PipelinePhase</code> 定義 Phase 00-12；<code>PREREQUISITES</code>、<code>USER_CONFIRMATION_REQUIRED</code>、<code>REQUIRED_ARTIFACTS</code> 定義 phase gate 與 artifact gate。</p>
-              <div class="tag-row"><span class="tag">src/rde/application/pipeline/__init__.py</span></div>
+            <article class="text-card">
+              <h4>1. 設計原則：Agent 不是黑箱</h4>
+              <p>
+                RDE 的核心不是讓 LLM 自由探索，而是讓每個分析決策都能留下 artifact、decision log 與 deviation log。網站中的「先建計畫、再執行、最後審計」敘述，對應到 pipeline state machine、artifact gate、plan lock 與 audit tools。
+              </p>
             </article>
-            <article class="card">
-              <h4>MCP registration</h4>
-              <p><code>create_server()</code> 註冊 9 組 tool modules：project、discovery、profiling、plan、analysis、branch、UX、report、audit。</p>
-              <div class="tag-row"><span class="tag">src/rde/interface/mcp/server.py</span></div>
+            <article class="text-card">
+              <h4>2. 架構分層：DDD + MCP Interface</h4>
+              <p>
+                對外入口集中在 <code>src/rde/interface/mcp/</code>；應用流程由 <code>src/rde/application/</code> 的 session、pipeline、use cases 編排；domain 層保存 phase、artifact、policy 等規則；infrastructure 層才處理外部服務與 adapter。
+              </p>
             </article>
-            <article class="card">
-              <h4>VSIX expected tools</h4>
-              <p>VS Code extension manifest 目前列出 49 個 <code>expectedMcpTools</code>，與實際 <code>@server.tool()</code> 合計數一致。</p>
-              <div class="tag-row"><span class="tag">vscode-extension/package.json</span></div>
+            <article class="text-card">
+              <h4>3. 執行策略：local-lite 優先，重分析可委派</h4>
+              <p>
+                基礎統計與常用檢定由本 repo 內的 scipy/pandas engine 支援；更重的模型、AutoML 或外部統計流程，透過 delegation gateway 接到 automl-stat-mcp。網站因此把「基礎統計」與「Auto Research」分開說明，避免非工程師誤以為所有模型都在同一層完成。
+              </p>
             </article>
-            <article class="card">
-              <h4>Agent control manifest</h4>
-              <p><code>agent-control.yaml</code> 是 phase controls、override flags、delegation、audit paths、core goal contract 的 machine-readable 版本。</p>
-              <div class="tag-row"><span class="tag">.github/agent-control.yaml</span></div>
+            <article class="text-card">
+              <h4>4. UX Harness：把限制做進操作介面</h4>
+              <p>
+                VSIX 不是裝飾層，而是把 expected MCP tools、approval card、artifact index、pipeline dashboard 與 blocker playbook 放到使用者工作流中。這也是網站為什麼強調確認點、阻擋原因與可追溯輸出，而不是只展示工具清單。
+              </p>
             </article>
           </div>
 
-          <div class="section">
-            <div class="section-header">
-              <h3>實際 MCP tool surface</h3>
-              <p>這是目前程式碼中各 module 的 <code>@server.tool()</code> 分布。</p>
-            </div>
-            <table class="tool-table" aria-label="MCP tool modules verified from code">
+          <h4>權威 code source：網站內容從哪裡來</h4>
+          <div class="grid two">
+            <article class="text-card">
+              <h4>Pipeline state machine</h4>
+              <p><code>src/rde/application/pipeline/__init__.py</code> 定義目前 13 個 phase、必要 artifact、前置條件與確認點。網站的流程圖、phase 說明與 gate 敘述以這裡為準。</p>
+            </article>
+            <article class="text-card">
+              <h4>MCP registration</h4>
+              <p><code>src/rde/interface/mcp/server.py</code> 實際載入 9 個 tool module；網站的 tool inventory 不是手寫估計，而是依每個 module 的 <code>@server.tool</code> 註冊數校準。</p>
+            </article>
+            <article class="text-card">
+              <h4>VSIX expected tools</h4>
+              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 49 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
+            </article>
+            <article class="text-card">
+              <h4>Agent control manifest</h4>
+              <p><code>.github/agent-control.yaml</code> 描述 phase_controls、override_controls、audit_contract、delegation 與 UX harness；網站的治理規則與 agent 行為說明以這份 manifest 為準。</p>
+            </article>
+          </div>
+
+          <h4>目前可見的 MCP tool surface</h4>
+          <p>
+            下表把工程實作轉成網站說明用語。它的目的不是讓非工程師背工具名稱，而是讓維護者知道每一塊介紹可以回到哪個 module 查證。
+          </p>
+          <div class="table-wrap">
+            <table>
               <thead>
-                <tr><th>Module</th><th>Tool count</th><th>Registered tools</th></tr>
+                <tr><th>Module</th><th>Tools</th><th>工程責任</th><th>網站呈現重點</th></tr>
               </thead>
               <tbody id="verifiedToolRows"></tbody>
             </table>
           </div>
 
-          <div class="section">
-            <div class="grid">
-              <article class="card">
-                <h4>受控 ideation</h4>
-                <p>Phase 4 的 <code>propose_analysis_plan</code> 不是直接鎖計畫；它產生 greedy candidates、review、execution schedule 與 enrichment artifacts，供使用者審查後確認。</p>
-              </article>
-              <article class="card">
-                <h4>方法學 gate</h4>
-                <p>Phase 5/6 的 <code>register_analysis_plan(confirm=true)</code> 會做 completeness review，確認後才鎖定 <code>analysis_plan.yaml</code>。</p>
-              </article>
-              <article class="card">
-                <h4>no-code UX harness</h4>
-                <p><code>get_approval_card</code>、<code>get_harness_dashboard</code>、<code>build_artifact_index</code>、<code>get_blocker_playbook</code> 只提供導覽與 artifact，不繞過 phase gate。</p>
-              </article>
-            </div>
+          <h4>設計與治理如何落到使用者體驗</h4>
+          <div class="grid three">
+            <article class="text-card">
+              <h4>受控 ideation</h4>
+              <p>Auto Research 不是自動把探索結果放進主結論；branch experiment 必須經過 evaluation、live evidence、audit gate 與使用者確認，才可能被提升為 plan amendment。</p>
+            </article>
+            <article class="text-card">
+              <h4>方法學 gate</h4>
+              <p>常態性、缺失模式、共線性、多重比較、effect size、power 等檢查分散在 readiness、analysis 與 audit 階段；網站用白話說明這些 gate 會如何影響分析路徑。</p>
+            </article>
+            <article class="text-card">
+              <h4>報告可信度</h4>
+              <p>report readiness、claim provenance、figure interpretation、run_audit 與 handoff package 讓報告不只「能輸出」，而是能回頭查證每個結論從哪個 artifact 來。</p>
+            </article>
           </div>
         </section>
 
@@ -1604,49 +1624,86 @@ python3 -m rde</pre>
           </div>
         </section>
 
-        <section class="page" data-page="code-truth-en">
-          <div class="section-header">
-            <div>
-              <p class="kicker">Code-Verified Contract</p>
-              <h3>How this website stays aligned with real code</h3>
-            </div>
-            <p>The numbers and claims below are derived from implementation paths, not copied from old prose documentation.</p>
-          </div>
-
+        <section class="page" data-page="engineer-en">
+          <p class="kicker">Engineer Section</p>
+          <h3>Engineer Section: design, architecture, and code alignment</h3>
+          <p>
+            This area is for maintainers, deployment teams, and reviewers who need to verify that the public documentation reflects the real implementation. The site does not re-imagine RDE; it translates the current repository contracts, MCP tools, VSIX harness, agent-control rules, and audit gates into readable documentation.
+          </p>
           <div class="grid two">
-            <article class="card">
-              <h4>Pipeline state machine</h4>
-              <p><code>PipelinePhase</code> defines Phase 00-12; prerequisites, user confirmation, and required artifacts define the phase gates.</p>
-              <div class="tag-row"><span class="tag">src/rde/application/pipeline/__init__.py</span></div>
+            <article class="text-card">
+              <h4>1. Design principle: the agent is not a black box</h4>
+              <p>
+                RDE is built around auditable exploration. Analysis decisions are expected to leave artifacts, decision logs, and deviation logs. The website's plan-first, execute-second, audit-last language maps to the pipeline state machine, artifact gates, plan lock, and audit tools.
+              </p>
             </article>
-            <article class="card">
-              <h4>MCP registration</h4>
-              <p><code>create_server()</code> registers 9 tool modules: project, discovery, profiling, plan, analysis, branch, UX, report, and audit.</p>
-              <div class="tag-row"><span class="tag">src/rde/interface/mcp/server.py</span></div>
+            <article class="text-card">
+              <h4>2. Architecture: DDD with an MCP interface</h4>
+              <p>
+                Public tool entrypoints live in <code>src/rde/interface/mcp/</code>. Application flow is coordinated through <code>src/rde/application/</code> sessions, pipeline logic, and use cases. Domain objects hold phase, artifact, and policy rules; infrastructure code handles external services and adapters.
+              </p>
             </article>
-            <article class="card">
-              <h4>VSIX expected tools</h4>
-              <p>The VS Code extension manifest lists 49 <code>expectedMcpTools</code>, matching actual <code>@server.tool()</code> registration.</p>
-              <div class="tag-row"><span class="tag">vscode-extension/package.json</span></div>
+            <article class="text-card">
+              <h4>3. Execution strategy: local-lite first, delegation when needed</h4>
+              <p>
+                Core descriptive statistics and common tests are handled by local scipy/pandas engines. Heavier models, AutoML, and external statistical workflows can be delegated through the automl-stat-mcp gateway. The site separates basic statistics from Auto Research so non-engineers do not assume every model runs in one layer.
+              </p>
             </article>
-            <article class="card">
-              <h4>Agent control manifest</h4>
-              <p><code>agent-control.yaml</code> is the machine-readable contract for phase controls, overrides, delegation, audit paths, and the UX harness.</p>
-              <div class="tag-row"><span class="tag">.github/agent-control.yaml</span></div>
+            <article class="text-card">
+              <h4>4. UX harness: controls are part of the workflow</h4>
+              <p>
+                The VSIX is not just a UI shell. It carries expected MCP tools, approval cards, artifact indexes, pipeline dashboards, and blocker playbooks into the user's workflow. That is why the site emphasizes confirmations, blockers, and traceable outputs instead of only listing tools.
+              </p>
             </article>
           </div>
 
-          <div class="section">
-            <div class="section-header">
-              <h3>Actual MCP tool surface</h3>
-              <p>This is the current <code>@server.tool()</code> distribution by module.</p>
-            </div>
-            <table class="tool-table" aria-label="MCP tool modules verified from code">
+          <h4>Authoritative code sources</h4>
+          <div class="grid two">
+            <article class="text-card">
+              <h4>Pipeline state machine</h4>
+              <p><code>src/rde/application/pipeline/__init__.py</code> defines the current 13 phases, required artifacts, prerequisites, and confirmations. The site's workflow and gate explanations are anchored there.</p>
+            </article>
+            <article class="text-card">
+              <h4>MCP registration</h4>
+              <p><code>src/rde/interface/mcp/server.py</code> loads 9 tool modules. The site inventory is calibrated against actual <code>@server.tool</code> registrations rather than copied from stale README text.</p>
+            </article>
+            <article class="text-card">
+              <h4>VSIX expected tools</h4>
+              <p><code>vscode-extension/package.json</code> lists 49 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
+            </article>
+            <article class="text-card">
+              <h4>Agent control manifest</h4>
+              <p><code>.github/agent-control.yaml</code> describes phase controls, override controls, audit contracts, delegation, and UX harness behavior. Governance descriptions on the site are based on that manifest.</p>
+            </article>
+          </div>
+
+          <h4>Current MCP tool surface</h4>
+          <p>
+            This table turns implementation modules into documentation language. It is mainly for maintainers: every public explanation should be traceable back to a concrete module.
+          </p>
+          <div class="table-wrap">
+            <table>
               <thead>
-                <tr><th>Module</th><th>Tool count</th><th>Registered tools</th></tr>
+                <tr><th>Module</th><th>Tools</th><th>Engineering responsibility</th><th>Site explanation</th></tr>
               </thead>
               <tbody id="verifiedToolRowsEn"></tbody>
             </table>
+          </div>
+
+          <h4>How governance becomes user experience</h4>
+          <div class="grid three">
+            <article class="text-card">
+              <h4>Governed ideation</h4>
+              <p>Auto Research does not automatically merge exploratory findings into the main conclusion. Branch experiments must pass evaluation, live evidence, audit gates, and user confirmation before becoming plan amendments.</p>
+            </article>
+            <article class="text-card">
+              <h4>Method gates</h4>
+              <p>Normality, missingness, collinearity, multiple comparisons, effect size, and power checks are distributed across readiness, analysis, and audit phases. The site explains how those gates change the analysis path in plain language.</p>
+            </article>
+            <article class="text-card">
+              <h4>Report trustworthiness</h4>
+              <p>Report readiness, claim provenance, figure interpretation, audit review, and handoff packages make reports traceable. The point is not just exporting a document; it is being able to verify where every claim came from.</p>
+            </article>
           </div>
         </section>
 
@@ -1846,7 +1903,7 @@ python3 -m rde</pre>
         ["plain-guide", "非工程師導覽", "非工程師 使用者 白話 說明 資料分析 報告"],
         ["statistics", "RDE 會做哪些統計", "統計 方法 table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
         ["autoresearch", "Auto Research 概念", "auto research autoresearch branch 探索 分支 假設 自動研究"],
-        ["code-truth", "依真實程式碼校準", "程式碼 校準 真實 code manifest verified"],
+        ["engineer", "工程師分區", "工程師 架構 設計 程式碼 校準 真實 code manifest verified DDD harness"],
         ["workflow", "13-Phase 工作流程", "流程 phase workflow 13"],
         ["tools", "MCP 工具盤點", "工具 mcp tools phase"],
         ["artifacts", "Artifacts 與審計鏈", "artifact audit decision deviation log"],
@@ -1858,7 +1915,7 @@ python3 -m rde</pre>
         ["plain-guide", "Plain-Language Guide", "non engineer user plain language data analysis report"],
         ["statistics", "Statistics In RDE", "statistics table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
         ["autoresearch", "Auto Research", "auto research autoresearch branch hypothesis controlled exploration"],
-        ["code-truth", "Code-Verified Contract", "code verified manifest implementation"],
+        ["engineer", "Engineer Section", "engineer architecture design code verified manifest implementation DDD harness"],
         ["workflow", "13-Phase Workflow", "workflow phase 13 audit"],
         ["tools", "MCP Tools", "mcp tools phase"],
         ["artifacts", "Artifacts & Audit", "artifact audit decision deviation log"],
