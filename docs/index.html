@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Data Explorer | 13-Phase Auditable EDA Workflow</title>
+  <meta name="description" content="Research Data Explorer 的 13-Phase 可審計 EDA 工作流程、MCP 工具、artifact 與 VSIX/Codex 使用介紹。">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f3f7f4;
+      --surface: #ffffff;
+      --surface-strong: #e8f0ec;
+      --ink: #18231f;
+      --muted: #5a6862;
+      --line: #cfdbd5;
+      --line-strong: #9fb1a9;
+      --teal: #0f766e;
+      --teal-deep: #0b4f49;
+      --blue: #2563eb;
+      --amber: #b45309;
+      --red: #be123c;
+      --green: #15803d;
+      --shadow: 0 18px 50px rgb(24 35 31 / 12%);
+      --radius: 8px;
+      --mono: "SFMono-Regular", "Cascadia Code", "Liberation Mono", Menlo, monospace;
+      --sans: "Aptos", "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      --serif: "Iowan Old Style", "Palatino Linotype", "Noto Serif TC", PMingLiU, serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(135deg, rgb(15 118 110 / 10%), transparent 28%),
+        linear-gradient(315deg, rgb(180 83 9 / 12%), transparent 32%),
+        var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.65;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 26px 20px;
+      border-right: 1px solid var(--line);
+      background: rgb(255 255 255 / 82%);
+      backdrop-filter: blur(18px);
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: grid;
+      gap: 8px;
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--teal-deep);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 28px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .lang {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .lang a,
+    .lang span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      background: var(--surface);
+    }
+
+    .lang span {
+      color: var(--surface);
+      border-color: var(--teal-deep);
+      background: var(--teal-deep);
+    }
+
+    .search {
+      position: relative;
+    }
+
+    .search input {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 12px 9px 38px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      outline: none;
+    }
+
+    .search svg {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav a {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      color: var(--ink);
+      border-color: var(--line);
+      background: var(--surface);
+    }
+
+    .nav .mark {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      color: var(--surface);
+      background: var(--teal);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .sidebar-note {
+      margin-top: auto;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-strong);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 8;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 88%);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar strong {
+      font-family: var(--serif);
+      font-size: 18px;
+    }
+
+    .menu-button {
+      display: inline-grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .content {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 42px clamp(18px, 4vw, 58px) 70px;
+    }
+
+    .page {
+      display: none;
+      animation: enter 260ms ease-out both;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    @keyframes enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      gap: 30px;
+      align-items: center;
+      padding: clamp(24px, 4vw, 42px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgb(15 118 110 / 12%), transparent 52%),
+        var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .hero h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(38px, 6vw, 68px);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 65ch;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .button.primary {
+      border-color: var(--teal-deep);
+      background: var(--teal-deep);
+      color: var(--surface);
+    }
+
+    .button svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .hero-panel {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgb(255 255 255 / 76%);
+    }
+
+    .runline {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .runline strong {
+      color: var(--teal-deep);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    .runline p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      margin-top: 6px;
+      border-radius: 999px;
+      background: var(--teal);
+      box-shadow: 0 0 0 5px rgb(15 118 110 / 14%);
+    }
+
+    .section {
+      margin-top: 34px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .section-header h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(26px, 3vw, 38px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .section-header p {
+      margin: 0;
+      max-width: 66ch;
+      color: var(--muted);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .stat {
+      min-height: 132px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .stat strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 44px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      min-width: 0;
+    }
+
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--surface-strong);
+      color: var(--teal-deep);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .figure-frame {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .figure-frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 92px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .phase code,
+    code {
+      font-family: var(--mono);
+    }
+
+    .phase-number {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 34px;
+      border-radius: 999px;
+      color: var(--surface);
+      background: var(--ink);
+      font-family: var(--mono);
+      font-weight: 800;
+    }
+
+    .phase h4 {
+      margin: 0 0 4px;
+      font-size: 17px;
+    }
+
+    .phase p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .phase-badge {
+      white-space: nowrap;
+      color: var(--teal-deep);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .tool-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .tool-table th,
+    .tool-table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .tool-table th {
+      color: var(--teal-deep);
+      background: var(--surface-strong);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    .tool-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow-item {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .flow-item strong {
+      color: var(--teal-deep);
+    }
+
+    .flow-item p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .callout {
+      margin-top: 18px;
+      padding: 18px;
+      border-left: 5px solid var(--teal);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .callout strong {
+      color: var(--ink);
+    }
+
+    .callout.warning {
+      border-left-color: var(--amber);
+    }
+
+    .callout.danger {
+      border-left-color: var(--red);
+    }
+
+    .command {
+      margin: 0;
+      padding: 16px;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      color: #d7f7ef;
+      background: #13221f;
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .artifact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .artifact {
+      display: grid;
+      grid-template-columns: 11px 1fr;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .artifact::before {
+      content: "";
+      width: 11px;
+      height: 100%;
+      min-height: 58px;
+      border-radius: 999px;
+      background: var(--teal);
+    }
+
+    .artifact h4 {
+      margin: 0 0 6px;
+      font-size: 17px;
+    }
+
+    .artifact p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .footer {
+      margin-top: 46px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hidden-by-search {
+      display: none !important;
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        display: block;
+      }
+
+      .topbar {
+        display: flex;
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 20;
+        width: min(84vw, 330px);
+        transform: translateX(-104%);
+        transition: transform 180ms ease;
+        box-shadow: var(--shadow);
+      }
+
+      body.menu-open .sidebar {
+        transform: translateX(0);
+      }
+
+      .content {
+        padding-top: 24px;
+      }
+
+      .hero,
+      .grid,
+      .grid.two,
+      .artifact-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .content {
+        padding-inline: 14px;
+      }
+
+      .hero {
+        padding: 20px;
+      }
+
+      .hero h2 {
+        font-size: 40px;
+      }
+
+      .section-header {
+        display: grid;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .phase,
+      .flow-item {
+        grid-template-columns: 1fr;
+      }
+
+      .phase-badge {
+        white-space: normal;
+      }
+
+      .tool-table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <p class="kicker">文件網站</p>
+        <h1>Research Data Explorer</h1>
+        <p>13-Phase Auditable EDA Pipeline for agent-driven research data analysis.</p>
+      </div>
+
+      <div class="lang" aria-label="language">
+        <a href="https://github.com/u9401066/research-data-explorer/blob/main/README.md">EN</a>
+        <span>繁中</span>
+      </div>
+
+      <label class="search" aria-label="篩選頁面">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input id="filter" type="search" placeholder="篩選頁面">
+      </label>
+
+      <nav class="nav" id="nav" aria-label="站內選單">
+        <a href="#/overview-zh" data-route="overview-zh" data-keywords="總覽 產品定位 overview rde eda">
+          <span class="mark">01</span><span>總覽</span>
+        </a>
+        <a href="#/workflow-zh" data-route="workflow-zh" data-keywords="流程 phase workflow 13">
+          <span class="mark">02</span><span>13-Phase 工作流程</span>
+        </a>
+        <a href="#/tools-zh" data-route="tools-zh" data-keywords="工具 mcp tools phase">
+          <span class="mark">03</span><span>MCP 工具盤點</span>
+        </a>
+        <a href="#/artifacts-zh" data-route="artifacts-zh" data-keywords="artifact audit decision deviation log">
+          <span class="mark">04</span><span>Artifacts 與審計鏈</span>
+        </a>
+        <a href="#/flows-zh" data-route="flows-zh" data-keywords="快速探索 full report table one comparison handoff">
+          <span class="mark">05</span><span>常見使用流程</span>
+        </a>
+        <a href="#/setup-zh" data-route="setup-zh" data-keywords="vsix codex copilot docker automl setup">
+          <span class="mark">06</span><span>VSIX / Codex 啟動</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-note">
+        內容來源對齊 README、AGENTS、agent-control 與 docs/figures。RDE 的主軸是「工具執行有紀錄，報告可以被審查」。
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <strong>RDE Workflow</strong>
+        <button class="menu-button" id="menuButton" aria-label="開啟選單">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="content">
+        <section class="page active" data-page="overview-zh">
+          <div class="hero">
+            <div>
+              <p class="kicker">總覽</p>
+              <h2>可審計的研究資料探索流程</h2>
+              <p>
+                RDE 不是讓 agent 自由寫一段 notebook 就結束，而是把 intake、schema、概念對齊、分析計畫、執行、報告、audit 與 handoff 放進同一條可追溯 pipeline。
+              </p>
+              <div class="hero-actions">
+                <a class="button primary" href="#/workflow-zh">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path>
+                  </svg>
+                  查看 13-Phase
+                </a>
+                <a class="button" href="figures/03-workflow-detail.svg">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path>
+                  </svg>
+                  開啟流程圖
+                </a>
+              </div>
+            </div>
+
+            <div class="hero-panel" aria-label="RDE pipeline highlights">
+              <div class="runline">
+                <span class="dot"></span>
+                <div><strong>先理解資料</strong><p>格式、大小、PII、schema、profile 與 quality artifact 先建立。</p></div>
+              </div>
+              <div class="runline">
+                <span class="dot"></span>
+                <div><strong>再鎖定計畫</strong><p>研究問題、變數角色、方法學與 missing strategy 經確認後才能執行。</p></div>
+              </div>
+              <div class="runline">
+                <span class="dot"></span>
+                <div><strong>最後審計報告</strong><p>decision log、deviation log、report readiness 與 audit report 共同判定可信度。</p></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats" aria-label="RDE metrics">
+            <div class="stat"><strong>13</strong><span>受治理 Phase</span></div>
+            <div class="stat"><strong>49</strong><span>VSIX 預期 MCP tools</span></div>
+            <div class="stat"><strong>10</strong><span>Hard constraints</span></div>
+            <div class="stat"><strong>9</strong><span>Core readiness dimensions</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>產品定位</h3>
+              <p>RDE 的價值不是跑最多模型，而是讓非資料科學家也能走完可審查、可交接、可重現的 EDA 報告流程。</p>
+            </div>
+            <div class="grid">
+              <article class="card">
+                <h4>給真實資料使用者</h4>
+                <p>使用者可以提供 CSV、Excel 或其他支援格式，但不需要先知道該用哪些統計方法。</p>
+                <div class="tag-row"><span class="tag">run_intake</span><span class="tag">build_schema</span><span class="tag">profile_dataset</span></div>
+              </article>
+              <article class="card">
+                <h4>給 agent 的控制面</h4>
+                <p>Copilot、Codex、Cline 應透過 MCP tools 執行，不用臨時 shell 腳本替代 pipeline。</p>
+                <div class="tag-row"><span class="tag">artifact gate</span><span class="tag">plan lock</span></div>
+              </article>
+              <article class="card">
+                <h4>給報告與論文交接</h4>
+                <p>報告包含方法、結果、圖表、決策、偏離與 audit。作者從完整報告中抽取可發表內容。</p>
+                <div class="tag-row"><span class="tag">assemble_report</span><span class="tag">export_handoff</span></div>
+              </article>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="figure-frame">
+              <img src="figures/01-overall-concept.svg" alt="Research Data Explorer 整體概念圖">
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="workflow-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">13-Phase Workflow</p>
+              <h3>從收資料到 handoff 的受治理路徑</h3>
+            </div>
+            <p>Phase 不是提示詞清單，而是 artifact gate。前一階段必要產物不存在時，後續工具不應繼續執行。</p>
+          </div>
+
+          <div class="figure-frame">
+            <img src="figures/03-workflow-detail.svg" alt="RDE 13-Phase 工作流程細部介紹">
+          </div>
+
+          <div class="section">
+            <div class="timeline" id="phaseTimeline"></div>
+          </div>
+
+          <div class="callout warning">
+            <strong>關鍵 gate：</strong>
+            Phase 3 概念對齊與 Phase 6 分析計畫鎖定需要明確確認；Phase 8 之後若偏離 locked plan，必須寫入 deviation log。
+          </div>
+        </section>
+
+        <section class="page" data-page="tools-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">MCP Tools</p>
+              <h3>工具不是附屬品，是 pipeline 控制面</h3>
+            </div>
+            <p>每個主要操作都應透過 RDE MCP tool 產生 artifact。automl-stat-mcp 是可選重型引擎，核心報告路徑可 local-lite 完成。</p>
+          </div>
+
+          <table class="tool-table" aria-label="RDE MCP tools by phase">
+            <thead>
+              <tr><th>階段</th><th>主要工具</th><th>用途</th></tr>
+            </thead>
+            <tbody id="toolRows"></tbody>
+          </table>
+
+          <div class="section">
+            <div class="grid two">
+              <article class="card">
+                <h4>RDE MCP Server</h4>
+                <p>管理 project、pipeline state、artifact store、decision/deviation log、report readiness 與 audit。</p>
+                <div class="tag-row"><span class="tag">src/rde/interface/mcp/tools</span></div>
+              </article>
+              <article class="card">
+                <h4>automl-stat-mcp</h4>
+                <p>保留為 optional vendor/heavy engine。Docker 不可用時，RDE 仍應用 local-lite 跑標準統計與核心報告。</p>
+                <div class="tag-row"><span class="tag">optional endpoint</span><span class="tag">localhost:8002</span></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="artifacts-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Artifacts & Audit</p>
+              <h3>每個判斷都要能回頭檢查</h3>
+            </div>
+            <p>RDE 的輸出不只是一份摘要，而是一組 project-scoped artifacts。報告應能指出資訊來自哪個 phase、哪個檢查與哪個 log entry。</p>
+          </div>
+
+          <div class="artifact-grid">
+            <article class="artifact">
+              <div><h4>資料理解 artifacts</h4><p><code>intake_report.json</code>、<code>schema.json</code>、profile 與 quality report 先建立資料可信基礎。</p></div>
+            </article>
+            <article class="artifact">
+              <div><h4>計畫 artifacts</h4><p><code>concept_alignment.md</code>、<code>variable_roles.json</code>、<code>analysis_plan.yaml</code> 讓研究問題到方法的映射可審查。</p></div>
+            </article>
+            <article class="artifact">
+              <div><h4>執行 artifacts</h4><p>Phase 8 的分析、圖表、Table 1、模型摘要與 fallback 說明都寫入 project-scoped 目錄。</p></div>
+            </article>
+            <article class="artifact">
+              <div><h4>審計 artifacts</h4><p><code>decision_log.jsonl</code>、<code>deviation_log.jsonl</code>、<code>report_readiness</code>、<code>audit_report.json</code> 是報告可信度核心。</p></div>
+            </article>
+          </div>
+
+          <div class="section">
+            <div class="grid">
+              <article class="card">
+                <h4>Hard constraints</h4>
+                <p>檔案大小、格式白名單、PII 預設阻擋、樣本數、report integrity、plan lock、artifact gate 與 append-only logs。</p>
+              </article>
+              <article class="card">
+                <h4>Soft constraints</h4>
+                <p>常態性、多重比較、missing pattern、outlier strategy、VIF、effect size、power 與 sensitivity analysis 提醒。</p>
+              </article>
+              <article class="card">
+                <h4>Report readiness</h4>
+                <p>核心目標缺漏會以 <code>core_goal:*</code> gaps 回報，不能把未完成報告誤標為 production-ready。</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="callout danger">
+            <strong>不可默默換方法：</strong>
+            若 Phase 8 的實際分析偏離 locked plan，agent 必須主動說明原因並呼叫 <code>log_deviation</code>。
+          </div>
+        </section>
+
+        <section class="page" data-page="flows-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Common Flows</p>
+              <h3>使用者說法對應到工具路徑</h3>
+            </div>
+            <p>RDE 的網站應讓使用者知道「我想看資料」、「我想比較兩組」、「我要報告」分別會觸發哪些受治理步驟。</p>
+          </div>
+
+          <div class="flow">
+            <div class="flow-item">
+              <strong>完整報告</strong>
+              <p>Phase 0-12：project setup、intake、schema、alignment、plan、readiness、execution、collect、report、audit、auto-improve、handoff。</p>
+            </div>
+            <div class="flow-item">
+              <strong>Quick Explore</strong>
+              <p><code>init_project</code> → <code>run_intake</code> → <code>build_schema</code> → <code>profile_dataset</code> → quick report。輸出應標記為未完整 audit。</p>
+            </div>
+            <div class="flow-item">
+              <strong>組間比較 / Table 1</strong>
+              <p>先走 Phase 0-7，確認變數角色與前提後，再執行 <code>generate_table_one</code> 或 <code>compare_groups</code>。</p>
+            </div>
+            <div class="flow-item">
+              <strong>論文交接</strong>
+              <p><code>collect_results</code> 標記 publishable items，<code>assemble_report</code> 組報告，<code>run_audit</code> 評分，最後 <code>export_handoff</code>。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="setup-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">VSIX / Codex</p>
+              <h3>local-first 啟動，不把 Docker 當核心門檻</h3>
+            </div>
+            <p>RDE 的 VSIX 與 Codex 支援應先啟動 bundled/local RDE MCP。automl-stat-mcp 只在需要重型 vendor workflow 時啟用。</p>
+          </div>
+
+          <div class="grid two">
+            <article class="card">
+              <h4>Codex MCP 設定</h4>
+              <pre class="command">python scripts/configure_codex_mcp.py --apply
+python scripts/codex_rde_smoke.py --list-tools-only
+python scripts/codex_rde_smoke.py</pre>
+            </article>
+            <article class="card">
+              <h4>手動啟動 RDE MCP</h4>
+              <pre class="command">python3 -m pip install -e .
+python3 -m rde</pre>
+            </article>
+          </div>
+
+          <div class="section">
+            <div class="grid">
+              <article class="card">
+                <h4>VS Code Extension</h4>
+                <p>Command Palette 可用 <code>RDE: Configure Codex MCP</code>、<code>RDE: Run Full Pipeline (13-Phase)</code> 與 UX Harness Dashboard。</p>
+              </article>
+              <article class="card">
+                <h4>No-Docker local-lite</h4>
+                <p>支援描述統計、Table 1、組間比較、ROC/AUC、基本 power hint、Kaplan-Meier 與輕量 adjusted models。</p>
+              </article>
+              <article class="card">
+                <h4>Optional automl</h4>
+                <p>若需要 full propensity matching、進階 survival 或 AutoML training，可另啟 <code>vendor/automl-stat-mcp</code>。</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="figure-frame">
+              <img src="figures/02-system-architecture.svg" alt="RDE DDD 系統架構圖">
+            </div>
+          </div>
+        </section>
+
+        <footer class="footer">
+          Research Data Explorer workflow site. Source-aligned with repository docs and designed for GitHub Pages under <code>docs/</code>.
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const phases = [
+      ["0", "Project Setup", "`init_project` 建立 project、目錄結構與 artifact store。", "project.yaml"],
+      ["1", "Data Intake", "`scan_data_folder` / `run_intake` 檢查格式、大小、PII。", "intake_report"],
+      ["2", "Schema Registry", "`load_dataset`、`build_schema`、`profile_dataset`、`assess_quality`。", "schema/profile"],
+      ["3", "Concept Alignment", "`align_concept(confirm=true)` 將研究問題映射到 schema 變數。", "user confirm"],
+      ["4", "Creative Ideation", "`propose_analysis_plan(confirm=false)` 產生候選分析想法。", "draft"],
+      ["5", "Plan Completeness Review", "檢查方法池是否足以支撐 minimum / academic / production readiness。", "method review"],
+      ["6", "Plan Registration", "`register_analysis_plan(confirm=true)` 鎖定分析計畫。", "locked plan"],
+      ["7", "Pre-Exploration Check", "`check_readiness` 執行樣本數、常態性、缺失、共線性等檢查。", "readiness"],
+      ["8", "Execute Exploration", "執行 Table 1、group comparison、correlation、advanced analysis、visualization。", "decision log"],
+      ["9", "Collect Results", "`collect_results` 彙整結果並標記 publishable items。", "summary"],
+      ["10", "Report Assembly", "`assemble_report` / `export_report` 產出完整 EDA 報告。", "report"],
+      ["11", "Audit Review", "`run_audit` 檢查 plan adherence、方法適當性、PII 與 reproducibility。", "audit"],
+      ["12", "Auto-Improve & Handoff", "`auto_improve`、`export_handoff`、`verify_audit_trail` 完成交接。", "handoff"]
+    ];
+
+    const tools = [
+      ["Phase 0-2", "init_project, scan_data_folder, run_intake, load_dataset, build_schema, profile_dataset, assess_quality", "建立專案、收件、載入資料、推論 schema、產生 profile 與品質評估。"],
+      ["Phase 3-6", "align_concept, propose_analysis_plan, register_analysis_plan", "研究問題對齊、分析候選方案、方法學審查與 locked plan。"],
+      ["Phase 7", "check_readiness", "前提檢查：樣本數、常態性、缺失模式、outliers、共線性與分析可行性。"],
+      ["Phase 8", "suggest_cleaning, apply_cleaning, generate_table_one, analyze_variable, compare_groups, correlation_matrix, run_advanced_analysis, create_visualization", "依 locked plan 執行探索與統計，並自動寫入 decision log。"],
+      ["Branch / Autoresearch", "open_exploration_branch, suggest_branch_experiments, start_autoresearch_run, evaluate_branch, promote_branch_to_plan_amendment", "以受控分支探索額外假設，必要時轉為 plan amendment。"],
+      ["Phase 9-12", "collect_results, assemble_report, export_report, run_audit, auto_improve, export_final_report, export_handoff, verify_audit_trail", "彙整結果、組裝報告、審計、改善、匯出與驗證審計鏈。"],
+      ["Cross-phase UX", "get_pipeline_status, get_decision_log, get_deviation_log, log_deviation, get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook", "讓 agent 與使用者看見目前狀態、阻塞點、確認卡與 artifacts。"]
+    ];
+
+    function renderPhases() {
+      const target = document.getElementById("phaseTimeline");
+      target.innerHTML = phases.map(([number, title, body, badge]) => `
+        <article class="phase">
+          <span class="phase-number">P${number}</span>
+          <div>
+            <h4>${title}</h4>
+            <p>${body.replaceAll("`", "")}</p>
+          </div>
+          <span class="phase-badge">${badge}</span>
+        </article>
+      `).join("");
+    }
+
+    function renderTools() {
+      const target = document.getElementById("toolRows");
+      target.innerHTML = tools.map(([phase, names, purpose]) => `
+        <tr>
+          <td><strong>${phase}</strong></td>
+          <td><code>${names}</code></td>
+          <td>${purpose}</td>
+        </tr>
+      `).join("");
+    }
+
+    function normalizeRoute(hash) {
+      return (hash || "#/overview-zh").replace(/^#\//, "").replace(/\?.*$/, "") || "overview-zh";
+    }
+
+    function setRoute() {
+      const route = normalizeRoute(window.location.hash);
+      const pages = document.querySelectorAll("[data-page]");
+      const navItems = document.querySelectorAll("[data-route]");
+      const known = Array.from(pages).some((page) => page.dataset.page === route);
+      const activeRoute = known ? route : "overview-zh";
+
+      pages.forEach((page) => page.classList.toggle("active", page.dataset.page === activeRoute));
+      navItems.forEach((item) => item.classList.toggle("active", item.dataset.route === activeRoute));
+      document.body.classList.remove("menu-open");
+
+      if (!known) {
+        window.location.hash = "#/overview-zh";
+      }
+    }
+
+    function bindFilter() {
+      const input = document.getElementById("filter");
+      const items = document.querySelectorAll("[data-route]");
+      input.addEventListener("input", () => {
+        const query = input.value.trim().toLowerCase();
+        items.forEach((item) => {
+          const haystack = `${item.textContent} ${item.dataset.keywords}`.toLowerCase();
+          item.classList.toggle("hidden-by-search", query && !haystack.includes(query));
+        });
+      });
+    }
+
+    document.getElementById("menuButton").addEventListener("click", () => {
+      document.body.classList.toggle("menu-open");
+    });
+
+    document.addEventListener("click", (event) => {
+      if (window.innerWidth > 980) return;
+      const sidebar = document.getElementById("sidebar");
+      const menuButton = document.getElementById("menuButton");
+      if (!sidebar.contains(event.target) && !menuButton.contains(event.target)) {
+        document.body.classList.remove("menu-open");
+      }
+    });
+
+    renderPhases();
+    renderTools();
+    bindFilter();
+    setRoute();
+    window.addEventListener("hashchange", setRoute);
+  </script>
+</body>
+</html>
