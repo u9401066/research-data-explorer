@@ -1,181 +1,139 @@
 # Research Data Explorer
 
-Research Data Explorer (RDE) is a 13-phase auditable EDA pipeline built as an MCP server for VS Code agents.
+**Research Data Explorer (RDE)** is a code-backed MCP server and VS Code harness for auditable exploratory data analysis. It is built for real research datasets where the agent must show its work: intake decisions, schema assumptions, analysis planning, execution artifacts, deviations, report readiness, and audit evidence.
 
-It is designed to constrain analysis behavior instead of letting an agent improvise freely. The repository combines:
+RDE is not a generic "run every statistical method" bot. Its value is narrower and more useful: put a trusted set of EDA, statistical, report, and handoff tools inside a governed workflow that an agent cannot legitimately skip.
 
-- phase gates and artifact gates
-- explicit user confirmation for concept alignment and plan locking
-- append-only decision and deviation logs
-- hard and soft statistical constraints
-- local-lite advanced analysis for no-Docker VSIX runs, with optional delegated heavy analysis through automl-stat-mcp
+**Live workflow site:** <https://u9401066.github.io/research-data-explorer/>
 
-More honestly, the positioning is this:
+## Current Code-Verified Snapshot
 
-- standard, template-friendly analysis families can be brought into the governed workflow
-- specialized methods that depend heavily on domain context or study design will often still require manual execution, custom vendor integration, or purpose-built code
-- RDE is therefore not a universal “run every statistical method automatically” MCP
-- and if the goal is only generic one-shot auto-analysis, other more general-purpose MCP or agent tools already exist in the ecosystem
+This README is aligned with the current implementation, not only the older prose docs:
 
-RDE's value is not maximum method coverage. Its value is putting a narrower but trusted method pool inside an auditable, reviewable, handoff-ready workflow.
+| Contract area | Current implementation source | What it says |
+| --- | --- | --- |
+| Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
+| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 9 tool modules are registered into the `research-data-explorer` FastMCP server |
+| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) and [vscode-extension/package.json](vscode-extension/package.json) | 49 expected MCP tools, matching actual `@server.tool()` registration |
+| Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
+| VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
+| Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
 
-## Product Doctrine
+## What RDE Solves
 
-RDE is built for non-data-scientists who can bring real data but may not know which analyses to run, how to combine methods, or how to code the analysis. The harness therefore has to help an agent:
+Traditional EDA is often difficult to review because method changes are buried in notebooks, intermediate assumptions disappear, and reports do not explain why a method was chosen or changed.
 
-1. understand the data through intake, profiling, schema, quality, and PII checks
-2. plan analyses from the research question and detected variable roles
-3. execute reproducible exploration with decision and deviation logs
-4. run and interpret analysis results, including adjusted local models when Docker is not available
-5. produce a report package that can be audited, improved, exported, and handed off
+RDE makes the agent behave more like a traceable analysis operator:
 
-`report_readiness` and `run_audit` now evaluate this core goal explicitly. Missing artifacts for data understanding, planning, readiness, execution, traceability, report generation, or agent-friendly/no-code operation are reported as `core_goal:*` readiness gaps instead of being treated as a finished report.
+1. It creates a project-scoped artifact store before touching data.
+2. It runs intake checks before loading datasets, including format, size, and PII gates.
+3. It builds a schema registry and profile before planning analyses.
+4. It requires explicit user confirmation for concept alignment and plan ideation.
+5. It locks an analysis plan before governed Phase 8 execution.
+6. It writes decisions and deviations to append-only logs.
+7. It blocks polished reports unless readiness, publication bundle, and core-goal checks pass or the caller explicitly allows incomplete output.
 
-## Language / i18n
+## What It Is Honest About
 
-- English canonical overview: [README.md](README.md)
-- Traditional Chinese full guide: [README.zh-TW.md](README.zh-TW.md)
-- Agent-facing operational contract: [AGENTS.md](AGENTS.md)
-- VS Code extension guide: [vscode-extension/README.md](vscode-extension/README.md)
+RDE can govern standard, template-friendly analysis families: descriptive summaries, Table 1, group comparisons, correlation/collinearity review, repeated-measures summaries, common figures, adjusted local models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, Cox regression when feasible, and lightweight propensity scoring.
 
-When governance, phase numbering, release evidence, or no-Docker behavior changes, update the English README, Traditional Chinese README, extension README, AGENTS guide, CHANGELOG, and Memory Bank together.
-
-## Visual Overview
-
-### Overall Concept
-
-![Overall Concept](docs/figures/01-overall-concept.svg)
-
-### System Architecture (DDD)
-
-![System Architecture](docs/figures/02-system-architecture.svg)
-
-### 13-Phase Workflow Detail
-
-![Workflow Detail](docs/figures/03-workflow-detail.svg)
-
-## What This Repo Solves
-
-Traditional exploratory analysis is often hard to review because method changes are not logged, intermediate decisions are not preserved, and artifacts are scattered.
-
-RDE addresses that by enforcing:
-
-1. Project initialization before analysis
-2. Intake validation before loading data
-3. Schema registration before planning
-4. User-confirmed concept alignment before plan registration
-5. User-confirmed plan lock in Phase 6 before Phase 8 execution
-6. Audit-ready artifacts for every major phase
-
-The core governance documents are:
-
-- [AGENTS.md](AGENTS.md)
-- [.github/copilot-instructions.md](.github/copilot-instructions.md)
-- [SPEC.md](SPEC.md)
-- [CONSTITUTION.md](CONSTITUTION.md)
-- [docs/product-doctrine.md](docs/product-doctrine.md)
-- [.github/agent-control.yaml](.github/agent-control.yaml)
-
-Editor and collaboration support files are also provided:
-
-- [.vscode/settings.json](.vscode/settings.json)
-- [.github/agents](.github/agents)
-- [.github/prompts](.github/prompts)
-- [.github/workflows/ci.yml](.github/workflows/ci.yml)
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [SECURITY.md](SECURITY.md)
+Specialized methods that depend heavily on study design still need custom integration or human methodology review. RDE should not pretend that an imagined method is implemented just because an agent can describe it.
 
 ## Architecture
 
 RDE follows a DDD layout:
 
 ```text
-Interface (MCP tools) -> Application (Use Cases) -> Domain (Pure logic) <- Infrastructure (Adapters)
+Interface MCP tools -> Application use cases -> Domain models/policies/services <- Infrastructure adapters
 ```
 
-Important implementation entry points:
+The runtime control layers are:
 
-- MCP server entry: [src/rde/__main__.py](src/rde/__main__.py)
-- MCP registration: [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py)
-- Pipeline state machine: [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py)
-- Decision logging: [src/rde/application/decision_logger.py](src/rde/application/decision_logger.py)
-- Advanced analysis delegation: [src/rde/infrastructure/adapters/analysis_delegator.py](src/rde/infrastructure/adapters/analysis_delegator.py)
-- Vendor gateway: [src/rde/infrastructure/adapters/automl_gateway.py](src/rde/infrastructure/adapters/automl_gateway.py)
+| Layer | Code | Responsibility |
+| --- | --- | --- |
+| Policy and agent contract | [AGENTS.md](AGENTS.md), [.github/copilot-instructions.md](.github/copilot-instructions.md), [.github/agent-control.yaml](.github/agent-control.yaml) | Tell agents what they may do and which gates are authoritative |
+| Pipeline state machine | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | Enforce prerequisites, user-confirmed phases, artifact gates, and plan lock |
+| MCP tools | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) | Execute project, intake, profiling, planning, analysis, branch, UX, report, and audit operations |
+| Decision logging | [src/rde/application/decision_logger.py](src/rde/application/decision_logger.py) | Preserve append-only decision and deviation records |
+| Analysis engines | [src/rde/infrastructure/adapters/scipy_engine.py](src/rde/infrastructure/adapters/scipy_engine.py), [src/rde/infrastructure/adapters/analysis_delegator.py](src/rde/infrastructure/adapters/analysis_delegator.py) | Run local-lite statistics first, delegate heavy workflows to automl-stat-mcp when available |
 
-## 13-Phase Constrained Workflow
+## MCP Tool Surface
 
-The intended execution order is:
+The current implementation exposes 49 MCP tools across 9 modules:
 
-1. Phase 0: `init_project`
-2. Phase 1: `run_intake`
-3. Phase 2: `build_schema`, `profile_dataset`
-4. Phase 3: `align_concept(confirm=true)`
-5. Phase 4: `propose_analysis_plan(confirm=false)` generates creative ideation artifacts; after user review, `propose_analysis_plan(confirm=true)` confirms them
-6. Phase 5+6: `register_analysis_plan(confirm=true)` performs methodology review and locks the Phase 6 plan in one governed call
-7. Phase 7: `check_readiness`
-8. Phase 8: analysis tools such as `compare_groups`, `correlation_matrix`, `run_advanced_analysis`
-9. Phase 9: `collect_results`
-10. Phase 10: `assemble_report`
-11. Phase 11: `run_audit`
-12. Phase 12: `auto_improve`, `export_handoff`, `verify_audit_trail`
+| Module | Count | Tools |
+| --- | ---: | --- |
+| `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
+| `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
+| `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |
+| `plan_tools.py` | 4 | `align_concept`, `propose_analysis_plan`, `register_analysis_plan`, `check_readiness` |
+| `analysis_tools.py` | 8 | `suggest_cleaning`, `apply_cleaning`, `analyze_variable`, `compare_groups`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures` |
+| `branch_tools.py` | 13 | `open_exploration_branch`, `suggest_branch_experiments`, `run_branch_experiment`, `evaluate_branch`, `promote_branch_to_plan_amendment`, `discard_branch`, `get_exploration_board`, `start_autoresearch_run`, `get_autoresearch_status`, `stop_autoresearch_run`, `resume_autoresearch_run`, `run_autoresearch_next_task`, `run_autoresearch_queue` |
+| `ux_tools.py` | 4 | `get_approval_card`, `get_harness_dashboard`, `build_artifact_index`, `get_blocker_playbook` |
+| `report_tools.py` | 4 | `collect_results`, `assemble_report`, `create_visualization`, `export_report` |
+| `audit_tools.py` | 5 | `run_audit`, `auto_improve`, `export_final_report`, `export_handoff`, `verify_audit_trail` |
 
-### Hard Constraints
+## 13-Phase Workflow
 
-The workflow is not advisory only. These constraints are enforced by code and pipeline state:
+| Phase | Purpose | Representative tool/artifact |
+| --- | --- | --- |
+| 00 Project setup | Create project, artifact root, no-code harness bootstrap | `init_project`, `project.yaml` |
+| 01 Data intake | Scan and guard raw files | `run_intake`, `intake_report.json` |
+| 02 Schema registry | Load, type, profile, and assess data | `build_schema`, `schema.json` |
+| 03 Concept alignment | Map research question to variables and roles | `align_concept(confirm=true)` |
+| 04 Creative ideation | Generate candidate analyses and execution schedule | `propose_analysis_plan(confirm=false/true)` |
+| 05 Plan completeness review | Check whether the method pool is too thin | `analysis_plan_review.json` |
+| 06 Plan registration | Lock the analysis plan after confirmation | `register_analysis_plan(confirm=true)`, `analysis_plan.yaml` |
+| 07 Pre-explore check | Check readiness, sample size, missingness, normality, collinearity | `check_readiness` |
+| 08 Execute exploration | Run analyses, figures, cleaning, and branch experiments | `decision_log.jsonl` |
+| 09 Collect results | Summarize results and publication deliverables | `collect_results`, `results_summary.json` |
+| 10 Report assembly | Build EDA report, readiness artifacts, figure interpretation, claim provenance | `assemble_report`, `eda_report.md` |
+| 11 Audit review | Grade adherence, method fit, report readiness, PII, reproducibility | `run_audit`, `audit_report.json` |
+| 12 Auto-improve and handoff | Refresh final report and handoff package | `auto_improve`, `export_handoff`, `verify_audit_trail` |
 
-- H-001: file size must be below 500 MB
-- H-002: file format must be on the whitelist
-- H-003: minimum sample size for statistics
-- H-004: PII detection blocks loading by default
-- H-005: report integrity checks before final reporting
-- H-006: output sanitization
-- H-007: Phase 8 execution requires a locked Phase 6 plan
-- H-008: artifact gate between phases
-- H-009: decision logging during exploration
-- H-010: append-only decision and deviation logs
+## Harness Design
 
-### Soft Constraints
+The harness exists so a no-code user can understand what the agent is about to do, what is blocked, and which artifacts support the answer.
 
-The agent also surfaces methodological reminders, including:
+| Harness feature | Tool | Artifact |
+| --- | --- | --- |
+| Approval card | `get_approval_card` | `phase_00_project_setup/approval_card.json`, `approval_card.md` |
+| Dashboard | `get_harness_dashboard` | `phase_00_project_setup/harness_dashboard.json` |
+| Artifact index | `build_artifact_index` | `phase_00_project_setup/artifact_index.json` |
+| Blocker guidance | `get_blocker_playbook` | `phase_00_project_setup/blocker_playbook.json`, `blocker_playbook.md` |
 
-- normality and nonparametric fallback
-- multiple-comparison correction
-- missingness pattern review
-- collinearity warnings
-- effect size interpretation
-- power and sensitivity analysis hints
+These tools guide the user and the agent. They do not execute analysis, override PII gates, skip confirmations, or bypass plan lock.
 
-### Three Completion Tiers
+## Report Readiness
 
-The repo now treats report completeness as a formal contract rather than assuming that any generated report counts as done.
+RDE treats a report as a contract, not a Markdown side effect. The report layer evaluates:
 
-- `minimum_complete`: the minimum acceptable auditable EDA.
-   Phase 4 methodology review must pass, and when the candidate pool allows it the plan should not fall below 4 analysis families.
-   In practice this means the agent is no longer allowed to stop at one Table 1 plus one p-value.
-- `academic_ready`: the default target for manuscript-grade analysis.
-   The planner currently targets roughly 6 analysis families, usually covering cohort overview, group comparison, association structure, at least 1 adjusted model, and enough descriptive / analytical figures.
-   The point is to require structure, confounding control, modeling, and visualization evidence rather than descriptive output alone.
-- `production_ready`: an end-to-end contract rather than a Phase 4-only label.
-   The plan tier must reach `production_ready`, the publication bundle must be complete, traceability and audit must hold, and final report/export artifacts must exist.
-   `collect_results` now writes a `report_readiness` artifact, `assemble_report` and `export_report` default-gate on `production_ready` unless `allow_incomplete=true` is passed explicitly, `run_audit` scores `report_readiness`, and `auto_improve` writes a `final_report.md` section that explains why the run is or is not production-ready.
+- `minimum_complete`, `academic_ready`, and `production_ready` completion tiers
+- publication bundle completeness
+- data quality and raw-file coverage
+- analysis depth, including multivariable and medical-analysis depth when applicable
+- semantic report quality, including structured figure interpretation
+- claim provenance for tables, figures, results, and external context
+- core-goal audit dimensions such as data understanding, planning, traceability, report generation, no-code operation, and agent-friendly harness
 
-## How Copilot Is Actually Constrained
+`assemble_report` and `export_report` default-gate on `production_ready` unless `allow_incomplete=true` is passed explicitly.
 
-Copilot is constrained through repository behavior, not just prompt text.
+## Visual Overview
 
-In practice, this repo limits an agent in four layers:
+![Overall Concept](docs/figures/01-overall-concept.svg)
 
-1. Policy layer
-   - Rules are described in [AGENTS.md](AGENTS.md), [.github/copilot-instructions.md](.github/copilot-instructions.md), and [CONSTITUTION.md](CONSTITUTION.md)
-2. Pipeline layer
-   - [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) enforces prerequisites, plan lock, and artifact gates
-3. Tool layer
-   - MCP tools in [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) validate readiness before each operation
-4. Audit layer
-   - [src/rde/application/decision_logger.py](src/rde/application/decision_logger.py) keeps append-only logs for decisions and deviations
+![System Architecture](docs/figures/02-system-architecture.svg)
 
-This means an agent cannot legitimately execute a Phase 8 analysis path without the expected upstream artifacts and confirmations.
+![Workflow Detail](docs/figures/03-workflow-detail.svg)
+
+## Documentation Map
+
+- Live workflow website: <https://u9401066.github.io/research-data-explorer/>
+- Traditional Chinese guide: [README.zh-TW.md](README.zh-TW.md)
+- Agent operational contract: [AGENTS.md](AGENTS.md)
+- VS Code extension guide: [vscode-extension/README.md](vscode-extension/README.md)
+- Product doctrine: [docs/product-doctrine.md](docs/product-doctrine.md)
+- Machine-readable control manifest: [.github/agent-control.yaml](.github/agent-control.yaml)
 
 ## Using MCP Effectively
 

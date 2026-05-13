@@ -772,25 +772,28 @@
         <a href="#/overview-zh" data-route="overview-zh" data-keywords="總覽 產品定位 overview rde eda">
           <span class="mark">01</span><span>總覽</span>
         </a>
+        <a href="#/code-truth-zh" data-route="code-truth-zh" data-keywords="程式碼 校準 真實 code manifest verified">
+          <span class="mark">02</span><span>依真實程式碼校準</span>
+        </a>
         <a href="#/workflow-zh" data-route="workflow-zh" data-keywords="流程 phase workflow 13">
-          <span class="mark">02</span><span>13-Phase 工作流程</span>
+          <span class="mark">03</span><span>13-Phase 工作流程</span>
         </a>
         <a href="#/tools-zh" data-route="tools-zh" data-keywords="工具 mcp tools phase">
-          <span class="mark">03</span><span>MCP 工具盤點</span>
+          <span class="mark">04</span><span>MCP 工具盤點</span>
         </a>
         <a href="#/artifacts-zh" data-route="artifacts-zh" data-keywords="artifact audit decision deviation log">
-          <span class="mark">04</span><span>Artifacts 與審計鏈</span>
+          <span class="mark">05</span><span>Artifacts 與審計鏈</span>
         </a>
         <a href="#/flows-zh" data-route="flows-zh" data-keywords="快速探索 full report table one comparison handoff">
-          <span class="mark">05</span><span>常見使用流程</span>
+          <span class="mark">06</span><span>常見使用流程</span>
         </a>
         <a href="#/setup-zh" data-route="setup-zh" data-keywords="vsix codex copilot docker automl setup">
-          <span class="mark">06</span><span>VSIX / Codex 啟動</span>
+          <span class="mark">07</span><span>VSIX / Codex 啟動</span>
         </a>
       </nav>
 
       <div class="sidebar-note">
-        內容來源對齊 README、AGENTS、agent-control 與 docs/figures。RDE 的主軸是「工具執行有紀錄，報告可以被審查」。
+        內容來源對齊實際 MCP tool registration、pipeline state machine、agent-control manifest、VSIX manifest 與 docs/figures。RDE 的主軸是「工具執行有紀錄，報告可以被審查」。
       </div>
     </aside>
 
@@ -848,8 +851,8 @@
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>受治理 Phase</span></div>
             <div class="stat"><strong>49</strong><span>VSIX 預期 MCP tools</span></div>
-            <div class="stat"><strong>10</strong><span>Hard constraints</span></div>
-            <div class="stat"><strong>9</strong><span>Core readiness dimensions</span></div>
+            <div class="stat"><strong>9</strong><span>Tool modules</span></div>
+            <div class="stat"><strong>3</strong><span>Completion tiers</span></div>
           </div>
 
           <div class="section">
@@ -876,9 +879,80 @@
             </div>
           </div>
 
+          <div class="callout">
+            <strong>本頁不是手寫宣傳稿：</strong>
+            phase 名稱來自 <code>src/rde/application/pipeline/__init__.py</code>，
+            tool 數量來自 <code>src/rde/interface/mcp/tools/*</code> 的 <code>@server.tool()</code> 註冊與
+            <code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code>，
+            gate 與 artifact contract 來自 <code>.github/agent-control.yaml</code>。
+          </div>
+
           <div class="section">
             <div class="figure-frame">
               <img src="figures/01-overall-concept.svg" alt="Research Data Explorer 整體概念圖">
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="code-truth-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Code-Verified Contract</p>
+              <h3>網站內容如何對齊真實程式碼</h3>
+            </div>
+            <p>以下數字與說明是從目前 repo 的 code path 反查，不是從舊 README 複製。若程式碼改變，這些來源也應同步更新。</p>
+          </div>
+
+          <div class="grid two">
+            <article class="card">
+              <h4>Pipeline state machine</h4>
+              <p><code>PipelinePhase</code> 定義 Phase 00-12；<code>PREREQUISITES</code>、<code>USER_CONFIRMATION_REQUIRED</code>、<code>REQUIRED_ARTIFACTS</code> 定義 phase gate 與 artifact gate。</p>
+              <div class="tag-row"><span class="tag">src/rde/application/pipeline/__init__.py</span></div>
+            </article>
+            <article class="card">
+              <h4>MCP registration</h4>
+              <p><code>create_server()</code> 註冊 9 組 tool modules：project、discovery、profiling、plan、analysis、branch、UX、report、audit。</p>
+              <div class="tag-row"><span class="tag">src/rde/interface/mcp/server.py</span></div>
+            </article>
+            <article class="card">
+              <h4>VSIX expected tools</h4>
+              <p>VS Code extension manifest 目前列出 49 個 <code>expectedMcpTools</code>，與實際 <code>@server.tool()</code> 合計數一致。</p>
+              <div class="tag-row"><span class="tag">vscode-extension/package.json</span></div>
+            </article>
+            <article class="card">
+              <h4>Agent control manifest</h4>
+              <p><code>agent-control.yaml</code> 是 phase controls、override flags、delegation、audit paths、core goal contract 的 machine-readable 版本。</p>
+              <div class="tag-row"><span class="tag">.github/agent-control.yaml</span></div>
+            </article>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>實際 MCP tool surface</h3>
+              <p>這是目前程式碼中各 module 的 <code>@server.tool()</code> 分布。</p>
+            </div>
+            <table class="tool-table" aria-label="MCP tool modules verified from code">
+              <thead>
+                <tr><th>Module</th><th>Tool count</th><th>Registered tools</th></tr>
+              </thead>
+              <tbody id="verifiedToolRows"></tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="grid">
+              <article class="card">
+                <h4>受控 ideation</h4>
+                <p>Phase 4 的 <code>propose_analysis_plan</code> 不是直接鎖計畫；它產生 greedy candidates、review、execution schedule 與 enrichment artifacts，供使用者審查後確認。</p>
+              </article>
+              <article class="card">
+                <h4>方法學 gate</h4>
+                <p>Phase 5/6 的 <code>register_analysis_plan(confirm=true)</code> 會做 completeness review，確認後才鎖定 <code>analysis_plan.yaml</code>。</p>
+              </article>
+              <article class="card">
+                <h4>no-code UX harness</h4>
+                <p><code>get_approval_card</code>、<code>get_harness_dashboard</code>、<code>build_artifact_index</code>、<code>get_blocker_playbook</code> 只提供導覽與 artifact，不繞過 phase gate。</p>
+              </article>
             </div>
           </div>
         </section>
@@ -931,8 +1005,32 @@
               </article>
               <article class="card">
                 <h4>automl-stat-mcp</h4>
-                <p>保留為 optional vendor/heavy engine。Docker 不可用時，RDE 仍應用 local-lite 跑標準統計與核心報告。</p>
-                <div class="tag-row"><span class="tag">optional endpoint</span><span class="tag">localhost:8002</span></div>
+                <p>保留為 optional vendor/heavy engine。Docker 不可用時，RDE 會優先使用 local-lite statsmodels/scipy fallback；只有 unsupported heavy AutoML/vendor workflow 才要求啟動 automl。</p>
+                <div class="tag-row"><span class="tag">stats-service 8003</span><span class="tag">automl-service 8001</span><span class="tag">SSE 8002</span></div>
+              </article>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>harness 層的使用者體驗</h3>
+              <p>RDE 的 harness 不是額外 UI 口號，而是讓 agent 可以把「下一步該做什麼、卡在哪裡、哪些 artifacts 可查」回傳給使用者。</p>
+            </div>
+            <div class="grid">
+              <article class="card">
+                <h4>Approval card</h4>
+                <p>在需要確認的 phase 顯示下一個 tool call、確認目的與應檢查 artifacts。</p>
+                <div class="tag-row"><span class="tag">approval_card.json</span><span class="tag">approval_card.md</span></div>
+              </article>
+              <article class="card">
+                <h4>Harness dashboard</h4>
+                <p>回報 project、progress、next suggested phase、plan lock 狀態、pending approval 與 artifact count。</p>
+                <div class="tag-row"><span class="tag">harness_dashboard.json</span></div>
+              </article>
+              <article class="card">
+                <h4>Blocker playbook</h4>
+                <p>當 prerequisite、confirmation、artifact 或 readiness gate 阻擋時，給出可執行的下一步，而不是只回傳錯誤。</p>
+                <div class="tag-row"><span class="tag">blocker_playbook.md</span></div>
               </article>
             </div>
           </div>
@@ -1095,6 +1193,18 @@ python3 -m rde</pre>
       ["Cross-phase UX", "get_pipeline_status, get_decision_log, get_deviation_log, log_deviation, get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook", "讓 agent 與使用者看見目前狀態、阻塞點、確認卡與 artifacts。"]
     ];
 
+    const verifiedTools = [
+      ["project_tools.py", 5, "init_project, get_pipeline_status, get_decision_log, get_deviation_log, log_deviation"],
+      ["discovery_tools.py", 4, "scan_data_folder, load_dataset, run_intake, build_schema"],
+      ["profiling_tools.py", 2, "profile_dataset, assess_quality"],
+      ["plan_tools.py", 4, "align_concept, propose_analysis_plan, register_analysis_plan, check_readiness"],
+      ["analysis_tools.py", 8, "suggest_cleaning, apply_cleaning, analyze_variable, compare_groups, correlation_matrix, generate_table_one, run_advanced_analysis, run_repeated_measures"],
+      ["branch_tools.py", 13, "open_exploration_branch, suggest_branch_experiments, run_branch_experiment, evaluate_branch, promote_branch_to_plan_amendment, discard_branch, get_exploration_board, start_autoresearch_run, get_autoresearch_status, stop_autoresearch_run, resume_autoresearch_run, run_autoresearch_next_task, run_autoresearch_queue"],
+      ["ux_tools.py", 4, "get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook"],
+      ["report_tools.py", 4, "collect_results, assemble_report, create_visualization, export_report"],
+      ["audit_tools.py", 5, "run_audit, auto_improve, export_final_report, export_handoff, verify_audit_trail"]
+    ];
+
     function renderPhases() {
       const target = document.getElementById("phaseTimeline");
       target.innerHTML = phases.map(([number, title, body, badge]) => `
@@ -1116,6 +1226,17 @@ python3 -m rde</pre>
           <td><strong>${phase}</strong></td>
           <td><code>${names}</code></td>
           <td>${purpose}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderVerifiedTools() {
+      const target = document.getElementById("verifiedToolRows");
+      target.innerHTML = verifiedTools.map(([module, count, names]) => `
+        <tr>
+          <td><strong>${module}</strong></td>
+          <td>${count}</td>
+          <td><code>${names}</code></td>
         </tr>
       `).join("");
     }
@@ -1167,6 +1288,7 @@ python3 -m rde</pre>
 
     renderPhases();
     renderTools();
+    renderVerifiedTools();
     bindFilter();
     setRoute();
     window.addEventListener("hashchange", setRoute);
