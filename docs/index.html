@@ -126,7 +126,8 @@
       background: var(--surface);
     }
 
-    .lang span {
+    .lang span,
+    .lang a.active {
       color: var(--surface);
       border-color: var(--teal-deep);
       background: var(--teal-deep);
@@ -756,8 +757,8 @@
       </div>
 
       <div class="lang" aria-label="language">
-        <a href="https://github.com/u9401066/research-data-explorer/blob/main/README.md">EN</a>
-        <span>繁中</span>
+        <a id="langEn" href="#/overview-en">EN</a>
+        <a id="langZh" class="active" href="#/overview-zh">繁中</a>
       </div>
 
       <label class="search" aria-label="篩選頁面">
@@ -768,40 +769,9 @@
         <input id="filter" type="search" placeholder="篩選頁面">
       </label>
 
-      <nav class="nav" id="nav" aria-label="站內選單">
-        <a href="#/overview-zh" data-route="overview-zh" data-keywords="總覽 產品定位 overview rde eda">
-          <span class="mark">01</span><span>總覽</span>
-        </a>
-        <a href="#/plain-guide-zh" data-route="plain-guide-zh" data-keywords="非工程師 使用者 白話 說明 資料分析 報告">
-          <span class="mark">02</span><span>非工程師導覽</span>
-        </a>
-        <a href="#/statistics-zh" data-route="statistics-zh" data-keywords="統計 方法 table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity">
-          <span class="mark">03</span><span>RDE 會做哪些統計</span>
-        </a>
-        <a href="#/autoresearch-zh" data-route="autoresearch-zh" data-keywords="auto research autoresearch branch 探索 分支 假設 自動研究">
-          <span class="mark">04</span><span>Auto Research 概念</span>
-        </a>
-        <a href="#/code-truth-zh" data-route="code-truth-zh" data-keywords="程式碼 校準 真實 code manifest verified">
-          <span class="mark">05</span><span>依真實程式碼校準</span>
-        </a>
-        <a href="#/workflow-zh" data-route="workflow-zh" data-keywords="流程 phase workflow 13">
-          <span class="mark">06</span><span>13-Phase 工作流程</span>
-        </a>
-        <a href="#/tools-zh" data-route="tools-zh" data-keywords="工具 mcp tools phase">
-          <span class="mark">07</span><span>MCP 工具盤點</span>
-        </a>
-        <a href="#/artifacts-zh" data-route="artifacts-zh" data-keywords="artifact audit decision deviation log">
-          <span class="mark">08</span><span>Artifacts 與審計鏈</span>
-        </a>
-        <a href="#/flows-zh" data-route="flows-zh" data-keywords="快速探索 full report table one comparison handoff">
-          <span class="mark">09</span><span>常見使用流程</span>
-        </a>
-        <a href="#/setup-zh" data-route="setup-zh" data-keywords="vsix codex copilot docker automl setup">
-          <span class="mark">10</span><span>VSIX / Codex 啟動</span>
-        </a>
-      </nav>
+      <nav class="nav" id="nav" aria-label="站內選單"></nav>
 
-      <div class="sidebar-note">
+      <div class="sidebar-note" id="sidebarNote">
         內容來源對齊實際 MCP tool registration、pipeline state machine、agent-control manifest、VSIX manifest 與 docs/figures。RDE 的主軸是「工具執行有紀錄，報告可以被審查」。
       </div>
     </aside>
@@ -1370,6 +1340,386 @@ python3 -m rde</pre>
           </div>
         </section>
 
+        <section class="page" data-page="overview-en">
+          <div class="hero">
+            <div>
+              <p class="kicker">Overview</p>
+              <h2>Auditable research data exploration</h2>
+              <p>
+                RDE helps an agent analyze real research datasets without turning the process into an invisible notebook. Intake, schema review, concept alignment, analysis planning, execution, reporting, audit, and handoff all stay inside a traceable workflow.
+              </p>
+              <div class="hero-actions">
+                <a class="button primary" href="#/plain-guide-en">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path>
+                  </svg>
+                  Start without engineering background
+                </a>
+                <a class="button" href="#/statistics-en">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M4 19V5"></path><path d="M8 17V9"></path><path d="M12 19V7"></path><path d="M16 15v-4"></path><path d="M20 19V3"></path>
+                  </svg>
+                  See statistics coverage
+                </a>
+              </div>
+            </div>
+
+            <div class="hero-panel" aria-label="RDE pipeline highlights">
+              <div class="runline">
+                <span class="dot"></span>
+                <div><strong>Understand the data first</strong><p>Format, size, PII, schema, profile, and quality artifacts are created before analysis.</p></div>
+              </div>
+              <div class="runline">
+                <span class="dot"></span>
+                <div><strong>Lock the plan before execution</strong><p>The research question, variable roles, methods, missing-data strategy, and outputs are reviewed before formal analysis.</p></div>
+              </div>
+              <div class="runline">
+                <span class="dot"></span>
+                <div><strong>Audit the final report</strong><p>Decision logs, deviation logs, report readiness, and audit reports explain how trustworthy the output is.</p></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats" aria-label="RDE metrics">
+            <div class="stat"><strong>13</strong><span>Governed phases</span></div>
+            <div class="stat"><strong>49</strong><span>Expected MCP tools</span></div>
+            <div class="stat"><strong>9</strong><span>Tool modules</span></div>
+            <div class="stat"><strong>3</strong><span>Completion tiers</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>Product Positioning</h3>
+              <p>RDE is not trying to run the largest possible method list. It helps non-data-scientists reach a reviewable, reproducible, handoff-ready EDA report.</p>
+            </div>
+            <div class="grid">
+              <article class="card">
+                <h4>For real datasets</h4>
+                <p>Users can bring CSV, Excel, or other supported files without knowing the statistical method in advance.</p>
+                <div class="tag-row"><span class="tag">run_intake</span><span class="tag">build_schema</span><span class="tag">profile_dataset</span></div>
+              </article>
+              <article class="card">
+                <h4>For controlled agents</h4>
+                <p>Copilot, Codex, and similar agents should call RDE MCP tools instead of replacing the workflow with ad hoc scripts.</p>
+                <div class="tag-row"><span class="tag">artifact gate</span><span class="tag">plan lock</span></div>
+              </article>
+              <article class="card">
+                <h4>For reports and handoff</h4>
+                <p>The report includes methods, results, figures, decisions, deviations, and audit evidence so authors can extract publishable content.</p>
+                <div class="tag-row"><span class="tag">assemble_report</span><span class="tag">export_handoff</span></div>
+              </article>
+            </div>
+          </div>
+
+          <div class="callout">
+            <strong>This is code-aligned content:</strong>
+            phase names come from <code>src/rde/application/pipeline/__init__.py</code>,
+            tool counts come from <code>@server.tool()</code> registration and <code>vscode-extension/package.json</code>,
+            and gates come from <code>.github/agent-control.yaml</code>.
+          </div>
+        </section>
+
+        <section class="page" data-page="plain-guide-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Plain-Language Guide</p>
+              <h3>What does RDE do for a non-engineer?</h3>
+            </div>
+            <p>Think of RDE as a data-analysis assistant that keeps receipts. It does not only produce an answer; it preserves why each step happened, which data supported it, whether the method changed, and whether the final report is ready to trust.</p>
+          </div>
+
+          <div class="grid">
+            <article class="card">
+              <h4>It checks whether the data can be used</h4>
+              <p>RDE reviews file format, file size, suspected PII, workbooks, sheets, columns, and basic quality before analysis begins.</p>
+            </article>
+            <article class="card">
+              <h4>It turns columns into research concepts</h4>
+              <p>Columns such as age, group, treatment, outcome, time, operator, and lab values are mapped into roles such as exposure, outcome, covariate, group, or time axis.</p>
+            </article>
+            <article class="card">
+              <h4>It plans before running statistics</h4>
+              <p>The user confirms the research question, endpoints, groups, missing-data strategy, analysis families, and figures before the plan is locked.</p>
+            </article>
+            <article class="card">
+              <h4>It chooses methods based on data shape</h4>
+              <p>Continuous variables may use t-test or Mann-Whitney; categorical variables may use chi-square or Fisher. The choice depends on type, group count, normality, and sample size.</p>
+            </article>
+            <article class="card">
+              <h4>It reports more than p-values</h4>
+              <p>A full report includes data overview, Table 1, comparisons, figures, models, sensitivity or branch analyses, limitations, decision logs, and deviation logs.</p>
+            </article>
+            <article class="card">
+              <h4>It avoids overclaiming</h4>
+              <p>If evidence is missing, a method is unsuitable, or required artifacts are absent, RDE reports readiness gaps instead of calling the output production-ready.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-page="statistics-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Statistics In RDE</p>
+              <h3>What statistics can RDE currently run?</h3>
+            </div>
+            <p>This page explains capabilities by user question. RDE chooses methods from the locked plan and the data structure, not by blindly running every possible test.</p>
+          </div>
+
+          <div class="grid two">
+            <article class="card">
+              <h4>What does the dataset look like?</h4>
+              <p>Descriptive statistics, missingness, outliers, variable types, quality assessment, and Table 1 for baseline characteristics.</p>
+              <div class="tag-row"><span class="tag">profile_dataset</span><span class="tag">assess_quality</span><span class="tag">generate_table_one</span></div>
+            </article>
+            <article class="card">
+              <h4>Are two or more groups different?</h4>
+              <p>Continuous variables can use t-test, Mann-Whitney, ANOVA, or Kruskal-Wallis. Categorical variables can use chi-square or Fisher. Paired/repeated data can use paired t-test, Wilcoxon, or Friedman.</p>
+              <div class="tag-row"><span class="tag">compare_groups</span><span class="tag">run_repeated_measures</span></div>
+            </article>
+            <article class="card">
+              <h4>Are variables related?</h4>
+              <p>RDE can run Pearson, Spearman, point-biserial correlation, and correlation matrices with collinearity warnings.</p>
+              <div class="tag-row"><span class="tag">correlation_matrix</span><span class="tag">VIF</span></div>
+            </article>
+            <article class="card">
+              <h4>Does the finding hold after adjustment?</h4>
+              <p>For confounding control, RDE supports logistic regression, multiple regression, and GLM when the data structure is suitable.</p>
+              <div class="tag-row"><span class="tag">run_advanced_analysis</span><span class="tag">logistic_regression</span><span class="tag">multiple_regression</span></div>
+            </article>
+            <article class="card">
+              <h4>How well does a model discriminate?</h4>
+              <p>Binary outcomes can be evaluated with ROC/AUC, and power analysis can help interpret non-significant findings or sample-size concerns.</p>
+              <div class="tag-row"><span class="tag">roc_auc</span><span class="tag">power_analysis_advanced</span></div>
+            </article>
+            <article class="card">
+              <h4>What about time-to-event data?</h4>
+              <p>When time and event columns exist, RDE can generate Kaplan-Meier summaries and Cox regression when feasible.</p>
+              <div class="tag-row"><span class="tag">kaplan_meier</span><span class="tag">cox_regression</span></div>
+            </article>
+            <article class="card">
+              <h4>What if groups are imbalanced?</h4>
+              <p>For observational data, lightweight propensity scoring can estimate treatment probability, inspect overlap, and summarize weights or simple matching.</p>
+              <div class="tag-row"><span class="tag">propensity_score</span><span class="tag">balance diagnostics</span></div>
+            </article>
+            <article class="card">
+              <h4>Can it examine learning curves?</h4>
+              <p>If data includes an operator, trial order, and success/failure, RDE can explore learning-curve CUSUM patterns.</p>
+              <div class="tag-row"><span class="tag">learning_curve_cusum</span></div>
+            </article>
+          </div>
+
+          <div class="callout warning">
+            <strong>Important limit:</strong>
+            RDE does not run every method at once. It confirms the research question and analysis plan first to reduce false positives, multiple comparisons, and method drift.
+          </div>
+        </section>
+
+        <section class="page" data-page="autoresearch-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Auto Research</p>
+              <h3>Auto Research is controlled exploration, not automatic conclusion rewriting</h3>
+            </div>
+            <p>RDE's Auto Research concept lets an agent explore extra hypotheses beside the locked primary plan, while preserving branch records, experiment results, evaluations, and promotion decisions.</p>
+          </div>
+
+          <div class="grid">
+            <article class="card">
+              <h4>A research assistant's side board</h4>
+              <p>The main plan remains the main line. Auto Research opens exploratory branches for questions such as adjusted models, propensity checks, subgroups, or sensitivity analyses.</p>
+            </article>
+            <article class="card">
+              <h4>It runs only after gates</h4>
+              <p>Branch exploration requires a locked plan and readiness checks. It cannot start before the data and question are understood.</p>
+            </article>
+            <article class="card">
+              <h4>It has budget and stop controls</h4>
+              <p>The queue records work items, progress, failure budget, stop events, and resume events so exploration does not expand without limits.</p>
+            </article>
+            <article class="card">
+              <h4>It does not rewrite primary conclusions</h4>
+              <p>A branch must pass evaluation, promotion gates, evidence requirements, and user confirmation before it can become a formal plan amendment.</p>
+            </article>
+            <article class="card">
+              <h4>It leaves an audit trail</h4>
+              <p>Branches, experiments, evaluations, promotion reviews, and plan amendments are written as project artifacts for report and audit review.</p>
+            </article>
+            <article class="card">
+              <h4>It is useful for follow-up analyses</h4>
+              <p>Typical uses include adjusted models, ROC/AUC, propensity balance, learning-curve exploration, and sensitivity checks.</p>
+            </article>
+          </div>
+
+          <div class="callout">
+            <strong>In one sentence:</strong>
+            Auto Research does not let AI finish the study and announce the answer; it opens controlled side branches next to the locked plan, gathers supplemental evidence, and lets gates plus the user decide what can be promoted.
+          </div>
+        </section>
+
+        <section class="page" data-page="code-truth-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Code-Verified Contract</p>
+              <h3>How this website stays aligned with real code</h3>
+            </div>
+            <p>The numbers and claims below are derived from implementation paths, not copied from old prose documentation.</p>
+          </div>
+
+          <div class="grid two">
+            <article class="card">
+              <h4>Pipeline state machine</h4>
+              <p><code>PipelinePhase</code> defines Phase 00-12; prerequisites, user confirmation, and required artifacts define the phase gates.</p>
+              <div class="tag-row"><span class="tag">src/rde/application/pipeline/__init__.py</span></div>
+            </article>
+            <article class="card">
+              <h4>MCP registration</h4>
+              <p><code>create_server()</code> registers 9 tool modules: project, discovery, profiling, plan, analysis, branch, UX, report, and audit.</p>
+              <div class="tag-row"><span class="tag">src/rde/interface/mcp/server.py</span></div>
+            </article>
+            <article class="card">
+              <h4>VSIX expected tools</h4>
+              <p>The VS Code extension manifest lists 49 <code>expectedMcpTools</code>, matching actual <code>@server.tool()</code> registration.</p>
+              <div class="tag-row"><span class="tag">vscode-extension/package.json</span></div>
+            </article>
+            <article class="card">
+              <h4>Agent control manifest</h4>
+              <p><code>agent-control.yaml</code> is the machine-readable contract for phase controls, overrides, delegation, audit paths, and the UX harness.</p>
+              <div class="tag-row"><span class="tag">.github/agent-control.yaml</span></div>
+            </article>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>Actual MCP tool surface</h3>
+              <p>This is the current <code>@server.tool()</code> distribution by module.</p>
+            </div>
+            <table class="tool-table" aria-label="MCP tool modules verified from code">
+              <thead>
+                <tr><th>Module</th><th>Tool count</th><th>Registered tools</th></tr>
+              </thead>
+              <tbody id="verifiedToolRowsEn"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="page" data-page="workflow-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">13-Phase Workflow</p>
+              <h3>From data intake to handoff</h3>
+            </div>
+            <p>The phases are not merely suggestions. Each phase creates artifacts, and later steps are blocked when required upstream evidence is missing.</p>
+          </div>
+          <div class="figure-frame">
+            <img src="figures/03-workflow-detail.svg" alt="RDE 13-phase workflow detail">
+          </div>
+          <div class="section">
+            <div class="timeline" id="phaseTimelineEn"></div>
+          </div>
+          <div class="callout warning">
+            <strong>Key gate:</strong>
+            concept alignment and plan registration require explicit confirmation. If Phase 8 later departs from the locked plan, the deviation must be logged.
+          </div>
+        </section>
+
+        <section class="page" data-page="tools-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">MCP Tools</p>
+              <h3>The tools are the workflow control surface</h3>
+            </div>
+            <p>Major operations should go through RDE MCP tools so artifacts, readiness checks, and audit logs are produced consistently.</p>
+          </div>
+          <table class="tool-table" aria-label="RDE MCP tools by phase">
+            <thead>
+              <tr><th>Stage</th><th>Main tools</th><th>Purpose</th></tr>
+            </thead>
+            <tbody id="toolRowsEn"></tbody>
+          </table>
+          <div class="section">
+            <div class="grid two">
+              <article class="card">
+                <h4>RDE MCP Server</h4>
+                <p>Manages projects, pipeline state, artifact storage, decision/deviation logs, report readiness, and audit.</p>
+              </article>
+              <article class="card">
+                <h4>automl-stat-mcp</h4>
+                <p>Optional heavy engine. Without Docker, RDE still uses local-lite statsmodels/scipy fallbacks; only unsupported heavy vendor workflows require automl.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="artifacts-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Artifacts & Audit</p>
+              <h3>Every judgment should be inspectable</h3>
+            </div>
+            <p>RDE outputs a project-scoped evidence package, not only a written summary. Reports should point back to the phase, check, and log entry that support each claim.</p>
+          </div>
+          <div class="artifact-grid">
+            <article class="artifact">
+              <div><h4>Data-understanding artifacts</h4><p><code>intake_report.json</code>, <code>schema.json</code>, profile, and quality reports establish the data baseline.</p></div>
+            </article>
+            <article class="artifact">
+              <div><h4>Planning artifacts</h4><p><code>concept_alignment.md</code>, <code>variable_roles.json</code>, and <code>analysis_plan.yaml</code> make the question-to-method mapping reviewable.</p></div>
+            </article>
+            <article class="artifact">
+              <div><h4>Execution artifacts</h4><p>Phase 8 analyses, figures, Table 1, model summaries, and fallback notes are saved under the project.</p></div>
+            </article>
+            <article class="artifact">
+              <div><h4>Audit artifacts</h4><p><code>decision_log.jsonl</code>, <code>deviation_log.jsonl</code>, <code>report_readiness</code>, and <code>audit_report.json</code> are the trust core.</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-page="flows-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Common Flows</p>
+              <h3>How user requests map to governed paths</h3>
+            </div>
+            <p>A quick overview, a group comparison, and a manuscript handoff use different levels of governance.</p>
+          </div>
+          <div class="flow">
+            <div class="flow-item"><strong>Full report</strong><p>Phase 0-12: setup, intake, schema, alignment, plan, readiness, execution, collect, report, audit, improve, handoff.</p></div>
+            <div class="flow-item"><strong>Quick Explore</strong><p><code>init_project</code> -> <code>run_intake</code> -> <code>build_schema</code> -> <code>profile_dataset</code> -> quick report, explicitly marked as not fully audited.</p></div>
+            <div class="flow-item"><strong>Group comparison / Table 1</strong><p>Complete Phase 0-7 first, then run <code>generate_table_one</code> or <code>compare_groups</code> with variable roles and assumptions checked.</p></div>
+            <div class="flow-item"><strong>Manuscript handoff</strong><p><code>collect_results</code> marks publishable items, <code>assemble_report</code> builds the report, <code>run_audit</code> scores it, and <code>export_handoff</code> packages evidence.</p></div>
+          </div>
+        </section>
+
+        <section class="page" data-page="setup-en">
+          <div class="section-header">
+            <div>
+              <p class="kicker">VSIX / Codex</p>
+              <h3>Local-first startup; Docker is not the core requirement</h3>
+            </div>
+            <p>VSIX and Codex support should start the bundled/local RDE MCP first. automl-stat-mcp is optional for heavier vendor workflows.</p>
+          </div>
+          <div class="grid two">
+            <article class="card">
+              <h4>Codex MCP setup</h4>
+              <pre class="command">python scripts/configure_codex_mcp.py --apply
+python scripts/codex_rde_smoke.py --list-tools-only
+python scripts/codex_rde_smoke.py</pre>
+            </article>
+            <article class="card">
+              <h4>Manual RDE MCP startup</h4>
+              <pre class="command">python3 -m pip install -e .
+python3 -m rde</pre>
+            </article>
+          </div>
+          <div class="section">
+            <div class="grid">
+              <article class="card"><h4>VS Code Extension</h4><p>Command Palette includes <code>RDE: Configure Codex MCP</code>, <code>RDE: Run Full Pipeline (13-Phase)</code>, and the UX Harness Dashboard.</p></article>
+              <article class="card"><h4>No-Docker local-lite</h4><p>Supports descriptive statistics, Table 1, group comparisons, ROC/AUC, basic power hints, Kaplan-Meier, and lightweight adjusted models.</p></article>
+              <article class="card"><h4>Optional automl</h4><p>Use <code>vendor/automl-stat-mcp</code> for full propensity matching, deeper survival workflows, or AutoML training.</p></article>
+            </div>
+          </div>
+        </section>
+
         <footer class="footer">
           Research Data Explorer workflow site. Source-aligned with repository docs and designed for GitHub Pages under <code>docs/</code>.
         </footer>
@@ -1394,6 +1744,22 @@ python3 -m rde</pre>
       ["12", "Auto-Improve & Handoff", "`auto_improve`、`export_handoff`、`verify_audit_trail` 完成交接。", "handoff"]
     ];
 
+    const phasesEn = [
+      ["0", "Project Setup", "`init_project` creates the project, folders, and artifact store.", "project.yaml"],
+      ["1", "Data Intake", "`scan_data_folder` / `run_intake` check format, size, and PII.", "intake_report"],
+      ["2", "Schema Registry", "`load_dataset`, `build_schema`, `profile_dataset`, and `assess_quality` establish data structure.", "schema/profile"],
+      ["3", "Concept Alignment", "`align_concept(confirm=true)` maps the research question to variables.", "user confirm"],
+      ["4", "Creative Ideation", "`propose_analysis_plan(confirm=false)` drafts candidate analyses.", "draft"],
+      ["5", "Plan Completeness Review", "Checks whether the method set can support minimum, academic, or production readiness.", "method review"],
+      ["6", "Plan Registration", "`register_analysis_plan(confirm=true)` locks the analysis plan.", "locked plan"],
+      ["7", "Pre-Exploration Check", "`check_readiness` reviews sample size, normality, missingness, and collinearity.", "readiness"],
+      ["8", "Execute Exploration", "Runs Table 1, group comparisons, correlation, advanced analysis, and visualization.", "decision log"],
+      ["9", "Collect Results", "`collect_results` summarizes results and publishable items.", "summary"],
+      ["10", "Report Assembly", "`assemble_report` / `export_report` produce the full EDA report.", "report"],
+      ["11", "Audit Review", "`run_audit` checks plan adherence, method fit, PII, and reproducibility.", "audit"],
+      ["12", "Auto-Improve & Handoff", "`auto_improve`, `export_handoff`, and `verify_audit_trail` complete handoff.", "handoff"]
+    ];
+
     const tools = [
       ["Phase 0-2", "init_project, scan_data_folder, run_intake, load_dataset, build_schema, profile_dataset, assess_quality", "建立專案、收件、載入資料、推論 schema、產生 profile 與品質評估。"],
       ["Phase 3-6", "align_concept, propose_analysis_plan, register_analysis_plan", "研究問題對齊、分析候選方案、方法學審查與 locked plan。"],
@@ -1402,6 +1768,16 @@ python3 -m rde</pre>
       ["Branch / Autoresearch", "open_exploration_branch, suggest_branch_experiments, start_autoresearch_run, evaluate_branch, promote_branch_to_plan_amendment", "以受控分支探索額外假設，必要時轉為 plan amendment。"],
       ["Phase 9-12", "collect_results, assemble_report, export_report, run_audit, auto_improve, export_final_report, export_handoff, verify_audit_trail", "彙整結果、組裝報告、審計、改善、匯出與驗證審計鏈。"],
       ["Cross-phase UX", "get_pipeline_status, get_decision_log, get_deviation_log, log_deviation, get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook", "讓 agent 與使用者看見目前狀態、阻塞點、確認卡與 artifacts。"]
+    ];
+
+    const toolsEn = [
+      ["Phase 0-2", "init_project, scan_data_folder, run_intake, load_dataset, build_schema, profile_dataset, assess_quality", "Create a project, intake files, load data, infer schema, and create profile/quality evidence."],
+      ["Phase 3-6", "align_concept, propose_analysis_plan, register_analysis_plan", "Align the research question, draft candidate analyses, review methods, and lock the plan."],
+      ["Phase 7", "check_readiness", "Check sample size, normality, missingness, outliers, collinearity, and feasibility."],
+      ["Phase 8", "suggest_cleaning, apply_cleaning, generate_table_one, analyze_variable, compare_groups, correlation_matrix, run_advanced_analysis, create_visualization", "Run planned exploration and statistics while recording decisions."],
+      ["Branch / Autoresearch", "open_exploration_branch, suggest_branch_experiments, start_autoresearch_run, evaluate_branch, promote_branch_to_plan_amendment", "Explore extra hypotheses in controlled branches, then promote only through gates."],
+      ["Phase 9-12", "collect_results, assemble_report, export_report, run_audit, auto_improve, export_final_report, export_handoff, verify_audit_trail", "Summarize, report, audit, improve, export, and verify the audit trail."],
+      ["Cross-phase UX", "get_pipeline_status, get_decision_log, get_deviation_log, log_deviation, get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook", "Show pipeline state, blockers, approvals, logs, and artifacts to the user."]
     ];
 
     const verifiedTools = [
@@ -1416,9 +1792,60 @@ python3 -m rde</pre>
       ["audit_tools.py", 5, "run_audit, auto_improve, export_final_report, export_handoff, verify_audit_trail"]
     ];
 
-    function renderPhases() {
-      const target = document.getElementById("phaseTimeline");
-      target.innerHTML = phases.map(([number, title, body, badge]) => `
+    const navData = {
+      zh: [
+        ["overview", "總覽", "總覽 產品定位 overview rde eda"],
+        ["plain-guide", "非工程師導覽", "非工程師 使用者 白話 說明 資料分析 報告"],
+        ["statistics", "RDE 會做哪些統計", "統計 方法 table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
+        ["autoresearch", "Auto Research 概念", "auto research autoresearch branch 探索 分支 假設 自動研究"],
+        ["code-truth", "依真實程式碼校準", "程式碼 校準 真實 code manifest verified"],
+        ["workflow", "13-Phase 工作流程", "流程 phase workflow 13"],
+        ["tools", "MCP 工具盤點", "工具 mcp tools phase"],
+        ["artifacts", "Artifacts 與審計鏈", "artifact audit decision deviation log"],
+        ["flows", "常見使用流程", "快速探索 full report table one comparison handoff"],
+        ["setup", "VSIX / Codex 啟動", "vsix codex copilot docker automl setup"]
+      ],
+      en: [
+        ["overview", "Overview", "overview positioning rde eda"],
+        ["plain-guide", "Plain-Language Guide", "non engineer user plain language data analysis report"],
+        ["statistics", "Statistics In RDE", "statistics table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
+        ["autoresearch", "Auto Research", "auto research autoresearch branch hypothesis controlled exploration"],
+        ["code-truth", "Code-Verified Contract", "code verified manifest implementation"],
+        ["workflow", "13-Phase Workflow", "workflow phase 13 audit"],
+        ["tools", "MCP Tools", "mcp tools phase"],
+        ["artifacts", "Artifacts & Audit", "artifact audit decision deviation log"],
+        ["flows", "Common Flows", "quick explore full report table one comparison handoff"],
+        ["setup", "VSIX / Codex Setup", "vsix codex copilot docker automl setup"]
+      ]
+    };
+
+    function routeLang(route) {
+      return route.endsWith("-en") ? "en" : "zh";
+    }
+
+    function routeBase(route) {
+      return route.replace(/-(zh|en)$/, "");
+    }
+
+    function renderNav(lang, activeRoute) {
+      const nav = document.getElementById("nav");
+      nav.innerHTML = navData[lang].map(([base, label, keywords], index) => {
+        const route = `${base}-${lang}`;
+        const number = String(index + 1).padStart(2, "0");
+        return `<a href="#/${route}" data-route="${route}" data-keywords="${keywords}">
+          <span class="mark">${number}</span><span>${label}</span>
+        </a>`;
+      }).join("");
+      document.querySelectorAll("[data-route]").forEach((item) => {
+        item.classList.toggle("active", item.dataset.route === activeRoute);
+      });
+      applyFilter();
+    }
+
+    function renderPhaseList(targetId, phaseRows) {
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      target.innerHTML = phaseRows.map(([number, title, body, badge]) => `
         <article class="phase">
           <span class="phase-number">P${number}</span>
           <div>
@@ -1430,9 +1857,15 @@ python3 -m rde</pre>
       `).join("");
     }
 
-    function renderTools() {
-      const target = document.getElementById("toolRows");
-      target.innerHTML = tools.map(([phase, names, purpose]) => `
+    function renderPhases() {
+      renderPhaseList("phaseTimeline", phases);
+      renderPhaseList("phaseTimelineEn", phasesEn);
+    }
+
+    function renderToolRows(targetId, toolRows) {
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      target.innerHTML = toolRows.map(([phase, names, purpose]) => `
         <tr>
           <td><strong>${phase}</strong></td>
           <td><code>${names}</code></td>
@@ -1441,15 +1874,24 @@ python3 -m rde</pre>
       `).join("");
     }
 
+    function renderTools() {
+      renderToolRows("toolRows", tools);
+      renderToolRows("toolRowsEn", toolsEn);
+    }
+
     function renderVerifiedTools() {
-      const target = document.getElementById("verifiedToolRows");
-      target.innerHTML = verifiedTools.map(([module, count, names]) => `
+      const targets = ["verifiedToolRows", "verifiedToolRowsEn"];
+      targets.forEach((targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        target.innerHTML = verifiedTools.map(([module, count, names]) => `
         <tr>
           <td><strong>${module}</strong></td>
           <td>${count}</td>
           <td><code>${names}</code></td>
         </tr>
       `).join("");
+      });
     }
 
     function normalizeRoute(hash) {
@@ -1459,12 +1901,22 @@ python3 -m rde</pre>
     function setRoute() {
       const route = normalizeRoute(window.location.hash);
       const pages = document.querySelectorAll("[data-page]");
-      const navItems = document.querySelectorAll("[data-route]");
       const known = Array.from(pages).some((page) => page.dataset.page === route);
       const activeRoute = known ? route : "overview-zh";
+      const activeLang = routeLang(activeRoute);
+      const base = routeBase(activeRoute);
 
+      renderNav(activeLang, activeRoute);
       pages.forEach((page) => page.classList.toggle("active", page.dataset.page === activeRoute));
-      navItems.forEach((item) => item.classList.toggle("active", item.dataset.route === activeRoute));
+      document.getElementById("langEn").href = `#/${base}-en`;
+      document.getElementById("langZh").href = `#/${base}-zh`;
+      document.getElementById("langEn").classList.toggle("active", activeLang === "en");
+      document.getElementById("langZh").classList.toggle("active", activeLang === "zh");
+      document.documentElement.lang = activeLang === "en" ? "en" : "zh-Hant";
+      document.getElementById("filter").placeholder = activeLang === "en" ? "Filter pages" : "篩選頁面";
+      document.getElementById("sidebarNote").textContent = activeLang === "en"
+        ? "Content is aligned with real MCP tool registration, the pipeline state machine, the agent-control manifest, the VSIX manifest, and docs/figures. RDE's core idea is recorded execution and auditable reporting."
+        : "內容來源對齊實際 MCP tool registration、pipeline state machine、agent-control manifest、VSIX manifest 與 docs/figures。RDE 的主軸是「工具執行有紀錄，報告可以被審查」。";
       document.body.classList.remove("menu-open");
 
       if (!known) {
@@ -1472,16 +1924,18 @@ python3 -m rde</pre>
       }
     }
 
+    function applyFilter() {
+      const input = document.getElementById("filter");
+      const query = input.value.trim().toLowerCase();
+      document.querySelectorAll("[data-route]").forEach((item) => {
+        const haystack = `${item.textContent} ${item.dataset.keywords}`.toLowerCase();
+        item.classList.toggle("hidden-by-search", query && !haystack.includes(query));
+      });
+    }
+
     function bindFilter() {
       const input = document.getElementById("filter");
-      const items = document.querySelectorAll("[data-route]");
-      input.addEventListener("input", () => {
-        const query = input.value.trim().toLowerCase();
-        items.forEach((item) => {
-          const haystack = `${item.textContent} ${item.dataset.keywords}`.toLowerCase();
-          item.classList.toggle("hidden-by-search", query && !haystack.includes(query));
-        });
-      });
+      input.addEventListener("input", applyFilter);
     }
 
     document.getElementById("menuButton").addEventListener("click", () => {
