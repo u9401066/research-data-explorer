@@ -751,9 +751,9 @@
   <div class="shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
-        <p class="kicker">文件網站</p>
+        <p class="kicker" id="brandKicker">文件網站</p>
         <h1>Research Data Explorer</h1>
-        <p>13-Phase Auditable EDA Pipeline for agent-driven research data analysis.</p>
+        <p id="brandSubtitle">給研究資料使用者的可審計 EDA 工作流程網站。</p>
       </div>
 
       <div class="lang" aria-label="language">
@@ -778,7 +778,7 @@
 
     <main>
       <div class="topbar">
-        <strong>RDE Workflow</strong>
+        <strong id="topbarTitle">RDE 工作流程</strong>
         <button class="menu-button" id="menuButton" aria-label="開啟選單">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16"></path>
@@ -829,9 +829,33 @@
 
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>受治理 Phase</span></div>
-            <div class="stat"><strong>49</strong><span>VSIX 預期 MCP tools</span></div>
-            <div class="stat"><strong>9</strong><span>Tool modules</span></div>
-            <div class="stat"><strong>3</strong><span>Completion tiers</span></div>
+            <div class="stat"><strong>49</strong><span>已註冊 MCP 工具</span></div>
+            <div class="stat"><strong>9</strong><span>工具群組</span></div>
+            <div class="stat"><strong>3</strong><span>完成度等級</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>你可以從三條路徑開始</h3>
+              <p>如果你只是想知道資料裡有什麼，和要產生完整可審計報告，RDE 會走不同深度的流程。</p>
+            </div>
+            <div class="grid">
+              <article class="card">
+                <h4>只想快速看資料</h4>
+                <p>先做收件、schema、profile 與快速報告，讓你知道欄位、缺失值、分布與資料品質。這種模式會標記為尚未完整 audit。</p>
+                <div class="tag-row"><span class="tag">Quick Explore</span></div>
+              </article>
+              <article class="card">
+                <h4>想比較兩組或做 Table 1</h4>
+                <p>先確認分組、主要結果與變數角色，再產生基線表、組間比較、效果量與圖表，避免把錯欄位拿去比較。</p>
+                <div class="tag-row"><span class="tag">比較分析</span><span class="tag">Table 1</span></div>
+              </article>
+              <article class="card">
+                <h4>要完整報告或論文交接</h4>
+                <p>走完整 phase gate，包含分析計畫、readiness、執行、彙整、報告、audit、auto-improve 與 handoff package。</p>
+                <div class="tag-row"><span class="tag">Full Report</span><span class="tag">Handoff</span></div>
+              </article>
+            </div>
           </div>
 
           <div class="section">
@@ -1382,9 +1406,33 @@ python3 -m rde</pre>
 
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>Governed phases</span></div>
-            <div class="stat"><strong>49</strong><span>Expected MCP tools</span></div>
-            <div class="stat"><strong>9</strong><span>Tool modules</span></div>
+            <div class="stat"><strong>49</strong><span>Registered MCP tools</span></div>
+            <div class="stat"><strong>9</strong><span>Tool groups</span></div>
             <div class="stat"><strong>3</strong><span>Completion tiers</span></div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>Start from the path that matches your goal</h3>
+              <p>A quick look at the data, a group comparison, and a full auditable report should not use the same level of workflow.</p>
+            </div>
+            <div class="grid">
+              <article class="card">
+                <h4>Quickly inspect a dataset</h4>
+                <p>Run intake, schema, profile, and a quick report so you can understand columns, missingness, distributions, and data quality. This mode is explicitly marked as not fully audited.</p>
+                <div class="tag-row"><span class="tag">Quick Explore</span></div>
+              </article>
+              <article class="card">
+                <h4>Compare groups or build Table 1</h4>
+                <p>Confirm the groups, endpoints, and variable roles first, then produce baseline tables, comparisons, effect-size context, and figures.</p>
+                <div class="tag-row"><span class="tag">Group comparison</span><span class="tag">Table 1</span></div>
+              </article>
+              <article class="card">
+                <h4>Prepare a full report or handoff</h4>
+                <p>Use the full phase gate path: plan, readiness, execution, collection, report assembly, audit, auto-improve, and handoff package.</p>
+                <div class="tag-row"><span class="tag">Full Report</span><span class="tag">Handoff</span></div>
+              </article>
+            </div>
           </div>
 
           <div class="section">
@@ -1720,8 +1768,8 @@ python3 -m rde</pre>
           </div>
         </section>
 
-        <footer class="footer">
-          Research Data Explorer workflow site. Source-aligned with repository docs and designed for GitHub Pages under <code>docs/</code>.
+        <footer class="footer" id="siteFooter">
+          Research Data Explorer 工作流程網站。內容對齊實際實作檔案，並透過 GitHub Pages 從 <code>docs/</code> 發布。
         </footer>
       </div>
     </main>
@@ -1914,9 +1962,27 @@ python3 -m rde</pre>
       document.getElementById("langZh").classList.toggle("active", activeLang === "zh");
       document.documentElement.lang = activeLang === "en" ? "en" : "zh-Hant";
       document.getElementById("filter").placeholder = activeLang === "en" ? "Filter pages" : "篩選頁面";
+      document.getElementById("brandKicker").textContent = activeLang === "en" ? "Documentation Site" : "文件網站";
+      document.getElementById("brandSubtitle").textContent = activeLang === "en"
+        ? "An auditable EDA workflow site for research data users."
+        : "給研究資料使用者的可審計 EDA 工作流程網站。";
+      document.getElementById("topbarTitle").textContent = activeLang === "en" ? "RDE Workflow" : "RDE 工作流程";
+      document.title = activeLang === "en"
+        ? "Research Data Explorer | Auditable EDA Workflow"
+        : "Research Data Explorer | 可審計 EDA 工作流程";
       document.getElementById("sidebarNote").textContent = activeLang === "en"
         ? "Content is aligned with real MCP tool registration, the pipeline state machine, the agent-control manifest, the VSIX manifest, and docs/figures. RDE's core idea is recorded execution and auditable reporting."
         : "內容來源對齊實際 MCP tool registration、pipeline state machine、agent-control manifest、VSIX manifest 與 docs/figures。RDE 的主軸是「工具執行有紀錄，報告可以被審查」。";
+      document.getElementById("siteFooter").innerHTML = activeLang === "en"
+        ? "Research Data Explorer workflow site. Source-aligned with implementation files and published through GitHub Pages under <code>docs/</code>."
+        : "Research Data Explorer 工作流程網站。內容對齊實際實作檔案，並透過 GitHub Pages 從 <code>docs/</code> 發布。";
+      document.querySelectorAll("[data-route]").forEach((item) => {
+        if (item.dataset.route === activeRoute) {
+          item.setAttribute("aria-current", "page");
+        } else {
+          item.removeAttribute("aria-current");
+        }
+      });
       document.body.classList.remove("menu-open");
 
       if (!known) {
