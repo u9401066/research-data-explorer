@@ -772,23 +772,32 @@
         <a href="#/overview-zh" data-route="overview-zh" data-keywords="總覽 產品定位 overview rde eda">
           <span class="mark">01</span><span>總覽</span>
         </a>
+        <a href="#/plain-guide-zh" data-route="plain-guide-zh" data-keywords="非工程師 使用者 白話 說明 資料分析 報告">
+          <span class="mark">02</span><span>非工程師導覽</span>
+        </a>
+        <a href="#/statistics-zh" data-route="statistics-zh" data-keywords="統計 方法 table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity">
+          <span class="mark">03</span><span>RDE 會做哪些統計</span>
+        </a>
+        <a href="#/autoresearch-zh" data-route="autoresearch-zh" data-keywords="auto research autoresearch branch 探索 分支 假設 自動研究">
+          <span class="mark">04</span><span>Auto Research 概念</span>
+        </a>
         <a href="#/code-truth-zh" data-route="code-truth-zh" data-keywords="程式碼 校準 真實 code manifest verified">
-          <span class="mark">02</span><span>依真實程式碼校準</span>
+          <span class="mark">05</span><span>依真實程式碼校準</span>
         </a>
         <a href="#/workflow-zh" data-route="workflow-zh" data-keywords="流程 phase workflow 13">
-          <span class="mark">03</span><span>13-Phase 工作流程</span>
+          <span class="mark">06</span><span>13-Phase 工作流程</span>
         </a>
         <a href="#/tools-zh" data-route="tools-zh" data-keywords="工具 mcp tools phase">
-          <span class="mark">04</span><span>MCP 工具盤點</span>
+          <span class="mark">07</span><span>MCP 工具盤點</span>
         </a>
         <a href="#/artifacts-zh" data-route="artifacts-zh" data-keywords="artifact audit decision deviation log">
-          <span class="mark">05</span><span>Artifacts 與審計鏈</span>
+          <span class="mark">08</span><span>Artifacts 與審計鏈</span>
         </a>
         <a href="#/flows-zh" data-route="flows-zh" data-keywords="快速探索 full report table one comparison handoff">
-          <span class="mark">06</span><span>常見使用流程</span>
+          <span class="mark">09</span><span>常見使用流程</span>
         </a>
         <a href="#/setup-zh" data-route="setup-zh" data-keywords="vsix codex copilot docker automl setup">
-          <span class="mark">07</span><span>VSIX / Codex 啟動</span>
+          <span class="mark">10</span><span>VSIX / Codex 啟動</span>
         </a>
       </nav>
 
@@ -817,17 +826,17 @@
                 RDE 不是讓 agent 自由寫一段 notebook 就結束，而是把 intake、schema、概念對齊、分析計畫、執行、報告、audit 與 handoff 放進同一條可追溯 pipeline。
               </p>
               <div class="hero-actions">
-                <a class="button primary" href="#/workflow-zh">
+                <a class="button primary" href="#/plain-guide-zh">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path>
                   </svg>
-                  查看 13-Phase
+                  我不是工程師，從這裡開始
                 </a>
-                <a class="button" href="figures/03-workflow-detail.svg">
+                <a class="button" href="#/statistics-zh">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path>
+                    <path d="M4 19V5"></path><path d="M8 17V9"></path><path d="M12 19V7"></path><path d="M16 15v-4"></path><path d="M20 19V3"></path>
                   </svg>
-                  開啟流程圖
+                  看統計能力
                 </a>
               </div>
             </div>
@@ -891,6 +900,208 @@
             <div class="figure-frame">
               <img src="figures/01-overall-concept.svg" alt="Research Data Explorer 整體概念圖">
             </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="plain-guide-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Plain-Language Guide</p>
+              <h3>如果你不是工程師，RDE 到底會幫你做什麼？</h3>
+            </div>
+            <p>你可以把 RDE 想成一位會留下完整工作紀錄的資料分析助理。它不只給答案，也會保存每一步為什麼這樣做、用了哪些資料、是否改過方法、最後報告能不能被審查。</p>
+          </div>
+
+          <div class="grid">
+            <article class="card">
+              <h4>先確認資料能不能用</h4>
+              <p>RDE 會先檢查檔案格式、大小、是否有疑似個資、有哪些工作表或欄位。這一步像是收件與初步驗收，避免一開始就把不該分析的資料丟進模型。</p>
+            </article>
+            <article class="card">
+              <h4>把欄位翻成研究語言</h4>
+              <p>資料裡可能有年齡、分組、治療方式、結果、時間、操作者、檢驗值。RDE 會建立 schema，並把欄位對應到「暴露、結果、共變數、分組、時間軸」等研究角色。</p>
+            </article>
+            <article class="card">
+              <h4>先做計畫，再跑統計</h4>
+              <p>RDE 會先產生分析計畫，讓使用者確認主要問題、主要結果、要比較的組別、缺失值策略與圖表。計畫鎖定後才進入正式分析。</p>
+            </article>
+            <article class="card">
+              <h4>自動選擇合適方法</h4>
+              <p>例如連續變數可能用 t-test 或 Mann-Whitney，類別變數可能用卡方或 Fisher；RDE 會根據欄位型態、組數、常態性與樣本狀況選擇方法。</p>
+            </article>
+            <article class="card">
+              <h4>報告不是只有 p 值</h4>
+              <p>完整報告會包含資料概況、Table 1、比較結果、圖表、模型、敏感度或補充分析、方法限制、decision log 與 deviation log。</p>
+            </article>
+            <article class="card">
+              <h4>不把結果包裝成過度承諾</h4>
+              <p>如果資料不足、方法不適合、缺少必要 artifact，RDE 會標記 report readiness 缺口，而不是把未完成結果硬說成 production-ready。</p>
+            </article>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>使用者通常會看到的分析旅程</h3>
+              <p>同一份資料可以只做快速概況，也可以走完整審計流程。</p>
+            </div>
+            <div class="flow">
+              <div class="flow-item">
+                <strong>1. 上傳或指定資料</strong>
+                <p>RDE 先掃描資料來源，確認格式、大小與疑似個資。如果需要處理敏感資料，必須明確知道風險並用指定參數覆蓋。</p>
+              </div>
+              <div class="flow-item">
+                <strong>2. 建立資料字典</strong>
+                <p>系統整理欄位型態、缺失率、唯一值、描述統計、可能的群組欄位與 outcome 欄位，讓後續方法不是憑猜測。</p>
+              </div>
+              <div class="flow-item">
+                <strong>3. 確認研究問題</strong>
+                <p>使用者確認「我要比較什麼」、「主要結果是什麼」、「哪些變數可能是干擾因子」。這一步避免 agent 把錯的欄位當成主要結論。</p>
+              </div>
+              <div class="flow-item">
+                <strong>4. 鎖定分析計畫</strong>
+                <p>RDE 產生候選分析、方法學審查與執行順序。使用者確認後，Phase 8 才能照計畫執行。</p>
+              </div>
+              <div class="flow-item">
+                <strong>5. 產生可審查報告</strong>
+                <p>結果會被彙整成報告，並附上圖表、來源 artifact、決策紀錄與 audit。若後來改方法，偏離原因會寫入 deviation log。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="statistics-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Statistics In RDE</p>
+              <h3>RDE 目前能做的基礎與進階統計</h3>
+            </div>
+            <p>下面用「你想回答的問題」來說明，而不是用工程模組分類。RDE 會依資料型態、樣本數、分組、常態性與計畫內容選擇合適方法。</p>
+          </div>
+
+          <div class="grid two">
+            <article class="card">
+              <h4>這份資料長什麼樣？</h4>
+              <p>描述統計、缺失值、離群值、分布形狀、欄位型態、資料品質評估，以及 Table 1。Table 1 可用來整理不同組別的基線特徵。</p>
+              <div class="tag-row"><span class="tag">profile_dataset</span><span class="tag">assess_quality</span><span class="tag">generate_table_one</span></div>
+            </article>
+            <article class="card">
+              <h4>兩組或多組是否不同？</h4>
+              <p>連續變數可依情境使用 t-test、Mann-Whitney、ANOVA、Kruskal-Wallis；類別變數可用卡方或 Fisher。重複測量或配對資料可用 paired t-test、Wilcoxon 或 Friedman。</p>
+              <div class="tag-row"><span class="tag">compare_groups</span><span class="tag">run_repeated_measures</span></div>
+            </article>
+            <article class="card">
+              <h4>變數之間有沒有關係？</h4>
+              <p>RDE 可做 Pearson、Spearman、point-biserial correlation，也會在相關矩陣中提醒共線性風險，避免把高度重複的變數塞進模型。</p>
+              <div class="tag-row"><span class="tag">correlation_matrix</span><span class="tag">VIF</span></div>
+            </article>
+            <article class="card">
+              <h4>調整其他因素後還成立嗎？</h4>
+              <p>如果問題不是單純比較，而是想控制年齡、共病、嚴重度等干擾因子，RDE 可用 logistic regression、multiple regression 或 GLM 做調整模型。</p>
+              <div class="tag-row"><span class="tag">run_advanced_analysis</span><span class="tag">logistic_regression</span><span class="tag">multiple_regression</span></div>
+            </article>
+            <article class="card">
+              <h4>模型判斷能力如何？</h4>
+              <p>二元結果可以評估 ROC/AUC；非顯著結果或設計階段可用 power analysis 輔助判斷樣本數或檢定力是否不足。</p>
+              <div class="tag-row"><span class="tag">roc_auc</span><span class="tag">power_analysis_advanced</span></div>
+            </article>
+            <article class="card">
+              <h4>時間到事件資料怎麼看？</h4>
+              <p>若資料有追蹤時間與事件欄位，RDE 可產生 Kaplan-Meier 摘要；在資料條件可行時，可跑 Cox regression 做調整後的存活分析。</p>
+              <div class="tag-row"><span class="tag">kaplan_meier</span><span class="tag">cox_regression</span></div>
+            </article>
+            <article class="card">
+              <h4>兩組本來就不公平怎麼辦？</h4>
+              <p>對觀察性資料，RDE 可用輕量 propensity score 估計分組機率、檢查 overlap、產生權重或簡單 matching 摘要，幫助討論組間平衡。</p>
+              <div class="tag-row"><span class="tag">propensity_score</span><span class="tag">balance diagnostics</span></div>
+            </article>
+            <article class="card">
+              <h4>學習曲線或操作熟練度怎麼看？</h4>
+              <p>如果資料有操作者、嘗試順序與成功/失敗，RDE 可用 learning-curve CUSUM 探索表現是否隨經驗改善。</p>
+              <div class="tag-row"><span class="tag">learning_curve_cusum</span></div>
+            </article>
+          </div>
+
+          <div class="callout warning">
+            <strong>重要限制：</strong>
+            RDE 不會把所有統計方法一次全跑。它會先讓使用者確認研究問題與分析計畫，再選擇合適方法。這樣可以降低多重比較、假陽性與方法漂移。
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>圖表會搭配問題產生</h3>
+              <p>RDE 目前支援常見探索圖表：histogram、boxplot、violin、scatter、bar、heatmap、line、paired plot。完整報告會盡量讓圖表跟表格、模型與文字解釋互相對應。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="autoresearch-zh">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Auto Research</p>
+              <h3>Auto Research 是受控探索，不是自動改結論</h3>
+            </div>
+            <p>RDE 的 Auto Research 概念是：在主要分析計畫鎖定後，讓 agent 在明確邊界內探索額外假設，留下分支紀錄、實驗結果、評估與是否值得納入計畫的理由。</p>
+          </div>
+
+          <div class="grid">
+            <article class="card">
+              <h4>它像研究助理的白板</h4>
+              <p>主要計畫仍是主線。Auto Research 會另外開探索分支，例如「是否需要調整模型」、「是否值得做 propensity score」、「某個子群是否需要敏感度分析」。</p>
+            </article>
+            <article class="card">
+              <h4>它只能在 gate 後執行</h4>
+              <p>分支探索需要 locked plan 與 readiness 通過。也就是說，不能在還沒理解資料、還沒確認研究問題時就自動亂跑。</p>
+            </article>
+            <article class="card">
+              <h4>它有預算與停止機制</h4>
+              <p>Auto Research queue 會記錄工作項目、進度、失敗預算、停止與恢復事件，避免探索無限制擴張。</p>
+            </article>
+            <article class="card">
+              <h4>它不會直接改主結論</h4>
+              <p>探索分支若想升級成正式 plan amendment，需要 evidence、evaluate_branch、promotion gate 與使用者確認。</p>
+            </article>
+            <article class="card">
+              <h4>它會留下完整紀錄</h4>
+              <p>每個 branch、experiment、evaluation、promotion review 都會寫入 project artifacts，報告可以引用，也可以在 audit 中檢查。</p>
+            </article>
+            <article class="card">
+              <h4>它適合找補充分析</h4>
+              <p>常見用途包括：補一個調整模型、做 ROC/AUC、檢查 propensity balance、探索學習曲線、找需要敏感度分析的變數。</p>
+            </article>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3>Auto Research 的安全流程</h3>
+              <p>這是目前 branch tools 與 agent-control manifest 所描述的控制邏輯。</p>
+            </div>
+            <div class="flow">
+              <div class="flow-item">
+                <strong>Open branch</strong>
+                <p>先記錄 hypothesis、reason、相關變數與風險等級。這一步只是開探索分支，不改 locked plan。</p>
+              </div>
+              <div class="flow-item">
+                <strong>Suggest experiments</strong>
+                <p>根據 schema、locked plan 與變數角色提出可能的 branch experiments，例如 adjusted model、ROC/AUC 或 propensity score。</p>
+              </div>
+              <div class="flow-item">
+                <strong>Run queue</strong>
+                <p>Auto Research run 會建立 work queue、work events、budget state 與 progress events，可停止、恢復或逐項執行。</p>
+              </div>
+              <div class="flow-item">
+                <strong>Evaluate branch</strong>
+                <p>分支需要有 live evidence artifact、樣本數、效果或模型指標、 uncertainty 或 diagnostic metric，才有評估基礎。</p>
+              </div>
+              <div class="flow-item">
+                <strong>Promote only with confirmation</strong>
+                <p>要把分支升級成 plan amendment，必須通過 audit gate、不是 stale evaluation、且需要使用者確認。它不能自動合併成主要結論。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout">
+            <strong>一句話理解：</strong>
+            Auto Research 不是「讓 AI 自己研究完並宣布答案」，而是「讓 AI 在已鎖定的研究計畫旁邊開受控分支，收集補充證據，最後由 gate 與使用者決定能不能納入」。
           </div>
         </section>
 
