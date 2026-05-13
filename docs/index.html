@@ -745,6 +745,186 @@
         overflow-x: auto;
       }
     }
+
+    .flow-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .flow-card {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(245,238,224,.82));
+      box-shadow: var(--shadow-soft);
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flow-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 8px;
+      height: 100%;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      opacity: .82;
+    }
+
+    .flow-card.wide {
+      grid-column: 1 / -1;
+    }
+
+    .flow-card h4 {
+      margin: 0 0 8px;
+      font-size: 1.16rem;
+    }
+
+    .user-says {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(36, 74, 71, .08);
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .choice-tile {
+      border: 1px solid rgba(36, 74, 71, .18);
+      border-radius: 20px;
+      padding: 14px;
+      background: rgba(255, 255, 255, .72);
+    }
+
+    .choice-tile strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .flow-diagram {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    .flow-step {
+      flex: 1 1 128px;
+      min-width: 126px;
+      border: 1px solid rgba(36, 74, 71, .18);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .78);
+      padding: 12px;
+    }
+
+    .flow-step strong {
+      display: block;
+      font-size: .92rem;
+      margin-bottom: 5px;
+    }
+
+    .flow-step span {
+      display: block;
+      color: var(--muted);
+      font-size: .86rem;
+      line-height: 1.45;
+    }
+
+    .flow-arrow {
+      align-self: center;
+      color: var(--accent-2);
+      font-weight: 900;
+    }
+
+    .flow-meta {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .flow-meta p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .artifact-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .artifact-pill {
+      border-radius: 999px;
+      background: rgba(157, 99, 54, .1);
+      color: var(--ink);
+      padding: 6px 10px;
+      font-size: .82rem;
+      font-weight: 800;
+    }
+
+    .tech-details {
+      margin-top: 14px;
+      border-top: 1px solid rgba(36, 74, 71, .14);
+      padding-top: 12px;
+    }
+
+    .tech-details summary {
+      cursor: pointer;
+      font-weight: 900;
+      color: var(--accent-2);
+    }
+
+    .tech-details p {
+      margin: 10px 0 0;
+      color: var(--muted);
+    }
+
+    .flow-warning {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .flow-warning .mini-note {
+      border: 1px solid rgba(157, 99, 54, .2);
+      border-radius: 20px;
+      background: rgba(157, 99, 54, .08);
+      padding: 14px;
+    }
+
+    .flow-warning strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    @media (max-width: 720px) {
+      .flow-gallery {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-diagram {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .flow-arrow {
+        justify-self: center;
+        transform: rotate(90deg);
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1312,28 +1492,187 @@
           <div class="section-header">
             <div>
               <p class="kicker">Common Flows</p>
-              <h3>使用者說法對應到工具路徑</h3>
+              <h3>你想完成什麼？RDE 會帶你走對應流程</h3>
             </div>
-            <p>RDE 的網站應讓使用者知道「我想看資料」、「我想比較兩組」、「我要報告」分別會觸發哪些受治理步驟。</p>
+            <p>這一頁把常見使用者說法翻成「白話流程圖」。每張圖先說你會經過哪些檢查與得到什麼，工程工具名稱則收在 technical details，方便維護者回頭查證。</p>
           </div>
 
-          <div class="flow">
-            <div class="flow-item">
-              <strong>完整報告</strong>
-              <p>Phase 0-12：project setup、intake、schema、alignment、plan、readiness、execution、collect、report、audit、auto-improve、handoff。</p>
+          <div class="callout warning">
+            <strong>正式公開說明以 13-phase auditable pipeline 為準：</strong>
+            舊的 11-phase / Phase 0-10 說法只作為歷史相容，不作為目前 agent 執行指南。Quick Explore 可以快速產出概況，但必須標示 Not Audited；正式研究報告需要完成收斂、審查與改善流程。
+          </div>
+
+          <article class="flow-card wide" aria-label="RDE 使用流程選擇圖">
+            <h4>我該選哪種分析流程？</h4>
+            <p class="user-says">使用者常見開場：「我有資料，但不知道下一步要做什麼。」</p>
+            <div class="choice-grid">
+              <div class="choice-tile"><strong>只想先看資料</strong><span>走「快速看懂資料」，先取得欄位、缺失與分布概況。</span></div>
+              <div class="choice-tile"><strong>要正式可信報告</strong><span>走完整 13-phase，包含計畫確認、執行、報告與審查。</span></div>
+              <div class="choice-tile"><strong>要比較組別</strong><span>走基線特徵表與組間比較，會先檢查樣本數與統計前提。</span></div>
+              <div class="choice-tile"><strong>想探索新假設</strong><span>走 Auto Research branch，不會直接改主結論。</span></div>
+              <div class="choice-tile"><strong>要交給論文寫作</strong><span>走報告、audit、handoff package，整理可追溯證據。</span></div>
+              <div class="choice-tile"><strong>想知道目前卡在哪</strong><span>走 harness dashboard 與 blocker playbook，查看下一步與缺少 artifacts。</span></div>
             </div>
-            <div class="flow-item">
-              <strong>Quick Explore</strong>
-              <p><code>init_project</code> → <code>run_intake</code> → <code>build_schema</code> → <code>profile_dataset</code> → quick report。輸出應標記為未完整 audit。</p>
-            </div>
-            <div class="flow-item">
-              <strong>組間比較 / Table 1</strong>
-              <p>先走 Phase 0-7，確認變數角色與前提後，再執行 <code>generate_table_one</code> 或 <code>compare_groups</code>。</p>
-            </div>
-            <div class="flow-item">
-              <strong>論文交接</strong>
-              <p><code>collect_results</code> 標記 publishable items，<code>assemble_report</code> 組報告，<code>run_audit</code> 評分，最後 <code>export_handoff</code>。</p>
-            </div>
+          </article>
+
+          <div class="flow-gallery">
+            <article class="flow-card">
+              <h4>快速看懂資料（Quick Explore）</h4>
+              <p class="user-says">「我有一個 CSV，想快速知道裡面有什麼。」</p>
+              <div class="flow-diagram" aria-label="快速看懂資料流程圖">
+                <div class="flow-step"><strong>匯入資料</strong><span>建立分析空間</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>安全收件</strong><span>格式、大小、PII</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>整理欄位</strong><span>型態與基礎統計</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>產生概況</strong><span>Profile 與品質摘要</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>標記限制</strong><span>Not Audited</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>第一次看資料、還沒有正式研究問題。</p>
+                <p><strong>你會得到：</strong>欄位清單、缺失概況、資料品質摘要與快速報告。</p>
+                <p><strong>注意：</strong>這不是正式審查完成的研究報告。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">intake_report.json</span><span class="artifact-pill">schema.json</span><span class="artifact-pill">full_profile.html</span><span class="artifact-pill">eda_report.md</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>init_project(mode="quick_explore")</code> → <code>run_intake</code> → <code>load_dataset</code> → <code>build_schema</code> → <code>profile_dataset</code> / <code>assess_quality</code> → <code>assemble_report(allow_incomplete=true)</code>。Gate：H-001、H-002、H-004；報告必須標示 Not Audited。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>不知道該分析什麼</h4>
+              <p class="user-says">「我不確定該怎麼分析，請幫我規劃。」</p>
+              <div class="flow-diagram" aria-label="分析規劃流程圖">
+                <div class="flow-step"><strong>理解資料</strong><span>欄位與品質</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>對齊問題</strong><span>研究問題與變數</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>提出候選</strong><span>可行分析路線</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>使用者確認</strong><span>先審後鎖定</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>形成計畫</strong><span>Executable plan</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>有資料但還沒有清楚統計策略的研究者。</p>
+                <p><strong>你會得到：</strong>變數角色、候選分析、方法學審查與鎖定計畫。</p>
+                <p><strong>注意：</strong>Phase 3 與 Phase 4/6 必須由使用者確認，agent 不可自行替你鎖定研究方向。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">concept_alignment.md</span><span class="artifact-pill">variable_roles.json</span><span class="artifact-pill">analysis_plan_review.md</span><span class="artifact-pill">analysis_plan.yaml</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>align_concept(confirm=true)</code> → <code>propose_analysis_plan(confirm=false)</code> → 使用者審閱 → <code>propose_analysis_plan(confirm=true)</code> → <code>register_analysis_plan(confirm=true)</code>。Gate：概念對齊確認、方法學完整性審查、plan lock。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>完整可信報告</h4>
+              <p class="user-says">「我要一份能交代方法、限制與審查紀錄的完整 EDA 報告。」</p>
+              <div class="flow-diagram" aria-label="完整可信報告流程圖">
+                <div class="flow-step"><strong>收件檢查</strong><span>安全與格式</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>確認計畫</strong><span>問題、變數、方法</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>分析前檢查</strong><span>樣本、缺失、分布</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>執行分析</strong><span>表格、圖、模型</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>報告審查</strong><span>audit 與改善</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>正式研究、內部審查、後續論文寫作前的完整探索報告。</p>
+                <p><strong>你會得到：</strong>結果彙整、完整報告、audit report、final report。</p>
+                <p><strong>注意：</strong>偏離鎖定計畫時必須寫入 deviation log，不能默默換方法。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">readiness_checklist.json</span><span class="artifact-pill">decision_log.jsonl</span><span class="artifact-pill">deviation_log.jsonl</span><span class="artifact-pill">audit_report.json</span><span class="artifact-pill">final_report.md</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 0-7 完整 gate → <code>suggest_cleaning</code> / <code>apply_cleaning</code> → <code>generate_table_one</code> → <code>compare_groups</code> / <code>analyze_variable</code> / <code>correlation_matrix</code> / <code>create_visualization</code> / <code>run_advanced_analysis</code> → <code>collect_results</code> → <code>assemble_report</code> → <code>run_audit</code> → <code>auto_improve</code>。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>比較兩組或做基線特徵表</h4>
+              <p class="user-says">「我想比較 A 組和 B 組，順便產出 Table 1。」</p>
+              <div class="flow-diagram" aria-label="組間比較與 Table 1 流程圖">
+                <div class="flow-step"><strong>選擇分組</strong><span>Group variable</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>確認變數</strong><span>Outcome / covariates</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>檢查前提</strong><span>樣本、缺失、分布</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>產生表格</strong><span>Table 1 / p 值</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>解釋差異</strong><span>效果量與限制</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>臨床資料、問卷資料、介入組與對照組比較。</p>
+                <p><strong>你會得到：</strong>基線特徵表、組間差異、效果量、多重比較與 power 提醒。</p>
+                <p><strong>注意：</strong>RDE 不只回 p 值，也會說明統計前提是否合理。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">table_one.md</span><span class="artifact-pill">table_one.json</span><span class="artifact-pill">compare_groups_*.json</span><span class="artifact-pill">results_summary.json</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 0-7 → <code>generate_table_one(dataset_id, group_variable, variables)</code> → <code>compare_groups(dataset_id, outcome_variables, group_variable)</code> → <code>collect_results</code> → <code>assemble_report</code> → <code>run_audit</code>。Gate：H-003、S-001、S-002、S-008、S-009、S-010、H-009。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>相關性、共線性與進階模型</h4>
+              <p class="user-says">「我想看變數之間是否相關，或跑 logistic regression / ROC / survival。」</p>
+              <div class="flow-diagram" aria-label="相關性與進階模型流程圖">
+                <div class="flow-step"><strong>確認問題</strong><span>相關或預測</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>檢查變數</strong><span>型態與缺失</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>選擇方法</strong><span>相關矩陣或模型</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>執行分析</strong><span>local-lite 或委派</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>說明限制</strong><span>共線性與環境</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>想理解變數關係、建立調整後模型或評估模型表現。</p>
+                <p><strong>你會得到：</strong>相關矩陣、VIF / collinearity 提醒、模型摘要、圖表與 fallback 說明。</p>
+                <p><strong>注意：</strong>若需要重型 vendor workflow，RDE 會明確說明是否委派 automl-stat-mcp，不會假裝完成。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">advanced_analysis_*.json</span><span class="artifact-pill">figures/</span><span class="artifact-pill">decision_log.jsonl</span><span class="artifact-pill">results_summary.json</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 0-7 → <code>correlation_matrix</code> 或 <code>run_advanced_analysis(analysis_type=...)</code> → local-lite / automl-stat-mcp delegation → <code>collect_results</code> → <code>assemble_report</code> → <code>run_audit</code>。Gate：locked plan、readiness、H-003、S-007；計畫外探索需 <code>log_deviation</code> 或 branch flow。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Auto Research：先試新假設</h4>
+              <p class="user-says">「分析中我想到一個新方向，可以先試試看嗎？」</p>
+              <div class="flow-diagram" aria-label="Auto Research branch 流程圖">
+                <div class="flow-step"><strong>開探索分支</strong><span>不改主計畫</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>提出實驗</strong><span>候選假設</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>執行分支</strong><span>獨立證據</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>評估證據</strong><span>audit gate</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>確認後提升</strong><span>Plan amendment</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>分析中出現新假設，但不想污染原始計畫。</p>
+                <p><strong>你會得到：</strong>探索分支、實驗 ledger、評估紀錄、必要時的計畫修正案。</p>
+                <p><strong>注意：</strong>branch 結果不可直接變成主結論；必須通過證據與使用者確認。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">exploration_board.json</span><span class="artifact-pill">experiment_ledger.jsonl</span><span class="artifact-pill">branch_evaluations.jsonl</span><span class="artifact-pill">plan_amendments/</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 6 locked plan + Phase 7 readiness → <code>open_exploration_branch</code> → <code>suggest_branch_experiments</code> → <code>run_branch_experiment</code> → <code>evaluate_branch</code> → <code>promote_branch_to_plan_amendment(confirm=true)</code>。Promotion 需要 live evidence、audit gate 與使用者確認。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>論文交接包</h4>
+              <p class="user-says">「我要把分析結果交給論文寫作或共同作者。」</p>
+              <div class="flow-diagram" aria-label="論文交接流程圖">
+                <div class="flow-step"><strong>彙整發現</strong><span>Publishable items</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>組報告</strong><span>方法、結果、限制</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>品質審查</strong><span>audit score</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>修正缺口</strong><span>auto-improve</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>匯出交接</strong><span>Evidence package</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>要把 EDA 轉成論文初稿、研究團隊討論或外部審查資料。</p>
+                <p><strong>你會得到：</strong>可報告項目、完整報告、audit report、handoff package。</p>
+                <p><strong>注意：</strong>報告中的 claim 應能追到 artifact、decision log 或圖表來源。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">results_summary.json</span><span class="artifact-pill">eda_report.md</span><span class="artifact-pill">audit_report.json</span><span class="artifact-pill">handoff_package/</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>collect_results</code> → <code>assemble_report</code> / <code>export_report</code> → <code>run_audit</code> → <code>auto_improve</code> → <code>verify_audit_trail</code> → <code>export_handoff</code>。</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>目前卡在哪？</h4>
+              <p class="user-says">「我需要按什麼確認？有哪些產物可以看？為什麼被擋住？」</p>
+              <div class="flow-diagram" aria-label="進度與阻擋診斷流程圖">
+                <div class="flow-step"><strong>看目前階段</strong><span>Pipeline status</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>看待確認事項</strong><span>Approval card</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>看儀表板</strong><span>Dashboard</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>查 artifacts</strong><span>Artifact index</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>取得下一步</strong><span>Blocker playbook</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>適合：</strong>不知道下一步、需要確認點、或想檢查分析是否有偏離。</p>
+                <p><strong>你會得到：</strong>目前進度、待確認卡、artifact 索引、阻擋原因與建議下一步。</p>
+                <p><strong>注意：</strong>UX harness 只能導引，不會繞過 phase gate 或替使用者按確認。</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">approval_card.json</span><span class="artifact-pill">harness_dashboard.json</span><span class="artifact-pill">artifact_index.json</span><span class="artifact-pill">blocker_playbook.md</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>get_pipeline_status</code> → <code>get_approval_card</code> → <code>get_harness_dashboard</code> → <code>build_artifact_index</code> → <code>get_blocker_playbook</code> → 必要時 <code>get_decision_log</code> / <code>get_deviation_log</code>。</p></details>
+            </article>
+          </div>
+
+          <div class="flow-warning">
+            <div class="mini-note"><strong>13-phase 為準</strong><span>網站公開說明採用目前 canonical workflow；legacy 11-phase 只作歷史脈絡。</span></div>
+            <div class="mini-note"><strong>先審查再鎖定</strong><span>方法學完整性與 executable plan lock 要分開理解，不能把 draft 當 final plan。</span></div>
+            <div class="mini-note"><strong>Quick Explore 有邊界</strong><span>快速概況可以提早看資料，但不應被包裝成正式審計報告。</span></div>
           </div>
         </section>
 
@@ -1783,15 +2122,187 @@ python3 -m rde</pre>
           <div class="section-header">
             <div>
               <p class="kicker">Common Flows</p>
-              <h3>How user requests map to governed paths</h3>
+              <h3>From your question to the right RDE path</h3>
             </div>
-            <p>A quick overview, a group comparison, and a manuscript handoff use different levels of governance.</p>
+            <p>This page translates common user requests into plain-language flow diagrams. Tool names are kept inside technical details so public readers see the task, checks, and outputs first, while maintainers can still trace each path back to the implementation.</p>
           </div>
-          <div class="flow">
-            <div class="flow-item"><strong>Full report</strong><p>Phase 0-12: setup, intake, schema, alignment, plan, readiness, execution, collect, report, audit, improve, handoff.</p></div>
-            <div class="flow-item"><strong>Quick Explore</strong><p><code>init_project</code> -> <code>run_intake</code> -> <code>build_schema</code> -> <code>profile_dataset</code> -> quick report, explicitly marked as not fully audited.</p></div>
-            <div class="flow-item"><strong>Group comparison / Table 1</strong><p>Complete Phase 0-7 first, then run <code>generate_table_one</code> or <code>compare_groups</code> with variable roles and assumptions checked.</p></div>
-            <div class="flow-item"><strong>Manuscript handoff</strong><p><code>collect_results</code> marks publishable items, <code>assemble_report</code> builds the report, <code>run_audit</code> scores it, and <code>export_handoff</code> packages evidence.</p></div>
+
+          <div class="callout warning">
+            <strong>The public workflow follows the 13-phase auditable pipeline:</strong>
+            older 11-phase / Phase 0-10 wording is legacy context, not the current agent execution guide. Quick Explore can produce an early overview, but it must be marked Not Audited; formal research use should complete collection, audit, and improvement steps.
+          </div>
+
+          <article class="flow-card wide" aria-label="RDE path selection diagram">
+            <h4>Which path should I choose?</h4>
+            <p class="user-says">Common opening: "I have data, but I am not sure what to do next."</p>
+            <div class="choice-grid">
+              <div class="choice-tile"><strong>First look at data</strong><span>Use Quick data overview for columns, missingness, and distributions.</span></div>
+              <div class="choice-tile"><strong>Formal report</strong><span>Use the full 13-phase workflow with plan confirmation, execution, report, and audit.</span></div>
+              <div class="choice-tile"><strong>Compare groups</strong><span>Use baseline table and group comparison after sample and assumption checks.</span></div>
+              <div class="choice-tile"><strong>Explore a new idea</strong><span>Use an Auto Research branch without changing the primary conclusion.</span></div>
+              <div class="choice-tile"><strong>Manuscript handoff</strong><span>Package traceable findings, reports, audit records, and evidence.</span></div>
+              <div class="choice-tile"><strong>Find the blocker</strong><span>Use the harness dashboard and blocker playbook for the next action.</span></div>
+            </div>
+          </article>
+
+          <div class="flow-gallery">
+            <article class="flow-card">
+              <h4>Quick data overview</h4>
+              <p class="user-says">"I have a CSV and want to know what is inside."</p>
+              <div class="flow-diagram" aria-label="Quick data overview flow diagram">
+                <div class="flow-step"><strong>Import data</strong><span>Create workspace</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Safety intake</strong><span>Format, size, PII</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Map columns</strong><span>Types and basics</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Profile data</strong><span>Quality summary</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Mark limits</strong><span>Not Audited</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> a first look before the research question is settled.</p>
+                <p><strong>Output:</strong> column list, missingness overview, data-quality summary, and quick report.</p>
+                <p><strong>Note:</strong> this is not a fully audited research report.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">intake_report.json</span><span class="artifact-pill">schema.json</span><span class="artifact-pill">full_profile.html</span><span class="artifact-pill">eda_report.md</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>init_project(mode="quick_explore")</code> → <code>run_intake</code> → <code>load_dataset</code> → <code>build_schema</code> → <code>profile_dataset</code> / <code>assess_quality</code> → <code>assemble_report(allow_incomplete=true)</code>. Gates: H-001, H-002, H-004; the report must be marked Not Audited.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Planning when the analysis is unclear</h4>
+              <p class="user-says">"I am not sure how to analyze this. Help me plan."</p>
+              <div class="flow-diagram" aria-label="Analysis planning flow diagram">
+                <div class="flow-step"><strong>Understand data</strong><span>Columns and quality</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Align question</strong><span>Question and roles</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Propose options</strong><span>Candidate paths</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>User confirms</strong><span>Review before lock</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Lock plan</strong><span>Executable plan</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> researchers with data but no settled statistical strategy.</p>
+                <p><strong>Output:</strong> variable roles, candidate analyses, methodology review, and locked plan.</p>
+                <p><strong>Note:</strong> Phase 3 and Phase 4/6 require user confirmation; the agent cannot lock the research direction silently.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">concept_alignment.md</span><span class="artifact-pill">variable_roles.json</span><span class="artifact-pill">analysis_plan_review.md</span><span class="artifact-pill">analysis_plan.yaml</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>align_concept(confirm=true)</code> → <code>propose_analysis_plan(confirm=false)</code> → user review → <code>propose_analysis_plan(confirm=true)</code> → <code>register_analysis_plan(confirm=true)</code>. Gates: concept confirmation, methodology completeness review, and plan lock.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Full auditable report</h4>
+              <p class="user-says">"I need a complete EDA report with methods, limitations, and audit records."</p>
+              <div class="flow-diagram" aria-label="Full auditable report flow diagram">
+                <div class="flow-step"><strong>Intake checks</strong><span>Safety and format</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Confirm plan</strong><span>Question, roles, methods</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Pre-check</strong><span>Sample, missingness, distribution</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Run analyses</strong><span>Tables, figures, models</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Audit report</strong><span>Review and improve</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> formal research review, internal sign-off, or manuscript preparation.</p>
+                <p><strong>Output:</strong> collected results, report, audit report, and final improved report.</p>
+                <p><strong>Note:</strong> deviations from the locked plan must be written to the deviation log.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">readiness_checklist.json</span><span class="artifact-pill">decision_log.jsonl</span><span class="artifact-pill">deviation_log.jsonl</span><span class="artifact-pill">audit_report.json</span><span class="artifact-pill">final_report.md</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Complete Phase 0-7 gates → <code>suggest_cleaning</code> / <code>apply_cleaning</code> → <code>generate_table_one</code> → <code>compare_groups</code> / <code>analyze_variable</code> / <code>correlation_matrix</code> / <code>create_visualization</code> / <code>run_advanced_analysis</code> → <code>collect_results</code> → <code>assemble_report</code> → <code>run_audit</code> → <code>auto_improve</code>.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Compare groups or build a baseline table</h4>
+              <p class="user-says">"I want to compare group A and group B, and produce Table 1."</p>
+              <div class="flow-diagram" aria-label="Group comparison and Table 1 flow diagram">
+                <div class="flow-step"><strong>Choose groups</strong><span>Group variable</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Confirm variables</strong><span>Outcomes / covariates</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Check assumptions</strong><span>Sample, missingness, distribution</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Build table</strong><span>Table 1 / p values</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Interpret</strong><span>Effect size and limits</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> clinical datasets, surveys, intervention groups, or control comparisons.</p>
+                <p><strong>Output:</strong> baseline table, group differences, effect sizes, multiple-comparison and power reminders.</p>
+                <p><strong>Note:</strong> RDE does not only return p values; it explains whether the assumptions were appropriate.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">table_one.md</span><span class="artifact-pill">table_one.json</span><span class="artifact-pill">compare_groups_*.json</span><span class="artifact-pill">results_summary.json</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 0-7 → <code>generate_table_one(dataset_id, group_variable, variables)</code> → <code>compare_groups(dataset_id, outcome_variables, group_variable)</code> → <code>collect_results</code> → <code>assemble_report</code> → <code>run_audit</code>. Gates: H-003, S-001, S-002, S-008, S-009, S-010, H-009.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Correlation, collinearity, and advanced models</h4>
+              <p class="user-says">"I want correlations, logistic regression, ROC, survival, or propensity score analysis."</p>
+              <div class="flow-diagram" aria-label="Correlation and advanced model flow diagram">
+                <div class="flow-step"><strong>Confirm goal</strong><span>Association or prediction</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Check variables</strong><span>Types and missingness</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Select method</strong><span>Matrix or model</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Run analysis</strong><span>Local-lite or delegated</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Explain limits</strong><span>Collinearity and environment</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> understanding relationships, adjusted models, or model performance.</p>
+                <p><strong>Output:</strong> correlation matrix, VIF / collinearity warnings, model summaries, figures, and fallback notes.</p>
+                <p><strong>Note:</strong> if a heavy vendor workflow is needed, RDE states whether automl-stat-mcp was delegated instead of faking completion.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">advanced_analysis_*.json</span><span class="artifact-pill">figures/</span><span class="artifact-pill">decision_log.jsonl</span><span class="artifact-pill">results_summary.json</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 0-7 → <code>correlation_matrix</code> or <code>run_advanced_analysis(analysis_type=...)</code> → local-lite / automl-stat-mcp delegation → <code>collect_results</code> → <code>assemble_report</code> → <code>run_audit</code>. Gates: locked plan, readiness, H-003, S-007; out-of-plan exploration requires <code>log_deviation</code> or branch flow.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Auto Research: test a new hypothesis safely</h4>
+              <p class="user-says">"A new idea came up during analysis. Can we test it first?"</p>
+              <div class="flow-diagram" aria-label="Auto Research branch flow diagram">
+                <div class="flow-step"><strong>Open branch</strong><span>No change to main plan</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Suggest experiments</strong><span>Candidate hypotheses</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Run branch</strong><span>Separate evidence</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Evaluate evidence</strong><span>Audit gate</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Promote if confirmed</strong><span>Plan amendment</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> new hypotheses that should not contaminate the original plan.</p>
+                <p><strong>Output:</strong> exploration branch, experiment ledger, evaluation records, and plan amendment when justified.</p>
+                <p><strong>Note:</strong> branch results cannot become primary conclusions without evidence and user confirmation.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">exploration_board.json</span><span class="artifact-pill">experiment_ledger.jsonl</span><span class="artifact-pill">branch_evaluations.jsonl</span><span class="artifact-pill">plan_amendments/</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p>Phase 6 locked plan + Phase 7 readiness → <code>open_exploration_branch</code> → <code>suggest_branch_experiments</code> → <code>run_branch_experiment</code> → <code>evaluate_branch</code> → <code>promote_branch_to_plan_amendment(confirm=true)</code>. Promotion requires live evidence, audit gate, and user confirmation.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Manuscript handoff package</h4>
+              <p class="user-says">"I need to hand the results to manuscript writing or collaborators."</p>
+              <div class="flow-diagram" aria-label="Manuscript handoff flow diagram">
+                <div class="flow-step"><strong>Collect findings</strong><span>Publishable items</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Assemble report</strong><span>Methods, results, limits</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Audit quality</strong><span>Audit score</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Fix gaps</strong><span>Auto-improve</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Export package</strong><span>Evidence bundle</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> turning EDA into manuscript preparation, team discussion, or external review material.</p>
+                <p><strong>Output:</strong> publishable items, full report, audit report, and handoff package.</p>
+                <p><strong>Note:</strong> every claim should trace back to an artifact, decision log, or figure source.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">results_summary.json</span><span class="artifact-pill">eda_report.md</span><span class="artifact-pill">audit_report.json</span><span class="artifact-pill">handoff_package/</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>collect_results</code> → <code>assemble_report</code> / <code>export_report</code> → <code>run_audit</code> → <code>auto_improve</code> → <code>verify_audit_trail</code> → <code>export_handoff</code>.</p></details>
+            </article>
+
+            <article class="flow-card">
+              <h4>Where am I blocked?</h4>
+              <p class="user-says">"What do I need to confirm? What artifacts exist? Why is the workflow blocked?"</p>
+              <div class="flow-diagram" aria-label="Progress and blocker diagnosis flow diagram">
+                <div class="flow-step"><strong>Check phase</strong><span>Pipeline status</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>See approvals</strong><span>Approval card</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Open dashboard</strong><span>Harness status</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>List artifacts</strong><span>Artifact index</span></div><div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>Get next step</strong><span>Blocker playbook</span></div>
+              </div>
+              <div class="flow-meta">
+                <p><strong>Best for:</strong> finding the next action, required confirmation, or reason a step is blocked.</p>
+                <p><strong>Output:</strong> current progress, approval card, artifact index, blocker reason, and recommended next action.</p>
+                <p><strong>Note:</strong> the UX harness guides the user; it does not bypass phase gates or confirm on the user's behalf.</p>
+              </div>
+              <div class="artifact-strip"><span class="artifact-pill">approval_card.json</span><span class="artifact-pill">harness_dashboard.json</span><span class="artifact-pill">artifact_index.json</span><span class="artifact-pill">blocker_playbook.md</span></div>
+              <details class="tech-details"><summary>Technical details</summary><p><code>get_pipeline_status</code> → <code>get_approval_card</code> → <code>get_harness_dashboard</code> → <code>build_artifact_index</code> → <code>get_blocker_playbook</code> → optionally <code>get_decision_log</code> / <code>get_deviation_log</code>.</p></details>
+            </article>
+          </div>
+
+          <div class="flow-warning">
+            <div class="mini-note"><strong>13-phase canonical flow</strong><span>The public site follows the current workflow; legacy 11-phase wording is historical context only.</span></div>
+            <div class="mini-note"><strong>Review before lock</strong><span>Methodology completeness review and executable plan lock should be understood as distinct checks.</span></div>
+            <div class="mini-note"><strong>Quick Explore has boundaries</strong><span>An early overview is useful, but it should not be presented as a fully audited report.</span></div>
           </div>
         </section>
 
@@ -1907,7 +2418,7 @@ python3 -m rde</pre>
         ["workflow", "13-Phase 工作流程", "流程 phase workflow 13"],
         ["tools", "MCP 工具盤點", "工具 mcp tools phase"],
         ["artifacts", "Artifacts 與審計鏈", "artifact audit decision deviation log"],
-        ["flows", "常見使用流程", "快速探索 full report table one comparison handoff"],
+        ["flows", "常見使用流程", "快速探索 完整報告 規劃 組間比較 table one auto research 進階模型 handoff dashboard log"],
         ["setup", "VSIX / Codex 啟動", "vsix codex copilot docker automl setup"]
       ],
       en: [
@@ -1919,7 +2430,7 @@ python3 -m rde</pre>
         ["workflow", "13-Phase Workflow", "workflow phase 13 audit"],
         ["tools", "MCP Tools", "mcp tools phase"],
         ["artifacts", "Artifacts & Audit", "artifact audit decision deviation log"],
-        ["flows", "Common Flows", "quick explore full report table one comparison handoff"],
+        ["flows", "Common Flows", "quick explore full report planning table one comparison auto research advanced model handoff dashboard log"],
         ["setup", "VSIX / Codex Setup", "vsix codex copilot docker automl setup"]
       ]
     };
