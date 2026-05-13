@@ -746,6 +746,41 @@
       }
     }
 
+    .nav-group {
+      display: grid;
+      gap: 7px;
+      margin: 12px 0 18px;
+    }
+
+    .nav-group + .nav-group {
+      border-top: 1px solid rgba(36, 74, 71, .12);
+      padding-top: 16px;
+    }
+
+    .nav-group-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent-2);
+      font-size: .74rem;
+      font-weight: 950;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      margin: 0 0 3px 4px;
+    }
+
+    .nav-group-title::before {
+      content: "";
+      width: 18px;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    }
+
+    .nav-group a {
+      margin: 0;
+    }
+
     .flow-gallery {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -2408,31 +2443,66 @@ python3 -m rde</pre>
       ["audit_tools.py", 5, "run_audit, auto_improve, export_final_report, export_handoff, verify_audit_trail"]
     ];
 
-    const navData = {
+    const navSections = {
       zh: [
-        ["overview", "總覽", "總覽 產品定位 overview rde eda"],
-        ["plain-guide", "非工程師導覽", "非工程師 使用者 白話 說明 資料分析 報告"],
-        ["statistics", "RDE 會做哪些統計", "統計 方法 table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
-        ["autoresearch", "Auto Research 概念", "auto research autoresearch branch 探索 分支 假設 自動研究"],
-        ["engineer", "工程師分區", "工程師 架構 設計 程式碼 校準 真實 code manifest verified DDD harness"],
-        ["workflow", "13-Phase 工作流程", "流程 phase workflow 13"],
-        ["tools", "MCP 工具盤點", "工具 mcp tools phase"],
-        ["artifacts", "Artifacts 與審計鏈", "artifact audit decision deviation log"],
-        ["flows", "常見使用流程", "快速探索 完整報告 規劃 組間比較 table one auto research 進階模型 handoff dashboard log"],
-        ["setup", "VSIX / Codex 啟動", "vsix codex copilot docker automl setup"]
+        {
+          title: "入門",
+          items: [
+            ["overview", "總覽", "總覽 產品定位 overview rde eda"],
+            ["plain-guide", "非工程師導覽", "非工程師 使用者 白話 說明 資料分析 報告"],
+            ["flows", "常見使用流程", "快速探索 完整報告 規劃 組間比較 table one auto research 進階模型 handoff dashboard log"]
+          ]
+        },
+        {
+          title: "理解 RDE",
+          items: [
+            ["statistics", "RDE 會做哪些統計", "統計 方法 table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
+            ["autoresearch", "Auto Research 概念", "auto research autoresearch branch 探索 分支 假設 自動研究"],
+            ["workflow", "13-Phase 工作流程", "流程 phase workflow 13"],
+            ["artifacts", "Artifacts 與審計鏈", "artifact audit decision deviation log"]
+          ]
+        },
+        {
+          title: "工程與部署",
+          items: [
+            ["tools", "MCP 工具盤點", "工具 mcp tools phase"],
+            ["engineer", "工程師分區", "工程師 架構 設計 程式碼 校準 真實 code manifest verified DDD harness"],
+            ["setup", "VSIX / Codex 啟動", "vsix codex copilot docker automl setup"]
+          ]
+        }
       ],
       en: [
-        ["overview", "Overview", "overview positioning rde eda"],
-        ["plain-guide", "Plain-Language Guide", "non engineer user plain language data analysis report"],
-        ["statistics", "Statistics In RDE", "statistics table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
-        ["autoresearch", "Auto Research", "auto research autoresearch branch hypothesis controlled exploration"],
-        ["engineer", "Engineer Section", "engineer architecture design code verified manifest implementation DDD harness"],
-        ["workflow", "13-Phase Workflow", "workflow phase 13 audit"],
-        ["tools", "MCP Tools", "mcp tools phase"],
-        ["artifacts", "Artifacts & Audit", "artifact audit decision deviation log"],
-        ["flows", "Common Flows", "quick explore full report planning table one comparison auto research advanced model handoff dashboard log"],
-        ["setup", "VSIX / Codex Setup", "vsix codex copilot docker automl setup"]
+        {
+          title: "Start Here",
+          items: [
+            ["overview", "Overview", "overview positioning rde eda"],
+            ["plain-guide", "Plain-Language Guide", "non engineer user plain language data analysis report"],
+            ["flows", "Common Flows", "quick explore full report planning table one comparison auto research advanced model handoff dashboard log"]
+          ]
+        },
+        {
+          title: "Understand RDE",
+          items: [
+            ["statistics", "Statistics In RDE", "statistics table one t test mann whitney anova kruskal chi square fisher regression roc survival propensity"],
+            ["autoresearch", "Auto Research", "auto research autoresearch branch hypothesis controlled exploration"],
+            ["workflow", "13-Phase Workflow", "workflow phase 13 audit"],
+            ["artifacts", "Artifacts & Audit", "artifact audit decision deviation log"]
+          ]
+        },
+        {
+          title: "Engineering & Setup",
+          items: [
+            ["tools", "MCP Tools", "mcp tools phase"],
+            ["engineer", "Engineer Section", "engineer architecture design code verified manifest implementation DDD harness"],
+            ["setup", "VSIX / Codex Setup", "vsix codex copilot docker automl setup"]
+          ]
+        }
       ]
+    };
+
+    const navData = {
+      zh: navSections.zh.flatMap((section) => section.items),
+      en: navSections.en.flatMap((section) => section.items)
     };
 
     function routeLang(route) {
@@ -2445,13 +2515,20 @@ python3 -m rde</pre>
 
     function renderNav(lang, activeRoute) {
       const nav = document.getElementById("nav");
-      nav.innerHTML = navData[lang].map(([base, label, keywords], index) => {
-        const route = `${base}-${lang}`;
-        const number = String(index + 1).padStart(2, "0");
-        return `<a href="#/${route}" data-route="${route}" data-keywords="${keywords}">
-          <span class="mark">${number}</span><span>${label}</span>
-        </a>`;
-      }).join("");
+      let itemIndex = 0;
+      nav.innerHTML = navSections[lang].map((section) => `
+        <div class="nav-group" data-nav-group="${section.title}">
+          <div class="nav-group-title">${section.title}</div>
+          ${section.items.map(([base, label, keywords]) => {
+            itemIndex += 1;
+            const route = `${base}-${lang}`;
+            const number = String(itemIndex).padStart(2, "0");
+            return `<a href="#/${route}" data-route="${route}" data-keywords="${keywords}">
+              <span class="mark">${number}</span><span>${label}</span>
+            </a>`;
+          }).join("")}
+        </div>
+      `).join("");
       document.querySelectorAll("[data-route]").forEach((item) => {
         item.classList.toggle("active", item.dataset.route === activeRoute);
       });
