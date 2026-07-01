@@ -479,6 +479,20 @@ def build_common_medical_eda_suggestions(
                 "variables": repeated,
             }
         )
+
+    # Readiness-aware prioritization (closes the Readiness->Queue loop). Branches that
+    # register derived variables are the only ones that satisfy the scarce
+    # `derived_variable_provenance` depth requirement, yet they are emitted late in the
+    # per-analysis loop. When an autoresearch run truncates the queue to a task budget,
+    # a late derived-variable branch is silently dropped, leaving the report stuck below
+    # production-ready even though the analysis is otherwise complete. Stable-sort those
+    # provenance-closing branches to the front so budget truncation can never starve them,
+    # while preserving the original relative order of every other suggestion.
+    suggestions.sort(
+        key=lambda entry: 0
+        if (entry.get("analysis_contract") or {}).get("derived_variables")
+        else 1
+    )
     return suggestions
 
 

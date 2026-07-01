@@ -1400,6 +1400,157 @@ def test_autoresearch_executes_live_advanced_analysis_contract(tmp_path: Path) -
     assert "processed_tasks: 3" in output
 
 
+def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Path) -> None:
+    """End-to-end Readiness->Queue loop integrity.
+
+    Reproduces the precedex/CRBD configuration: a *binary* primary exposure plus a
+    *multilevel* variable used as a plan group_variable — exactly what makes report
+    readiness require `derived_variable_provenance`. Before the prioritization fix the
+    provenance-closing derived-variable branch was emitted late and dropped by a tight
+    autoresearch budget, so the registry stayed empty and the report could never reach
+    production-ready. This test drives the real autoresearch loop with a 2-task budget
+    (smaller than the number of suggestions) and asserts the registry is still populated,
+    proving the loop now closes even under truncation.
+    """
+    pytest.importorskip("mcp.server.fastmcp")
+    import numpy as np
+
+    project = Project(
+        id=f"prov-loop-{tmp_path.name}",
+        name="prov-loop",
+        data_dir=tmp_path / "raw",
+        output_dir=tmp_path / "output",
+        research_question="Does the exposure change the outcome after adjustment?",
+    )
+    project.output_dir.mkdir(parents=True, exist_ok=True)
+    store = ArtifactStore(project.artifacts_dir)
+    session = get_session()
+    session.register_project(project)
+    pipeline = session.get_pipeline(project.id)
+
+    schema = {
+        "dataset_id": "prov-dataset",
+        "row_count": 60,
+        "variables": [
+            {"name": "crbd_present", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
+            {"name": "precedex", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
+            {"name": "surgery_group", "variable_type": "categorical", "n_unique": 3, "missing_rate": 0.0},
+            {"name": "age", "variable_type": "continuous", "n_unique": 60, "missing_rate": 0.0},
+            {"name": "bmi", "variable_type": "continuous", "n_unique": 60, "missing_rate": 0.0},
+        ],
+    }
+    plan = {
+        "project_id": project.id,
+        "locked": True,
+        "missing_strategy": "complete_case",
+        "analyses": [
+            {"type": "compare_groups", "variables": ["crbd_present"], "group_variable": "precedex", "rationale": "primary"},
+            {"type": "compare_groups", "variables": ["crbd_present"], "group_variable": "surgery_group", "rationale": "by surgery"},
+        ],
+    }
+    roles = {
+        "confirmed": True,
+        "outcome": "crbd_present",
+        "group": "precedex",
+        "covariates": ["surgery_group", "age", "bmi"],
+    }
+
+    phase_results = [
+        _complete_phase(store, PipelinePhase.PROJECT_SETUP, {"project.yaml": {}}),
+        _complete_phase(store, PipelinePhase.DATA_INTAKE, {"intake_report.json": {}}),
+        _complete_phase(store, PipelinePhase.SCHEMA_REGISTRY, {"schema.json": schema}),
+        _complete_phase(
+            store,
+            PipelinePhase.CONCEPT_ALIGNMENT,
+            {"concept_alignment.md": "", "variable_roles.json": roles},
+            user_confirmed=True,
+        ),
+        _complete_phase(
+            store,
+            PipelinePhase.CREATIVE_IDEATION,
+            {
+                "greedy_analysis_candidates.json": {"confirmed": True},
+                "greedy_analysis_candidates.md": "",
+                "greedy_execution_schedule.json": [],
+                "greedy_execution_schedule.md": "",
+                "greedy_plan_enrichment.json": [],
+                "greedy_plan_enrichment.md": "",
+                "greedy_statsmodels_base_analysis.py": "",
+            },
+            user_confirmed=True,
+        ),
+        _complete_phase(
+            store,
+            PipelinePhase.PLAN_COMPLETENESS_REVIEW,
+            {"analysis_plan_review.json": {"confirmed": True}, "analysis_plan_review.md": ""},
+            user_confirmed=True,
+        ),
+        _complete_phase(
+            store,
+            PipelinePhase.PLAN_REGISTRATION,
+            {"analysis_plan.yaml": plan},
+            user_confirmed=True,
+        ),
+        _complete_phase(
+            store,
+            PipelinePhase.PRE_EXPLORE_CHECK,
+            {"readiness_checklist.json": {"all_passed": True}},
+        ),
+    ]
+    for result in phase_results:
+        pipeline.mark_completed(result)
+    pipeline.plan_locked = True
+    project.plan_locked = True
+
+    rng = np.random.default_rng(7)
+    n = 60
+    surgery = (["A"] * 34) + (["B"] * 16) + (["C"] * 10)  # A is the dominant level
+    df = pd.DataFrame(
+        {
+            "crbd_present": rng.integers(0, 2, n),
+            "precedex": rng.integers(0, 2, n),
+            "surgery_group": surgery,
+            "age": rng.normal(60.0, 10.0, n),
+            "bmi": rng.normal(25.0, 4.0, n),
+        }
+    )
+    dataset = Dataset(
+        id="prov-dataset",
+        variables=[
+            Variable("crbd_present", "int64", VariableType.BINARY, n_unique=2),
+            Variable("precedex", "int64", VariableType.BINARY, n_unique=2),
+            Variable("surgery_group", "object", VariableType.CATEGORICAL, n_unique=3),
+            Variable("age", "float64", VariableType.CONTINUOUS, n_unique=n),
+            Variable("bmi", "float64", VariableType.CONTINUOUS, n_unique=n),
+        ],
+        row_count=n,
+    )
+    session.register_dataset(dataset, df)
+    project.dataset_ids = [dataset.id]
+
+    async def run_flow() -> str:
+        server = create_server()
+        await server.call_tool(
+            "start_autoresearch_run",
+            {"project_id": project.id, "max_tasks": 2, "max_branches": 2},
+        )
+        result = await server.call_tool(
+            "run_autoresearch_queue",
+            {"project_id": project.id, "max_tasks": 2, "lease_owner": "pytest-prov"},
+        )
+        return _textify_tool_result(result)
+
+    flow_output = asyncio.run(run_flow())
+
+    registry = store.load(PipelinePhase.EXECUTE_EXPLORATION, "derived_variable_registry.json")
+    assert isinstance(registry, dict), f"registry missing; loop output={flow_output}"
+    derived_entries = registry.get("derived_variables") or []
+    assert any(entry.get("source") == "surgery_group" for entry in derived_entries), (
+        "tight-budget autoresearch must still register the surgery_group provenance "
+        f"variable (loop closure); registry={registry}, output={flow_output}"
+    )
+
+
 def test_run_autoresearch_next_task_blocks_without_active_pending_work(tmp_path: Path) -> None:
     pytest.importorskip("mcp.server.fastmcp")
     project, _ = _make_phase8_ready_project(tmp_path)
@@ -1500,6 +1651,60 @@ def test_common_medical_eda_pack_is_domain_service() -> None:
     assert propensity["analysis_contract"]["group_variable"] == "drug_code_dominant_vs_other"
     assert propensity["analysis_contract"]["derived_variables"][0]["source"] == "drug_code"
     assert "research_question" not in propensity["analysis_contract"]["covariates"]
+
+
+def test_provenance_branch_is_prioritized_for_budget_survival() -> None:
+    """Readiness->Queue loop integrity.
+
+    When the primary exposure is binary but a multilevel variable is used as a plan
+    group_variable (the exact configuration that makes report readiness require
+    `derived_variable_provenance`), the derived-variable branch that closes that
+    requirement must be ordered ahead of the generic suggestions. Otherwise a
+    budget-truncated autoresearch run silently drops it and the report can never reach
+    production-ready — the open loop this fix closes.
+    """
+    from rde.domain.services.common_medical_eda_pack import (
+        build_common_medical_eda_suggestions,
+    )
+
+    suggestions = build_common_medical_eda_suggestions(
+        {
+            "variables": [
+                {"name": "crbd_present", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.03},
+                {"name": "precedex", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
+                {"name": "surgery_group", "variable_type": "categorical", "n_unique": 3, "missing_rate": 0.0},
+                {"name": "age", "variable_type": "continuous", "missing_rate": 0.0},
+                {"name": "bmi", "variable_type": "continuous", "missing_rate": 0.0},
+            ]
+        },
+        {
+            "analyses": [
+                {"type": "compare_groups", "group_variable": "precedex", "variables": ["crbd_present"]},
+                {"type": "compare_groups", "group_variable": "surgery_group", "variables": ["crbd_present"]},
+            ]
+        },
+        {
+            "variable_roles": {
+                "crbd_present": "outcome",
+                "precedex": "group",
+                "surgery_group": "covariate",
+                "age": "covariate",
+                "bmi": "covariate",
+            }
+        },
+    )
+
+    derived_positions = [
+        index
+        for index, item in enumerate(suggestions)
+        if (item.get("analysis_contract") or {}).get("derived_variables")
+    ]
+    assert derived_positions, "a derived-variable provenance branch must be suggested"
+    # Prioritized to the very front so a truncated task budget cannot starve it.
+    assert derived_positions[0] == 0
+    first_contract = suggestions[0]["analysis_contract"]
+    assert first_contract["derived_variables"][0]["source"] == "surgery_group"
+    assert first_contract["group_variable"] == "surgery_group_dominant_vs_other"
 
 
 def test_branch_suggestions_do_not_use_nonbinary_categorical_logistic_target() -> None:
