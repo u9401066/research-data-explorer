@@ -520,7 +520,13 @@ class AnalysisDelegator:
             return False
         if backend in {"numpy", "local-lite", "fast"}:
             return True
-        return len(x_raw) > 200 or len(x_raw.columns) > 8
+        # AUTO: prefer inference-grade statsmodels (p-values + 95% CI) for typical
+        # research datasets. Only fall back to the fast numpy ridge engine (which
+        # yields no p-values/CIs) when the design matrix is genuinely large or
+        # high-dimensional enough to risk statsmodels latency/non-convergence.
+        # The previous >200 rows OR >8 cols cutoff silently stripped statistical
+        # inference from almost every real-world adjusted model.
+        return len(x_raw) > 50000 or len(x_raw.columns) > 15
 
     def _fit_binary_logit_lite(
         self,
@@ -604,6 +610,7 @@ class AnalysisDelegator:
                 "nobs": int(fit["nobs"]),
                 "coefficients": params,
                 "odds_ratios": odds_ratios,
+                "odds_ratio_ci": {name: None for name in params},
                 "p_values": fit.get("p_values", {name: None for name in params}),
                 "pseudo_r2": fit.get("pseudo_r2"),
                 "regularized_fallback": bool(fit["regularized"]),
@@ -616,6 +623,19 @@ class AnalysisDelegator:
         else:
             p_values = {name: None for name in params}
         odds_ratios = {name: float(np.exp(value)) for name, value in fitted.params.items()}
+        odds_ratio_ci: dict[str, Any] = {}
+        try:
+            conf = fitted.conf_int()
+            for name in params:
+                bounds = conf.loc[name]
+                lower = float(bounds.iloc[0])
+                upper = float(bounds.iloc[1])
+                odds_ratio_ci[name] = [
+                    float(np.exp(np.clip(lower, -30, 30))),
+                    float(np.exp(np.clip(upper, -30, 30))),
+                ]
+        except Exception:
+            odds_ratio_ci = {name: None for name in params}
         pseudo_r2 = float(getattr(fitted, "prsquared", np.nan))
         return {
             "analysis_type": analysis_type,
@@ -627,6 +647,7 @@ class AnalysisDelegator:
             "nobs": int(fitted.nobs),
             "coefficients": params,
             "odds_ratios": odds_ratios,
+            "odds_ratio_ci": odds_ratio_ci,
             "p_values": p_values,
             "pseudo_r2": pseudo_r2,
             "regularized_fallback": bool(fit["regularized"]),
@@ -732,7 +753,10 @@ class AnalysisDelegator:
             return False
         if backend in {"numpy", "local-lite", "fast"}:
             return True
-        return len(x_raw) > 200 or len(x_raw.columns) > 8
+        # AUTO: mirror _should_use_fast_logit — keep inference-grade statsmodels for
+        # typical research designs; only use the fast numpy ridge engine for genuinely
+        # large/high-dimensional matrices.
+        return len(x_raw) > 50000 or len(x_raw.columns) > 15
 
     def _run_linear_regression_lite(
         self,

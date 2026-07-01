@@ -145,6 +145,46 @@ def test_delegator_uses_fast_logit_for_high_cardinality_without_statsmodels(
     assert "operator_op_1" in result["result"]["odds_ratios"]
 
 
+def test_delegator_auto_prefers_statsmodels_for_moderate_rows_with_inference() -> None:
+    """Regression for the ridge-fallback footgun.
+
+    A moderate-sized adjusted model (>200 rows, few covariates) must use the
+    inference-grade statsmodels engine — not the silent numpy ridge fallback that
+    previously stripped p-values/CIs for any dataset above 200 rows.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(42)
+    n = 400
+    age = rng.normal(60.0, 10.0, n)
+    sex = rng.integers(0, 2, n).astype(float)
+    logits = -1.5 + 0.03 * (age - 60.0) + 0.6 * sex
+    outcome = (rng.random(n) < 1.0 / (1.0 + np.exp(-logits))).astype(int)
+    df = pd.DataFrame({"outcome": outcome, "age": age, "sex": sex})
+
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+
+    result = delegator.run_analysis(
+        df,
+        "logistic_regression",
+        {"target": "outcome", "covariates": ["age", "sex"]},
+    )
+
+    payload = result["result"]
+    assert result["source"] == "local-lite (statsmodels)"
+    assert payload["engine"] == "statsmodels.Logit"
+    assert payload["regularized_fallback"] is False
+    # #1: proper inference is restored — real p-values (not None).
+    assert all(value is not None for value in payload["p_values"].values())
+    # #2: odds-ratio 95% CI is now emitted for the statsmodels path.
+    assert "odds_ratio_ci" in payload
+    age_ci = payload["odds_ratio_ci"]["age"]
+    assert age_ci is not None
+    lower, upper = age_ci
+    assert lower < upper
+
+
 def test_delegator_uses_fast_linear_model_for_high_cardinality_without_statsmodels(
     monkeypatch,
 ) -> None:
