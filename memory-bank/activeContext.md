@@ -1,5 +1,13 @@
 # Active Context
 
+## MEM+ 2026-07-01
+
+- Loop-engineering P0 shipped: raised the local logistic/regression fast-path thresholds (rows 200 -> 50000, columns 8 -> 15) so real-world models use `statsmodels.Logit` with p-values and now odds-ratio 95% CIs instead of the silent numpy ridge fallback.
+- Closed the Readiness->Queue autonomous loop: derived-variable provenance branches are prioritized to the front of the common medical EDA suggestions so a budget-truncated autoresearch run cannot starve the branch that satisfies the `derived_variable_provenance` readiness requirement.
+- Root-cause insight: `common_medical_eda_pack` already generated the `dominant_vs_other` provenance branch; the open loop was that readiness gaps never influenced autoresearch execution priority, so a late-ordered branch was dropped once the task budget truncated the queue.
+- Verification: `.venv\Scripts\python.exe -m pytest -q` = 257 passed, 5 skipped; added unit prioritization and end-to-end tight-budget loop-integrity tests.
+- Cleanup candidate: `branch_tools._build_branch_suggestions` early-returns to the pack service, leaving its older in-file `is_multilevel_treatment_var` derived-branch path as dead code.
+
 ## MEM+ 2026-05-12
 
 - v0.4.14 release focus: VSIX multi-platform CI/runtime hardening so installs are guarded on Ubuntu, Windows, macOS Intel, and macOS Apple Silicon before publishing.

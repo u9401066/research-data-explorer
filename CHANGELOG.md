@@ -6,6 +6,19 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Raised the local logistic/regression fast-path thresholds (rows 200 -> 50000, columns 8 -> 15) so typical research-sized models are fitted with `statsmodels.Logit` and return real p-values instead of silently using the numpy ridge fallback without inference.
+- Extracted odds-ratio 95% confidence intervals from the statsmodels logistic fit so covariate-adjusted results are publication-ready.
+
+### Changed
+
+- Prioritized derived-variable provenance branches to the front of the common medical EDA suggestion list so a budget-truncated autoresearch run can no longer starve the branch that satisfies the `derived_variable_provenance` readiness requirement, closing the Readiness->Queue autonomous loop for multilevel plan-group designs.
+
+### Added
+
+- Regression tests locking statsmodels-backed inference (p-values + 95% CI) for real-world model sizes, provenance-branch prioritization, and an end-to-end loop-integrity test proving a tight autoresearch budget still registers the derived-variable provenance artifact.
+
 ## [0.4.14] - 2026-05-12
 
 ### 0.4.14 Fixed

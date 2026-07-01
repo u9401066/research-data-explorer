@@ -1,4 +1,10 @@
-# Progress (Updated: 2026-05-12)
+# Progress (Updated: 2026-07-01)
+
+## MEM+ 2026-07-01
+
+- [x] Loop-engineering P0 shipped: statsmodels inference thresholds (rows 200 -> 50000, columns 8 -> 15), odds-ratio 95% CI extraction, and provenance-branch prioritization that closes the Readiness->Queue autonomous loop.
+- [x] Added regression coverage: statsmodels inference for real-world model sizes, provenance-branch prioritization, and an end-to-end loop-integrity test proving a tight autoresearch budget still registers the derived-variable provenance artifact.
+- [x] Regression verification passed: `.venv\Scripts\python.exe -m pytest -q` = 257 passed, 5 skipped.
 
 ## MEM+ 2026-05-12
 
