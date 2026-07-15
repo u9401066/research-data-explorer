@@ -13,15 +13,19 @@ from rde.interface.mcp.tools.report_tools import (
     _build_report_from_assembled_markdown,
     _count_report_figure_references,
     _evaluate_report_readiness,
+    _extract_preserved_report_sections,
     _format_analyses,
     _format_baseline_table,
     _format_data_overview,
     _format_data_quality,
     _format_figure_gallery,
     _format_variable_profiles,
+    _load_latest_repeated_measures_markdown_bundle,
+    _parse_table_markdown_rows,
     _build_interpretation_discussion,
     _summarize_exploration_branches,
     _summarize_publication_deliverables,
+    _upsert_visualization_manifest,
 )
 from rde.interface.mcp.tools.audit_tools import (
     _build_phase10_final_report,
@@ -48,6 +52,77 @@ class _ToolCapture:
             return fn
 
         return decorator
+
+
+def test_repeated_measures_report_bundle_keeps_latest_version(tmp_path: Path) -> None:
+    store = ArtifactStore(tmp_path)
+    phase = PipelinePhase.EXECUTE_EXPLORATION
+
+    store.save(
+        phase,
+        "repeated_measures_time_1_time_2.json",
+        {
+            "variables": ["time_1", "time_2"],
+            "markdown_artifact": "repeated_measures_time_1_time_2.md",
+        },
+    )
+    store.save(phase, "repeated_measures_time_1_time_2.md", "old result")
+    store.save(phase, "repeated_measures_time_1_time_2_7.md", "latest result")
+    store.save(
+        phase,
+        "repeated_measures_time_1_time_2_2.json",
+        {
+            "variables": ["time_1", "time_2"],
+            "markdown_artifact": "repeated_measures_time_1_time_2_7.md",
+        },
+    )
+
+    rendered = _load_latest_repeated_measures_markdown_bundle(store)
+
+    assert rendered == "latest result"
+
+
+def test_visualization_manifest_replaces_same_output_path(tmp_path: Path) -> None:
+    project = Project(
+        id="proj-figure-upsert",
+        name="figure-upsert",
+        data_dir=tmp_path / "rawdata",
+        output_dir=tmp_path / "project",
+    )
+    figure_path = project.output_dir / "figures" / "paired.png"
+    figure_path.parent.mkdir(parents=True)
+
+    _upsert_visualization_manifest(
+        project,
+        plot_type="paired",
+        variables=["time_1", "time_2"],
+        result_path=str(figure_path),
+        group_var="group",
+        stats_summary="old result",
+    )
+    _upsert_visualization_manifest(
+        project,
+        plot_type="paired",
+        variables=["time_1", "time_2"],
+        result_path=str(figure_path),
+        group_var=None,
+        stats_summary="latest result",
+    )
+
+    manifest = ArtifactStore(project.artifacts_dir).load(
+        PipelinePhase.EXECUTE_EXPLORATION,
+        "visualization_manifest.json",
+    )
+    assert manifest == [
+        {
+            "plot_type": "paired",
+            "variables": ["time_1", "time_2"],
+            "group_var": None,
+            "output_path": "figures/paired.png",
+            "stats_summary": "latest result",
+            "category": "analytical",
+        }
+    ]
 
 
 def _save_production_readiness_context(
@@ -221,6 +296,49 @@ recommendations
     assert "Appendix A: Decision Log" in titles
     assert _count_report_figure_references(report) == 1
     assert report.validate_integrity() == []
+
+
+def test_report_regeneration_preserves_only_analyst_authored_sections() -> None:
+    sections = _extract_preserved_report_sections(
+        """# Report
+
+## Data Quality
+generated
+
+## Statistical Analyses
+generated
+
+## Case-set ledger
+generated nested analysis
+
+## Multiplicity-Adjusted Clinical Interpretation
+analyst-authored pairwise interpretation
+
+## Appendix A: Decision Log
+generated appendix
+"""
+    )
+
+    assert sections == [
+        (
+            "Multiplicity-Adjusted Clinical Interpretation",
+            "analyst-authored pairwise interpretation",
+        )
+    ]
+
+
+def test_table_parser_does_not_treat_markdown_separator_as_data() -> None:
+    rows = _parse_table_markdown_rows(
+        """| Variable | Overall | Group |
+| :--- | ---: | :---: |
+| Age | 63 | 61 |
+"""
+    )
+
+    assert rows == [
+        ["Variable", "Overall", "Group"],
+        ["Age", "63", "61"],
+    ]
 
 
 def test_export_report_attach_figures_respects_markdown_image_references(
@@ -2035,6 +2153,12 @@ def test_build_phase10_source_markdown_includes_table_gallery_and_relative_paths
 ## 隊列概況
 隊列
 
+## Multiplicity-Adjusted Clinical Interpretation
+Pairwise endpoint cohorts and the complete longitudinal cohort require separate denominators.
+
+## Appendix A: Decision Log
+decision evidence
+
 ## 補充圖表與最低發表包完成狀態
 - 摘要
 
@@ -2071,6 +2195,10 @@ def test_build_phase10_source_markdown_includes_table_gallery_and_relative_paths
     assert "## Figure Gallery" in rendered
     assert "../../figures/crbd_by_precedex.png" in rendered
     assert "### Figure 2. 年齡分布（描述性）" in rendered
+    assert "## Multiplicity-Adjusted Clinical Interpretation" in rendered
+    assert "Pairwise endpoint cohorts" in rendered
+    assert "## Appendix A: Decision Log" in rendered
+    assert "decision evidence" in rendered
     assert "../phase_09_collect_results/results_summary.json" in rendered
     assert str(project.output_dir) not in rendered
     assert rendered.count("- 摘要") == 1
@@ -2097,6 +2225,30 @@ def test_build_recommendations_mentions_report_readiness_gap() -> None:
 
     assert "終版完整報告" in text
     assert "production_ready" in text
+
+
+def test_data_quality_highlights_pairwise_strategy_even_when_mcar_not_rejected() -> None:
+    text = _format_data_quality(
+        None,
+        {
+            "checks": [
+                {
+                    "id": "S-005",
+                    "name": "缺失模式分析",
+                    "passed": True,
+                    "warning": True,
+                    "detail": (
+                        "啟發式判定: MCAR not rejected by heuristic screen (not proven); "
+                        "registered strategy: pairwise"
+                    ),
+                }
+            ]
+        },
+    )
+
+    assert "⚠️ 缺失模式注意" in text
+    assert "not proven" in text
+    assert "registered strategy: pairwise" in text
 
 
 def test_render_phase10_readiness_summary_explains_missing_production_requirements() -> None:

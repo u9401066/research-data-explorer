@@ -263,6 +263,8 @@ Typical analysis options to place in the Phase 4 plan:
 | Sensitivity or subgroup analysis | primary-analysis fields + subgroup or alternate coding | follow-up `compare_groups` or `run_advanced_analysis` | subgroup definitions, alternate variable definitions, required sensitivity checks |
 | Visualization outputs | outcome + optional group / time | `create_visualization` | plot type, variables, grouping, filename convention |
 
+For repeated measures, two timepoints use row-aligned Wilcoxon signed-rank analysis; three or more timepoints use a shared-complete-case Friedman omnibus test. Post-hoc comparisons can use either the same complete cohort or per-contrast pairwise-complete rows, and RDE records the observed count, analyzed-pair count, excluded count, and case strategy for every contrast. Paired-plot annotations use the same tie-aware SciPy method, while report regeneration keeps only the newest durable result for each variable set and one manifest entry per physical figure path.
+
 Analysis ideation usually needs more than one layer of reasoning. A practical order is: frame the question first, inspect the data structure second, and only then choose methods and figures.
 
 | Thinking layer | First question | Typical exit | RDE tools |

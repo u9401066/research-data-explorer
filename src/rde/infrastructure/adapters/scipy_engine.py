@@ -350,21 +350,34 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
         if len(variables) < 2:
             return {"error": "Paired t-test requires 2 outcome variable names."}
-        a = df[variables[0]].dropna().values
-        b = df[variables[1]].dropna().values
-        n = min(len(a), len(b))
-        a, b = a[:n], b[:n]
+        paired, case_handling = self._paired_complete_cases(df, variables[:2])
+        n = len(paired)
+        if n < 2:
+            return {"error": f"Paired t-test requires at least 2 complete pairs; found {n}."}
+        a = paired[variables[0]].to_numpy(dtype=float)
+        b = paired[variables[1]].to_numpy(dtype=float)
         stat, p = stats.ttest_rel(a, b)
-        d = self._cohens_d(a, b)
+        differences = a - b
+        difference_sd = float(np.std(differences, ddof=1))
+        d = float(np.mean(differences) / difference_sd) if difference_sd > 0 else 0.0
+        change = b - a
 
         return {
             "test_name": "Paired t-test",
             "statistic": float(stat),
             "p_value": float(p),
             "effect_size": float(d),
-            "effect_size_name": "Cohen's d",
+            "effect_size_name": "Cohen's dz",
             "sample_sizes": [n],
-            "interpretation": self._interpret_comparison(p, d, "Cohen's d"),
+            "n_pairs": n,
+            "case_handling": case_handling,
+            "change_summary": {
+                "direction": f"{variables[1]} - {variables[0]}",
+                "mean": float(np.mean(change)),
+                "median": float(np.median(change)),
+                "std": float(np.std(change, ddof=1)),
+            },
+            "interpretation": self._interpret_comparison(p, abs(d), "Cohen's dz"),
         }
 
     def _mann_whitney(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
@@ -400,21 +413,47 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
         if len(variables) < 2:
             return {"error": "Wilcoxon test requires 2 variable names."}
-        a = df[variables[0]].dropna().values
-        b = df[variables[1]].dropna().values
-        n = min(len(a), len(b))
-        a, b = a[:n], b[:n]
-        stat, p = stats.wilcoxon(a, b)
-        r = stat / (n * (n + 1) / 2) if n > 0 else 0
+        paired, case_handling = self._paired_complete_cases(df, variables[:2])
+        n = len(paired)
+        if n < 1:
+            return {"error": "Wilcoxon test requires at least 1 complete pair; found 0."}
+        a = paired[variables[0]].to_numpy(dtype=float)
+        b = paired[variables[1]].to_numpy(dtype=float)
+        differences = a - b
+        nonzero = differences[differences != 0]
+        if len(nonzero) == 0:
+            stat, p, rank_biserial = 0.0, 1.0, 0.0
+        else:
+            stat, p = stats.wilcoxon(a, b)
+            ranks = stats.rankdata(np.abs(nonzero))
+            positive_ranks = float(ranks[nonzero > 0].sum())
+            negative_ranks = float(ranks[nonzero < 0].sum())
+            rank_total = positive_ranks + negative_ranks
+            rank_biserial = (
+                (positive_ranks - negative_ranks) / rank_total if rank_total > 0 else 0.0
+            )
+        change = b - a
 
         return {
             "test_name": "Wilcoxon signed-rank",
             "statistic": float(stat),
             "p_value": float(p),
-            "effect_size": float(r),
-            "effect_size_name": "r",
+            "effect_size": float(rank_biserial),
+            "effect_size_name": "matched-pairs rank-biserial r",
             "sample_sizes": [n],
-            "interpretation": self._interpret_comparison(p, r, "r"),
+            "n_pairs": n,
+            "case_handling": case_handling,
+            "change_summary": {
+                "direction": f"{variables[1]} - {variables[0]}",
+                "mean": float(np.mean(change)),
+                "median": float(np.median(change)),
+                "std": float(np.std(change, ddof=1)) if n > 1 else 0.0,
+            },
+            "interpretation": self._interpret_comparison(
+                p,
+                abs(rank_biserial),
+                "matched-pairs rank-biserial r",
+            ),
         }
 
     def _anova(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
@@ -503,8 +542,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         if len(cols) < 3:
             return {"error": f"僅找到 {len(cols)} 個有效變數，需要 ≥3。"}
 
-        # Complete cases only
-        complete = df[cols].dropna()
+        numeric = df[cols].apply(pd.to_numeric, errors="coerce")
+        observed_counts = {column: int(numeric[column].notna().sum()) for column in cols}
+
+        # The omnibus Friedman test requires one shared complete-case cohort.
+        complete = numeric.dropna()
         n = len(complete)
         if n < 5:
             return {"error": f"完整配對個案 (n={n}) 不足，需要 ≥5。"}
@@ -526,6 +568,14 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "n_timepoints": k,
             "variables": cols,
             "significant": p < kw.get("alpha", 0.05),
+            "case_handling": {
+                "omnibus_strategy": "shared_complete_cases",
+                "input_rows": int(len(df)),
+                "observed_by_variable": observed_counts,
+                "complete_cases": n,
+                "excluded_incomplete_rows": int(len(df) - n),
+                "complete_case_rate": float(n / len(df)) if len(df) else 0.0,
+            },
         }
 
         # Descriptive stats per timepoint
@@ -549,25 +599,55 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         if p < kw.get("alpha", 0.05):
             n_pairs = len(list(combinations(range(k), 2)))
             bonferroni_alpha = kw.get("alpha", 0.05) / n_pairs
+            posthoc_case_strategy = str(kw.get("posthoc_case_strategy", "complete")).strip().lower()
+            if posthoc_case_strategy not in {"complete", "pairwise"}:
+                return {
+                    "error": (
+                        "posthoc_case_strategy must be 'complete' or 'pairwise'; "
+                        f"received {posthoc_case_strategy!r}."
+                    )
+                }
             posthoc = []
             for i, j in combinations(range(k), 2):
-                w_stat, w_p = stats.wilcoxon(arrays[i], arrays[j])
-                r_eff = w_stat / (n * (n + 1) / 2) if n > 0 else 0
+                if posthoc_case_strategy == "pairwise":
+                    pair_frame = numeric[[cols[i], cols[j]]].dropna()
+                else:
+                    pair_frame = complete[[cols[i], cols[j]]]
+                pair_a = pair_frame[cols[i]].to_numpy(dtype=float)
+                pair_b = pair_frame[cols[j]].to_numpy(dtype=float)
+                pair_n = len(pair_frame)
+                pair_differences = pair_a - pair_b
+                pair_nonzero = pair_differences[pair_differences != 0]
+                if pair_n == 0 or len(pair_nonzero) == 0:
+                    w_stat, w_p, rank_biserial = 0.0, 1.0, 0.0
+                else:
+                    w_stat, w_p = stats.wilcoxon(pair_a, pair_b)
+                    ranks = stats.rankdata(np.abs(pair_nonzero))
+                    positive_ranks = float(ranks[pair_nonzero > 0].sum())
+                    negative_ranks = float(ranks[pair_nonzero < 0].sum())
+                    rank_total = positive_ranks + negative_ranks
+                    rank_biserial = (
+                        (positive_ranks - negative_ranks) / rank_total if rank_total > 0 else 0.0
+                    )
                 posthoc.append(
                     {
+                        "pair": f"{cols[i]} vs {cols[j]}",
                         "var_1": cols[i],
                         "var_2": cols[j],
+                        "n_pairs": pair_n,
+                        "case_strategy": posthoc_case_strategy,
                         "statistic": float(w_stat),
                         "p_value": float(w_p),
                         "p_adjusted": float(min(w_p * n_pairs, 1.0)),
                         "significant": w_p < bonferroni_alpha,
-                        "effect_size": float(r_eff),
-                        "effect_size_name": "r",
+                        "effect_size": float(rank_biserial),
+                        "effect_size_name": "matched-pairs rank-biserial r",
                     }
                 )
             result["posthoc"] = posthoc
             result["posthoc_correction"] = "Bonferroni"
             result["posthoc_alpha"] = bonferroni_alpha
+            result["posthoc_case_strategy"] = posthoc_case_strategy
             n_sig = sum(1 for ph in posthoc if ph["significant"])
             result["interpretation"] = (
                 f"重複測量有顯著差異 (Friedman χ²={stat:.3f}, p={p:.4f}, W={w:.3f})。"
@@ -715,6 +795,26 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         }
 
     # ── helpers ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _paired_complete_cases(
+        df: pd.DataFrame,
+        variables: list[str],
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        """Keep only rows where the same subject has both paired measurements."""
+        if len(variables) != 2:
+            raise ValueError("Exactly two variables are required for a paired case set.")
+        numeric = df[variables].apply(pd.to_numeric, errors="coerce")
+        paired = numeric.dropna()
+        observed_counts = {column: int(numeric[column].notna().sum()) for column in variables}
+        return paired, {
+            "strategy": "pairwise_complete_rows",
+            "input_rows": int(len(df)),
+            "observed_by_variable": observed_counts,
+            "complete_pairs": int(len(paired)),
+            "excluded_unpaired_rows": int(len(df) - len(paired)),
+            "pair_rate": float(len(paired) / len(df)) if len(df) else 0.0,
+        }
 
     @staticmethod
     def _cohens_d(a: np.ndarray, b: np.ndarray) -> float:
@@ -974,6 +1074,8 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         self,
         data: Any,
         variables: list[str] | None = None,
+        *,
+        group_variables: list[str] | None = None,
     ) -> dict[str, Any]:
         """Analyze missing data patterns (S-005: MCAR/MAR/MNAR)."""
         df: pd.DataFrame = data
@@ -1002,24 +1104,32 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 "missing_rate": mc / n,
             }
 
-        # Little's MCAR test approximation:
-        # If missing in one variable is independent of observed values in others
+        # Exploratory missingness-indicator screen. This is not Little's MCAR
+        # test and cannot prove MCAR or rule out MNAR.
         from scipy import stats
 
         mcar_evidence = True
         correlation_results: list[dict] = []
+        group_associations: list[dict] = []
         numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
 
         for target in cols_with_missing:
             indicator = df[target].isna().astype(int)
+            if indicator.nunique(dropna=True) < 2:
+                continue
             for predictor in numeric_cols:
                 if predictor == target:
                     continue
                 valid_mask = df[predictor].notna()
-                if valid_mask.sum() < 10:
+                predictor_values = df.loc[valid_mask, predictor]
+                if (
+                    valid_mask.sum() < 10
+                    or predictor_values.nunique(dropna=True) < 2
+                    or indicator[valid_mask].nunique(dropna=True) < 2
+                ):
                     continue
                 try:
-                    stat, p = stats.pointbiserialr(indicator[valid_mask], df[predictor][valid_mask])
+                    stat, p = stats.pointbiserialr(indicator[valid_mask], predictor_values)
                     if p < 0.05:
                         mcar_evidence = False
                         correlation_results.append(
@@ -1035,6 +1145,50 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                         "MCAR correlation check skipped for %s vs %s: %s", target, predictor, exc
                     )
 
+            for group_variable in group_variables or []:
+                if group_variable not in df.columns or group_variable == target:
+                    continue
+                valid_mask = df[group_variable].notna()
+                if valid_mask.sum() < 10 or df.loc[valid_mask, group_variable].nunique() < 2:
+                    continue
+                try:
+                    contingency = pd.crosstab(
+                        indicator[valid_mask],
+                        df.loc[valid_mask, group_variable],
+                    )
+                    if contingency.shape[0] < 2 or contingency.shape[1] < 2:
+                        continue
+                    statistic, p, _, _ = stats.chi2_contingency(contingency, correction=False)
+                    denominator = min(contingency.shape) - 1
+                    cramers_v = math.sqrt(
+                        float(statistic) / (int(contingency.to_numpy().sum()) * denominator)
+                    )
+                    association = {
+                        "missing_var": target,
+                        "group_variable": group_variable,
+                        "test_name": "Chi-squared test of missingness indicator",
+                        "statistic": float(statistic),
+                        "p_value": float(p),
+                        "cramers_v": float(cramers_v),
+                        "table": {
+                            str(index): {
+                                str(column): int(contingency.loc[index, column])
+                                for column in contingency.columns
+                            }
+                            for index in contingency.index
+                        },
+                    }
+                    group_associations.append(association)
+                    if p < 0.05:
+                        mcar_evidence = False
+                except Exception as exc:
+                    logger.debug(
+                        "MCAR group check skipped for %s vs %s: %s",
+                        target,
+                        group_variable,
+                        exc,
+                    )
+
         # Determine pattern type
         if not cols_with_missing:
             pattern_type = "complete"
@@ -1042,14 +1196,17 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         elif mcar_evidence:
             pattern_type = "MCAR"
             interpretation = (
-                "缺失值可能為完全隨機 (MCAR)。Complete case analysis 或多重插補皆適用。"
+                "啟發式指標篩檢未發現缺失與已觀察數值的顯著關聯；這只代表未找到反對 MCAR 的證據，"
+                "不能證明 MCAR，也未排除分組、時間或未觀察因素造成的選擇偏差。"
             )
-        elif correlation_results:
+        elif correlation_results or any(
+            association["p_value"] < 0.05 for association in group_associations
+        ):
             # MAR: missing depends on observed variables
             pattern_type = "MAR"
             interpretation = (
-                "缺失值可能與觀測值有關 (MAR)。"
-                "建議使用多重插補 (Multiple Imputation)，避免 listwise deletion。"
+                "缺失指標與至少一個已觀察數值或分組變數相關，因此不可假設 MCAR；"
+                "這與 MAR 相容，但仍不能排除 MNAR。"
             )
         else:
             pattern_type = "unknown"
@@ -1061,11 +1218,28 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "variables_with_missing": list(patterns.keys()),
             "variable_details": patterns,
             "mcar_evidence": mcar_evidence,
+            "mcar_conclusion": (
+                "not_rejected_by_indicator_screen"
+                if mcar_evidence
+                else "observed_association_detected"
+            ),
+            "method": (
+                "pairwise point-biserial screen plus missingness-by-group chi-square diagnostics"
+            ),
+            "method_limitations": [
+                "This is not Little's MCAR test.",
+                "No heuristic can establish MCAR or exclude MNAR.",
+                "Availability should also be compared across exposure groups and timepoints.",
+            ],
             "significant_correlations": correlation_results,
+            "group_associations": group_associations,
             "recommendation": (
-                "Complete case analysis"
+                "Follow the registered missing-data strategy; report per-analysis denominators and sensitivity analyses"
                 if pattern_type == "MCAR"
-                else "Multiple Imputation"
+                else (
+                    "Do not assume MCAR; report group-specific availability and per-analysis denominators, "
+                    "then consider weighting or imputation sensitivity analyses consistent with the estimand"
+                )
                 if pattern_type == "MAR"
                 else "需人工判斷"
             ),

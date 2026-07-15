@@ -18,6 +18,15 @@ import json
 import sys
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
+
 PHASE_NAMES = [
     "phase_00_project_setup",
     "phase_01_data_intake",

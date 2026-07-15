@@ -1,4 +1,17 @@
-# Progress (Updated: 2026-07-01)
+# Progress (Updated: 2026-07-15)
+
+## MEM+ 2026-07-15
+
+- [x] Fixed row-identity corruption in paired t/Wilcoxon under asymmetric missingness and added case-ledger regression coverage.
+- [x] Added two-timepoint repeated-measures support, 3+ timepoint complete/pairwise post-hoc strategies, durable artifacts, and report integration.
+- [x] Replaced overconfident MCAR/complete-case wording with heuristic limitations plus the registered missing-data strategy.
+- [x] Added missingness-by-group diagnostics; timed-NRS readiness now reports MAR-compatible group-dependent availability without excluding MNAR.
+- [x] Unified paired figure and formal Wilcoxon inference, deduplicated manifest rows by physical path, and selected only the latest repeated-measures artifact in reports.
+- [x] Fixed Phase 12 cross-study report truncation and added SHA-256-tracked preservation of analyst-authored sections.
+- [x] Fixed Markdown separator rows leaking into Table 1 DOCX output.
+- [x] Fixed the direct pipeline-guard CLI entrypoint and Windows UTF-8 output, with subprocess regression coverage.
+- [x] Reran Robotic VATS timed-NRS project `d271e173` through registered RDE tools; final report has 23 unique figures, audit A 165/165, and audit trail verification passed with 54 decisions / 11 deviations.
+- [x] Asset-Aware DOCX integrity passed with 23 assets; table/text/structure/style/media fidelity reached 100% and final round-trip score reached 99.8%.
 
 ## MEM+ 2026-07-01
 

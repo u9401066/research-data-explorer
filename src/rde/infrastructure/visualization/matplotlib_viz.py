@@ -259,6 +259,20 @@ class MatplotlibVisualizer(VisualizationPort):
         z_value = (statistic - mean) / math.sqrt(variance)
         return statistic, self._normal_two_sided_p(z_value)
 
+    @staticmethod
+    def _wilcoxon_signed_rank(a: pd.Series, b: pd.Series) -> tuple[float, float]:
+        """Use the same tie-aware SciPy implementation as formal paired analyses."""
+        from scipy import stats
+
+        paired = pd.DataFrame({"a": a, "b": b}).apply(pd.to_numeric, errors="coerce").dropna()
+        if paired.empty:
+            return 0.0, 1.0
+        differences = paired["b"] - paired["a"]
+        if not (differences != 0).any():
+            return 0.0, 1.0
+        statistic, p_value = stats.wilcoxon(paired["a"], paired["b"])
+        return float(statistic), float(p_value)
+
     def _annotate_distribution_stats(self, ax: Any, series: pd.Series, label: str) -> None:
         numeric = pd.to_numeric(series, errors="coerce").dropna()
         if numeric.empty:
@@ -448,7 +462,7 @@ class MatplotlibVisualizer(VisualizationPort):
             )
             return
 
-        statistic, p_value = self._wilcoxon_signed_rank_lite(sub[x_var], sub[y_var])
+        statistic, p_value = self._wilcoxon_signed_rank(sub[x_var], sub[y_var])
         median_delta = (sub[y_var] - sub[x_var]).median()
         p_text = self._format_p_value(float(p_value))
         self._set_annotation(

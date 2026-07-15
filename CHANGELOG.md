@@ -8,15 +8,25 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Fixed
 
+- Preserved row identity in paired t tests and Wilcoxon signed-rank tests; asymmetric missingness can no longer pair measurements from different subjects after independent column-wise deletion.
+- Aligned paired-plot Wilcoxon annotations with the same tie-aware SciPy implementation used by formal repeated-measures analyses.
+- Prevented reruns from duplicating the same figure path or older versions of a repeated-measures artifact in regenerated reports.
+- Prevented Phase 12 finalization from dropping non-CRBD Phase 10 sections, including project-specific multiplicity, longitudinal, limitation, and appendix narratives.
+- Excluded Markdown alignment separators from Table 1 data rows so DOCX exports no longer contain a spurious `---` observation.
+- Made the documented direct `python scripts/pipeline_guard.py ...` entrypoint import repository hooks reliably and emit UTF-8 output on Windows consoles.
 - Raised the local logistic/regression fast-path thresholds (rows 200 -> 50000, columns 8 -> 15) so typical research-sized models are fitted with `statsmodels.Logit` and return real p-values instead of silently using the numpy ridge fallback without inference.
 - Extracted odds-ratio 95% confidence intervals from the statsmodels logistic fit so covariate-adjusted results are publication-ready.
 
 ### Changed
 
+- Made missingness language conservative: the indicator screen now reports MCAR as "not rejected, not proven," checks missingness-by-group associations, retains the registered missing-data strategy, and requires per-analysis denominators and sensitivity review.
+- Extended `run_repeated_measures` to support two-timepoint row-aligned Wilcoxon analyses and explicit complete-versus-pairwise post-hoc case strategies for three or more timepoints.
 - Prioritized derived-variable provenance branches to the front of the common medical EDA suggestion list so a budget-truncated autoresearch run can no longer starve the branch that satisfies the `derived_variable_provenance` readiness requirement, closing the Readiness->Queue autonomous loop for multilevel plan-group designs.
 
 ### Added
 
+- Added durable repeated-measures JSON/Markdown artifacts with case-set ledgers, per-pair sample sizes, matched-pairs effect sizes, and report assembly integration.
+- Added analyst-authored section preservation with a SHA-256 manifest so report regeneration remains complete without silently losing reviewed supplemental interpretation.
 - Regression tests locking statsmodels-backed inference (p-values + 95% CI) for real-world model sizes, provenance-branch prioritization, and an end-to-end loop-integrity test proving a tight autoresearch budget still registers the derived-variable provenance artifact.
 
 ## [0.4.14] - 2026-05-12

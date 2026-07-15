@@ -59,6 +59,96 @@ def test_scipy_engine_accepts_normalized_test_aliases() -> None:
     assert "p_value" in result
 
 
+def test_paired_tests_keep_same_row_identity_with_asymmetric_missingness() -> None:
+    df = pd.DataFrame(
+        {
+            "time_1": [1.0, None, 4.0, 10.0],
+            "time_2": [2.0, 7.0, None, 14.0],
+        }
+    )
+    engine = ScipyStatisticalEngine()
+
+    paired_t = engine.run_test(df, "paired_t_test", ["time_1", "time_2"])
+    wilcoxon = engine.run_test(df, "wilcoxon", ["time_1", "time_2"])
+
+    for result in (paired_t, wilcoxon):
+        assert result["n_pairs"] == 2
+        assert result["sample_sizes"] == [2]
+        assert result["case_handling"]["observed_by_variable"] == {
+            "time_1": 3,
+            "time_2": 3,
+        }
+        assert result["case_handling"]["excluded_unpaired_rows"] == 2
+        assert result["change_summary"]["mean"] == 2.5
+
+    assert paired_t["effect_size_name"] == "Cohen's dz"
+    assert wilcoxon["effect_size_name"] == "matched-pairs rank-biserial r"
+
+
+def test_friedman_pairwise_posthoc_reports_each_pair_case_set() -> None:
+    df = pd.DataFrame(
+        {
+            "t0": [None, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "t1": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+            "t2": [21, None, 23, 24, 25, 26, 27, 28, 29, 30],
+        }
+    )
+
+    result = ScipyStatisticalEngine().run_test(
+        df,
+        "friedman",
+        ["t0", "t1", "t2"],
+        posthoc_case_strategy="pairwise",
+    )
+
+    assert result["case_handling"]["complete_cases"] == 8
+    assert result["posthoc_case_strategy"] == "pairwise"
+    assert {row["pair"]: row["n_pairs"] for row in result["posthoc"]} == {
+        "t0 vs t1": 9,
+        "t0 vs t2": 8,
+        "t1 vs t2": 9,
+    }
+
+
+def test_missingness_screen_does_not_claim_that_mcar_was_proven() -> None:
+    df = pd.DataFrame(
+        {
+            "outcome": [1.0, None, 3.0, 4.0, None, 6.0, 7.0, 8.0, 9.0, 10.0],
+            "group": ["A", "B"] * 5,
+        }
+    )
+
+    result = ScipyStatisticalEngine().analyze_missing_patterns(df, ["outcome"])
+
+    assert result["pattern"] == "MCAR"
+    assert result["mcar_conclusion"] == "not_rejected_by_indicator_screen"
+    assert "不能證明 MCAR" in result["interpretation"]
+    assert result["method"].startswith("pairwise point-biserial screen")
+    assert result["recommendation"] != "Complete case analysis"
+
+
+def test_missingness_screen_detects_group_dependent_availability() -> None:
+    df = pd.DataFrame(
+        {
+            "outcome": [float(value) for value in range(10)]
+            + [None, None, None, None, None, None, None, None, 18.0, 19.0],
+            "treatment": ["A"] * 10 + ["B"] * 10,
+        }
+    )
+
+    result = ScipyStatisticalEngine().analyze_missing_patterns(
+        df,
+        ["outcome"],
+        group_variables=["treatment"],
+    )
+
+    assert result["pattern"] == "MAR"
+    assert result["mcar_conclusion"] == "observed_association_detected"
+    assert result["group_associations"][0]["group_variable"] == "treatment"
+    assert result["group_associations"][0]["p_value"] < 0.05
+    assert "不可假設 MCAR" in result["interpretation"]
+
+
 def test_delegator_runs_local_logistic_regression_without_automl() -> None:
     df = pd.DataFrame(
         {

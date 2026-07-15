@@ -1756,18 +1756,37 @@ def register_plan_tools(server: Any) -> None:
                         from rde.infrastructure.adapters import ScipyStatisticalEngine
 
                         engine = ScipyStatisticalEngine()
-                        mp = engine.analyze_missing_patterns(df, missing_cols)
+                        mp = engine.analyze_missing_patterns(
+                            df,
+                            missing_cols,
+                            group_variables=[
+                                c
+                                for c in readiness_scope.get("group_variables", [])
+                                if c in df.columns
+                            ],
+                        )
                         pattern = mp.get("pattern", "unknown")
                         rec = mp.get("recommendation", "")
+                        registered_strategy = str(
+                            plan_artifact.get("missing_strategy", "unspecified")
+                        )
+                        pattern_label = (
+                            "MCAR not rejected by heuristic screen (not proven)"
+                            if pattern == "MCAR"
+                            else str(pattern)
+                        )
                         checks.append(
                             {
                                 "id": "S-005",
                                 "name": "缺失模式分析",
                                 "passed": True,
+                                "warning": True,
+                                "diagnostics": mp,
                                 "detail": (
                                     f"scope={readiness_scope.get('source')}; "
                                     f"{len(missing_cols)}/{len(missing_scope)} scoped variables missing. "
-                                    f"模式: {pattern}，建議: {rec}"
+                                    f"啟發式判定: {pattern_label}; "
+                                    f"registered strategy: {registered_strategy}; 建議: {rec}"
                                 ),
                             }
                         )

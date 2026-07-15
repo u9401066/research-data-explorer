@@ -1434,7 +1434,12 @@ def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Pa
         "variables": [
             {"name": "crbd_present", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
             {"name": "precedex", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
-            {"name": "surgery_group", "variable_type": "categorical", "n_unique": 3, "missing_rate": 0.0},
+            {
+                "name": "surgery_group",
+                "variable_type": "categorical",
+                "n_unique": 3,
+                "missing_rate": 0.0,
+            },
             {"name": "age", "variable_type": "continuous", "n_unique": 60, "missing_rate": 0.0},
             {"name": "bmi", "variable_type": "continuous", "n_unique": 60, "missing_rate": 0.0},
         ],
@@ -1444,8 +1449,18 @@ def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Pa
         "locked": True,
         "missing_strategy": "complete_case",
         "analyses": [
-            {"type": "compare_groups", "variables": ["crbd_present"], "group_variable": "precedex", "rationale": "primary"},
-            {"type": "compare_groups", "variables": ["crbd_present"], "group_variable": "surgery_group", "rationale": "by surgery"},
+            {
+                "type": "compare_groups",
+                "variables": ["crbd_present"],
+                "group_variable": "precedex",
+                "rationale": "primary",
+            },
+            {
+                "type": "compare_groups",
+                "variables": ["crbd_present"],
+                "group_variable": "surgery_group",
+                "rationale": "by surgery",
+            },
         ],
     }
     roles = {
@@ -1670,17 +1685,35 @@ def test_provenance_branch_is_prioritized_for_budget_survival() -> None:
     suggestions = build_common_medical_eda_suggestions(
         {
             "variables": [
-                {"name": "crbd_present", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.03},
+                {
+                    "name": "crbd_present",
+                    "variable_type": "binary",
+                    "n_unique": 2,
+                    "missing_rate": 0.03,
+                },
                 {"name": "precedex", "variable_type": "binary", "n_unique": 2, "missing_rate": 0.0},
-                {"name": "surgery_group", "variable_type": "categorical", "n_unique": 3, "missing_rate": 0.0},
+                {
+                    "name": "surgery_group",
+                    "variable_type": "categorical",
+                    "n_unique": 3,
+                    "missing_rate": 0.0,
+                },
                 {"name": "age", "variable_type": "continuous", "missing_rate": 0.0},
                 {"name": "bmi", "variable_type": "continuous", "missing_rate": 0.0},
             ]
         },
         {
             "analyses": [
-                {"type": "compare_groups", "group_variable": "precedex", "variables": ["crbd_present"]},
-                {"type": "compare_groups", "group_variable": "surgery_group", "variables": ["crbd_present"]},
+                {
+                    "type": "compare_groups",
+                    "group_variable": "precedex",
+                    "variables": ["crbd_present"],
+                },
+                {
+                    "type": "compare_groups",
+                    "group_variable": "surgery_group",
+                    "variables": ["crbd_present"],
+                },
             ]
         },
         {

@@ -9,6 +9,7 @@ All tools return markdown strings.
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,48 @@ _COMPLETENESS_RANKS = {
     "academic_ready": 2,
     "production_ready": 3,
 }
+
+_GENERATED_REPORT_HEADINGS = {
+    "data overview",
+    "data quality",
+    "variable profiles",
+    "table 1 — baseline characteristics",
+    "key findings",
+    "statistical analyses",
+    "advanced analyses",
+    "repeated-measures case-set analyses",
+    "case-set ledger",
+    "主檢定",
+    "各時間點描述統計（friedman 共同完整 cohort）",
+    "post-hoc 配對比較 (bonferroni 校正)",
+    "資料合理性防護",
+    "figures",
+    "interpretation and literature context",
+    "interpretation narrative",
+    "learning curve cusum",
+    "sensitivity analysis",
+    "recommendations",
+    "metadata",
+    "figure gallery",
+}
+
+
+def _extract_preserved_report_sections(markdown: str) -> list[tuple[str, str]]:
+    """Recover analyst-authored H2 sections before regenerating a Phase 10 report."""
+    body = str(markdown or "")
+    matches = list(re.finditer(r"^##\s+(.+)$", body, re.MULTILINE))
+    preserved: list[tuple[str, str]] = []
+    for index, match in enumerate(matches):
+        heading = match.group(1).strip()
+        normalized = heading.casefold()
+        if normalized in _GENERATED_REPORT_HEADINGS or normalized.startswith("appendix "):
+            continue
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+        content = body[start:end].strip()
+        if content:
+            preserved.append((heading, content))
+    return preserved
 
 
 def _safe_visualization_filename(filename: str) -> str:
@@ -684,6 +727,8 @@ def register_report_tools(server: Any) -> None:
             pipeline = session.get_pipeline(project.id)
             logger = session.get_logger(project.id)
             store = ArtifactStore(project.artifacts_dir)
+            existing_report = str(store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md") or "")
+            preserved_sections = _extract_preserved_report_sections(existing_report)
             results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
             report_readiness = _evaluate_report_readiness(
                 results,
@@ -753,6 +798,14 @@ def register_report_tools(server: Any) -> None:
                     + advanced_artifacts
                 )
 
+            repeated_measure_artifacts = _load_latest_repeated_measures_markdown_bundle(store)
+            if repeated_measure_artifacts:
+                artifacts["statistical_analyses"] = (
+                    artifacts.get("statistical_analyses", "")
+                    + "\n\n## Repeated-Measures Case-Set Analyses\n\n"
+                    + repeated_measure_artifacts
+                )
+
             pubmed_context = store.load(
                 PipelinePhase.REPORT_ASSEMBLY,
                 "pubmed_literature_context.md",
@@ -807,6 +860,31 @@ def register_report_tools(server: Any) -> None:
             figure_gallery = _format_figure_gallery(project, store)
             if figure_gallery:
                 content += "\n---\n\n" + figure_gallery + "\n"
+
+            if preserved_sections:
+                content += "\n---\n\n"
+                content += "\n\n".join(
+                    f"## {heading}\n\n{section_content}"
+                    for heading, section_content in preserved_sections
+                )
+                content += "\n"
+            store.save(
+                PipelinePhase.REPORT_ASSEMBLY,
+                "preserved_report_sections.json",
+                {
+                    "generated_at": datetime.now().isoformat(),
+                    "source_artifact": "phase_10_report_assembly/eda_report.md",
+                    "source_sha256": hashlib.sha256(existing_report.encode("utf-8")).hexdigest()
+                    if existing_report
+                    else None,
+                    "preserved_headings": [heading for heading, _ in preserved_sections],
+                    "section_count": len(preserved_sections),
+                    "review_note": (
+                        "Analyst-authored sections are preserved verbatim across report regeneration; "
+                        "review them whenever upstream analyses change."
+                    ),
+                },
+            )
 
             # Add appendices (decision log + deviation log)
             appendix = _build_appendix(logger, store)
@@ -1273,7 +1351,9 @@ def _format_data_quality(
 
         # Highlight S-005 missing pattern if present
         missing_check = next((c for c in checks if c.get("id") == "S-005"), None)
-        if missing_check and "MCAR" not in missing_check.get("detail", ""):
+        if missing_check and (
+            missing_check.get("warning") or "MCAR" not in missing_check.get("detail", "")
+        ):
             lines.append(f"\n**⚠️ 缺失模式注意:** {missing_check.get('detail', '')}")
 
         # Highlight S-007 collinearity if present
@@ -1354,6 +1434,8 @@ def _parse_table_markdown_rows(table_markdown: str | None) -> list[list[str]]:
         cells = [cell.strip() for cell in stripped.strip("|").split("|")]
         if not cells or all(cell == "" for cell in cells):
             continue
+        if all(re.fullmatch(r":?-{3,}:?", cell.replace(" ", "")) for cell in cells):
+            continue
         rows.append(cells)
 
     return rows
@@ -1423,6 +1505,48 @@ def _load_phase6_markdown_bundle(
             continue
         rendered.append(str(content).strip())
 
+    return "\n\n---\n\n".join(rendered) if rendered else None
+
+
+def _load_latest_repeated_measures_markdown_bundle(store: Any) -> str | None:
+    """Load only the newest durable artifact for each repeated-measures variable set."""
+    from rde.application.pipeline import PipelinePhase
+
+    phase = PipelinePhase.EXECUTE_EXPLORATION
+    candidates: dict[tuple[str, ...], tuple[int, str]] = {}
+    for name in store.list_phase_artifacts(phase):
+        if not name.startswith("repeated_measures_") or not name.endswith(".json"):
+            continue
+        payload = store.load(phase, name)
+        variables = payload.get("variables") if isinstance(payload, dict) else None
+        if not isinstance(variables, list) or not variables:
+            continue
+        markdown_artifact = payload.get("markdown_artifact")
+        markdown_name = str(markdown_artifact) if isinstance(markdown_artifact, str) else ""
+        has_safe_markdown_reference = (
+            bool(markdown_name)
+            and Path(markdown_name).name == markdown_name
+            and markdown_name.startswith("repeated_measures_")
+            and markdown_name.endswith(".md")
+        )
+        md_name = markdown_name if has_safe_markdown_reference else f"{Path(name).stem}.md"
+        md_path = store.get_path(phase, md_name)
+        if not md_path.exists():
+            continue
+        try:
+            modified_ns = md_path.stat().st_mtime_ns
+        except OSError:
+            modified_ns = 0
+        key = tuple(str(variable) for variable in variables)
+        current = candidates.get(key)
+        if current is None or (modified_ns, md_name) > current:
+            candidates[key] = (modified_ns, md_name)
+
+    rendered: list[str] = []
+    for _, md_name in sorted(candidates.values(), key=lambda item: item[1]):
+        content = store.load(phase, md_name)
+        if content:
+            rendered.append(str(content).strip())
     return "\n\n---\n\n".join(rendered) if rendered else None
 
 
@@ -3789,16 +3913,16 @@ def _upsert_visualization_manifest(
 
     normalized_vars = [str(value) for value in variables]
     key = (str(plot_type).lower(), tuple(normalized_vars), group_var)
-    updated = [
-        entry
-        for entry in manifest
-        if (
+    updated = []
+    for entry in manifest:
+        entry_key = (
             str(entry.get("plot_type", "")).lower(),
             tuple(str(value) for value in entry.get("variables", [])),
             entry.get("group_var"),
         )
-        != key
-    ]
+        entry_output_path = _figure_manifest_output_path(project, entry.get("output_path"))
+        if entry_key != key and entry_output_path != output_path:
+            updated.append(entry)
     updated.append(
         {
             "plot_type": plot_type,

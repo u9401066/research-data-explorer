@@ -1,5 +1,16 @@
 # Active Context
 
+## MEM+ 2026-07-15
+
+- Robotic VATS timed-NRS review exposed three reusable RDE defects: paired tests independently dropped each column and could mis-pair subjects, Phase 12 used CRBD-only heading allowlists that discarded unrelated report sections, and Table 1 export treated Markdown separator rows as observations.
+- Paired t/Wilcoxon now use row-aligned complete pairs. `run_repeated_measures` supports two-timepoint Wilcoxon and 3+ timepoint Friedman analyses, persists JSON/Markdown case-set ledgers, and reports complete versus pairwise post-hoc denominators explicitly.
+- Missingness screening now says MCAR is not rejected rather than proven, carries the registered missing strategy into readiness/report text, and warns that time-dependent availability and MNAR remain unresolved by the heuristic.
+- Missingness screening now also tests availability by locked-plan group variables. Timed-NRS readiness detects PcaGroup-dependent 24 h and paired-change availability, classifies the pattern as MAR-compatible, and still does not exclude MNAR.
+- Paired figure annotations now use the same tie-aware SciPy Wilcoxon implementation as the formal analysis. Manifest upserts remove stale rows for the same physical figure path, and report assembly selects only the newest durable repeated-measures artifact per variable set.
+- Phase 10 regeneration preserves analyst-authored supplemental sections with a SHA-256 manifest; Phase 12 preserves every generic/project-specific section. Table 1 parser drops Markdown separator rows.
+- Real project `d271e173` was rerun through registered RDE tools: rest/movement each had 69 row-aligned 24–48 h pairs and 22 exclusions; tie-aware Wilcoxon p=0.148929 (rest) and p=0.005089 (movement). The final report contains 23 unique figures, audit remained A (165/165), and the append-only audit trail passed with 54 decisions and 11 deviations.
+- Asset-Aware validation of regenerated DOCX outputs: ingest integrity PASS, 23/23 media, table 100%, text/structure/style 100%; round-trip scores 99.1% (Phase 10) and 99.8% (Phase 12), with only nonsemantic bold-run differences remaining.
+
 ## MEM+ 2026-07-01
 
 - Loop-engineering P0 shipped: raised the local logistic/regression fast-path thresholds (rows 200 -> 50000, columns 8 -> 15) so real-world models use `statsmodels.Logit` with p-values and now odds-ratio 95% CIs instead of the silent numpy ridge fallback.

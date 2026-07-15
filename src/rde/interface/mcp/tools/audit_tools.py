@@ -1460,16 +1460,23 @@ def _build_phase10_source_markdown(
         improvement_log=improvement_log,
     )
     normalized_markdown = _normalize_project_paths(base_markdown, project)
-    title, _, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
-    sections = _section_lookup(parsed_sections)
+    title, preamble_lines, parsed_sections = _split_markdown_h2_sections(normalized_markdown)
 
     table_markdown = _format_baseline_table(
         store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
     )
+    source_figure_gallery = next(
+        (
+            content
+            for heading, content in parsed_sections
+            if heading.strip().casefold() == "figure gallery"
+        ),
+        "",
+    )
     figure_gallery = _build_phase10_figure_gallery(
         project,
         store,
-        sections.get("補充圖表與最低發表包完成狀態", ""),
+        source_figure_gallery,
     )
 
     artifact_entries = [
@@ -1488,44 +1495,69 @@ def _build_phase10_source_markdown(
         if path.exists()
     ]
 
-    lines = [
-        f"# {title}",
-        "",
-        f"- 更新時間: {datetime.now().replace(microsecond=0).isoformat()}",
-        f"- 專案 ID: {project.id}",
-    ]
+    lines = [f"# {title}"]
+    if preamble_lines:
+        lines.extend(["", *preamble_lines])
+    else:
+        lines.extend(
+            [
+                "",
+                f"- 更新時間: {datetime.now().replace(microsecond=0).isoformat()}",
+                f"- 專案 ID: {project.id}",
+            ]
+        )
 
-    for heading in ["研究問題", "資料來源與前處理", "隊列概況"]:
-        _append_markdown_section(lines, heading, sections.get(heading, ""))
+    finalization_headings = {
+        "phase 12 finalization",
+        "production readiness",
+        "auto-fixed items",
+        "remaining suggestions",
+    }
+    finalization_sections: list[tuple[str, str]] = []
+    table_added = False
+    gallery_added = False
 
-    if table_markdown:
+    for heading, content in parsed_sections:
+        normalized_heading = heading.strip().casefold()
+        if normalized_heading in finalization_headings:
+            finalization_sections.append((heading, content))
+            continue
+        if normalized_heading.startswith("table 1"):
+            _append_markdown_section(
+                lines,
+                heading,
+                table_markdown or content,
+            )
+            table_added = True
+            continue
+        if normalized_heading == "figure gallery":
+            _append_markdown_section(
+                lines,
+                heading,
+                figure_gallery or content,
+            )
+            gallery_added = True
+            continue
+        if normalized_heading == "主要 artifact":
+            continue
+
+        # Preserve every project-specific and generic Phase 10 section. The old
+        # implementation used CRBD-only heading allowlists and silently dropped
+        # sections from unrelated studies during Phase 12 finalization.
+        _append_markdown_section(lines, heading, content)
+
+    if table_markdown and not table_added:
         _append_markdown_section(lines, "Table 1 — Baseline Characteristics", table_markdown)
-
-    for heading in [
-        "主要結局：CRBD",
-        "次要結局",
-        "擴充分析：手術別 subgroup / interaction 與 ordinal 複核",
-        "解讀",
-        "侷限性",
-    ]:
-        _append_markdown_section(lines, heading, sections.get(heading, ""))
-
-    supplement_summary, _ = _extract_phase10_figure_notes(
-        sections.get("補充圖表與最低發表包完成狀態", "")
-    )
-    _append_markdown_section(lines, "補充圖表與最低發表包完成狀態", supplement_summary)
-    _append_markdown_section(lines, "Figure Gallery", figure_gallery)
-
+    if (figure_gallery or source_figure_gallery) and not gallery_added:
+        _append_markdown_section(
+            lines,
+            "Figure Gallery",
+            figure_gallery or source_figure_gallery,
+        )
     if artifact_lines:
         _append_markdown_section(lines, "主要 artifact", "\n".join(artifact_lines))
-
-    for heading in [
-        "Phase 12 Finalization",
-        "Production Readiness",
-        "Auto-fixed Items",
-        "Remaining Suggestions",
-    ]:
-        _append_markdown_section(lines, heading, sections.get(heading, ""))
+    for heading, content in finalization_sections:
+        _append_markdown_section(lines, heading, content)
 
     return "\n".join(lines).strip() + "\n"
 

@@ -1959,17 +1959,21 @@ def register_analysis_tools(server: Any) -> None:
         dataset_id: str,
         variables: str,
         alpha: float = 0.05,
+        posthoc_case_strategy: str = "complete",
     ) -> str:
-        """對重複測量變數進行 Friedman 檢定（含 post-hoc Wilcoxon + Bonferroni 校正）。
+        """執行兩時點 Wilcoxon 或 3+ 時點 Friedman 重複量測分析。
 
-        適用於同一受試者在多個時間點的測量（如生物標記 0h/4h/24h）。
-        自動計算 Kendall's W 效果量和所有配對的 post-hoc 比較。
+        兩時點使用依原始列對齊的 Wilcoxon signed-rank；3+ 時點使用共同完整
+        個案的 Friedman，顯著時執行 Bonferroni post-hoc。每個結果都回報
+        個別時點可觀察數、完整配對數與排除數，避免把 pairwise 誤寫成固定 cohort。
         H-009 自動記錄 + S-011 偏離自動偵測。
 
         Args:
             dataset_id: 已載入的資料集 ID
-            variables: 逗號分隔的重複測量欄位名稱（至少 3 個），例如 "ngal_0hr,ngal_4hr,ngal_24hr"
+            variables: 逗號分隔的重複測量欄位名稱（至少 2 個）
             alpha: 顯著水準（預設 0.05），用於判定顯著性和 Bonferroni 校正
+            posthoc_case_strategy: 3+ 時點 post-hoc 使用 complete（共同完整 cohort）
+                或 pairwise（每一對各自完整配對）；Friedman 主檢定永遠使用共同完整 cohort
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -1987,24 +1991,29 @@ def register_analysis_tools(server: Any) -> None:
                 "dataset_id": dataset_id,
                 "variables": variables,
                 "alpha": alpha,
+                "posthoc_case_strategy": posthoc_case_strategy,
             },
         )
 
-        ok, msg, _, entry = ensure_phase_ready(
+        ok, msg, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION,
             dataset_id=dataset_id,
             require_dataset=True,
         )
         if not ok:
             return fmt_error(msg)
+        assert project is not None
         assert entry is not None
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
 
         var_list = [v.strip() for v in variables.split(",") if v.strip()]
-        if len(var_list) < 3:
-            return fmt_error("至少需要 3 個重複測量變數（如 0h, 4h, 24h）。")
+        if len(var_list) < 2:
+            return fmt_error("至少需要 2 個重複測量變數（如 24h, 48h）。")
+        posthoc_case_strategy = posthoc_case_strategy.strip().lower()
+        if posthoc_case_strategy not in {"complete", "pairwise"}:
+            return fmt_error("posthoc_case_strategy 必須是 complete 或 pairwise。")
 
         # Validate columns exist
         missing_cols = [v for v in var_list if v not in entry.dataframe.columns]
@@ -2019,50 +2028,92 @@ def register_analysis_tools(server: Any) -> None:
                 entry.dataframe,
                 var_list,
             )
+            test_name = "Wilcoxon signed-rank test" if len(var_list) == 2 else "Friedman test"
             result = engine.run_test(
                 analysis_df,
-                "Friedman test",
+                test_name,
                 var_list,
                 alpha=alpha,
+                posthoc_case_strategy=posthoc_case_strategy,
             )
+            if result.get("error"):
+                return fmt_error(str(result["error"]))
 
-            lines = ["# 📊 重複測量分析 — Friedman 檢定\n"]
+            analysis_label = "Wilcoxon signed-rank" if len(var_list) == 2 else "Friedman"
+            lines = [f"# 📊 重複測量分析 — {analysis_label}\n"]
             lines.append(f"**變數:** {', '.join(var_list)}")
-            lines.append(f"**完整配對數:** {result.get('n_complete', '?')}\n")
 
-            # Main test result
-            p = result.get("p_value", 1.0)
-            w = result.get("effect_size", 0)
-            stat = result.get("statistic", 0)
-            sig = "✅ 顯著" if p < alpha else "— 不顯著"
-
-            lines.append("## 主檢定")
-            lines.append(
-                fmt_table(
-                    ["統計量", "值"],
+            case_handling = result.get("case_handling", {})
+            observed_counts = case_handling.get("observed_by_variable", {})
+            lines.append("\n## Case-set ledger")
+            case_rows = [[variable, observed_counts.get(variable, "?")] for variable in var_list]
+            if len(var_list) == 2:
+                complete_n = case_handling.get("complete_pairs", result.get("n_pairs", "?"))
+                excluded_n = case_handling.get("excluded_unpaired_rows", "?")
+                case_rows.extend(
                     [
-                        ["Friedman χ²", f"{stat:.3f}"],
-                        ["p-value", f"{p:.6f}"],
-                        ["Kendall's W", f"{w:.3f}"],
-                        ["判定", sig],
-                    ],
+                        ["同列完整配對", complete_n],
+                        ["因任一時點缺失而排除", excluded_n],
+                    ]
                 )
-            )
-
-            # Effect size interpretation
-            if w < 0.1:
-                w_interp = "微小"
-            elif w < 0.3:
-                w_interp = "小"
-            elif w < 0.5:
-                w_interp = "中"
+                lines.append(
+                    "本比較只保留同一原始列同時具有兩個時點的個案；不會各欄分別刪除缺失後重新配對。"
+                )
             else:
-                w_interp = "大"
-            lines.append(f"\n**效果量解讀:** Kendall's W = {w:.3f} ({w_interp}效果)")
+                complete_n = case_handling.get("complete_cases", result.get("n_complete", "?"))
+                excluded_n = case_handling.get("excluded_incomplete_rows", "?")
+                case_rows.extend(
+                    [
+                        ["Friedman 共同完整個案", complete_n],
+                        ["因任一時點缺失而排除", excluded_n],
+                    ]
+                )
+                lines.append(
+                    "Friedman 主檢定使用所有時點共同完整的固定 cohort；"
+                    f"post-hoc case strategy = {posthoc_case_strategy}."
+                )
+            lines.append(fmt_table(["Case-set 項目", "n"], case_rows))
 
-            # Per-timepoint descriptives
-            if "descriptives" in result:
-                lines.append("\n## 各時間點描述統計")
+            p = float(result.get("p_value", 1.0))
+            effect = float(result.get("effect_size", 0.0))
+            stat = float(result.get("statistic", 0.0))
+            sig = "✅ 顯著" if p < alpha else "— 不顯著"
+            lines.append("\n## 主檢定")
+            if len(var_list) == 2:
+                lines.append(
+                    fmt_table(
+                        ["統計量", "值"],
+                        [
+                            ["Wilcoxon W", f"{stat:.3f}"],
+                            ["p-value", f"{p:.6f}"],
+                            ["Matched-pairs rank-biserial r", f"{effect:.3f}"],
+                            ["判定", sig],
+                        ],
+                    )
+                )
+                change = result.get("change_summary", {})
+                if change:
+                    lines.append(
+                        "\n**配對變化:** "
+                        f"{change.get('direction')}; mean={float(change.get('mean', 0.0)):.3f}, "
+                        f"median={float(change.get('median', 0.0)):.3f}, "
+                        f"SD={float(change.get('std', 0.0)):.3f}."
+                    )
+            else:
+                lines.append(
+                    fmt_table(
+                        ["統計量", "值"],
+                        [
+                            ["Friedman χ²", f"{stat:.3f}"],
+                            ["p-value", f"{p:.6f}"],
+                            ["Kendall's W", f"{effect:.3f}"],
+                            ["判定", sig],
+                        ],
+                    )
+                )
+
+            if result.get("descriptives"):
+                lines.append("\n## 各時間點描述統計（Friedman 共同完整 cohort）")
                 desc_rows = []
                 for tp in result["descriptives"]:
                     desc_rows.append(
@@ -2081,53 +2132,90 @@ def register_analysis_tools(server: Any) -> None:
                     )
                 )
 
-            # Post-hoc pairwise comparisons
-            if "post_hoc" in result and result["post_hoc"]:
+            posthoc = result.get("posthoc", [])
+            if posthoc:
                 lines.append("\n## Post-hoc 配對比較 (Bonferroni 校正)")
                 ph_rows = []
-                for ph in result["post_hoc"]:
-                    adj_p = ph.get("p_adjusted", ph.get("p_value", 1.0))
-                    r_eff = ph.get("effect_size", 0)
+                for ph in posthoc:
+                    adj_p = float(ph.get("p_adjusted", ph.get("p_value", 1.0)))
                     pair_sig = "✅" if adj_p < alpha else "—"
                     ph_rows.append(
                         [
                             ph.get("pair", "?"),
+                            ph.get("n_pairs", "?"),
+                            ph.get("case_strategy", posthoc_case_strategy),
                             f"{ph.get('statistic', 0):.1f}",
                             f"{ph.get('p_value', 1.0):.6f}",
                             f"{adj_p:.6f}",
-                            f"{r_eff:.3f}",
+                            f"{ph.get('effect_size', 0):.3f}",
                             pair_sig,
                         ]
                     )
                 lines.append(
                     fmt_table(
-                        ["配對", "W", "p (raw)", "p (adj)", "r", "Sig"],
+                        ["配對", "n", "case", "W", "p (raw)", "p (adj)", "r", "Sig"],
                         ph_rows,
                     )
                 )
-
-            lines.append("\n**[S-001]** 使用非參數 Friedman 檢定（適用於非常態重複測量資料）。")
-            if len(var_list) > 2 and p < alpha:
                 lines.append(
-                    f"**[S-002]** 已對 {len(result.get('post_hoc', []))} 個配對比較"
-                    f"進行 Bonferroni 校正 (α = {alpha / len(result.get('post_hoc', [1])):.4f})。"
+                    f"\n**[S-002]** {len(posthoc)} 個配對比較採 Bonferroni 校正 "
+                    f"(family α={alpha:.4f}; per-comparison α={alpha / len(posthoc):.4f})。"
                 )
 
+            lines.append(
+                "\n**[S-001/S-005]** 個別時點描述與實際檢定 case set 必須分開報告；"
+                "啟發式缺失分類不能證明 MCAR 或排除 MNAR，並應與最新 readiness 診斷併讀。"
+            )
             if plausibility_notes:
                 lines.append("\n## 資料合理性防護")
                 for note in plausibility_notes:
                     lines.append(f"- {note}")
 
-            # H-009
+            rendered = "\n".join(lines)
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+            store = ArtifactStore(project.artifacts_dir)
+            stem = "repeated_measures_" + "_".join(
+                _safe_filename_token(variable) for variable in var_list
+            )
+            phase_dir = project.artifacts_dir / PipelinePhase.EXECUTE_EXPLORATION.value
+            json_name = _unique_phase_artifact_filename(
+                phase_dir,
+                _shorten_artifact_filename(phase_dir, f"{stem}.json"),
+            )
+            md_name = _unique_phase_artifact_filename(
+                phase_dir,
+                _shorten_artifact_filename(phase_dir, f"{stem}.md"),
+            )
+            json_path = store.save(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                json_name,
+                {
+                    "dataset_id": dataset_id,
+                    "variables": var_list,
+                    "alpha": alpha,
+                    "posthoc_case_strategy": posthoc_case_strategy,
+                    "markdown_artifact": md_name,
+                    "result": result,
+                },
+            )
+            md_path = store.save(PipelinePhase.EXECUTE_EXPLORATION, md_name, rendered)
+
+            summary_label = "W" if len(var_list) == 2 else "χ²"
             _auto_log_decision(
                 "run_repeated_measures",
-                {"variables": var_list, "alpha": alpha},
-                f"Friedman 檢定: {len(var_list)} 個重複測量時間點",
-                f"χ²={stat:.3f}, p={p:.6f}, W={w:.3f}"
+                {
+                    "variables": var_list,
+                    "alpha": alpha,
+                    "posthoc_case_strategy": posthoc_case_strategy,
+                },
+                f"{analysis_label} 檢定: {len(var_list)} 個重複測量時間點",
+                f"{summary_label}={stat:.3f}, p={p:.6f}, effect={effect:.3f}"
                 + (f"; {plausibility_summary}" if plausibility_summary else ""),
+                artifacts=[json_path.name, md_path.name],
             )
 
-            return "\n".join(lines)
+            return rendered + f"\n\n**Artifacts:** {json_path.name}, {md_path.name}"
 
         except Exception as e:
             log_tool_error("run_repeated_measures", e)

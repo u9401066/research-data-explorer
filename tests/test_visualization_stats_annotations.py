@@ -2,6 +2,7 @@ from pathlib import Path
 import builtins
 
 import pandas as pd
+from scipy import stats
 
 from rde.infrastructure.visualization.matplotlib_viz import MatplotlibVisualizer
 
@@ -144,6 +145,28 @@ def test_histogram_uses_fast_matplotlib_path_without_seaborn(
     assert output_path.exists()
     assert visualizer.last_annotation_summary is not None
     assert "n=6" in visualizer.last_annotation_summary
+
+
+def test_paired_plot_uses_tie_aware_scipy_annotation(tmp_path: Path) -> None:
+    before = [3, 2, 4, 5, 1, 0, 2, 3, 4, 1, 2, 5]
+    after = [3, 1, 3, 5, 0, 0, 1, 3, 2, 1, 1, 4]
+    df = pd.DataFrame({"before": before, "after": after})
+    output_path = tmp_path / "paired.png"
+
+    visualizer = MatplotlibVisualizer()
+    result = visualizer.create_plot(
+        data=df,
+        plot_type="paired",
+        variables=["before", "after"],
+        output_path=output_path,
+    )
+
+    expected = stats.wilcoxon(before, after)
+    assert result == str(output_path)
+    assert output_path.exists()
+    assert visualizer.last_annotation_summary is not None
+    assert visualizer._format_p_value(float(expected.pvalue)) in visualizer.last_annotation_summary
+    assert f"n={len(before)}" in visualizer.last_annotation_summary
 
 
 def test_line_plot_uses_local_lite_annotation_without_scipy(
