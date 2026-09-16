@@ -6,4 +6,6 @@ export const canonicalAssets = [
     ['.clinerules/workflows/rde-full-report.md', 'clinerules/workflows/rde-full-report.md'],
     ['docs/assets/evidence-chain.svg', 'resources/evidence-chain.svg'],
     ['docs/assets/autoresearch.svg', 'resources/autoresearch.svg'],
+    ['docs/assets/evidence-chain.png', 'resources/evidence-chain.png'],
+    ['docs/assets/autoresearch.png', 'resources/autoresearch.png'],
 ];

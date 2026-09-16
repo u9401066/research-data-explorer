@@ -32,6 +32,11 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
+Release 0.5.0 local verification: 411 Python tests passed (six explicitly skipped),
+40 extension tests passed, all 50 MCP tools audited, desktop/mobile Chromium QA
+passed, and wheel/source archive/VSIX payloads matched reviewed sources. See the
+[release workboard](docs/release-0.5.0-plan.md) for scope and final remote evidence.
+
 This README is aligned with the current implementation, not only the older prose docs:
 
 | Contract area | Current implementation source | What it says |

@@ -18,6 +18,29 @@ on:
         type: boolean
 
 jobs:
+  python-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          cache-dependency-glob: pyproject.toml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: uv sync --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q -m "not vendor_integration"
+      - run: uv run python scripts/audit_mcp_surface.py
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
+
   cross-platform-smoke:
     name: VSIX cross-platform smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -45,7 +68,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -71,7 +94,7 @@ jobs:
         run: npm run validate -- --skip-tests
 
   package:
-    needs: cross-platform-smoke
+    needs: [python-quality, cross-platform-smoke]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -85,7 +108,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -113,6 +136,46 @@ jobs:
           path: vscode-extension/*.vsix
           if-no-files-found: error
 
+      - name: Set up Python for payload verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download tested Python distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+
+      - name: Gate all publishing targets on payload integrity
+        run: python ../scripts/audit_release_artifacts.py
+
+  github-release:
+    needs: package
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaged-vsix
+          path: vscode-extension
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Check release payload against source
+        run: python scripts/audit_release_artifacts.py
+      - name: Publish verified GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" vscode-extension/*.vsix dist/* --verify-tag --generate-notes --title "RDE $GITHUB_REF_NAME"
+
   publish-marketplace:
     needs: package
     if: github.event_name == 'push' || inputs.publishMarketplace
@@ -129,7 +192,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: vscode-extension/package-lock.json
 
@@ -166,7 +229,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: vscode-extension/package-lock.json
 

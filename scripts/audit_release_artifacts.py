@@ -49,7 +49,12 @@ def audit(root: Path = ROOT) -> dict:
         for source in (root / "src/rde").rglob("*.py"):
             member = "extension/bundled/tool/src/" + source.relative_to(root / "src").as_posix()
             check_source(built, member, source)
-        for name in ("evidence-chain.svg", "autoresearch.svg"):
+        for name in (
+            "evidence-chain.svg",
+            "autoresearch.svg",
+            "evidence-chain.png",
+            "autoresearch.png",
+        ):
             check_source(built, f"extension/resources/{name}", root / "docs/assets" / name)
         check_source(built, "extension/agents/eda.agent.md", root / ".github/agents/eda.agent.md")
     return {"version": version, "wheel": str(wheel), "sdist": str(sdist), "vsix": str(vsix)}

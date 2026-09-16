@@ -2,6 +2,11 @@
 
 ## 2026-09-16 — 0.5.0 work in progress
 
+- Release candidate: 411 Python passed, 6 skipped; 40 extension passed; Ruff,
+  all-file pre-commit and package integrity passed. Added Marketplace PNG-preview
+  regression and explicit source-distribution allowlist to prevent local data leaks.
+- 0.5.0 payloads built locally; final remote CI, tag and publishing verification pending.
+
 - Website/harness segment full gate: 409 Python passed, 6 skipped (5 optional
   vendor integrations, 1 Windows symlink privilege); Ruff clean; extension 40
   passed; pre-commit/PII checks passed. Chromium desktop/mobile interaction QA

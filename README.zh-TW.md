@@ -38,6 +38,11 @@ Audit 通過僅代表已實作的流程檢查通過，不保證研究設計無�
 
 ## 目前真實程式碼快照
 
+0.5.0 本機驗證：411 項 Python 測試通過（6 項明確跳過）、40 項 extension
+測試通過、50 個 MCP tools 契約檢查通過、桌面／手機 Chromium QA 通過。
+wheel、source archive 與 VSIX 已核對程式和圖片內容。最終遠端發布證據見
+[release workboard](docs/release-0.5.0-plan.md)。
+
 這份 README 與網站目前對齊下列實作，而不是只沿用舊文件描述：
 
 | 合約面向 | 程式碼來源 | 目前事實 |

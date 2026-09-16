@@ -6,6 +6,15 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-16
+
+### Website and distribution
+
+- Rebuilt the bilingual homepage with clinical method filters, responsive navigation, accessible native SVGs, verified installation commands and preserved technical-guide deep links.
+- Synchronized README, extension illustrations and canonical agent/rules assets with byte-level drift checks; published a per-tool review matrix covering all 50 MCP tools.
+- Added 50 isolated MCP boundary tests, website contracts and release archive checks. Source distributions explicitly exclude workspace data; release payloads are checked against current Python sources and SVGs.
+- Release tags now gate packaging on Python quality and four-platform VSIX smoke checks, and attach the verified wheel, source archive and VSIX to a GitHub release. Marketplace publication still depends on configured credentials.
+
 ### Fixed
 
 - Fixed long-form paired comparison to join by an explicit subject key, reject duplicate occasions, and persist per-outcome case ledgers; unsupported/failed tests no longer fabricate p=1.

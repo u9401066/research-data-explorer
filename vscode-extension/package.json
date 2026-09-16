@@ -2,7 +2,7 @@
   "name": "research-data-explorer",
   "displayName": "Research Data Explorer",
   "description": "13-Phase Auditable EDA Pipeline — MCP tools for structured exploratory data analysis inside VS Code",
-  "version": "0.4.14",
+  "version": "0.5.0",
   "publisher": "u9401066",
   "license": "Apache-2.0",
   "repository": {
@@ -123,7 +123,7 @@
           },
           {
             "name": "advanced",
-            "description": "進階統計分析 (PSM, Survival, ROC)"
+            "description": "臨床與進階統計 (Risk, Diagnostic, Agreement, GEE, Mixed models)"
           },
           {
             "name": "report",

@@ -2,6 +2,13 @@
 
 ## MEM+ 2026-09-16 — 0.5.0 migration in progress
 
+- Website/harness segment `361aad6` pushed to main; Pages deployed successfully.
+  Its CI identified Marketplace's SVG-in-README restriction; fixed with PNG previews
+  rendered from canonical SVGs while keeping original vectors in the VSIX.
+- Release candidate 0.5.0 synchronized across Python, extension and lockfile.
+  Final local suite: 411 passed, 6 skipped; extension 40 passed. Wheel, sdist,
+  VSIX and source-to-payload checks passed; remote release checks are pending.
+
 - Autoresearch segment `ee4b4db` is on origin/main. Website now has a bilingual
   product homepage, preserved deep-link technical guide, seven-method catalog,
   responsive navigation, native SVG illustrations and tested copy/filter actions.

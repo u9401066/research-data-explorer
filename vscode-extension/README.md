@@ -2,7 +2,7 @@
 
 An MCP + harness plugin that helps agents and researchers turn clinical questions into reproducible, reviewable evidence without extensive custom analysis code.
 
-![Research design to reviewed evidence](resources/evidence-chain.svg)
+![Research design to reviewed evidence](https://raw.githubusercontent.com/u9401066/research-data-explorer/main/vscode-extension/resources/evidence-chain.png)
 
 Agents remain free to propose hypotheses and challenge assumptions. RDE provides reusable execution, case accounting and provenance; researchers review the design and clinical claims. Unsupported methods remain explicit gaps, not invented results.
 
@@ -13,7 +13,9 @@ Agents remain free to propose hypotheses and challenge assumptions. RDE provides
 - Agent-authored autoresearch proposals retain baseline contracts and branch artifacts. Failed and recorded-only tasks are distinguished from completed analyses; significance is not a promotion criterion.
 - Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. Fifty tools share executable contracts.
 
-![Agent proposals, branch execution and researcher review](resources/autoresearch.svg)
+![Agent proposals, branch execution and researcher review](https://raw.githubusercontent.com/u9401066/research-data-explorer/main/vscode-extension/resources/autoresearch.png)
+
+The original accessible SVG illustrations are included in the extension; PNG previews are used here to meet Marketplace README restrictions.
 
 Audit readiness is a workflow check, not a guarantee of clinical validity or publication acceptance. See the [clinical-method reference](https://github.com/u9401066/research-data-explorer/blob/main/docs/clinical-methods.md) and [autoresearch design](https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md).
 
@@ -85,6 +87,14 @@ The extension uses Node `path`, Python `pathlib`, UTF-8 environment variables, A
 - uv 會自動偵測多個可能路徑（`~/.local/bin`, `~/.cargo/bin`, `%LOCALAPPDATA%\uv\bin`, `/opt/homebrew/bin`）。
 
 ## Release Validation Snapshot
+
+0.5.0: 40 extension tests, lint, canonical asset sync, install-shape smoke,
+compilation, VSIX packaging/validation and source-to-payload integrity checks
+passed locally. The server suite passed 411 tests with six explicit skips;
+desktop/mobile Chromium interaction QA passed. Marketplace previews are rendered
+from the bundled native SVGs. Cross-platform release checks run on the version tag.
+
+### Historical 0.4.14 baseline
 
 For 0.4.14, the extension-facing path was checked with:
 
