@@ -2368,6 +2368,18 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
         analysis_type = (
             result.get("analysis_type") or payload.get("analysis_type") or "advanced analysis"
         )
+        artifact_text = f" Artifact: `{name}`." if include_artifact_refs else ""
+        if result.get("error"):
+            lines.append(
+                f"- `{analysis_type}` for `{target}` failed: {result['error']}. "
+                f"No valid estimate or evidence of absence was obtained.{artifact_text}"
+            )
+            continue
+        if str(result.get("engine", "")).startswith("local-clinical"):
+            from rde.infrastructure.adapters.clinical_engine import render_clinical_result
+
+            lines.append(render_clinical_result(result) + artifact_text)
+            continue
         p_values = result.get("p_values") if isinstance(result.get("p_values"), dict) else {}
         significant_terms = [
             f"{term} (p={float(p):.3g})"
@@ -2385,12 +2397,17 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
                 + fit_text
                 + "."
             )
-        else:
+        elif p_values:
             interpretation = (
                 f"`{analysis_type}` for `{target}` did not identify covariates with p<0.05"
-                f"{fit_text}; interpret coefficient direction as hypothesis-generating only."
+                f"{fit_text}; this is not evidence of equivalence or absence of an effect."
             )
-        artifact_text = f" Artifact: `{name}`." if include_artifact_refs else ""
+        else:
+            interpretation = (
+                f"`{analysis_type}` for `{target}` did not provide covariate p-values"
+                f"{fit_text}; inspect its estimates, uncertainty, and method-specific diagnostics. "
+                "No significance or equivalence conclusion is inferred from missing test results."
+            )
         lines.append(f"- {interpretation}{artifact_text}")
     return "\n".join(lines)
 

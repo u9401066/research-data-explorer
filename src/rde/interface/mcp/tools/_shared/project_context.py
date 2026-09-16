@@ -462,6 +462,8 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
         parameters = decision.get("parameters")
         if not isinstance(parameters, dict):
             parameters = {}
+        if parameters.get("execution_status") == "failed":
+            continue
         if parameters.get("scope") == "branch":
             branch_decision_count += 1
         else:
@@ -481,6 +483,8 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
             parameters = decision.get("parameters")
             if not isinstance(parameters, dict):
                 parameters = {}
+            if parameters.get("execution_status") == "failed":
+                continue
             if parameters.get("scope") == "branch":
                 continue
             in_plan, _ = check_plan_adherence(project, tool_name, parameters)

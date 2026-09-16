@@ -2,6 +2,11 @@
 
 ## MEM+ 2026-09-16 — 0.5.0 migration in progress
 
+- SDK segment `1c196e3` is on origin/main; its four-platform GitHub CI passed.
+- Clinical expansion adds local risk estimates, diagnostic accuracy, McNemar,
+  Bland–Altman, kappa, GEE, and random-intercept mixed effects with case ledgers
+  and explicit uncertainty. Failure artifacts do not count as completed analyses;
+  report interpretation does not turn missing p-values into null findings.
 - Fetched origin and confirmed clean main at `2b20221` before implementation.
 - User priority: empower agents to produce clinically meaningful, reproducible,
   publication-level reports without extensive ad hoc coding; do not constrain

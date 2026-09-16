@@ -2,6 +2,9 @@
 
 ## 2026-09-16 — 0.5.0 work in progress
 
+- Added seven local clinical methods and regression coverage for pairing,
+  denominators, uncertainty, model convergence, artifact/report integration,
+  and failure accounting. Initial expanded suite: 291 passed, 5 skipped.
 - SDK v2 migration, tool effect registry, resolver/resources/prompt and
   modern/legacy protocol regression tests implemented.
 - Verification: 274 Python tests passed, 5 optional vendor tests skipped;

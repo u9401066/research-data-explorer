@@ -47,9 +47,12 @@ def register_protocol_tools(server: Any) -> None:
 
     @server.resource("rde://capabilities", mime_type="application/json")
     def capabilities() -> str:
+        from rde.infrastructure.adapters.clinical_engine import CLINICAL_METHODS
+
         return json.dumps(
             {
                 "sdk_version": version("mcp"),
+                "clinical_methods": CLINICAL_METHODS,
                 "tools": public_contracts(),
                 "mcp_tasks_extension": False,
                 "queue": "artifact-backed, host-driven",

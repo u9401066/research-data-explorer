@@ -761,6 +761,16 @@ def _format_advanced_analysis_output(
 ) -> str:
     """Build user-facing markdown for advanced analysis execution."""
     normalized_analysis_type = _normalize_analysis_type(analysis_type)
+    if isinstance(analysis_result, dict) and analysis_result.get("error"):
+        from rde.interface.mcp.tools._shared import fmt_error
+
+        return fmt_error(
+            str(analysis_result["error"]), suggestion=str(analysis_result.get("suggestion", ""))
+        )
+    if str(source).startswith("local-clinical"):
+        from rde.infrastructure.adapters.clinical_engine import render_clinical_result
+
+        return render_clinical_result(analysis_result)
     lines = [
         f"# 📊 進階分析 — {analysis_type}\n",
         f"**引擎:** {source}",
@@ -1759,11 +1769,16 @@ def register_analysis_tools(server: Any) -> None:
         endpoint: str | None = None,
         test_type: str | None = None,
         vendor_options: dict[str, Any] | None = None,
+        subject_variable: str | None = None,
+        confidence_level: float = 0.95,
+        clinical_options: dict[str, Any] | None = None,
     ) -> str:
         """執行進階統計分析，自動委派給 automl-stat-mcp（如可用）。
 
         支援: propensity_score, survival_analysis, roc_auc,
         logistic_regression, multiple_regression, power_analysis_advanced。
+        臨床 local methods: risk_estimates, diagnostic_accuracy, mcnemar,
+        bland_altman, cohens_kappa, gee, mixed_effects（不需 Docker）。
         automl 不可用時自動降級為 local-lite statsmodels/scipy fallback（支援時）。
         H-009 自動記錄 + S-011 偏離自動偵測。
 
@@ -1779,6 +1794,9 @@ def register_analysis_tools(server: Any) -> None:
             endpoint: vendor 子端點，如 propensity full / survival cox / roc compare（可選）
             test_type: power analysis 的 test 類型，如 ttest / anova / chisquare / survival（可選）
             vendor_options: 原樣傳遞給 vendor adapter 的額外參數（可選）
+            subject_variable: GEE / mixed_effects 的受試者 ID 欄位（long format）
+            confidence_level: 臨床分析信賴水準（預設 0.95）
+            clinical_options: threshold、positive_direction 或 family；二元輸入須明確編碼為 0/1
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -1859,6 +1877,16 @@ def register_analysis_tools(server: Any) -> None:
             if clean_vendor_options:
                 config.update(clean_vendor_options)
 
+            if clinical_options:
+                unknown = set(clinical_options) - {"threshold", "positive_direction", "family"}
+                if unknown:
+                    return fmt_error(f"Unknown clinical_options: {sorted(unknown)}")
+                config.update(clinical_options)
+            config["confidence_level"] = confidence_level
+            if subject_variable:
+                config["subject_variable"] = subject_variable
+                config["variables"].append(subject_variable)
+
             config["variables"] = list(dict.fromkeys(config["variables"]))
             decision_config = dict(config)
             if clean_vendor_options:
@@ -1882,6 +1910,27 @@ def register_analysis_tools(server: Any) -> None:
                 config=decision_config,
                 analysis_result=analysis_result,
             )
+            if isinstance(analysis_result, dict) and analysis_result.get("error"):
+                from rde.application.session import get_session
+
+                get_session().get_logger(project.id).log_decision(
+                    phase=PipelinePhase.EXECUTE_EXPLORATION.value,
+                    action="run_advanced_analysis_failed",
+                    tool_used="run_advanced_analysis",
+                    parameters={
+                        **decision_config,
+                        "analysis_type": analysis_type,
+                        "execution_status": "failed",
+                    },
+                    rationale="Preserve failed analysis evidence without counting it as completed coverage.",
+                    result_summary=str(analysis_result["error"]),
+                    artifacts=[artifact_path.name],
+                )
+                return fmt_error(
+                    str(analysis_result["error"]),
+                    detail=f"Failure artifact: {artifact_path.name}",
+                    suggestion=str(analysis_result.get("suggestion", "")),
+                )
             figures, figure_warnings = _auto_create_advanced_analysis_figures(
                 project=project,
                 dataset=entry.dataset,
@@ -1897,7 +1946,9 @@ def register_analysis_tools(server: Any) -> None:
                 source=source,
                 analysis_result=analysis_result,
                 artifact_path=artifact_path,
-                automl_available=delegator.automl_available,
+                automl_available=(
+                    False if source.startswith("local-clinical") else delegator.automl_available
+                ),
             )
             if figures:
                 rendered_output += "\n\n## Figures\n" + "\n".join(

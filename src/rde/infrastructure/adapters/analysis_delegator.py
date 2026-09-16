@@ -20,6 +20,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from rde.infrastructure.adapters.clinical_engine import CLINICAL_METHODS, run_clinical_analysis
+
 logger = logging.getLogger(__name__)
 
 # Analysis types that should be delegated to automl-stat-mcp
@@ -112,6 +114,17 @@ class AnalysisDelegator:
         Returns dict with at least: {"source": "automl"|"local", "result": ...}
         """
         normalized = analysis_type.lower().replace("-", "_").replace(" ", "_")
+
+        if normalized in CLINICAL_METHODS:
+            try:
+                clinical = run_clinical_analysis(df, normalized, config)
+            except (ValueError, TypeError, KeyError, np.linalg.LinAlgError) as exc:
+                clinical = {
+                    "error": str(exc),
+                    "analysis_type": normalized,
+                    "suggestion": "Review variable roles, case counts and model assumptions; revise the declared analysis.",
+                }
+            return {"source": "local-clinical (scipy/statsmodels)", "result": clinical}
 
         # Local-only analyses — always use ScipyEngine
         if normalized in LOCAL_ONLY:
@@ -1468,6 +1481,7 @@ class AnalysisDelegator:
     def get_capabilities(self) -> dict[str, str]:
         """Return available analysis capabilities and which engine handles them."""
         caps: dict[str, str] = {}
+        caps.update({name: "local-clinical" for name in CLINICAL_METHODS})
         for t in LOCAL_ONLY:
             caps[t] = "local"
         automl_available = self._check_automl()
