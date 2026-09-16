@@ -18,6 +18,7 @@ const PHASE_08_BRANCH_PROMOTION_TOOL_NAMES = [
 ] as const;
 
 export const RDE_MCP_TOOL_NAMES = [
+    'get_workflow_contract',
     'init_project',
     'get_pipeline_status',
     'get_decision_log',
@@ -73,6 +74,7 @@ const WORKFLOW_PREREQUISITE_TOOLS = [
 
 export const TOOL_GROUPS = {
     explore: [
+        'get_workflow_contract',
         'init_project',
         'get_pipeline_status',
         'get_harness_dashboard',
@@ -87,6 +89,7 @@ export const TOOL_GROUPS = {
         'export_report',
     ],
     pipeline: [
+        'get_workflow_contract',
         ...WORKFLOW_PREREQUISITE_TOOLS,
         'get_approval_card',
         'get_harness_dashboard',

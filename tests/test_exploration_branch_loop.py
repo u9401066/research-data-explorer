@@ -145,7 +145,7 @@ def _branch_id_from_store(store: ArtifactStore) -> str:
 
 
 def test_append_only_events_reconstruct_exploration_board(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -200,7 +200,7 @@ def test_append_only_events_reconstruct_exploration_board(tmp_path: Path) -> Non
 
 
 def test_run_branch_experiment_creates_branch_results(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -313,7 +313,7 @@ def test_evaluator_recommends_discard_or_promotion_candidate() -> None:
 
 
 def test_promotion_gate_blocks_unconfirmed_and_low_score(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> tuple[str, str]:
@@ -359,7 +359,7 @@ def test_promotion_gate_blocks_unconfirmed_and_low_score(tmp_path: Path) -> None
 
 
 def test_promotion_requires_prior_evaluate_branch_audit_gate(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -401,7 +401,7 @@ def test_promotion_requires_prior_evaluate_branch_audit_gate(tmp_path: Path) -> 
 
 
 def test_promotion_requires_persisted_audit_artifacts(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -457,7 +457,7 @@ def test_promotion_requires_persisted_audit_artifacts(tmp_path: Path) -> None:
 
 
 def test_promotion_requires_confirmed_locked_plan_even_in_quick_context(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
     session = get_session()
     pipeline = session.get_pipeline(project.id)
@@ -518,7 +518,7 @@ def test_promotion_requires_confirmed_locked_plan_even_in_quick_context(tmp_path
 def test_branch_loop_blocks_quick_explore_without_locked_plan_or_readiness(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
     session = get_session()
     pipeline = session.get_pipeline(project.id)
@@ -558,7 +558,7 @@ def test_branch_loop_blocks_quick_explore_without_locked_plan_or_readiness(
 def test_promotion_requires_successful_readiness_even_after_rehydration_like_state(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -612,7 +612,7 @@ def test_promotion_requires_successful_readiness_even_after_rehydration_like_sta
 
 
 def test_promotion_revalidates_live_experiment_evidence_artifacts(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -669,7 +669,7 @@ def test_promotion_revalidates_live_experiment_evidence_artifacts(tmp_path: Path
 
 
 def test_crashed_branch_cannot_be_reopened_by_later_experiment(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -714,7 +714,7 @@ def test_crashed_branch_cannot_be_reopened_by_later_experiment(tmp_path: Path) -
 
 
 def test_promotion_writes_plan_amendment_without_rewriting_locked_plan(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
     original_plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
 
@@ -788,7 +788,7 @@ def test_promotion_writes_plan_amendment_without_rewriting_locked_plan(tmp_path:
 
 
 def test_suggest_branch_experiments_is_bounded_and_does_not_open_branch(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> tuple[str, str]:
@@ -813,7 +813,7 @@ def test_suggest_branch_experiments_is_bounded_and_does_not_open_branch(tmp_path
 
 
 def test_start_autoresearch_run_persists_queue_budget_and_status(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> tuple[str, str]:
@@ -853,7 +853,7 @@ def test_start_autoresearch_run_persists_queue_budget_and_status(tmp_path: Path)
 
 
 def test_start_autoresearch_run_blocks_when_active_run_exists(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -876,7 +876,7 @@ def test_start_autoresearch_run_blocks_when_active_run_exists(tmp_path: Path) ->
 
 
 def test_autoresearch_status_projects_latest_task_state(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -916,7 +916,7 @@ def test_autoresearch_status_projects_latest_task_state(tmp_path: Path) -> None:
 def test_start_autoresearch_run_persists_empty_queue_artifacts_when_no_suggestions(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
     store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": []})
     store.save(
@@ -950,7 +950,7 @@ def test_start_autoresearch_run_persists_empty_queue_artifacts_when_no_suggestio
 def test_autoresearch_runner_stops_when_failure_budget_is_exhausted(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -990,7 +990,7 @@ def test_autoresearch_runner_stops_when_failure_budget_is_exhausted(
 
 
 def test_autoresearch_lifecycle_writes_decision_log(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> None:
@@ -1021,7 +1021,7 @@ def test_autoresearch_lifecycle_writes_decision_log(tmp_path: Path) -> None:
 
 
 def test_run_autoresearch_next_task_reclaims_expired_lease(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -1063,7 +1063,7 @@ def test_run_autoresearch_next_task_reclaims_expired_lease(tmp_path: Path) -> No
 
 
 def test_autoresearch_status_marks_expired_run(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -1088,7 +1088,7 @@ def test_autoresearch_status_marks_expired_run(tmp_path: Path) -> None:
 
 
 def test_stop_autoresearch_run_writes_stop_decision(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -1118,7 +1118,7 @@ def test_stop_autoresearch_run_writes_stop_decision(tmp_path: Path) -> None:
 
 
 def test_stop_autoresearch_run_is_idempotent_after_stop(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -1147,7 +1147,7 @@ def test_stop_autoresearch_run_is_idempotent_after_stop(tmp_path: Path) -> None:
 
 
 def test_resume_autoresearch_run_reopens_stopped_queue_with_budget(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> tuple[str, str]:
@@ -1184,7 +1184,7 @@ def test_resume_autoresearch_run_reopens_stopped_queue_with_budget(tmp_path: Pat
 
 
 def test_resume_autoresearch_run_blocks_when_already_running(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:
@@ -1206,7 +1206,7 @@ def test_resume_autoresearch_run_blocks_when_already_running(tmp_path: Path) -> 
 
 
 def test_resume_autoresearch_run_blocks_completed_or_failed_budget_runs(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
     store.save(PipelinePhase.SCHEMA_REGISTRY, "schema.json", {"variables": []})
     store.save(
@@ -1273,7 +1273,7 @@ def test_resume_autoresearch_run_blocks_completed_or_failed_budget_runs(tmp_path
 
 
 def test_run_autoresearch_next_task_claims_branch_and_updates_budget(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> tuple[str, str]:
@@ -1315,7 +1315,7 @@ def test_run_autoresearch_next_task_claims_branch_and_updates_budget(tmp_path: P
 
 
 def test_run_autoresearch_queue_drains_until_idle_and_completes_run(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> tuple[str, str]:
@@ -1349,7 +1349,7 @@ def test_run_autoresearch_queue_drains_until_idle_and_completes_run(tmp_path: Pa
 
 
 def test_autoresearch_executes_live_advanced_analysis_contract(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, store = _make_phase8_ready_project(tmp_path)
     df = pd.DataFrame(
         {
@@ -1412,7 +1412,7 @@ def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Pa
     (smaller than the number of suggestions) and asserts the registry is still populated,
     proving the loop now closes even under truncation.
     """
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     import numpy as np
 
     project = Project(
@@ -1567,7 +1567,7 @@ def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Pa
 
 
 def test_run_autoresearch_next_task_blocks_without_active_pending_work(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     project, _ = _make_phase8_ready_project(tmp_path)
 
     async def run_flow() -> str:

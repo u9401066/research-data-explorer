@@ -2,6 +2,7 @@
 
 | Date | Decision | Rationale |
 | ---- | -------- | --------- |
+| 2026-09-16 | Upgrade official MCP SDK to 2.2; preserve agent reasoning autonomy | Add trustworthy state, composable tools and protocol tests while retaining human claim-promotion gates. Effect hints are not authorization; serialize worker-thread handlers because the session registry is shared. |
 | 2026-07-15 | Treat paired/repeated-measures case sets as explicit governed evidence | Independent per-column deletion can destroy subject pairing; every paired contrast now preserves row identity and reports observed, included, and excluded counts. |
 | 2026-07-15 | Keep visual and formal paired inference on one statistical implementation | A lightweight normal approximation produced captions that disagreed with the formal tie-aware SciPy test; paired figures now use the same method and reruns replace stale physical-path manifest rows. |
 | 2026-07-15 | Present only the latest durable repeated-measures result per variable set | Versioned artifacts preserve audit history, but including every version duplicates report sections; report assembly resolves the newest version without deleting provenance. |

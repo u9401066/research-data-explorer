@@ -258,7 +258,7 @@ def test_pii_gate_blocks_by_default_and_allows_explicit_override() -> None:
 def test_build_schema_requires_phase1_intake_artifact_for_project_context(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
     csv_path = raw_dir / "demo.csv"
@@ -306,7 +306,7 @@ def test_build_schema_requires_phase1_intake_artifact_for_project_context(
 def test_register_analysis_plan_requires_confirmed_phase4_ideation(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
     csv_path = raw_dir / "demo.csv"
@@ -381,7 +381,7 @@ def test_register_analysis_plan_requires_confirmed_phase4_ideation(
 def test_register_analysis_plan_does_not_auto_create_phase4(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
     csv_path = raw_dir / "demo.csv"

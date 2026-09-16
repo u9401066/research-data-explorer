@@ -34,6 +34,7 @@
   "main": "./out/extension.js",
   "rde": {
     "expectedMcpTools": [
+      "get_workflow_contract",
       "init_project",
       "get_pipeline_status",
       "get_decision_log",

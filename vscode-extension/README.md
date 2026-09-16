@@ -1,4 +1,4 @@
-﻿# Research Data Explorer — VS Code Extension
+# Research Data Explorer — VS Code Extension
 
 Governed research data exploration assistant with MCP tools, prompts, and skills.
 
@@ -29,7 +29,7 @@ Keep these documents aligned when changing phase gates, Codex MCP setup, no-Dock
 ## Features
 
 - 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
-- 📊 **49 MCP Tools** — 資料載入、greedy plan ideation、YOLO exploration branches、UX harness、描述統計、分組比較、Table 1、進階分析
+- 📊 **50 MCP Tools** — 資料載入、greedy plan ideation、YOLO exploration branches、UX harness、描述統計、分組比較、Table 1、進階分析
 - 🧪 **local-lite + optional automl-stat-mcp** — no-Docker adjusted models / ROC / power, with optional heavy delegation
 - 📄 **報告匯出** — Word/PDF 匯出
 - 🔒 **品質把關** — Hard Constraints (H-001~H-010) + Soft Constraints (S-001~S-012)
@@ -200,11 +200,11 @@ Capability → Skill → MCP Tool
 | 11 | Audit Review | Audit score and contract checks |
 | 12 | Auto-Improve | Final report and handoff |
 
-### MCP Tools (49)
+### MCP Tools (50)
 
 自動註冊 MCP Server:
 
-- **Research Data Explorer** — 49 tools (project, discovery, profiling, plan, analysis, YOLO branches, UX harness, report, audit)
+- **Research Data Explorer** — 50 tools (project, discovery, profiling, plan, analysis, YOLO branches, UX harness, report, audit)
 
 ### Bundled Skills (8)
 

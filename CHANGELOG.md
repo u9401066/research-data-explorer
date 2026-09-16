@@ -19,12 +19,14 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Changed
 
+- Migrated to official MCP Python SDK 2.2+, with dual-era client support, effect annotations for every tool, structured error status, thread-safe tool serialization, trusted workflow resolver, discoverable resources and a research prompt.
 - Made missingness language conservative: the indicator screen now reports MCAR as "not rejected, not proven," checks missingness-by-group associations, retains the registered missing-data strategy, and requires per-analysis denominators and sensitivity review.
 - Extended `run_repeated_measures` to support two-timepoint row-aligned Wilcoxon analyses and explicit complete-versus-pairwise post-hoc case strategies for three or more timepoints.
 - Prioritized derived-variable provenance branches to the front of the common medical EDA suggestion list so a budget-truncated autoresearch run can no longer starve the branch that satisfies the `derived_variable_provenance` readiness requirement, closing the Readiness->Queue autonomous loop for multilevel plan-group designs.
 
 ### Added
 
+- Added full tool-surface audit plus modern/legacy in-memory and stdio SDK v2 regression tests; VSIX tool inventory now includes `get_workflow_contract` (50 tools).
 - Added durable repeated-measures JSON/Markdown artifacts with case-set ledgers, per-pair sample sizes, matched-pairs effect sizes, and report assembly integration.
 - Added analyst-authored section preservation with a SHA-256 manifest so report regeneration remains complete without silently losing reviewed supplemental interpretation.
 - Regression tests locking statsmodels-backed inference (p-values + 95% CI) for real-world model sizes, provenance-branch prioritization, and an end-to-end loop-integrity test proving a tight autoresearch budget still registers the derived-variable provenance artifact.

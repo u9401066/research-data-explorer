@@ -416,7 +416,7 @@ def test_phase_6_to_10_integration_produces_audit_trail_and_report(tmp_path: Pat
 def test_mcp_phase_6_marks_execute_phase_complete_for_collect_results(
     tmp_path: Path,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -587,7 +587,7 @@ def test_mcp_quick_explore_flow_assembles_report_and_ux_artifacts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
     monkeypatch.setenv("RDE_WORKSPACE", str(tmp_path / "workspace"))
 
     raw_dir = tmp_path / "rawdata"
@@ -663,7 +663,7 @@ def test_mcp_quick_explore_flow_assembles_report_and_ux_artifacts(
 
 
 def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -769,7 +769,7 @@ def test_full_mcp_planning_flow_completes_phase_4_5_6_contract(tmp_path: Path) -
 
 
 def test_phase4_confirm_requires_and_preserves_existing_draft(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -858,7 +858,7 @@ def test_phase4_confirm_requires_and_preserves_existing_draft(tmp_path: Path) ->
 def test_align_concept_recovers_project_context_after_intake_schema_without_init_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -925,7 +925,7 @@ def test_align_concept_recovers_project_context_after_intake_schema_without_init
 def test_align_concept_does_not_recover_phase2_when_schema_was_not_built(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -974,7 +974,7 @@ def test_align_concept_does_not_recover_phase2_when_schema_was_not_built(
 def test_align_concept_does_not_recover_without_intake_provenance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -1024,7 +1024,7 @@ def test_align_concept_does_not_recover_without_intake_provenance(
 def test_align_concept_requires_dataset_id_for_multi_dataset_recovery(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_a = tmp_path / "raw_a"
     raw_b = tmp_path / "raw_b"
@@ -1087,7 +1087,7 @@ def test_align_concept_requires_dataset_id_for_multi_dataset_recovery(
 def test_align_concept_blocks_unknown_variables_and_invalid_roles(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -1137,7 +1137,7 @@ def test_align_concept_blocks_unknown_variables_and_invalid_roles(
 def test_rehydrated_dataset_replays_concept_roles_for_planning(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -1196,7 +1196,7 @@ def test_rehydrated_dataset_replays_concept_roles_for_planning(
 def test_unconfirmed_phase3_stays_blocked_after_session_reload(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -1243,7 +1243,7 @@ def test_unconfirmed_phase3_stays_blocked_after_session_reload(
 def test_unconfirmed_phase4_stays_blocked_after_session_reload(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -1472,7 +1472,7 @@ def test_artifact_backed_phase_sync_preserves_failed_readiness_gate(
 
 
 def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path: Path) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     raw_dir = tmp_path / "rawdata"
     raw_dir.mkdir()
@@ -1516,7 +1516,7 @@ def test_init_project_uses_timestamp_prefixed_readable_output_directory(tmp_path
 def test_init_project_uses_workspace_env_for_output_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     workspace_dir = tmp_path / "workspace"
     raw_dir = workspace_dir / "rawdata"
@@ -1552,7 +1552,7 @@ def test_init_project_uses_workspace_env_for_output_directory(
 def test_init_project_persists_project_setup_state(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     from rde.infrastructure.persistence import (
         FileSystemProjectRepository,
@@ -1588,7 +1588,7 @@ def test_init_project_persists_project_setup_state(
 def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_datasets(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     from rde.infrastructure.persistence import (
         FileSystemProjectRepository,
@@ -1721,7 +1721,7 @@ def test_check_readiness_uses_project_bound_dataset_when_session_has_multiple_da
 def test_check_readiness_scopes_prechecks_to_locked_plan_variables(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     workspace_dir = tmp_path / "workspace"
     raw_dir = workspace_dir / "rawdata"
@@ -1839,7 +1839,7 @@ def test_check_readiness_scopes_prechecks_to_locked_plan_variables(
 def test_project_bound_dataset_rehydrates_after_session_reset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     workspace_dir = tmp_path / "workspace"
     raw_dir = workspace_dir / "rawdata"
@@ -1902,7 +1902,7 @@ def test_project_bound_dataset_rehydrates_after_session_reset(
 def test_project_bound_dataset_rehydrates_when_schema_dataset_id_changed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     workspace_dir = tmp_path / "workspace"
     raw_dir = workspace_dir / "rawdata"
@@ -1952,7 +1952,7 @@ def test_project_bound_dataset_rehydrates_when_schema_dataset_id_changed(
 def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     from rde.infrastructure.persistence import (
         FileSystemProjectRepository,
@@ -2023,7 +2023,7 @@ def test_get_pipeline_status_rehydrates_persisted_project_after_session_reset(
 def test_get_pipeline_status_repairs_stale_project_state_from_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     from rde.infrastructure.persistence import (
         FileSystemProjectRepository,

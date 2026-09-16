@@ -2,7 +2,7 @@
 
 **Research Data Explorer (RDE)** is a code-backed MCP server and VS Code harness for auditable exploratory data analysis. It is built for real research datasets where the agent must show its work: intake decisions, schema assumptions, analysis planning, execution artifacts, deviations, report readiness, and audit evidence.
 
-RDE is not a generic "run every statistical method" bot. Its value is narrower and more useful: put a trusted set of EDA, statistical, report, and handoff tools inside a governed workflow that an agent cannot legitimately skip.
+RDE helps agents collaborate on clinically meaningful, reproducible research reports without writing extensive ad hoc analysis code. Agents remain free to propose hypotheses, question assumptions and develop alternative analyses; the harness records execution and protects the boundary between exploratory evidence and formal conclusions. Publication readiness still requires expert review.
 
 **Live workflow site:** <https://u9401066.github.io/research-data-explorer/>
 
@@ -13,8 +13,8 @@ This README is aligned with the current implementation, not only the older prose
 | Contract area | Current implementation source | What it says |
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
-| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 9 tool modules are registered into the `research-data-explorer` FastMCP server |
-| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) and [vscode-extension/package.json](vscode-extension/package.json) | 49 expected MCP tools, matching actual `@server.tool()` registration |
+| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 10 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 50 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |

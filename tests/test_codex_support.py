@@ -91,7 +91,9 @@ def test_codex_rde_smoke_can_list_mcp_tools() -> None:
         timeout=60,
     )
 
-    assert "tools=49" in result.stdout
+    from rde.interface.mcp.contracts import CONTRACTS
+
+    assert f"tools={len(CONTRACTS)}" in result.stdout
     assert "init_project" in result.stdout
     assert "propose_analysis_plan" in result.stdout
 

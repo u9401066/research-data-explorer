@@ -1,5 +1,23 @@
 # Active Context
 
+## MEM+ 2026-09-16 — 0.5.0 migration in progress
+
+- Fetched origin and confirmed clean main at `2b20221` before implementation.
+- User priority: empower agents to produce clinically meaningful, reproducible,
+  publication-level reports without extensive ad hoc coding; do not constrain
+  hypothesis generation or methodological reasoning to a fixed menu.
+- Migrated official MCP SDK dependency to `mcp>=2.2,<3` and `MCPServer`.
+- Every registration now requires explicit phase/gate/effect metadata; effect
+  hints do not replace application-level authorization or confirmation gates.
+- Sync v2 handlers are serialized on a process-wide reentrant lock because RDE
+  currently shares a session registry. Statistical work stays off the event loop.
+- Added era-neutral/legacy Client tests, real stdio discovery, structured error
+  status, a trusted Resolve-based workflow tool, resources and a harness prompt.
+- Tool surface is now 50. Autoresearch remains an application-level durable
+  queue; MCP Tasks extension is not advertised (unsupported by SDK 2.2).
+- Remaining release tracks are recorded in `docs/release-0.5.0-plan.md`; no new
+  version or marketplace publication is claimed until full release verification.
+
 ## MEM+ 2026-07-15
 
 - Robotic VATS timed-NRS review exposed three reusable RDE defects: paired tests independently dropped each column and could mis-pair subjects, Phase 12 used CRBD-only heading allowlists that discarded unrelated report sections, and Table 1 export treated Markdown separator rows as observations.

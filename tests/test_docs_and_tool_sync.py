@@ -163,7 +163,7 @@ def test_vsix_package_declares_expected_mcp_tool_surface() -> None:
 
 
 def test_live_mcp_tool_list_includes_project_bootstrap_chain() -> None:
-    pytest.importorskip("mcp.server.fastmcp")
+    pytest.importorskip("mcp.server")
 
     async def list_tool_names() -> set[str]:
         server = create_server()

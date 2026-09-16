@@ -1,4 +1,13 @@
-# Progress (Updated: 2026-07-15)
+# Progress (Updated: 2026-09-16)
+
+## 2026-09-16 — 0.5.0 work in progress
+
+- SDK v2 migration, tool effect registry, resolver/resources/prompt and
+  modern/legacy protocol regression tests implemented.
+- Verification: 274 Python tests passed, 5 optional vendor tests skipped;
+  40 extension tests passed; Ruff and bundled asset check passed.
+- Clinical method expansion, individual tool behavior review, autoresearch
+  safeguards, website/VSIX redesign and release verification remain in scope.
 
 ## MEM+ 2026-07-15
 
