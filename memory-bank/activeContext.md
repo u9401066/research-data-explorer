@@ -1,6 +1,25 @@
 # Active Context
 
-## MEM+ 2026-09-16 — 0.5.0 migration in progress
+## MEM+ 2026-09-16 — 0.5.0 released
+
+- All implementation segments are on main. Release tag `v0.5.0` points to
+  `02c788f`; final documentation checkpoint follows on main.
+- Release workflow 35049733838 succeeded: Python quality, four-platform VSIX
+  smoke, source-to-payload verification, GitHub release and Visual Studio
+  Marketplace publication all passed. Open VSX was explicitly skipped because
+  `OVSX_PAT` is not configured; do not describe it as published.
+- GitHub release contains VSIX, wheel and sdist. Downloaded all three assets
+  independently and verified SHA-256 digests against GitHub's release metadata.
+- Main CI 35049561650 passed: Linux 412 tests, five optional vendor cases
+  deselected. Local Windows: 411 passed, six skipped (additional symlink privilege).
+- Fresh bundled-tool environment loaded SDK 2.2.0 and all 50 MCP tools. Public
+  Pages desktop/mobile Chromium navigation/filter/copy/legacy-link checks passed.
+- Release: https://github.com/u9401066/research-data-explorer/releases/tag/v0.5.0
+- Remaining scope limits are intentional/documented: optional vendor services,
+  study-specific statistical review, one writer per project, and no MCP Tasks
+  advertisement. Workflow audit is not a certificate of clinical validity.
+
+### Implementation history
 
 - Website/harness segment `361aad6` pushed to main; Pages deployed successfully.
   Its CI identified Marketplace's SVG-in-README restriction; fixed with PNG previews

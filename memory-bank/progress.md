@@ -1,6 +1,18 @@
 # Progress (Updated: 2026-09-16)
 
-## 2026-09-16 — 0.5.0 work in progress
+## 2026-09-16 — 0.5.0 completed and published
+
+- [x] Six implementation/release segments pushed directly to main as requested.
+- [x] `v0.5.0` GitHub release: VSIX, wheel, source archive; downloaded digests match.
+- [x] Visual Studio Marketplace actual publish step succeeded (not a token skip).
+- [x] Four-platform tag release verification and Python quality passed; Linux
+  412 passed, five vendor tests deselected. Fresh bundle: SDK 2.2.0 / 50 tools.
+- [x] Public Pages desktop/mobile Chromium interactions passed without console errors.
+- Open VSX publishing was skipped because its credential is not configured.
+  This does not affect the Marketplace or downloadable VSIX release.
+- Evidence: main CI 35049561650; tag release 35049733838; Pages 35049561606.
+
+### Local verification and implementation history
 
 - Release candidate: 411 Python passed, 6 skipped; 40 extension passed; Ruff,
   all-file pre-commit and package integrity passed. Added Marketplace PNG-preview
