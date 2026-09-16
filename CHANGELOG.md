@@ -8,6 +8,8 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Fixed
 
+- Fixed long-form paired comparison to join by an explicit subject key, reject duplicate occasions, and persist per-outcome case ledgers; unsupported/failed tests no longer fabricate p=1.
+- Fixed analysis-plan coverage to count unique fully matched required tasks instead of repeated invocations, and contained artifact reads/writes within their phase directory.
 - Preserved row identity in paired t tests and Wilcoxon signed-rank tests; asymmetric missingness can no longer pair measurements from different subjects after independent column-wise deletion.
 - Aligned paired-plot Wilcoxon annotations with the same tie-aware SciPy implementation used by formal repeated-measures analyses.
 - Prevented reruns from duplicating the same figure path or older versions of a repeated-measures artifact in regenerated reports.

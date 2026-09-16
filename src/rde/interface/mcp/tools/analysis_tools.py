@@ -1246,6 +1246,7 @@ def register_analysis_tools(server: Any) -> None:
         outcome_variables: list[str],
         group_variable: str,
         is_paired: bool = False,
+        subject_variable: str | None = None,
     ) -> str:
         """組間比較，自動選擇適當統計檢定。
 
@@ -1258,6 +1259,7 @@ def register_analysis_tools(server: Any) -> None:
             outcome_variables: 要比較的結果變數列表，如 ["sofa_score", "mortality"]
             group_variable: 分組變數，如 "treatment_group"、"gender"
             is_paired: 是否為配對資料（如前後測），預設 false
+            subject_variable: 長格式配對資料必填的個案鍵；寬格式請用 run_repeated_measures
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -1309,6 +1311,7 @@ def register_analysis_tools(server: Any) -> None:
                         outcome_variables=[outcome],
                         group_variable=group_variable,
                         is_paired=is_paired,
+                        subject_variable=subject_variable,
                     )
                     for outcome in outcome_variables
                 ]
@@ -1327,6 +1330,13 @@ def register_analysis_tools(server: Any) -> None:
                     summary=f"Compared {len(tests)} variables: "
                     f"{sum(1 for test in tests if test.is_significant)} significant.",
                     warnings=warnings,
+                    tables={
+                        "case_sets": {
+                            key: value
+                            for item in single_results
+                            for key, value in item.tables.get("case_sets", {}).items()
+                        }
+                    },
                 )
             else:
                 result = use_case.execute(
@@ -1335,9 +1345,10 @@ def register_analysis_tools(server: Any) -> None:
                     outcome_variables=outcome_variables,
                     group_variable=group_variable,
                     is_paired=is_paired,
+                    subject_variable=subject_variable,
                 )
 
-            if os.environ.get("RDE_COMPARE_AUTO_FIGURES", "0") == "1":
+            if not is_paired and os.environ.get("RDE_COMPARE_AUTO_FIGURES", "0") == "1":
                 figures, figure_warnings = _auto_create_group_comparison_figures(
                     project=project,
                     dataset=entry.dataset,
@@ -1378,6 +1389,11 @@ def register_analysis_tools(server: Any) -> None:
                     lines.append("- ⚠️ [S-009] 未計算效果量")
 
                 lines.append(f"- **解讀:** {t.interpretation}")
+                case_set = result.tables.get("case_sets", {}).get(t.variables_involved[0])
+                if case_set:
+                    lines.append(
+                        f"- **Complete subject pairs:** {case_set['n_complete_pairs']} / {case_set['n_subjects']}; excluded subjects: {case_set['n_excluded_subjects']}; unidentified rows: {case_set['n_unidentified_rows']}; order: {case_set['group_order']}"
+                    )
 
                 # S-010: Compute post-hoc power for non-significant results
                 if not t.is_significant and t.effect_size is not None:
@@ -1456,6 +1472,8 @@ def register_analysis_tools(server: Any) -> None:
                     "group_variable": group_variable,
                     "outcome_variables": outcome_variables,
                     "is_paired": is_paired,
+                    "subject_variable": subject_variable,
+                    "case_sets": result.tables.get("case_sets", {}),
                     "summary": result.summary,
                     "tests": tests_payload,
                     "figures": figures,
@@ -1471,7 +1489,12 @@ def register_analysis_tools(server: Any) -> None:
             # H-009
             _auto_log_decision(
                 "compare_groups",
-                {"outcome_variables": outcome_variables, "group_variable": group_variable},
+                {
+                    "outcome_variables": outcome_variables,
+                    "group_variable": group_variable,
+                    "is_paired": is_paired,
+                    "subject_variable": subject_variable,
+                },
                 "組間比較分析",
                 (
                     f"{len(result.tests)} tests, {len(result.significant_tests)} significant"

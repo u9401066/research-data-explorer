@@ -2,6 +2,10 @@
 
 ## 2026-09-16 — 0.5.0 work in progress
 
+- Tool edge-case segment verified: 337 passed, 6 skipped (5 optional vendor,
+  1 Windows symlink privilege); extension 40 passed; all 50 MCP contracts audited.
+- Corrected long-form case pairing, ordinal test selection, failed-test handling,
+  unique required-task coverage, and artifact path containment.
 - Added seven local clinical methods and regression coverage for pairing,
   denominators, uncertainty, model convergence, artifact/report integration,
   and failure accounting. Initial expanded suite: 291 passed, 5 skipped.

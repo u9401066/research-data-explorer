@@ -61,7 +61,9 @@ class StatisticalAdvisor:
                 assumptions=["Complete cases for all timepoints"],
             )
 
-        if outcome_type == VariableType.CONTINUOUS:
+        if outcome_type in (VariableType.CONTINUOUS, VariableType.ORDINAL, VariableType.BIOMARKER):
+            if outcome_type == VariableType.ORDINAL:
+                is_normal = False  # Ordinal coding never establishes an interval scale.
             if group_count == 2:
                 if is_normal and min_n >= 30:
                     if is_paired:

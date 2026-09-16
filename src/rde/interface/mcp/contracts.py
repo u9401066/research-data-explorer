@@ -55,7 +55,9 @@ CONTRACTS = {
         "8", "locked plan + readiness", "case ledger and decision"
     ),
     "open_exploration_branch": ToolContract("8", "locked plan + readiness", "branch event"),
-    "suggest_branch_experiments": ToolContract("8", "project context", "suggestion artifacts"),
+    "suggest_branch_experiments": ToolContract(
+        "8", "project context", "candidate suggestions", True
+    ),
     "start_autoresearch_run": ToolContract(
         "8", "locked plan + readiness + budget", "run/queue/budget"
     ),

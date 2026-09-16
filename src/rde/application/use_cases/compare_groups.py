@@ -7,11 +7,13 @@ applying soft constraints for statistical rigor.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime
 from typing import Any
 
 from rde.domain.models.analysis import AnalysisResult, StatisticalTest, TestCategory
 from rde.domain.models.dataset import Dataset
+from rde.domain.models.variable import VariableType
 from rde.domain.policies.hard_constraints import HardConstraints
 from rde.domain.policies.soft_constraints import SoftConstraints
 from rde.domain.ports import StatisticalEnginePort
@@ -34,6 +36,7 @@ class CompareGroupsUseCase:
         outcome_variables: list[str],
         group_variable: str,
         is_paired: bool = False,
+        subject_variable: str | None = None,
     ) -> AnalysisResult:
         """Run group comparisons with constraint enforcement."""
         # Hard Constraint H-003
@@ -41,8 +44,36 @@ class CompareGroupsUseCase:
         if not check.passed:
             raise ValueError(check.message)
 
+        import numpy as np
+        import pandas as pd
+
+        df: pd.DataFrame = raw_data
+        required = [*outcome_variables, group_variable]
+        if not outcome_variables or len(set(outcome_variables)) != len(outcome_variables):
+            raise ValueError("Select one or more distinct outcome variables.")
+        if is_paired:
+            if not subject_variable:
+                raise ValueError(
+                    "Paired long-form data require subject_variable to preserve case identity. "
+                    "For wide-form paired columns use run_repeated_measures instead."
+                )
+            required.append(subject_variable)
+        if len(set(required)) != len(required):
+            raise ValueError("Outcome, group, and subject roles must use distinct columns.")
+        missing = [name for name in required if name not in df.columns]
+        if missing:
+            raise ValueError(f"Columns not found: {missing}")
+        group_order = df[group_variable].dropna().unique().tolist()
+        if len(group_order) < 2:
+            raise ValueError("Comparison requires at least two observed groups.")
+        if is_paired and len(group_order) != 2:
+            raise ValueError(
+                "Long-form paired comparison supports exactly two occasions; use run_repeated_measures for 3+."
+            )
+
         tests: list[StatisticalTest] = []
         warnings: list[str] = []
+        case_sets: dict[str, Any] = {}
 
         # Soft Constraint S-002: multiple comparisons
         if len(outcome_variables) > 1:
@@ -54,15 +85,59 @@ class CompareGroupsUseCase:
             # Find variable type
             var = next((v for v in dataset.variables if v.name == var_name), None)
             if var is None:
-                warnings.append(f"Variable '{var_name}' not found in dataset.")
-                continue
+                raise ValueError(f"Variable '{var_name}' not found in the dataset schema.")
 
             # Count actual groups in the data
-            import pandas as pd
-
-            df: pd.DataFrame = raw_data
             actual_groups = df[group_variable].nunique()
             group_sizes = df.groupby(group_variable)[var_name].count().tolist()
+            engine_data = raw_data
+            engine_variables = [var_name, group_variable]
+            if is_paired:
+                if var.variable_type not in (
+                    VariableType.CONTINUOUS,
+                    VariableType.ORDINAL,
+                    VariableType.BIOMARKER,
+                ):
+                    raise ValueError(
+                        "Paired categorical outcomes require McNemar or a specified paired model, not an independent-group test."
+                    )
+                frame = df[[subject_variable, group_variable, var_name]].copy()
+                frame["_rde_row_position"] = np.arange(len(frame))
+                identifiable = frame.dropna(subset=[subject_variable, group_variable])
+                if identifiable.duplicated([subject_variable, group_variable]).any():
+                    raise ValueError(
+                        "Duplicate subject/occasion observations: resolve the repeated records explicitly before pairing."
+                    )
+                identifiable = identifiable.copy()
+                identifiable[var_name] = pd.to_numeric(
+                    identifiable[var_name], errors="coerce"
+                ).replace([np.inf, -np.inf], np.nan)
+                wide = identifiable.pivot(
+                    index=subject_variable, columns=group_variable, values=var_name
+                ).reindex(columns=group_order)
+                positions = identifiable.pivot(
+                    index=subject_variable, columns=group_variable, values="_rde_row_position"
+                ).reindex(columns=group_order)
+                complete = wide.notna().all(axis=1)
+                if int(complete.sum()) < 3:
+                    raise ValueError(
+                        "Paired comparison requires at least three complete subject pairs."
+                    )
+                engine_data = wide.loc[complete].copy()
+                engine_variables = ["measurement_1", "measurement_2"]
+                engine_data.columns = engine_variables
+                group_sizes = [len(engine_data)] * 2
+                case_sets[var_name] = {
+                    "strategy": "subject-key complete pairs",
+                    "subject_variable": subject_variable,
+                    "group_order": [str(value) for value in group_order],
+                    "n_input_rows": len(df),
+                    "n_subjects": len(wide),
+                    "n_complete_pairs": len(engine_data),
+                    "n_excluded_subjects": int((~complete).sum()),
+                    "n_unidentified_rows": len(frame) - len(identifiable),
+                    "paired_row_positions": positions.loc[complete].astype(int).values.tolist(),
+                }
 
             # Get test recommendation from domain service
             recommendation = self._advisor.recommend_comparison_test(
@@ -75,10 +150,17 @@ class CompareGroupsUseCase:
 
             # Execute via port
             result = self._engine.run_test(
-                data=raw_data,
+                data=engine_data,
                 test_name=recommendation.test_name,
-                variables=[var_name, group_variable],
+                variables=engine_variables,
             )
+            if result.get("error"):
+                raise ValueError(f"{var_name}: {result['error']}")
+            if not all(
+                isinstance(result.get(key), (int, float)) and math.isfinite(result[key])
+                for key in ("p_value", "statistic")
+            ):
+                raise ValueError(f"{var_name}: statistical engine returned no finite test result.")
 
             test = StatisticalTest(
                 test_name=recommendation.test_name,
@@ -87,6 +169,7 @@ class CompareGroupsUseCase:
                 p_value=result.get("p_value", 1),
                 effect_size=result.get("effect_size"),
                 effect_size_name=result.get("effect_size_name"),
+                sample_sizes=tuple(group_sizes),
                 variables_involved=(var_name, group_variable),
                 interpretation=result.get("interpretation", ""),
             )
@@ -108,6 +191,7 @@ class CompareGroupsUseCase:
             created_at=datetime.now(),
             tests=tuple(tests),
             summary=self._build_summary(tests),
+            tables={"case_sets": case_sets} if case_sets else {},
             warnings=tuple(warnings),
         )
 

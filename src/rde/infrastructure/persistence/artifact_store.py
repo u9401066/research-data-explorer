@@ -9,7 +9,7 @@ Enforces H-008 (Artifact Gate) and H-010 (append-only logs).
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from rde.application.pipeline import PipelinePhase, REQUIRED_ARTIFACTS
@@ -22,6 +22,30 @@ class ArtifactStore:
         self._base = artifacts_dir
         self._base.mkdir(parents=True, exist_ok=True)
 
+    def _resolve_path(self, phase: PipelinePhase, filename: str) -> Path:
+        """Keep artifact names inside their phase on every supported platform."""
+        normalized = str(filename).replace("\\", "/")
+        relative = Path(normalized)
+        if (
+            not normalized
+            or relative.is_absolute()
+            or PureWindowsPath(normalized).drive
+            or ".." in relative.parts
+            or ":" in normalized
+            or "\x00" in normalized
+        ):
+            raise ValueError("Artifact filename must be a safe relative path within its phase.")
+        base = self._base.resolve()
+        phase_dir = (base / phase.value).resolve()
+        target = (phase_dir / relative).resolve()
+        if (
+            not phase_dir.is_relative_to(base)
+            or not target.is_relative_to(phase_dir)
+            or target == phase_dir
+        ):
+            raise ValueError("Artifact path escapes its phase directory.")
+        return target
+
     # ── write ─────────────────────────────────────────────────────────
 
     def save(
@@ -31,9 +55,8 @@ class ArtifactStore:
         data: Any,
     ) -> Path:
         """Save an artifact for a phase. Returns the written path."""
-        phase_dir = self._base / phase.value
-        phase_dir.mkdir(parents=True, exist_ok=True)
-        path = phase_dir / filename
+        path = self._resolve_path(phase, filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
 
         if filename.endswith(".json"):
             path.write_text(
@@ -74,7 +97,7 @@ class ArtifactStore:
 
     def load(self, phase: PipelinePhase, filename: str) -> Any:
         """Load an artifact. Returns None if not found."""
-        path = self._base / phase.value / filename
+        path = self._resolve_path(phase, filename)
         if not path.exists():
             return None
 
@@ -99,10 +122,10 @@ class ArtifactStore:
             return path.read_text(encoding="utf-8")
 
     def exists(self, phase: PipelinePhase, filename: str) -> bool:
-        return (self._base / phase.value / filename).exists()
+        return self._resolve_path(phase, filename).exists()
 
     def get_path(self, phase: PipelinePhase, filename: str) -> Path:
-        return self._base / phase.value / filename
+        return self._resolve_path(phase, filename)
 
     # ── artifact gate (H-008) ─────────────────────────────────────────
 

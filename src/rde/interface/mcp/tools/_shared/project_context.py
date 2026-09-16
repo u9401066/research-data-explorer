@@ -466,7 +466,9 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
             continue
         if parameters.get("scope") == "branch":
             branch_decision_count += 1
-        else:
+        elif str(decision.get("tool_used") or decision.get("action") or "") in (
+            set(_PLAN_TOOL_TYPE_MAP) - {"suggest_cleaning"}
+        ):
             primary_decision_count += 1
     executed = max(primary_decision_count, analysis_result_count)
 
@@ -476,6 +478,7 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
     planned = len(planned_entries)
     matched_decision_count = 0
     off_plan_decision_count = 0
+    matched_plan_indices: set[int] = set()
 
     if planned > 0:
         for decision in decisions:
@@ -492,7 +495,14 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
                 matched_decision_count += 1
             else:
                 off_plan_decision_count += 1
-        executed = max(matched_decision_count, analysis_result_count)
+            for index, entry in enumerate(planned_entries):
+                if _check_plan_adherence_against_analyses(
+                    [entry], tool_name, parameters, require_all_variables=True
+                ):
+                    matched_plan_indices.add(index)
+        # Coverage is unique required estimands/tasks, not number of reruns.
+        # Cached in-memory results alone lack enough plan identity to count.
+        executed = len(matched_plan_indices)
 
     if planned > 0:
         required_executions = max(1, math.ceil(planned * PHASE6_REQUIRED_COVERAGE))
@@ -506,6 +516,10 @@ def compute_phase6_progress(project: Project) -> dict[str, object]:
     return {
         "planned_analyses": planned,
         "planned_entries": planned_entries,
+        "completed_plan_indices": sorted(matched_plan_indices),
+        "pending_plan_indices": [
+            index for index in range(planned) if index not in matched_plan_indices
+        ],
         "executed_analyses": executed,
         "decision_count": decision_count,
         "primary_decision_count": primary_decision_count,
@@ -664,6 +678,8 @@ def _check_plan_adherence_against_analyses(
     analyses: list,
     tool_name: str,
     parameters: dict,
+    *,
+    require_all_variables: bool = False,
 ) -> bool:
     synonyms = _plan_tool_synonyms(tool_name, parameters)
 
@@ -682,6 +698,9 @@ def _check_plan_adherence_against_analyses(
             "time_var",
             "score_variable",
             "score_var",
+            "target",
+            "covariates",
+            "subject_variable",
         ),
     )
 
@@ -695,11 +714,17 @@ def _check_plan_adherence_against_analyses(
             type_matches = planned_analysis_type in synonyms
         if not type_matches:
             continue
+        if planned_analysis_type and planned_analysis_type not in synonyms:
+            continue
         if not _planned_named_fields_match(entry, parameters):
             continue
 
         planned_vars = _plan_values(entry, ("variables",))
-        if not planned_vars or param_vars.intersection(planned_vars):
+        if not planned_vars or (
+            planned_vars.issubset(param_vars)
+            if require_all_variables
+            else bool(param_vars.intersection(planned_vars))
+        ):
             return True
 
     return False

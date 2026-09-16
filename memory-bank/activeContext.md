@@ -3,6 +3,12 @@
 ## MEM+ 2026-09-16 — 0.5.0 migration in progress
 
 - SDK segment `1c196e3` is on origin/main; its four-platform GitHub CI passed.
+- Clinical segment `f3e9458` is on origin/main (292 passed, 5 skipped).
+- Tool review additionally found unsafe long-form paired comparison, fabricated
+  p=1 on engine failure, and rerun-inflated coverage. Added explicit subject-key
+  pairing, finite-result checks, ordinal rank-test routing, unique required-plan
+  completion, and phase-contained artifact paths. Suggestions remain unrestricted;
+  completeness checks assess evidence, not permissible scientific ideas.
 - Clinical expansion adds local risk estimates, diagnostic accuracy, McNemar,
   Bland–Altman, kappa, GEE, and random-intercept mixed effects with case ledgers
   and explicit uncertainty. Failure artifacts do not count as completed analyses;

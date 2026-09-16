@@ -45,6 +45,14 @@ execution. No formula strings or arbitrary code are evaluated.
 
 ## Case identity and reproducibility
 
+For long-form two-occasion numeric or ordinal outcomes, use
+`compare_groups(is_paired=true, subject_variable="case_id", group_variable="visit",
+outcome_variables=["score"])`. It joins by the supplied subject key, rejects
+duplicate subject/occasion records, excludes incomplete pairs, and persists the
+two source-row positions for each retained pair. Calling the paired flag without
+a key is an error, not permission to pair by incidental row order. Wide-form
+columns continue to use `run_repeated_measures`.
+
 Each method creates a complete-case mask over exactly its required columns,
 retaining row alignment. Paired columns must occupy the same subject's row;
 long-form repeated data require `subject_variable` in GEE/mixed models instead.
