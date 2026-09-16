@@ -151,6 +151,8 @@ phase_controls:
         - effect_or_model_metric
         - uncertainty_or_diagnostic_metric
       requires_user_confirmation: true
+      score_is_advisory: true
+      statistical_significance_is_not_acceptance_criterion: true
       confirmation_flag: confirm
       blocks_auto_merge_to_primary_conclusions: true
       output_artifacts:

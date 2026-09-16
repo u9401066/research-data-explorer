@@ -16,6 +16,7 @@ from rde.domain.models.exploration_branch import (
     ExplorationBranch,
 )
 from rde.domain.services.exploration_branch_evaluator import ExplorationBranchEvaluator
+from rde.domain.services.research_contracts import combine_research_proposals, research_baseline
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 from rde.interface.mcp.tools._shared import (
     ensure_phase_ready,
@@ -460,8 +461,7 @@ def register_branch_tools(server: Any) -> None:
 
             evaluation = _apply_live_evidence_gate(evaluated["evaluation"], store, experiments)
             if (
-                evaluation["overall_score"] < ExplorationBranchEvaluator.PROMOTION_THRESHOLD
-                or evaluation["recommendation"] != "promote_candidate"
+                evaluation["recommendation"] != "promote_candidate"
                 or not evaluation["promotion_gate"]["can_promote"]
             ):
                 return fmt_error(
@@ -471,7 +471,7 @@ def register_branch_tools(server: Any) -> None:
                         f"recommendation={evaluation['recommendation']} "
                         f"blockers={evaluation['promotion_gate']['blockers']}"
                     ),
-                    "Only promote branches with score >= 70 and recommendation=promote_candidate.",
+                    "Promotion requires recommendation=promote_candidate, complete live evidence, a fresh audit, and human confirmation; score and p-value are not acceptance criteria.",
                 )
 
             amendment = _build_plan_amendment(project.id, branch, experiments, evaluation)
@@ -663,8 +663,15 @@ def register_branch_tools(server: Any) -> None:
         max_branches: int = 10,
         max_failures: int = 3,
         max_minutes: int = 480,
+        agent_proposals: list[dict[str, Any]] | None = None,
+        include_builtin_suggestions: bool = True,
     ) -> str:
-        """Seed a durable Phase 8 autoresearch queue from the locked plan and branch suggestions."""
+        """Queue agent-authored hypotheses and optional built-in suggestions with a fixed budget.
+
+        agent_proposals accept hypothesis, reason, variables, optional branch_type,
+        and analysis_contract (tool, analysis_type and run_advanced_analysis roles).
+        Ideas are unrestricted; unsupported executors are recorded, never fabricated.
+        """
 
         log_tool_call(
             "start_autoresearch_run",
@@ -683,6 +690,10 @@ def register_branch_tools(server: Any) -> None:
         assert store is not None
 
         try:
+            if max_tasks < 1 or max_branches < 1 or max_minutes < 1 or max_failures < 0:
+                return fmt_error(
+                    "Task, branch and time budgets must be positive; max_failures must be nonnegative."
+                )
             active = _active_autoresearch_run(store)
             if active is not None:
                 return fmt_error(
@@ -694,7 +705,12 @@ def register_branch_tools(server: Any) -> None:
             schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {}
             plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
             roles = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {}
-            suggestions = _build_branch_suggestions(schema, plan, roles)
+            suggestions = combine_research_proposals(
+                agent_proposals,
+                _build_branch_suggestions(schema, plan, roles)
+                if include_builtin_suggestions
+                else [],
+            )
             task_limit = max(1, min(int(max_tasks or 1), int(max_branches or max_tasks or 1)))
             selected = suggestions[:task_limit]
             run_id = f"ar_{uuid.uuid4().hex[:10]}"
@@ -777,6 +793,17 @@ def register_branch_tools(server: Any) -> None:
                 "max_minutes": max(1, int(max_minutes or 1)),
             }
             store.save(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_RUNS_LOG, run_event)
+            store.save(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                f"autoresearch_baselines/{run_id}.json",
+                {
+                    "design_hashes": research_baseline(schema, plan, roles),
+                    "candidates": suggestions,
+                    "selected_count": len(selected),
+                    "budget": run_event,
+                    "scope": "exploratory; no automatic confirmatory claim promotion",
+                },
+            )
 
             queue_items = [
                 _build_autoresearch_work_item(project.id, run_id, index + 1, suggestion)
@@ -863,6 +890,7 @@ def register_branch_tools(server: Any) -> None:
                     f"- status: {status['status']}",
                     f"- queue_depth: {status['queue_depth']}",
                     f"- completed: {status['completed_count']}",
+                    f"- recorded_only: {status['recorded_count']}",
                     f"- failed: {status['failed_count']}",
                     f"- budget_remaining: {status['budget_remaining']}",
                     f"- current_blocker: {status.get('current_blocker') or 'none'}",
@@ -1153,6 +1181,7 @@ def register_branch_tools(server: Any) -> None:
                         f"- status: {status.get('status')}",
                         f"- queue_depth: {status.get('queue_depth')}",
                         f"- completed: {status.get('completed_count')}",
+                        f"- recorded_only: {status.get('recorded_count')}",
                         f"- failed: {status.get('failed_count')}",
                     ]
                 ),
@@ -1762,6 +1791,20 @@ def _execute_autoresearch_next_task(
         return {"ok": False, "message": "No running autoresearch run."}
 
     run_id = str(status["run_id"])
+    baseline = store.load(
+        PipelinePhase.EXECUTE_EXPLORATION, f"autoresearch_baselines/{run_id}.json"
+    )
+    if isinstance(baseline, dict):
+        current_hashes = research_baseline(
+            store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {},
+            store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {},
+            store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {},
+        )
+        if current_hashes != baseline.get("design_hashes"):
+            return {
+                "ok": False,
+                "message": "Research design baseline changed. Stop this run and start a new run after reviewing the plan; prior evidence is retained.",
+            }
     queue = _project_autoresearch_queue(store, run_id)
     if _reclaim_expired_autoresearch_leases(store, queue):
         queue = _project_autoresearch_queue(store, run_id)
@@ -1922,7 +1965,7 @@ def _execute_autoresearch_next_task(
     )
     _, branch_result_path = _save_branch_result(store, branch_id)
     auto_evaluation = {}
-    if experiment_status not in {"failed", "crashed", "error"}:
+    if experiment_status == "completed":
         auto_evaluation = _auto_evaluate_autoresearch_branch(project, store, branch_id)
     auto_evaluation_artifacts = [
         str(path)
@@ -1939,10 +1982,12 @@ def _execute_autoresearch_next_task(
         {
             "event_type": "work_item_failed"
             if experiment_status in {"failed", "crashed", "error"}
+            else "work_item_recorded"
+            if experiment_status == "recorded"
             else "work_item_completed",
             "status": "failed"
             if experiment_status in {"failed", "crashed", "error"}
-            else "completed",
+            else experiment_status,
             "branch_id": branch_id,
             "experiment_id": experiment_id,
             "completed_at": datetime.now().isoformat(),
@@ -2230,7 +2275,7 @@ def _execute_autoresearch_analysis_contract(
     if not contract:
         return {
             "executed": False,
-            "status": "completed",
+            "status": "recorded",
             "artifacts": [],
             "metrics": _runner_metrics_for_task(store, task),
             "result_summary": (
@@ -2240,7 +2285,7 @@ def _execute_autoresearch_analysis_contract(
     if str(contract.get("tool") or "") != "run_advanced_analysis":
         return {
             "executed": False,
-            "status": "completed",
+            "status": "recorded",
             "artifacts": [],
             "metrics": _runner_metrics_for_task(store, task),
             "result_summary": (
@@ -2285,16 +2330,6 @@ def _execute_autoresearch_analysis_contract(
     branch_backend = contract.get("backend")
     if branch_backend:
         config["backend"] = str(branch_backend)
-    elif analysis_type in {
-        "glm",
-        "logistic_regression",
-        "multiple_regression",
-        "propensity_score",
-        "roc_auc",
-    }:
-        config["backend"] = "fast"
-        config["regularization_alpha"] = 1.0
-        config["max_iter"] = 200
     if target_variable:
         config["target"] = str(target_variable)
         config["variables"].append(str(target_variable))
@@ -2304,6 +2339,25 @@ def _execute_autoresearch_analysis_contract(
     if covariates:
         config["covariates"] = covariates
         config["variables"].extend(covariates)
+    for key in ("time_variable", "score_variable", "subject_variable"):
+        if contract.get(key):
+            config[key] = str(contract[key])
+            config["variables"].append(str(contract[key]))
+    config["confidence_level"] = contract.get("confidence_level", 0.95)
+    clinical_options = contract.get("clinical_options") or {}
+    if not isinstance(clinical_options, dict) or set(clinical_options) - {
+        "family",
+        "threshold",
+        "positive_direction",
+    }:
+        return {
+            "executed": False,
+            "status": "failed",
+            "artifacts": [],
+            "error": "Invalid clinical_options",
+            "result_summary": "Contract validation failed.",
+        }
+    config.update(clinical_options)
     for variable in variables:
         if variable not in config["variables"]:
             config["variables"].append(variable)
@@ -2355,6 +2409,9 @@ def _execute_autoresearch_analysis_contract(
             {
                 "runner_generated": False,
                 "contract_executed": True,
+                "execution_status": "failed"
+                if isinstance(analysis_result, dict) and analysis_result.get("error")
+                else "completed",
                 "analysis_type": analysis_type,
                 "source": source,
             }
@@ -2423,7 +2480,9 @@ def _execute_autoresearch_analysis_contract(
             source=source,
             analysis_result=analysis_result,
             artifact_path=artifact_path,
-            automl_available=delegator.automl_available,
+            automl_available=False
+            if source.startswith("local-clinical")
+            else delegator.automl_available,
         )
         figures: list[dict[str, str]] = []
         figure_warnings: list[str] = []
@@ -2499,6 +2558,7 @@ def _execute_autoresearch_analysis_contract(
             "metrics": {
                 "runner_generated": False,
                 "contract_executed": True,
+                "execution_status": "failed",
                 "analysis_type": analysis_type,
                 "n": int(entry.dataset.row_count or len(entry.dataframe)),
             },
@@ -2512,12 +2572,25 @@ def _metrics_from_live_analysis_result(
     *,
     row_count: int,
 ) -> dict[str, Any]:
-    metrics: dict[str, Any] = {"n": row_count, "sample_size": row_count}
+    metrics: dict[str, Any] = {
+        "n_input": row_count,
+        "inference_scope": "exploratory; pointwise uncertainty; no automatic multiplicity correction",
+    }
     if not isinstance(analysis_result, dict):
         return metrics
-    for key in ("nobs", "n_complete", "n_total", "count"):
+    case_set = analysis_result.get("case_set") or {}
+    if isinstance(case_set, dict) and "n_analyzed" in case_set:
+        metrics.update(
+            {
+                "n": case_set["n_analyzed"],
+                "sample_size": case_set["n_analyzed"],
+                "case_set": case_set,
+            }
+        )
+    for key in ("nobs", "n_complete", "n_total", "count", "n"):
         if key in analysis_result:
             metrics[key] = analysis_result[key]
+            metrics.setdefault("sample_size", analysis_result[key])
             break
     if "propensity_score_summary" in analysis_result:
         summary = analysis_result.get("propensity_score_summary") or {}
@@ -2525,15 +2598,23 @@ def _metrics_from_live_analysis_result(
             metrics["nobs"] = summary["count"]
     p_values = analysis_result.get("p_values")
     if isinstance(p_values, dict):
-        numeric_p_values = [
-            float(value)
-            for name, value in p_values.items()
-            if name != "const" and value is not None
-        ]
         metrics["p_values"] = p_values
-        if numeric_p_values:
-            metrics["p_value"] = min(numeric_p_values)
+    for key in ("p_value", "confidence_interval", "standard_errors", "estimates", "warnings"):
+        if key in analysis_result:
+            metrics[key] = analysis_result[key]
+    if isinstance(analysis_result.get("estimates"), dict):
+        metrics["confidence_interval"] = {
+            term: [value.get("ci_lower"), value.get("ci_upper")]
+            for term, value in analysis_result["estimates"].items()
+            if isinstance(value, dict)
+        }
     coefficients = analysis_result.get("coefficients")
+    if isinstance(coefficients, list):
+        metrics["coefficients"] = {item["term"]: item.get("estimate") for item in coefficients}
+        metrics["confidence_interval"] = {
+            item["term"]: [item.get("ci_lower"), item.get("ci_upper")] for item in coefficients
+        }
+        metrics["p_values"] = {item["term"]: item.get("p_value") for item in coefficients}
     if isinstance(coefficients, dict):
         numeric_coefficients = [
             abs(float(value))
@@ -2599,14 +2680,6 @@ def _metrics_from_live_analysis_result(
         metrics["matching_summary"] = analysis_result["matching_summary"]
     if "power" in analysis_result:
         metrics["power"] = analysis_result["power"]
-    if metrics.get("common_support") and metrics.get("standardized_mean_difference") is not None:
-        support = metrics.get("common_support") or {}
-        support_fraction = float(support.get("in_support_fraction") or 0.0)
-        max_smd = abs(float(metrics.get("standardized_mean_difference") or 0.0))
-        metrics.setdefault("evidence_score", min(95.0, 55.0 + support_fraction * 35.0))
-        metrics.setdefault("stability_score", max(40.0, 90.0 - max_smd * 30.0))
-    metrics.setdefault("sample_support", 75.0 if row_count >= 30 else 45.0)
-    metrics.setdefault("alignment_score", 80.0)
     return metrics
 
 
@@ -2622,10 +2695,9 @@ def _runner_metrics_for_task(store: ArtifactStore, task: dict[str, Any]) -> dict
     metrics = {
         "runner_generated": True,
         "contract_executed": False,
-        "n": row_count,
-        "sample_size": row_count,
-        "alignment_score": 70.0 if variables else 50.0,
-        "sample_support": 75.0 if row_count >= 30 else 45.0,
+        "n_input": row_count,
+        "variables_recorded": len(variables),
+        "execution_status": "recorded_only",
     }
     if task.get("analysis_contract"):
         metrics["contract_available"] = True
@@ -2643,6 +2715,7 @@ def _update_autoresearch_budget(
     budget = store.load(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_BUDGET_STATE) or {}
     budget = budget if isinstance(budget, dict) else {}
     completed = _count_autoresearch_status(queue, {"completed"})
+    recorded = _count_autoresearch_status(queue, {"recorded"})
     failed = _count_autoresearch_status(queue, {"failed", "crashed", "error"})
     remaining = _count_autoresearch_status(queue, {"pending", "running", "leased", "in_progress"})
     budget.update(
@@ -2651,6 +2724,7 @@ def _update_autoresearch_budget(
             "status": status or budget.get("status") or "running",
             "queued_tasks": len(queue),
             "completed_tasks": completed,
+            "recorded_tasks": recorded,
             "failed_tasks": failed,
             "remaining_tasks": remaining,
             "current_blocker": current_blocker,
@@ -2707,6 +2781,8 @@ def _build_autoresearch_work_item(
         "reason": suggestion.get("reason") or "",
         "variables": list(suggestion.get("variables") or []),
         "analysis_contract": dict(suggestion.get("analysis_contract") or {}),
+        "proposal_source": suggestion.get("proposal_source", "builtin"),
+        "contract_fingerprint": suggestion.get("contract_fingerprint"),
         "suggestion": suggestion,
         "attempts": 0,
         "lease_owner": None,
@@ -2846,9 +2922,10 @@ def _autoresearch_status_payload(store: ArtifactStore) -> dict[str, Any]:
     budget = budget if isinstance(budget, dict) else {}
     pending_count = _count_autoresearch_status(queue, {"pending"})
     completed_count = _count_autoresearch_status(queue, {"completed"})
+    recorded_count = _count_autoresearch_status(queue, {"recorded"})
     failed_count = _count_autoresearch_status(queue, {"failed", "crashed", "error"})
     max_tasks = int(budget.get("max_tasks") or latest.get("max_tasks") or len(queue) or 0)
-    budget_remaining = max(0, max_tasks - completed_count - failed_count)
+    budget_remaining = max(0, max_tasks - completed_count - failed_count - recorded_count)
     status = str(budget.get("status") or latest.get("status") or "unknown")
     current_blocker = budget.get("current_blocker") or budget.get("stop_reason")
     deadline_at = budget.get("deadline_at") or latest.get("deadline_at")
@@ -2882,6 +2959,7 @@ def _autoresearch_status_payload(store: ArtifactStore) -> dict[str, Any]:
         "status": status,
         "queue_depth": pending_count,
         "completed_count": completed_count,
+        "recorded_count": recorded_count,
         "failed_count": failed_count,
         "budget_remaining": budget_remaining,
         "current_blocker": current_blocker,
@@ -2920,450 +2998,6 @@ def _build_branch_suggestions(
     )
 
     return build_common_medical_eda_suggestions(schema, plan, roles)
-
-    variables = schema.get("variables") if isinstance(schema, dict) else []
-    variables = variables if isinstance(variables, list) else []
-    analyses = plan.get("analyses") if isinstance(plan, dict) else []
-    analyses = analyses if isinstance(analyses, list) else []
-    roles = roles if isinstance(roles, dict) else {}
-    variable_index = {
-        str(var.get("name")): var for var in variables if isinstance(var, dict) and var.get("name")
-    }
-
-    def schema_type(name: str) -> str:
-        var = variable_index.get(name) or {}
-        return str(var.get("variable_type", "")).lower()
-
-    def schema_unique_count(name: str) -> int | None:
-        var = variable_index.get(name) or {}
-        raw = var.get("n_unique")
-        if raw is None:
-            raw = var.get("unique_count")
-        try:
-            return int(raw)
-        except (TypeError, ValueError):
-            return None
-
-    def is_binary_schema_var(name: str, *, allow_unknown_categorical: bool = False) -> bool:
-        var_type = schema_type(name)
-        if var_type in {"binary", "boolean"}:
-            return True
-        if var_type in {"categorical", "factor", "ordinal", "integer", "numeric"}:
-            n_unique = schema_unique_count(name)
-            if n_unique == 2:
-                return True
-            if (
-                n_unique is None
-                and allow_unknown_categorical
-                and var_type in {"categorical", "factor"}
-            ):
-                return True
-        return False
-
-    def is_multilevel_treatment_var(name: str) -> bool:
-        var_type = schema_type(name)
-        if var_type not in {"categorical", "factor", "ordinal", "integer", "numeric"}:
-            return False
-        n_unique = schema_unique_count(name)
-        return n_unique is not None and 3 <= n_unique <= 12
-
-    def is_outcome_like_var(name: str) -> bool:
-        lowered = name.lower()
-        if name in role_outcomes:
-            return True
-        if name in role_groups:
-            return False
-        if any(
-            token in lowered
-            for token in (
-                "sex",
-                "gender",
-                "age",
-                "height",
-                "weight",
-                "bmi",
-                "baseline",
-                "treat",
-                "group",
-                "arm",
-                "exposure",
-            )
-        ):
-            return False
-        return any(
-            token in lowered or token in name
-            for token in (
-                "outcome",
-                "endpoint",
-                "event",
-                "status",
-                "death",
-                "mortality",
-                "relapse",
-                "progression",
-                "readmission",
-                "aki",
-                "renal",
-                "creatinine",
-                "ngal",
-                "kim",
-                "cystatin",
-                "結果",
-                "事件",
-                "死亡",
-                "腎",
-            )
-        )
-
-    numeric = [
-        str(var.get("name"))
-        for var in variables
-        if isinstance(var, dict)
-        and str(var.get("variable_type", "")).lower() in {"continuous", "numeric", "integer"}
-    ]
-    categorical = [
-        str(var.get("name"))
-        for var in variables
-        if isinstance(var, dict)
-        and str(var.get("variable_type", "")).lower()
-        in {"binary", "boolean", "categorical", "factor", "ordinal"}
-    ]
-    missing = [
-        str(var.get("name"))
-        for var in variables
-        if isinstance(var, dict) and float(var.get("missing_rate") or 0) > 0
-    ]
-    all_names = [str(var.get("name")) for var in variables if isinstance(var, dict)]
-    role_outcomes = _role_values(roles, ("outcome", "target", "dependent", "endpoint"))
-    role_groups = _role_values(roles, ("group", "treatment", "exposure"))
-    role_times = _role_values(roles, ("time", "duration", "followup", "survival_time"))
-    role_events = _role_values(roles, ("event", "censor", "mortality", "relapse", "endpoint"))
-    time_vars = [
-        name
-        for name in all_names
-        if any(
-            token in name.lower()
-            for token in (
-                "time",
-                "day",
-                "days",
-                "month",
-                "months",
-                "follow",
-                "duration",
-                "survival",
-                "os_",
-                "dfs",
-                "pfs",
-            )
-        )
-    ]
-    time_vars = list(dict.fromkeys(role_times + time_vars))
-    event_vars = [
-        name
-        for name in all_names
-        if any(
-            token in name.lower()
-            for token in (
-                "death",
-                "mortality",
-                "event",
-                "status",
-                "relapse",
-                "readmission",
-                "censor",
-                "progression",
-            )
-        )
-        and is_binary_schema_var(name, allow_unknown_categorical=True)
-    ]
-    event_vars = list(dict.fromkeys(role_events + event_vars))
-    treatment_vars = [
-        name
-        for name in categorical
-        if any(token in name.lower() for token in ("treat", "group", "arm", "exposure"))
-    ]
-    treatment_vars = list(dict.fromkeys(role_groups + treatment_vars))
-    repeated_sets = _repeated_measure_sets(numeric)
-
-    suggestions: list[dict[str, Any]] = []
-
-    def add(entry: dict[str, Any]) -> None:
-        key = (
-            entry.get("experiment_type"),
-            tuple(entry.get("variables") or []),
-            str(entry.get("hypothesis") or ""),
-        )
-        existing = {
-            (
-                item.get("experiment_type"),
-                tuple(item.get("variables") or []),
-                str(item.get("hypothesis") or ""),
-            )
-            for item in suggestions
-        }
-        if key not in existing:
-            suggestions.append(entry)
-
-    if missing:
-        add(
-            {
-                "branch_type": BranchType.MISSING_STRATEGY.value,
-                "experiment_type": "missing_strategy",
-                "hypothesis": "Missing-data handling does not change the substantive conclusion.",
-                "reason": "schema.json reports variables with missing_rate > 0.",
-                "variables": missing[:5],
-            }
-        )
-
-    planned_entries = [entry for entry in analyses if isinstance(entry, dict)] or [{}]
-    for analysis in planned_entries:
-        analysis_outcomes = _analysis_outcomes(analysis)
-        outcome_vars = role_outcomes or analysis_outcomes or numeric[:1] or categorical[:1]
-        group_var = analysis.get("group_variable") or analysis.get("group_var")
-        if not group_var and role_groups:
-            group_var = role_groups[0]
-        if not group_var and treatment_vars:
-            group_var = treatment_vars[0]
-        plan_vars = list(dict.fromkeys(outcome_vars + ([str(group_var)] if group_var else [])))
-        covariates = [
-            var for var in list(dict.fromkeys(numeric + categorical)) if var not in set(plan_vars)
-        ][:5]
-
-        if plan_vars:
-            add(
-                {
-                    "branch_type": BranchType.SENSITIVITY.value,
-                    "experiment_type": "sensitivity",
-                    "hypothesis": "Primary planned result is stable under a sensitivity check.",
-                    "reason": "Locked analysis_plan.yaml contains a primary analysis that can be stress-tested.",
-                    "variables": plan_vars,
-                }
-            )
-
-        continuous_outcomes = [
-            outcome
-            for outcome in outcome_vars
-            if schema_type(outcome) in {"continuous", "numeric", "integer"}
-        ]
-        if continuous_outcomes and covariates:
-            add(
-                {
-                    "branch_type": BranchType.ADJUSTED_MODEL.value,
-                    "experiment_type": "adjusted_model",
-                    "hypothesis": (
-                        f"Adjustment for plausible covariates preserves the planned signal "
-                        f"for {continuous_outcomes[0]}."
-                    ),
-                    "reason": "schema.json contains covariates not already in the primary plan.",
-                    "variables": list(dict.fromkeys([continuous_outcomes[0]] + covariates)),
-                    "analysis_contract": {
-                        "tool": "run_advanced_analysis",
-                        "analysis_type": "multiple_regression",
-                        "target_variable": continuous_outcomes[0],
-                        "covariates": covariates,
-                        "create_figures": True,
-                    },
-                }
-            )
-            for outcome in continuous_outcomes[1:4]:
-                add(
-                    {
-                        "branch_type": BranchType.ADJUSTED_MODEL.value,
-                        "experiment_type": "adjusted_model",
-                        "hypothesis": (
-                            "Autoresearch covariate-adjusted model checks a secondary "
-                            f"clinical outcome: {outcome}."
-                        ),
-                        "reason": (
-                            "schema.json contains multiple clinical outcomes; autonomous "
-                            "RDE should not stop after one adjusted model."
-                        ),
-                        "variables": list(dict.fromkeys([outcome] + covariates)),
-                        "analysis_contract": {
-                            "tool": "run_advanced_analysis",
-                            "analysis_type": "multiple_regression",
-                            "target_variable": outcome,
-                            "covariates": covariates,
-                            "create_figures": True,
-                        },
-                    }
-                )
-
-        binary_outcomes = [
-            var
-            for var in outcome_vars
-            if (is_binary_schema_var(var, allow_unknown_categorical=False) or var in event_vars)
-            and is_outcome_like_var(var)
-        ]
-        if binary_outcomes and covariates:
-            add(
-                {
-                    "branch_type": BranchType.ADJUSTED_MODEL.value,
-                    "experiment_type": "adjusted_model",
-                    "hypothesis": "Adjusted model is required for the binary clinical endpoint.",
-                    "reason": (
-                        "Medical EDA should surface a generic adjusted-model branch even "
-                        "when the executable model is logistic regression."
-                    ),
-                    "variables": list(dict.fromkeys(binary_outcomes[:1] + covariates)),
-                    "analysis_contract": {
-                        "tool": "run_advanced_analysis",
-                        "analysis_type": "logistic_regression",
-                        "target_variable": binary_outcomes[0],
-                        "covariates": covariates,
-                        "create_figures": True,
-                    },
-                }
-            )
-            add(
-                {
-                    "branch_type": BranchType.ADJUSTED_MODEL.value,
-                    "experiment_type": "logistic_regression",
-                    "hypothesis": "Binary clinical outcome remains associated after adjustment.",
-                    "reason": "Medical datasets often require adjusted odds ratios for binary endpoints.",
-                    "variables": list(dict.fromkeys(binary_outcomes[:1] + covariates)),
-                    "analysis_contract": {
-                        "tool": "run_advanced_analysis",
-                        "analysis_type": "logistic_regression",
-                        "target_variable": binary_outcomes[0],
-                        "covariates": covariates,
-                        "create_figures": True,
-                    },
-                }
-            )
-
-        if (
-            group_var
-            and is_binary_schema_var(str(group_var), allow_unknown_categorical=True)
-            and covariates
-        ):
-            add(
-                {
-                    "branch_type": BranchType.PROPENSITY.value,
-                    "experiment_type": "propensity_score",
-                    "hypothesis": "Treatment/exposure groups remain comparable after propensity scoring.",
-                    "reason": "Group imbalance is common in observational medical data.",
-                    "variables": list(dict.fromkeys([str(group_var)] + covariates)),
-                    "analysis_contract": {
-                        "tool": "run_advanced_analysis",
-                        "analysis_type": "propensity_score",
-                        "group_variable": str(group_var),
-                        "covariates": covariates,
-                        "create_figures": True,
-                    },
-                }
-            )
-        elif group_var and is_multilevel_treatment_var(str(group_var)) and covariates:
-            safe_group = _normalize_token(str(group_var)) or "group"
-            derived_group = f"{safe_group}_dominant_vs_other"
-            add(
-                {
-                    "branch_type": BranchType.PROPENSITY.value,
-                    "experiment_type": "propensity_score",
-                    "hypothesis": (
-                        "Dominant treatment/exposure level remains comparable with other "
-                        "levels after propensity scoring."
-                    ),
-                    "reason": (
-                        "The main exposure is multi-level, so autonomous RDE creates a "
-                        "branch-local binary contrast before propensity scoring."
-                    ),
-                    "variables": list(dict.fromkeys([derived_group, str(group_var)] + covariates)),
-                    "analysis_contract": {
-                        "tool": "run_advanced_analysis",
-                        "analysis_type": "propensity_score",
-                        "group_variable": derived_group,
-                        "covariates": covariates,
-                        "derived_variables": [
-                            {
-                                "name": derived_group,
-                                "source": str(group_var),
-                                "operation": "dominant_vs_other",
-                            }
-                        ],
-                        "create_figures": True,
-                    },
-                }
-            )
-
-        if group_var and outcome_vars and covariates:
-            add(
-                {
-                    "branch_type": BranchType.SUBGROUP.value,
-                    "experiment_type": "subgroup_interaction",
-                    "hypothesis": "Primary association is not driven by a clinically plausible subgroup.",
-                    "reason": "Subgroup and interaction checks help detect heterogeneous effects.",
-                    "variables": list(
-                        dict.fromkeys(outcome_vars + [str(group_var)] + covariates[:2])
-                    ),
-                }
-            )
-
-        if plan_vars:
-            add(
-                {
-                    "branch_type": BranchType.VISUALIZATION.value,
-                    "experiment_type": "visualization",
-                    "hypothesis": "A visualization reveals whether the planned result is pattern-stable.",
-                    "reason": "Visual inspection can detect outliers, imbalance, or non-linear structure.",
-                    "variables": plan_vars,
-                }
-            )
-
-    if time_vars and event_vars:
-        add(
-            {
-                "branch_type": BranchType.SURVIVAL.value,
-                "experiment_type": "survival_analysis",
-                "hypothesis": "Time-to-event patterns are consistent across clinically relevant strata.",
-                "reason": "schema.json contains candidate time and event variables.",
-                "variables": list(
-                    dict.fromkeys(time_vars[:1] + event_vars[:1] + treatment_vars[:1])
-                ),
-                "analysis_contract": {
-                    "tool": "run_advanced_analysis",
-                    "analysis_type": "survival_analysis",
-                    "time_variable": time_vars[0],
-                    "target_variable": event_vars[0],
-                    "group_variable": treatment_vars[0] if treatment_vars else None,
-                },
-            }
-        )
-
-    score_vars = [
-        name
-        for name in numeric
-        if any(token in name.lower() for token in ("score", "risk", "prob"))
-    ]
-    if score_vars and event_vars:
-        add(
-            {
-                "branch_type": BranchType.ROC.value,
-                "experiment_type": "roc_auc",
-                "hypothesis": "Risk score discrimination is adequate for the binary clinical endpoint.",
-                "reason": "schema.json contains score-like predictors and event-like outcomes.",
-                "variables": list(dict.fromkeys(score_vars[:1] + event_vars[:1])),
-                "analysis_contract": {
-                    "tool": "run_advanced_analysis",
-                    "analysis_type": "roc_auc",
-                    "score_variable": score_vars[0],
-                    "target_variable": event_vars[0],
-                },
-            }
-        )
-
-    for repeated in repeated_sets[:2]:
-        add(
-            {
-                "branch_type": BranchType.REPEATED_MEASURES.value,
-                "experiment_type": "repeated_measures",
-                "hypothesis": "Repeated clinical measurements change consistently over time.",
-                "reason": "schema.json contains repeated-measure naming patterns.",
-                "variables": repeated,
-            }
-        )
-    return suggestions
 
 
 def _analysis_outcomes(analysis: dict[str, Any]) -> list[str]:

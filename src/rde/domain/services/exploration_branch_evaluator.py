@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+import math
 
 from rde.domain.models.exploration_branch import (
     BranchStatus,
@@ -31,10 +32,12 @@ class ExplorationBranchEvaluator:
         "mean_difference",
         "coefficients",
         "confidence_interval",
+        "estimates",
         "ci_low",
         "ci_high",
         "power",
         "common_support",
+        "estimates",
         "balance_diagnostics",
     }
     SAMPLE_SIZE_METRIC_NAMES = {
@@ -106,10 +109,12 @@ class ExplorationBranchEvaluator:
             "branch_id": branch_model.branch_id,
             "overall_score": overall_score,
             "component_scores": component_scores,
+            "score_scope": "Evidence organization only, not clinical validity or statistical significance; score does not authorize promotion.",
             "recommendation": recommendation,
             "promotion_gate": {
                 "can_promote": can_promote,
-                "threshold": self.PROMOTION_THRESHOLD,
+                "threshold": None,
+                "score_is_advisory": True,
                 "blockers": blockers,
             },
         }
@@ -130,7 +135,7 @@ class ExplorationBranchEvaluator:
 
         evidence = self._average_metric(completed, ("evidence_score", "effect_score"))
         if evidence == 0.0:
-            evidence = self._score_from_p_values_and_effects(completed)
+            evidence = self._score_evidence_completeness(completed)
 
         stability = self._average_metric(
             completed,
@@ -176,19 +181,23 @@ class ExplorationBranchEvaluator:
             blockers.append("missing_structured_statistical_metric")
         elif not any(self._has_minimum_evidence_bundle(exp) for exp in completed):
             blockers.append("incomplete_statistical_evidence_bundle")
-        if overall_score < self.PROMOTION_THRESHOLD:
-            blockers.append("score_below_70")
         return blockers
 
     def _has_structured_statistical_metric(self, experiment: ExperimentEvent) -> bool:
-        return any(name in experiment.metrics for name in self.STRUCTURED_METRIC_NAMES)
+        return any(
+            self._usable_value(experiment.metrics.get(name))
+            for name in self.STRUCTURED_METRIC_NAMES
+        )
 
     def _has_minimum_evidence_bundle(self, experiment: ExperimentEvent) -> bool:
         metrics = experiment.metrics
-        has_sample_size = any(name in metrics for name in self.SAMPLE_SIZE_METRIC_NAMES)
-        has_effect = any(name in metrics for name in self.EFFECT_METRIC_NAMES)
+        has_sample_size = any(
+            (self._to_float(metrics.get(name)) or 0) > 0 for name in self.SAMPLE_SIZE_METRIC_NAMES
+        )
+        has_effect = any(self._usable_value(metrics.get(name)) for name in self.EFFECT_METRIC_NAMES)
         has_uncertainty_or_diagnostic = any(
-            name in metrics for name in self.UNCERTAINTY_OR_DIAGNOSTIC_METRIC_NAMES
+            self._usable_value(metrics.get(name))
+            for name in self.UNCERTAINTY_OR_DIAGNOSTIC_METRIC_NAMES
         )
         return has_sample_size and has_effect and has_uncertainty_or_diagnostic
 
@@ -210,27 +219,30 @@ class ExplorationBranchEvaluator:
             return 0.0
         return sum(values) / len(values)
 
-    def _score_from_p_values_and_effects(self, experiments: list[ExperimentEvent]) -> float:
-        scores: list[float] = []
-        for exp in experiments:
-            p_value = self._to_float(exp.metrics.get("p_value"))
-            effect_size = self._to_float(exp.metrics.get("effect_size"))
-            score = 0.0
-            if p_value is not None:
-                score += 50.0 if p_value < 0.05 else max(0.0, 45.0 - (p_value * 100.0))
-            if effect_size is not None:
-                score += min(50.0, abs(effect_size) * 100.0)
-            if score:
-                scores.append(min(100.0, score))
-        if not scores:
-            return 0.0
-        return sum(scores) / len(scores)
+    def _score_evidence_completeness(self, experiments: list[ExperimentEvent]) -> float:
+        scores = [
+            80.0
+            if self._has_minimum_evidence_bundle(exp)
+            else 40.0
+            if self._has_structured_statistical_metric(exp)
+            else 0.0
+            for exp in experiments
+        ]
+        return sum(scores) / len(scores) if scores else 0.0
+
+    def _usable_value(self, value: Any) -> bool:
+        if isinstance(value, dict):
+            return any(self._usable_value(item) for item in value.values())
+        if isinstance(value, (list, tuple)):
+            return any(self._usable_value(item) for item in value)
+        return self._to_float(value) is not None
 
     def _to_float(self, value: Any) -> float | None:
         try:
             if value is None or isinstance(value, bool):
                 return None
-            return float(value)
+            result = float(value)
+            return result if math.isfinite(result) else None
         except (TypeError, ValueError):
             return None
 

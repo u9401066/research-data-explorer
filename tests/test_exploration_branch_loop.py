@@ -1058,7 +1058,7 @@ def test_run_autoresearch_next_task_reclaims_expired_lease(tmp_path: Path) -> No
     assert "task_id: `" + first_task_id + "`" in output
     assert any(event["event_type"] == "work_item_lease_reclaimed" for event in events)
     assert any(
-        event["task_id"] == first_task_id and event["status"] == "completed" for event in events
+        event["task_id"] == first_task_id and event["status"] == "recorded" for event in events
     )
 
 
@@ -1300,18 +1300,20 @@ def test_run_autoresearch_next_task_claims_branch_and_updates_budget(tmp_path: P
     experiments = store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl")
     budget = store.load(PipelinePhase.EXECUTE_EXPLORATION, "budget_state.json")
     event_types = [event["event_type"] for event in events]
-    completed_rows = [item for item in queue if item.get("status") == "completed"]
+    completed_rows = [item for item in queue if item.get("status") == "recorded"]
     assert "work_item_started" in event_types
-    assert "work_item_completed" in event_types
+    assert "work_item_recorded" in event_types
     assert completed_rows
     assert completed_rows[-1]["branch_id"]
     assert branches[0]["event_type"] == "branch_opened"
-    assert experiments[-1]["status"] == "completed"
+    assert experiments[-1]["status"] == "recorded"
     assert experiments[-1]["metrics"]["runner_generated"] is True
-    assert budget["completed_tasks"] == 1
+    assert budget["completed_tasks"] == 0
+    assert budget["recorded_tasks"] == 1
     assert budget["remaining_tasks"] == 1
     assert "branch_id" in tick_output
-    assert "completed: 1" in status_output
+    assert "completed: 0" in status_output
+    assert "recorded_only: 1" in status_output
 
 
 def test_run_autoresearch_queue_drains_until_idle_and_completes_run(tmp_path: Path) -> None:
@@ -1340,7 +1342,8 @@ def test_run_autoresearch_queue_drains_until_idle_and_completes_run(tmp_path: Pa
     runs = store.load(PipelinePhase.EXECUTE_EXPLORATION, "autoresearch_runs.jsonl")
     experiments = store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl")
     assert budget["status"] == "completed"
-    assert budget["completed_tasks"] == 2
+    assert budget["completed_tasks"] == 0
+    assert budget["recorded_tasks"] == 2
     assert budget["remaining_tasks"] == 0
     assert runs[-1]["event_type"] == "autoresearch_run_completed"
     assert len(experiments) == 2

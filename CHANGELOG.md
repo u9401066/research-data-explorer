@@ -21,6 +21,8 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Changed
 
+- Opened autoresearch to host-agent proposals with deduplicated analysis contracts, fixed design snapshots, clinical argument forwarding, and explicit recorded/completed/failed outcomes.
+- Removed implicit fast-model forcing, invented sample-support scores, and p-value-based promotion ranking. Complete evidence and human review remain required; null findings are not lower-quality evidence.
 - Added seven local clinical methods with explicit case-set ledgers, confidence intervals, diagnostic denominators, model convergence checks, and durable report integration; failed fits no longer count as completed analyses or imply null findings.
 - Migrated to official MCP Python SDK 2.2+, with dual-era client support, effect annotations for every tool, structured error status, thread-safe tool serialization, trusted workflow resolver, discoverable resources and a research prompt.
 - Made missingness language conservative: the indicator screen now reports MCAR as "not rejected, not proven," checks missingness-by-group associations, retains the registered missing-data strategy, and requires per-analysis denominators and sensitivity review.

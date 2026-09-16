@@ -2,6 +2,9 @@
 
 ## 2026-09-16 — 0.5.0 work in progress
 
+- Autoresearch segment: 345 Python tests passed, 6 skipped; 48 focused branch /
+  contract tests passed. Open-ended proposals, design snapshots, recorded-only
+  outcomes, no implicit fast fits, and significance-neutral review implemented.
 - Tool edge-case segment verified: 337 passed, 6 skipped (5 optional vendor,
   1 Windows symlink privilege); extension 40 passed; all 50 MCP contracts audited.
 - Corrected long-form case pairing, ordinal test selection, failed-test handling,

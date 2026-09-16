@@ -3180,6 +3180,7 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
         str((item.get("metrics") or {}).get("analysis_type") or item.get("experiment_type") or "")
         for item in experiments
         if (item.get("metrics") or {}).get("contract_executed") is True
+        and str(item.get("status") or "") == "completed"
     }
     has_analytical_figure = any(
         isinstance(item, dict) and str(item.get("category") or "") == "analytical"

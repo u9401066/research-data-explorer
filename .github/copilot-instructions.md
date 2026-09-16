@@ -25,6 +25,20 @@ Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← In
 
 ## Core Product Contract
 
+Agent reasoning and hypothesis generation are open-ended. RDE is an MCP + harness
+plugin providing reusable clinical analyses and durable evidence, not an LLM
+supervisor that limits scientific thought to its built-in menu. Use
+`start_autoresearch_run(agent_proposals=[...])` for agent-authored hypotheses and
+explicit analysis contracts. Unimplemented methods may be recorded and assessed
+with the research team; do not fabricate execution or treat suggestions as results.
+
+Research credibility requires source/case provenance, estimates and uncertainty,
+missingness and multiplicity assessment, and clinical interpretation. Negative or
+null results remain valuable. Never optimize for a smaller p-value or interpret an
+advisory evidence score as clinical validity. Formal claim promotion still requires
+live evidence, a fresh audit, and human confirmation. Repeated executions do not
+increase unique required-plan coverage.
+
 RDE serves non-data-scientists who bring real datasets but may not know which analyses to run, how to combine methods, or how to code the analysis. Agents must help the user complete:
 
 1. data understanding
@@ -62,9 +76,9 @@ automl-stat-mcp is optional. VSIX users can complete the core report flow throug
 | 「做 Table 1」 | Phase 0-7 → generate_table_one → Phase 9-12 |
 | 「跑進階分析」 | Phase 8: `run_advanced_analysis`（automl 可用時委派，否則 local-lite fallback） |
 | 「目前進度？」 | get_pipeline_status |
-| 「產出報告」 | Phase 8 assemble_report |
-| 「匯出 Word/PDF」 | Phase 8 export_report |
-| 「要給 paper 用」 | Phase 10 export_handoff |
+| 「產出報告」 | Phase 10 assemble_report |
+| 「匯出 Word/PDF」 | Phase 10 export_report |
+| 「要給 paper 用」 | Phase 12 export_handoff |
 
 ### 防呆規則 (Hard Constraints)
 

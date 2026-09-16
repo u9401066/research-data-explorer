@@ -14,14 +14,14 @@ protect data, execution provenance and claim promotion, not agent thinking.
 
 ## Segmented delivery and evidence
 
-- [ ] Official MCP SDK 2.2 migration; era-neutral Client tests, protocol errors,
+- [x] Official MCP SDK 2.2 migration; era-neutral Client tests, protocol errors,
   structured responses, tool annotations, resources/prompts and resolver use.
 - [ ] Review every registered tool: schema, effects, gates, errors, artifacts,
   documentation and VSIX inventory; keep an executable audit manifest.
-- [ ] Clinical methods: explicit denominators, estimates/CIs, paired binary
+- [x] Clinical methods: explicit denominators, estimates/CIs, paired binary
   outcomes, diagnostic accuracy, agreement and longitudinal models; regression
   tests, assumptions and method-specific caveats.
-- [ ] Autoresearch: compare multiple primary repos, carry provenance and frozen
+- [x] Autoresearch: compare multiple primary repos, carry provenance and frozen
   budgets, deterministic deduplication, failed/null results, stop/resume safety.
 - [ ] Website: complete information architecture, responsive accessible design,
   real installation paths, method catalog, Mermaid/SVG workflows, browser QA.

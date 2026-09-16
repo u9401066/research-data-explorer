@@ -4,6 +4,13 @@
 
 - SDK segment `1c196e3` is on origin/main; its four-platform GitHub CI passed.
 - Clinical segment `f3e9458` is on origin/main (292 passed, 5 skipped).
+- Pairing/coverage/path segment `9a9dfa9` is on origin/main (337 passed,
+  6 skipped; extension 40 passed).
+- Autoresearch now accepts open-ended host-agent proposals with canonical
+  contract deduplication and frozen design hashes. Recorded-only tasks are not
+  completed experiments; effect uncertainty and analyzed denominators propagate.
+- Promotion no longer requires an arbitrary score threshold or favors low
+  p-values. Evidence bundle, freshness, audit, and human confirmation still apply.
 - Tool review additionally found unsafe long-form paired comparison, fabricated
   p=1 on engine failure, and rerun-inflated coverage. Added explicit subject-key
   pairing, finite-result checks, ordinal rank-test routing, unique required-plan
