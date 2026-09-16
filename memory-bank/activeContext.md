@@ -2,6 +2,16 @@
 
 ## MEM+ 2026-09-16 — 0.5.0 migration in progress
 
+- Autoresearch segment `ee4b4db` is on origin/main. Website now has a bilingual
+  product homepage, preserved deep-link technical guide, seven-method catalog,
+  responsive navigation, native SVG illustrations and tested copy/filter actions.
+- Reviewed all 50 live tool contracts and isolated per-tool error boundaries.
+  The review matrix explicitly distinguishes this from exhaustive clinical testing.
+- Canonical extension agent/rules/SVGs now synchronize with byte-level checks;
+  retained the extension's detailed branch lifecycle and confirmation instructions.
+- Browser QA passed Chromium at 1536x1024 and 390x844 with no console errors.
+  Python/VSIX artifact integrity and full release verification are being finalized.
+
 - SDK segment `1c196e3` is on origin/main; its four-platform GitHub CI passed.
 - Clinical segment `f3e9458` is on origin/main (292 passed, 5 skipped).
 - Pairing/coverage/path segment `9a9dfa9` is on origin/main (337 passed,

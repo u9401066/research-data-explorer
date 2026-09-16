@@ -6,6 +6,30 @@ RDE helps agents collaborate on clinically meaningful, reproducible research rep
 
 **Live workflow site:** <https://u9401066.github.io/research-data-explorer/>
 
+![Agent ideas become evidence through MCP tools, analysis contracts and review](docs/assets/evidence-chain.svg)
+
+## Clinical research without extensive custom code
+
+- Seven local methods now cover risk ratios/odds ratios/risk differences, diagnostic accuracy, exact McNemar tests, Bland–Altman agreement, Cohen's kappa, GEE and random-intercept mixed models. See [methods, assumptions and uncertainty](docs/clinical-methods.md).
+- Long-form paired comparisons join by **subject ID**, not row order. Every outcome records its analyzed case set; repeated-measures contrasts distinguish complete-cohort and pairwise-complete denominators.
+- Analysis completeness means distinct required plan entries backed by successful artifacts, not a count of repeated tool calls. Reports retain failed analyses and missing uncertainty as limitations.
+- Agents can supply their own hypotheses through `agent_proposals`. Autoresearch retains unsupported ideas as **recorded, not executed**, separates branches from primary findings, and never ranks scientific merit by statistical significance. See [design and research-agent references](docs/autoresearch-design.md).
+- Official [MCP SDK v2 integration](docs/mcp-v2.md) supplies structured results, explicit tool annotations, workflow resources, prompts and server-resolved context. The [50-tool review](docs/tool-review.md) states exactly what is verified.
+
+```mermaid
+flowchart LR
+  Q[Agent: research question] --> C[Design and case-set contract]
+  C --> E[MCP: reproducible execution]
+  E --> R[Estimates, uncertainty and artifacts]
+  R --> H[Researcher: review claims]
+  Q --> B[Alternative hypotheses]
+  B --> X[Exploratory branch]
+  X --> H
+  H -->|Explicit plan amendment| C
+```
+
+An audit pass measures the implemented workflow checks. It does not certify study design, clinical validity, absence of bias, or acceptance for publication.
+
 ## Current Code-Verified Snapshot
 
 This README is aligned with the current implementation, not only the older prose docs:
@@ -59,10 +83,11 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 49 MCP tools across 9 modules:
+The current implementation exposes 50 MCP tools across 10 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
+| `protocol_tools.py` | 1 | `get_workflow_contract` |
 | `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
 | `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |

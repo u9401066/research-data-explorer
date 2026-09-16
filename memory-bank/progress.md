@@ -2,6 +2,17 @@
 
 ## 2026-09-16 — 0.5.0 work in progress
 
+- Website/harness segment full gate: 409 Python passed, 6 skipped (5 optional
+  vendor integrations, 1 Windows symlink privilege); Ruff clean; extension 40
+  passed; pre-commit/PII checks passed. Chromium desktop/mobile interaction QA
+  passed after final copy wrapping and workflow icon adjustments.
+
+- Website: bilingual product navigation, clinical filters, copy command, legacy
+  routing and mobile layout verified in Chromium; no browser errors.
+- Added 50 per-tool boundary cases, three static website contracts and ten release
+  archive checks. Extension lint and 40 tests passed; 35 focused docs/site/package
+  tests passed after preserving detailed VSIX confirmation text during sync.
+
 - Autoresearch segment: 345 Python tests passed, 6 skipped; 48 focused branch /
   contract tests passed. Open-ended proposals, design snapshots, recorded-only
   outcomes, no implicit fast fits, and significance-neutral review implemented.

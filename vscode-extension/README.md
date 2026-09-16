@@ -1,13 +1,21 @@
 # Research Data Explorer — VS Code Extension
 
-Governed research data exploration assistant with MCP tools, prompts, and skills.
+An MCP + harness plugin that helps agents and researchers turn clinical questions into reproducible, reviewable evidence without extensive custom analysis code.
 
-This extension is not a universal statistical autopilot. It is best viewed as a governed workflow layer:
+![Research design to reviewed evidence](resources/evidence-chain.svg)
 
-- standard analysis families can run through the built-in MCP workflow
-- specialized methods may still require manual analysis or custom integration
-- if you only want generic automatic analysis summaries, other general-purpose auto-analysis tools may be a better fit
-- the main value here is auditability, plan lock, reproducibility, and handoff packaging
+Agents remain free to propose hypotheses and challenge assumptions. RDE provides reusable execution, case accounting and provenance; researchers review the design and clinical claims. Unsupported methods remain explicit gaps, not invented results.
+
+## Clinical and autonomous research
+
+- Seven local clinical methods: risk estimates, diagnostic accuracy, exact McNemar, Bland–Altman, Cohen's kappa, GEE and random-intercept mixed models.
+- Paired comparisons match subject IDs and report analyzed/excluded cases. Plan coverage counts successful required analyses rather than reruns.
+- Agent-authored autoresearch proposals retain baseline contracts and branch artifacts. Failed and recorded-only tasks are distinguished from completed analyses; significance is not a promotion criterion.
+- Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. Fifty tools share executable contracts.
+
+![Agent proposals, branch execution and researcher review](resources/autoresearch.svg)
+
+Audit readiness is a workflow check, not a guarantee of clinical validity or publication acceptance. See the [clinical-method reference](https://github.com/u9401066/research-data-explorer/blob/main/docs/clinical-methods.md) and [autoresearch design](https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md).
 
 ## Core Product Contract
 

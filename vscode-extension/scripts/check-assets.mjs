@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { canonicalAssets } from './asset-manifest.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const extDir = path.resolve(scriptDir, '..');
@@ -41,6 +42,15 @@ for (const rule of clineRules) {
 }
 
 assertFile('AGENTS.md');
+
+for (const [source, destination] of canonicalAssets) {
+    assertFile(destination);
+    const canonical = fs.readFileSync(path.join(extDir, '..', source));
+    const bundled = fs.readFileSync(path.join(extDir, destination));
+    if (!canonical.equals(bundled)) {
+        throw new Error(`Stale canonical asset ${destination}; run npm run sync-assets.`);
+    }
+}
 
 const vscodeIgnore = fs.readFileSync(path.join(extDir, '.vscodeignore'), 'utf-8');
 for (const pattern of ['.venv/**', 'venv/**', 'bundled/tool/.venv/**']) {

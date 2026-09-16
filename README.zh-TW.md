@@ -1,10 +1,31 @@
 # Research Data Explorer
 
-RDE 是一個以 MCP server 與 VS Code harness 實作的可審計 EDA 工作流程。它不是讓 agent 自由寫 notebook 或臨時 pandas 腳本，而是要求 agent 在受治理的工具鏈裡完成資料收件、schema、概念對齊、分析計畫、執行、報告、audit 與 handoff。
+RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自行寫分析程式的情況下，完成具臨床意義、可重現、可追溯的科研報告。Agent 可以自由發展假設、質疑方法與提出敏感度分析；工具負責可信的執行與證據保存，研究者負責確認研究設計與解釋。
 
 正式網站：<https://u9401066.github.io/research-data-explorer/>
 
 英文入口請見 [README.md](README.md)。
+
+![從研究設計、個案帳本、效果量與不確定性，到可審查結論](docs/assets/evidence-chain.svg)
+
+## 臨床研究能力與可信度
+
+- 新增七種本機分析：風險比／勝算比／風險差、診斷準確度、exact McNemar、Bland–Altman、Cohen's kappa、GEE、隨機截距混合模型。各方法的參數、信賴區間與適用限制見[臨床方法文件](docs/clinical-methods.md)。
+- 長格式配對比較必須以受試者 ID 對齊，不依資料列順序配對；每項 outcome 保存分析個案及排除數。重複測量明確區分共同完整樣本與各 contrast 的 pairwise-complete 樣本。
+- 分析完整性逐一核對鎖定計畫中的必要項目與成功產物；重複執行、失敗或僅記錄想法不會灌高完成度。
+- Autoresearch 接受 agent 自訂 `agent_proposals`；探索支線保留獨立證據，未支援的方法記為 `recorded` 而不是假裝執行。沒有顯著差異不代表研究失敗，p 值也不是研究品質分數。[設計與參考 repo](docs/autoresearch-design.md)。
+- 使用官方 [MCP SDK v2](docs/mcp-v2.md)，提供結構化結果、工具效果／gate 宣告、workflow resources 與 prompts。[50 個工具的逐項檢查](docs/tool-review.md)列明驗證範圍。
+
+```mermaid
+flowchart LR
+  A[研究問題與分析設計] --> B[受試者對齊與缺失處理]
+  B --> C[每項結果的 case ledger]
+  C --> D[效果量與不確定性]
+  D --> E[計畫覆蓋率與限制]
+  E --> F[研究者審查結論]
+```
+
+Audit 通過僅代表已實作的流程檢查通過，不保證研究設計無偏誤、臨床有效或論文可被接受。
 
 ## i18n / 文件同步
 
@@ -22,8 +43,8 @@ RDE 是一個以 MCP server 與 VS Code harness 實作的可審計 EDA 工作流
 | 合約面向 | 程式碼來源 | 目前事實 |
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | `PipelinePhase` 定義 13 個 phase，從 `phase_00_project_setup` 到 `phase_12_auto_improve` |
-| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | `create_server()` 註冊 9 組 tool modules |
-| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 目前 49 個 expected MCP tools，與實際 `@server.tool()` 註冊合計一致 |
+| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 官方 SDK v2 `MCPServer` 註冊 10 組 tool modules |
+| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 50 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls、override flags、audit paths、delegation、UX harness、core goal contract |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) 與 [vscode-extension/package.json](vscode-extension/package.json) | MCP provider、`@rde` chat participant、Command Palette 指令、Codex config helper、optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`、`academic_ready`、`production_ready`、publication bundle、semantic quality、claim provenance、core-goal audit |
@@ -42,10 +63,11 @@ RDE 是給非資料科學家使用的 agent harness，不是只產生漂亮摘�
 
 ## MCP + Harness 設計
 
-目前 RDE 實作 49 個 MCP tools，分布如下：
+目前 RDE 實作 50 個 MCP tools，分布如下：
 
 | Module | 數量 | 工具 |
 | --- | ---: | --- |
+| `protocol_tools.py` | 1 | `get_workflow_contract` |
 | `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
 | `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |

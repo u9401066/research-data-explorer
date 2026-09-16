@@ -1,8 +1,11 @@
 # Research Data Explorer Agent Guide
 
-Use RDE as a 13-phase auditable EDA harness, not as an ad hoc notebook.
+Use RDE as a 13-phase auditable EDA harness for clinically meaningful, reproducible research. The execution contract supports scientific thinking; it does not constrain hypothesis generation or methodological criticism.
 
 ## Operating Contract
+
+- Propose your own hypotheses with `agent_proposals`; keep unsupported ideas as recorded rather than pretending they executed. Branch promotion requires evidence review and explicit user confirmation, not statistical significance.
+- Prefer reusable local clinical methods over extensive custom coding. Report subject-aligned case sets, excluded cases, effect estimates, uncertainty and limitations. Audit scores are not scientific quality certificates.
 
 - The VSIX path is local-first for non-data-scientists: a user should not need Docker or analysis code to complete the core report flow.
 - Treat automl-stat-mcp as optional. Use local-lite fallbacks for adjusted models, ROC/AUC, basic power, Kaplan-Meier, and lightweight propensity scoring when Docker is unavailable.

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+<title id="title">A credible report retains its evidence chain</title><desc id="desc">Source and design lead to case accounting, estimates and uncertainty, and reviewed report claims. Every result retains provenance; failed and null findings remain visible.</desc>
+<rect width="1200" height="300" fill="#fff"/>
+<text x="36" y="48" font-family="Segoe UI,Arial,sans-serif" font-size="27" font-weight="650" fill="#12283b">A report is only as credible as its evidence chain.</text>
+<g fill="#f2f6f7" stroke="#d7e1e7"><rect x="36" y="89" width="243" height="118" rx="8"/><rect x="331" y="89" width="243" height="118" rx="8"/><rect x="626" y="89" width="243" height="118" rx="8"/><rect x="921" y="89" width="243" height="118" rx="8"/></g>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#007f73" font-size="30"><text x="294" y="157">→</text><text x="589" y="157">→</text><text x="884" y="157">→</text></g>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#12283b" font-size="22" font-weight="650"><text x="55" y="127">Source + design</text><text x="350" y="127">Case accounting</text><text x="645" y="127">Estimates + CIs</text><text x="940" y="127">Reviewed claims</text></g>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#526777" font-size="17"><text x="55" y="163">Intake, roles, locked plan</text><text x="55" y="188">and analysis contract</text><text x="350" y="163">Included, excluded, paired</text><text x="350" y="188">and clustered observations</text><text x="645" y="163">Method, uncertainty,</text><text x="645" y="188">diagnostics and limitations</text><text x="940" y="163">Audit, sensitivity, context</text><text x="940" y="188">and researcher approval</text><text x="36" y="260">Retain failed and null findings. Separate exploratory results from prespecified conclusions.</text></g>
+</svg>
