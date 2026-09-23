@@ -606,6 +606,7 @@ class AnalysisDelegator:
         fit: dict[str, Any],
         *,
         analysis_type: str = "logistic_regression",
+        confidence_level: float = 0.95,
     ) -> dict[str, Any]:
         if fit.get("lite"):
             params = {name: float(value) for name, value in fit["params"].items()}
@@ -624,6 +625,7 @@ class AnalysisDelegator:
                 "coefficients": params,
                 "odds_ratios": odds_ratios,
                 "odds_ratio_ci": {name: None for name in params},
+                "confidence_level": confidence_level,
                 "p_values": fit.get("p_values", {name: None for name in params}),
                 "pseudo_r2": fit.get("pseudo_r2"),
                 "regularized_fallback": bool(fit["regularized"]),
@@ -638,7 +640,7 @@ class AnalysisDelegator:
         odds_ratios = {name: float(np.exp(value)) for name, value in fitted.params.items()}
         odds_ratio_ci: dict[str, Any] = {}
         try:
-            conf = fitted.conf_int()
+            conf = fitted.conf_int(alpha=1 - confidence_level)
             for name in params:
                 bounds = conf.loc[name]
                 lower = float(bounds.iloc[0])
@@ -661,6 +663,7 @@ class AnalysisDelegator:
             "coefficients": params,
             "odds_ratios": odds_ratios,
             "odds_ratio_ci": odds_ratio_ci,
+            "confidence_level": confidence_level,
             "p_values": p_values,
             "pseudo_r2": pseudo_r2,
             "regularized_fallback": bool(fit["regularized"]),
@@ -673,7 +676,9 @@ class AnalysisDelegator:
         if "error" in fit:
             return fit["error"]
 
-        result = self._logistic_result_from_fit(fit)
+        result = self._logistic_result_from_fit(
+            fit, confidence_level=float(config.get("confidence_level", 0.95))
+        )
         result.update(
             {
                 "interpretation": (
@@ -708,7 +713,11 @@ class AnalysisDelegator:
                     x_raw=x_raw,
                     config=config,
                 )
-                result = self._logistic_result_from_fit(fit, analysis_type="glm")
+                result = self._logistic_result_from_fit(
+                    fit,
+                    analysis_type="glm",
+                    confidence_level=float(config.get("confidence_level", 0.95)),
+                )
                 result["interpretation"] = (
                     "Local-lite GLM used ridge logistic regression for a binary outcome."
                 )
@@ -741,6 +750,8 @@ class AnalysisDelegator:
                 "adj_r_squared": float(fitted.rsquared_adj),
             }
 
+        confidence_level = float(config.get("confidence_level", 0.95))
+        intervals = fitted.conf_int(alpha=1 - confidence_level)
         return {
             "analysis_type": analysis_type,
             "engine": engine,
@@ -750,6 +761,11 @@ class AnalysisDelegator:
             "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
             "nobs": int(fitted.nobs),
             "coefficients": {name: float(value) for name, value in fitted.params.items()},
+            "coefficient_ci": {
+                str(name): [float(bounds.iloc[0]), float(bounds.iloc[1])]
+                for name, bounds in intervals.iterrows()
+            },
+            "confidence_level": confidence_level,
             "p_values": {name: float(value) for name, value in fitted.pvalues.items()},
             **fit_quality,
             "interpretation": (
@@ -982,7 +998,9 @@ class AnalysisDelegator:
             result["analysis_type"] = "propensity_score"
             return result
 
-        model_result = self._logistic_result_from_fit(fit)
+        model_result = self._logistic_result_from_fit(
+            fit, confidence_level=float(config.get("confidence_level", 0.95))
+        )
         scores = fit["predictions"].astype(float)
         treatment_values = fit["y"].astype(float)
         valid = pd.concat(

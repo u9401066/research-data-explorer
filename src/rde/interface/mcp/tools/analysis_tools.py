@@ -488,6 +488,89 @@ def _create_propensity_love_plot_figure(
     }
 
 
+def _create_regression_effect_figure(
+    *,
+    project: Any,
+    analysis_result: dict[str, Any],
+    analysis_type: str,
+) -> dict[str, str] | None:
+    """Plot the fitted estimates, never substitute the outcome distribution for a model."""
+    import math
+    import matplotlib.pyplot as plt
+
+    logistic = isinstance(analysis_result.get("odds_ratios"), dict)
+    values = analysis_result.get("odds_ratios" if logistic else "coefficients")
+    intervals = analysis_result.get("odds_ratio_ci" if logistic else "coefficient_ci") or {}
+    if not isinstance(values, dict):
+        return None
+    terms = [
+        str(term)
+        for term, value in values.items()
+        if str(term).lower() not in {"const", "intercept"}
+        and isinstance(value, (int, float))
+        and math.isfinite(value)
+        and (not logistic or value > 0)
+    ]
+    if not terms:
+        return None
+    target = str(analysis_result.get("target") or "outcome")
+    output_dir = Path(project.output_dir) / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / (
+        f"advanced_{_safe_filename_token(analysis_type)}_"
+        f"{_safe_filename_token(target)}_effects.png"
+    )
+    fig, ax = plt.subplots(figsize=(7, max(3.2, 0.55 * len(terms) + 1.8)))
+    missing_intervals = False
+    for index, term in enumerate(terms):
+        estimate = float(values[term])
+        bounds = intervals.get(term)
+        valid = (
+            isinstance(bounds, (list, tuple))
+            and len(bounds) == 2
+            and all(isinstance(b, (int, float)) and math.isfinite(b) for b in bounds)
+            and bounds[0] <= estimate <= bounds[1]
+            and (not logistic or bounds[0] > 0)
+        )
+        if valid:
+            ax.errorbar(
+                estimate,
+                index,
+                xerr=[[estimate - bounds[0]], [bounds[1] - estimate]],
+                fmt="o",
+                color="#176b62",
+                capsize=4,
+            )
+        else:
+            ax.plot(estimate, index, "o", color="#176b62")
+            missing_intervals = True
+    ax.axvline(1 if logistic else 0, linestyle="--", color="0.5", linewidth=1)
+    if logistic:
+        ax.set_xscale("log")
+    ax.set_yticks(range(len(terms)), terms)
+    ax.invert_yaxis()
+    ax.set_xlabel("Adjusted odds ratio (log scale)" if logistic else "Adjusted coefficient")
+    level = analysis_result.get("confidence_level")
+    interval_label = (
+        f"{float(level) * 100:g}% CI" if isinstance(level, (int, float)) else "reported intervals"
+    )
+    ax.set_title(
+        f"{analysis_type}: {target}\nn={analysis_result.get('nobs', '?')}; {interval_label}"
+    )
+    if missing_intervals:
+        fig.text(
+            0.5,
+            0.01,
+            "Intervals unavailable for some terms; points are estimates only.",
+            ha="center",
+            fontsize=8,
+        )
+    fig.tight_layout(rect=(0, 0.05 if missing_intervals else 0, 1, 1))
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return {"path": _project_relative_path(project, output_path), "plot_type": "coefficient_plot"}
+
+
 def _auto_create_advanced_analysis_figures(
     *,
     project: Any,
@@ -514,7 +597,13 @@ def _auto_create_advanced_analysis_figures(
         figure = None
         target = config.get("target")
         score = config.get("score_variable")
-        if normalized == "roc_auc" and target and score:
+        if normalized in {"logistic_regression", "multiple_regression", "linear_regression", "glm"}:
+            figure = _create_regression_effect_figure(
+                project=project,
+                analysis_result=analysis_result,
+                analysis_type=analysis_type,
+            )
+        elif normalized == "roc_auc" and target and score:
             figure = _create_roc_curve_figure(
                 project=project,
                 dataframe=dataframe,

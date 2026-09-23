@@ -6,6 +6,13 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Isolated autoresearch figures and visualization manifests by branch and experiment, preserving the primary report and earlier experiments.
+- Rendered fitted regression coefficients / odds ratios and available confidence intervals instead of an unchanged outcome distribution for model figures.
+- Honored the requested confidence level in local logistic and linear models; interval availability remains explicit for regularized fallbacks.
+
+
 ## [0.5.0] - 2026-09-16
 
 ### Website and distribution

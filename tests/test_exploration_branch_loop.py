@@ -1403,6 +1403,117 @@ def test_autoresearch_executes_live_advanced_analysis_contract(tmp_path: Path) -
     assert "processed_tasks: 3" in output
 
 
+def test_branch_figures_preserve_primary_and_each_other(tmp_path: Path) -> None:
+    import json
+    import numpy as np
+    from rde.infrastructure.adapters.analysis_delegator import AnalysisDelegator
+    from rde.interface.mcp.tools.analysis_tools import _auto_create_advanced_analysis_figures
+
+    project, store = _make_phase8_ready_project(tmp_path)
+    rng = np.random.default_rng(630)
+    age = rng.normal(50, 10, 120)
+    severity = rng.normal(4, 1, 120)
+    treatment = rng.binomial(1, 0.5, 120)
+    probability = 1 / (1 + np.exp(-(-2 + 0.025 * age + 0.3 * severity - 0.7 * treatment)))
+    df = pd.DataFrame(
+        {
+            "treatment": treatment,
+            "outcome": rng.binomial(1, probability),
+            "age": age,
+            "severity": severity,
+        }
+    )
+    dataset = Dataset(
+        id="demo-dataset",
+        row_count=len(df),
+        variables=[
+            Variable(
+                name,
+                str(df[name].dtype),
+                VariableType.BINARY
+                if name in {"outcome", "treatment"}
+                else VariableType.CONTINUOUS,
+                n_unique=int(df[name].nunique()),
+            )
+            for name in df.columns
+        ],
+    )
+    get_session().register_dataset(dataset, df)
+    project.dataset_ids = [dataset.id]
+    delegator = AnalysisDelegator()
+    delegator._automl_available = False
+    config = {
+        "target": "outcome",
+        "covariates": ["treatment", "age", "severity"],
+        "backend": "statsmodels",
+        "variables": list(df.columns),
+    }
+    baseline = delegator.run_analysis(df, "logistic_regression", config)
+    figures, warnings = _auto_create_advanced_analysis_figures(
+        project=project,
+        dataset=dataset,
+        dataframe=df,
+        analysis_type="logistic_regression",
+        source=baseline["source"],
+        analysis_result=baseline["result"],
+        config=config,
+    )
+    assert figures and not warnings
+    original = {f["path"]: (project.output_dir / f["path"]).read_bytes() for f in figures}
+    manifest_path = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json")
+    original_manifest = manifest_path.read_bytes()
+
+    async def run_flow() -> None:
+        server = create_server()
+        started = await server.call_tool(
+            "start_autoresearch_run",
+            {
+                "project_id": project.id,
+                "max_tasks": 2,
+                "max_branches": 2,
+                "include_builtin_suggestions": False,
+                "agent_proposals": [
+                    {
+                        "hypothesis": f"Sensitivity adjusting for {covariate}",
+                        "reason": "Test model specification",
+                        "variables": ["outcome", "treatment", covariate],
+                        "analysis_contract": {
+                            "tool": "run_advanced_analysis",
+                            "analysis_type": "logistic_regression",
+                            "target_variable": "outcome",
+                            "covariates": ["treatment", covariate],
+                            "backend": "statsmodels",
+                            "create_figures": True,
+                        },
+                    }
+                    for covariate in ["age", "severity"]
+                ],
+            },
+        )
+        assert "❌" not in _textify_tool_result(started)
+        result = await server.call_tool(
+            "run_autoresearch_queue", {"project_id": project.id, "max_tasks": 2}
+        )
+        assert "processed_tasks: 2" in _textify_tool_result(result)
+
+    asyncio.run(run_flow())
+    assert manifest_path.read_bytes() == original_manifest
+    for path, content in original.items():
+        assert (project.output_dir / path).read_bytes() == content
+    events = store.load(PipelinePhase.EXECUTE_EXPLORATION, "branch_experiment_results.jsonl")
+    paths = []
+    for event in events:
+        record = json.loads(Path(event["artifact"]).read_text())
+        execution = record["contract_execution"]
+        assert execution["executed"] is True and execution["status"] == "completed"
+        own = [path for path in execution["artifacts"] if path.endswith(".png")]
+        assert len(own) == 1
+        assert record["branch_id"] in own[0] and record["experiment_id"] in own[0]
+        paths.append(project.output_dir / own[0])
+    assert len(paths) == 2 and paths[0] != paths[1]
+    assert paths[0].read_bytes() != paths[1].read_bytes()
+
+
 def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Path) -> None:
     """End-to-end Readiness->Queue loop integrity.
 

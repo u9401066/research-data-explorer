@@ -2487,12 +2487,20 @@ def _execute_autoresearch_analysis_contract(
         figures: list[dict[str, str]] = []
         figure_warnings: list[str] = []
         if bool(contract.get("create_figures")):
+            from dataclasses import replace
             from rde.interface.mcp.tools.analysis_tools import (
                 _auto_create_advanced_analysis_figures,
             )
 
+            # Keep each experiment's plots and manifest separate from the frozen primary report.
+            # Reusing a project-level filename silently overwrites earlier model figures.
+            figure_root = store.get_path(
+                PipelinePhase.EXECUTE_EXPLORATION,
+                f"branch_results/{branch_id}/experiments/{experiment_id}",
+            )
+            figure_project = replace(project, output_dir=figure_root)
             figures, figure_warnings = _auto_create_advanced_analysis_figures(
-                project=project,
+                project=figure_project,
                 dataset=entry.dataset,
                 dataframe=analysis_df,
                 analysis_type=analysis_type,
@@ -2500,6 +2508,8 @@ def _execute_autoresearch_analysis_contract(
                 analysis_result=analysis_result,
                 config=config,
             )
+            for figure in figures:
+                figure["path"] = str((figure_root / figure["path"]).relative_to(project.output_dir))
         else:
             figure_warnings.append(
                 "Autoresearch branch runner skipped automatic figure generation; "
