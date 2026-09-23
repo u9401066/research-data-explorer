@@ -15,7 +15,7 @@
 
 來源：[scikit-learn CV](https://scikit-learn.org/stable/modules/cross_validation.html)、[Pipeline](https://scikit-learn.org/1.8/modules/compose.html)、[TRIPOD](https://www.tripod-statement.org/)。
 
-2026-09-23：RDE 核心與 MCP 已實作並通過完整 Python suite（451 passed、5 個外部整合 skipped）與 extension suite（40 passed）；公開工具契約共 51 項。預測專用 21 項回歸涵蓋資料隔離、真實 MCP 收斂／報告、已看過保留集的重用限制、圖表失敗後復原而不重訓。Workbench 瀏覽器與部署驗證另記錄於其 QA 文件。
+2026-09-23：RDE 核心與 MCP 已實作並通過完整 Python suite（452 passed、5 個外部整合 skipped）與 extension suite（40 passed）；公開工具契約共 51 項。預測專用 22 項回歸涵蓋資料隔離、真實 MCP 收斂／報告、已看過保留集的重用限制、圖表失敗後復原而不重訓、原始來源 bytes／工作表變更後拒絕沿用。Workbench 瀏覽器與部署驗證另記錄於其 QA 文件。
 
 執行上限：200,000 列、50 個原始特徵；每個訓練類別特徵至多 200 種值，編碼特徵預算 5,000。隨機森林固定 64 棵、深度 8、葉節點至少 5 列，全部估計器限制單執行緒。每個訓練／驗證 partition 至少 20／10 列只是軟體執行門檻，並非臨床樣本數論證。時間預算為 300 秒，呼叫端仍須終止無法消費取消通知的同步運算程序。
 

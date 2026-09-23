@@ -123,12 +123,24 @@ def register_prediction_tools(server: Any) -> None:
                 variables=variables, target_variable=spec.target, predictors=spec.predictors
             )
             population = prepare_population(entry.dataframe, spec)
+            source = entry.dataset.metadata
+            source_record = {
+                "path": str(source.file_path) if source else None,
+                "sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest()
+                if source and source.file_path.is_file()
+                else None,
+                "sheet": source.sheet_name if source else None,
+            }
             filename = f"prediction_study_{digest(dataset_id)[:16]}.json"
             previous = store.load(PipelinePhase.EXECUTE_EXPLORATION, filename)
             if previous:
                 if (
                     previous["result"]["spec_sha256"] != digest(spec.to_dict())
                     or previous["result"]["dataframe_sha256"] != population["dataframe_sha256"]
+                    or any(
+                        previous.get("source", {}).get(key) != source_record[key]
+                        for key in ["sha256", "sheet"]
+                    )
                 ):
                     raise ValueError(
                         "This dataset has an inspected holdout. Changed specifications/data cannot be presented as a new unseen validation; use genuinely new validation data."
@@ -163,14 +175,6 @@ def register_prediction_tools(server: Any) -> None:
             progress_path = store.get_path(
                 PipelinePhase.EXECUTE_EXPLORATION, f"prediction_attempt_{run_id}.json"
             )
-            source = entry.dataset.metadata
-            source_record = {
-                "path": str(source.file_path) if source else None,
-                "sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest()
-                if source and source.file_path.is_file()
-                else None,
-                "sheet": source.sheet_name if source else None,
-            }
             record = previous or {
                 "dataset_id": dataset_id,
                 "run_id": run_id,

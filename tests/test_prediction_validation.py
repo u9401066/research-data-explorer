@@ -316,3 +316,28 @@ def test_render_failure_resumes_numeric_receipt_instead_of_refitting(tmp_path, m
     )
     second = asyncio.run(call())
     assert not second.is_error, second.content
+
+
+def test_changed_source_bytes_cannot_silently_reuse_prediction_result(tmp_path):
+    import asyncio
+    from rde.application.session import get_session
+    from rde.domain.models.dataset import DatasetMetadata
+    from rde.interface.mcp.server import create_server
+
+    _, _, dataset, spec = prediction_project(tmp_path)
+    path = tmp_path / "source.csv"
+    get_session().get_dataset_entry(dataset.id).dataframe.to_csv(path, index=False)
+    dataset.metadata = DatasetMetadata(
+        file_path=path, file_format="csv", file_size_bytes=path.stat().st_size
+    )
+
+    async def call():
+        return await create_server().call_tool(
+            "run_prediction_study", {"dataset_id": dataset.id, "prediction_options": spec.to_dict()}
+        )
+
+    assert not asyncio.run(call()).is_error
+    # In-memory selected values are unchanged, but original source bytes are not.
+    path.write_text(path.read_text() + "\n", encoding="utf-8")
+    rejected = asyncio.run(call())
+    assert rejected.is_error and "inspected holdout" in rejected.content[0].text
