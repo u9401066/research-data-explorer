@@ -16,3 +16,5 @@
 校正實作對照 [statsmodels multipletests](https://www.statsmodels.org/stable/generated/statsmodels.stats.multitest.multipletests.html)。臨床基線只描述、預先指定共變項與分析方法的設計理由，參考 [CONSORT 2025 item 21a](https://www.consort-spirit.org/item21a-primaryandsecondaryoutcomes)。這些軟體政策不代替研究設計審閱。
 
 驗證：`tests/test_analysis_policy.py` 涵蓋已知校正數值、不同缺失位置、非有限值、配對來源、圖表與矩陣一致、原始 bytes 不變、真實 MCP 讀取鎖定政策及錯誤政策不鎖定。完整 pytest 另含既有臨床／模型／探索／恢復回歸。
+
+報告不依顯著性省略終點：collect_results 直接讀取已保存的主要 compare_groups JSON，包含所有 raw/adjusted p、實際 n／排除數與來源檔。一般與正式報告都列出未達門檻的結果；MCP session 重啟後仍可由原始 receipts 重建此段。這不表示重跑歷史分析，也不自動把探索分支提升為主要結果。

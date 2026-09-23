@@ -236,3 +236,65 @@ def test_invalid_registered_policy_never_locks_plan(tmp_path, policy):
     assert response.is_error
     assert not get_session().get_pipeline(project.id).plan_locked
     assert store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") == before
+
+
+def test_report_retains_nonsignificant_endpoint_receipts_after_session_results_are_gone(tmp_path):
+    from rde.infrastructure.persistence.artifact_store import ArtifactStore
+    from rde.interface.mcp.tools.report_tools import (
+        _persisted_comparisons,
+        _format_analyses,
+        _formal_statistical_summary,
+    )
+    from rde.domain.models.project import Project
+
+    project = Project(
+        id="full-results",
+        name="full-results",
+        data_dir=tmp_path / "raw",
+        output_dir=tmp_path / "output",
+    )
+    store = ArtifactStore(project.artifacts_dir)
+    record = {
+        "group_variable": "arm",
+        "outcome_variables": ["outcome_null", "outcome_signal"],
+        "policy": {"alpha": 0.01, "missing_strategy": "listwise"},
+        "multiplicity": {"members": ["outcome_null", "outcome_signal"], "method": "holm"},
+        "tests": [
+            {
+                "variables": ["outcome_null", "arm"],
+                "test_name": "Mann-Whitney",
+                "p_value": 0.8,
+                "adjusted_p_value": 0.8,
+                "alpha": 0.01,
+                "significant": False,
+            },
+            {
+                "variables": ["outcome_signal", "arm"],
+                "test_name": "Mann-Whitney",
+                "p_value": 0.001,
+                "adjusted_p_value": 0.002,
+                "alpha": 0.01,
+                "significant": True,
+            },
+        ],
+        "case_sets": {
+            "outcome_null": {"n_analyzed": 18, "n_excluded": 2},
+            "outcome_signal": {"n_analyzed": 18, "n_excluded": 2},
+        },
+    }
+    store.save(PipelinePhase.EXECUTE_EXPLORATION, "compare_groups_arm_outcomes.json", record)
+    restored = ArtifactStore(project.artifacts_dir)
+    summary = {
+        "total_analyses": 1,
+        "comparisons": _persisted_comparisons(restored),
+        "publishable_items": [],
+    }
+    assert len(summary["comparisons"]) == 1
+    for output in [
+        _format_analyses(summary),
+        _formal_statistical_summary(project, restored, summary),
+    ]:
+        assert "outcome_null" in output and "未達門檻" in output
+        assert "outcome_signal" in output and "0.002" in output
+        assert "0.8" in output and "18" in output
+        assert "compare_groups_arm_outcomes.json" in output

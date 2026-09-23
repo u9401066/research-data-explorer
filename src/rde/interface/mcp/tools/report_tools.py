@@ -564,6 +564,7 @@ def register_report_tools(server: Any) -> None:
             deliverables = _summarize_publication_deliverables(project, store)
             exploration_branches = _summarize_exploration_branches(store)
             summary = {
+                "comparisons": _persisted_comparisons(store),
                 "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
                 "publishable_items": publishable,
@@ -1577,6 +1578,7 @@ def _format_analyses(results: dict | None) -> str:
     if not results:
         return "[No analysis results collected]"
     lines = [f"**分析總數:** {results.get('total_analyses', 0)}"]
+    lines.append(_comparison_results_markdown(results))
     report_readiness = results.get("report_readiness") or {}
     if report_readiness:
         lines.extend(
@@ -1895,6 +1897,71 @@ def _candidate_p_text(item: dict) -> str:
     return f"p ({method})={item.get('p_value', 'NA')}; raw p={raw}; alpha={item.get('alpha', 0.05)}"
 
 
+def _persisted_comparisons(store: Any) -> list[dict]:
+    """Read primary comparison receipts, including nonsignificant tests after restart."""
+    from rde.application.pipeline import PipelinePhase
+
+    records = []
+    for filename in sorted(store.list_phase_artifacts(PipelinePhase.EXECUTE_EXPLORATION)):
+        if not filename.startswith("compare_groups_") or not filename.endswith(".json"):
+            continue
+        payload = store.load(PipelinePhase.EXECUTE_EXPLORATION, filename)
+        if isinstance(payload, dict) and isinstance(payload.get("tests"), list):
+            records.append({"artifact": filename, **payload})
+    return records
+
+
+def _comparison_results_markdown(results: dict | None) -> str:
+    if not results or not results.get("comparisons"):
+        return ""
+    from rde.interface.mcp.tools._shared import fmt_table
+
+    def number(value):
+        return f"{value:.6g}" if isinstance(value, (int, float)) else "未提供"
+
+    lines = [
+        "## 已執行終點比較（含未達門檻結果）",
+        "所有已保存的主要比較逐項列出；未達門檻不等於等效或沒有作用。原始列位置與完整個案紀錄見各來源 JSON。",
+    ]
+    for record in results["comparisons"]:
+        policy = record.get("policy", {})
+        family = record.get("multiplicity", {})
+        lines.append(
+            f"\n組別：{record.get('group_variable', '?')}；缺失策略：{policy.get('missing_strategy', '未記錄')}；校正家族：{family.get('members', record.get('outcome_variables', []))}；方法：{family.get('method', '未記錄')}。"
+        )
+        rows = []
+        for test in record["tests"]:
+            outcome = (test.get("variables") or ["?"])[0]
+            case = record.get("case_sets", {}).get(outcome, {})
+            n = case.get("n_analyzed", case.get("n_complete_pairs", "未提供"))
+            status = (
+                "達門檻"
+                if test.get("significant") is True
+                else "未達門檻"
+                if test.get("significant") is False
+                else "未記錄"
+            )
+            rows.append(
+                [
+                    outcome,
+                    test.get("test_name", "?"),
+                    n,
+                    case.get("n_excluded", case.get("n_excluded_subjects", "未提供")),
+                    number(test.get("p_value")),
+                    number(test.get("adjusted_p_value")),
+                    number(test.get("alpha")),
+                    status,
+                ]
+            )
+        lines.append(
+            fmt_table(
+                ["終點", "檢定", "實際 n / pairs", "排除", "原始 p", "校正 p", "α", "結果"], rows
+            )
+        )
+        lines.append(f"來源：`{record['artifact']}`；校正範圍僅此呼叫，其他模型／探索另列。")
+    return "\n\n".join(lines)
+
+
 def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
@@ -1920,6 +1987,7 @@ def _formal_statistical_summary(project: Any, store: Any, results: dict | None) 
             f"描述性圖表 {deliverables.get('descriptive_figures', 0)} 張，"
             f"分析性圖表 {deliverables.get('analytical_figures', 0)} 張。"
         )
+    lines.append(_comparison_results_markdown(results))
     model_text = _interpret_advanced_models(store, include_artifact_refs=False)
     if model_text:
         lines.append("調整模型摘要：")
