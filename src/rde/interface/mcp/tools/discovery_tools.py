@@ -339,6 +339,7 @@ def register_discovery_tools(server: Any) -> None:
         directory: str = "data/rawdata",
         project_id: str | None = None,
         allow_pii: bool = False,
+        sheet_name: str | None = None,
     ) -> str:
         """執行完整收件流程（Phase 1 orchestration）。
 
@@ -349,6 +350,7 @@ def register_discovery_tools(server: Any) -> None:
             directory: 原始資料目錄路徑，如 "data/rawdata"（預設: data/rawdata）
             project_id: 專案 ID，用於關聯 intake artifact（可選，如已呼叫 init_project）
             allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
+            sheet_name: 明確選取 Excel 工作表；收件紀錄會保存此選擇供 session 恢復使用。
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -408,6 +410,7 @@ def register_discovery_tools(server: Any) -> None:
                 file_path=path,
                 file_format=path.suffix.lstrip(".").lower(),
                 file_size_bytes=path.stat().st_size,
+                sheet_name=sheet_name,
             )
             dataset = Dataset(metadata=metadata)
             df, variables, row_count, report = loader.load(metadata)
@@ -444,6 +447,7 @@ def register_discovery_tools(server: Any) -> None:
                 "loadable": len(loadable_files),
                 "rejected": len(rejected_files),
                 "loaded_file": first_file.file_name,
+                "sheet_name": sheet_name,
                 "dataset_id": dataset.id,
                 "row_count": row_count,
                 "column_count": len(variables),

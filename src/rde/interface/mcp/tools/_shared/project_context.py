@@ -302,6 +302,7 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
         file_path=data_path,
         file_format=data_path.suffix.lstrip(".").lower(),
         file_size_bytes=data_path.stat().st_size,
+        sheet_name=intake.get("sheet_name"),
     )
     dataframe, variables, row_count, report = PandasLoader().load(metadata)
     dataset = Dataset(id=dataset_id, metadata=metadata)
