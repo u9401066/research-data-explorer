@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime
+from dataclasses import replace
 from typing import Any
 
 from rde.domain.models.analysis import AnalysisResult, StatisticalTest, TestCategory
@@ -37,6 +38,9 @@ class CompareGroupsUseCase:
         group_variable: str,
         is_paired: bool = False,
         subject_variable: str | None = None,
+        alpha: float = 0.05,
+        missing_strategy: str = "pairwise",
+        multiple_comparison_method: str = "bonferroni",
     ) -> AnalysisResult:
         """Run group comparisons with constraint enforcement."""
         # Hard Constraint H-003
@@ -47,6 +51,9 @@ class CompareGroupsUseCase:
         import numpy as np
         import pandas as pd
 
+        from rde.domain.services.analysis_policy import validate_policy, finite_frame, case_record
+
+        validate_policy(alpha, missing_strategy, multiple_comparison_method)
         df: pd.DataFrame = raw_data
         required = [*outcome_variables, group_variable]
         if not outcome_variables or len(set(outcome_variables)) != len(outcome_variables):
@@ -63,6 +70,8 @@ class CompareGroupsUseCase:
         missing = [name for name in required if name not in df.columns]
         if missing:
             raise ValueError(f"Columns not found: {missing}")
+        df = finite_frame(df, required)
+        common_complete = df[required].notna().all(axis=1)
         group_order = df[group_variable].dropna().unique().tolist()
         if len(group_order) < 2:
             raise ValueError("Comparison requires at least two observed groups.")
@@ -75,12 +84,6 @@ class CompareGroupsUseCase:
         warnings: list[str] = []
         case_sets: dict[str, Any] = {}
 
-        # Soft Constraint S-002: multiple comparisons
-        if len(outcome_variables) > 1:
-            mc_check = SoftConstraints.s002_multiple_comparisons(len(outcome_variables))
-            if not mc_check.passed:
-                warnings.append(f"[S-002] {mc_check.suggestion}")
-
         for var_name in outcome_variables:
             # Find variable type
             var = next((v for v in dataset.variables if v.name == var_name), None)
@@ -90,7 +93,7 @@ class CompareGroupsUseCase:
             # Count actual groups in the data
             actual_groups = df[group_variable].nunique()
             group_sizes = df.groupby(group_variable)[var_name].count().tolist()
-            engine_data = raw_data
+            engine_data = df
             engine_variables = [var_name, group_variable]
             if is_paired:
                 if var.variable_type not in (
@@ -139,6 +142,32 @@ class CompareGroupsUseCase:
                     "paired_row_positions": positions.loc[complete].astype(int).values.tolist(),
                 }
 
+            else:
+                columns = [var_name, group_variable]
+                mask = (
+                    common_complete
+                    if missing_strategy == "listwise"
+                    else df[columns].notna().all(axis=1)
+                )
+                engine_data = df.loc[mask]
+                if len(engine_data) < 3 or engine_data[group_variable].nunique() != len(
+                    group_order
+                ):
+                    raise ValueError(
+                        f"{var_name}: insufficient complete observations or a group was entirely excluded."
+                    )
+                group_sizes = [
+                    int((engine_data[group_variable] == group).sum()) for group in group_order
+                ]
+                case_sets[var_name] = case_record(
+                    df,
+                    required if missing_strategy == "listwise" else columns,
+                    mask,
+                    missing_strategy,
+                )
+                case_sets[var_name]["group_order"] = [str(value) for value in group_order]
+                case_sets[var_name]["group_counts"] = group_sizes
+
             # Get test recommendation from domain service
             recommendation = self._advisor.recommend_comparison_test(
                 outcome_type=var.variable_type,
@@ -153,6 +182,7 @@ class CompareGroupsUseCase:
                 data=engine_data,
                 test_name=recommendation.test_name,
                 variables=engine_variables,
+                alpha=alpha,
             )
             if result.get("error"):
                 raise ValueError(f"{var_name}: {result['error']}")
@@ -171,7 +201,8 @@ class CompareGroupsUseCase:
                 effect_size_name=result.get("effect_size_name"),
                 sample_sizes=tuple(group_sizes),
                 variables_involved=(var_name, group_variable),
-                interpretation=result.get("interpretation", ""),
+                interpretation="Raw result; inference below uses the specified family correction and alpha.",
+                alpha=alpha,
             )
             tests.append(test)
 
@@ -185,13 +216,39 @@ class CompareGroupsUseCase:
             if not pw_check.passed:
                 warnings.append(f"[S-010] {var_name}: {pw_check.suggestion}")
 
+        from statsmodels.stats.multitest import multipletests
+
+        adjusted = multipletests(
+            [test.p_value for test in tests],
+            alpha=alpha,
+            method="fdr_bh" if multiple_comparison_method == "fdr" else multiple_comparison_method,
+        )[1]
+        tests = [
+            replace(test, adjusted_p_value=float(p), correction_method=multiple_comparison_method)
+            for test, p in zip(tests, adjusted, strict=True)
+        ]
+        family = {
+            "method": multiple_comparison_method,
+            "alpha": alpha,
+            "size": len(tests),
+            "members": outcome_variables,
+            "scope": "all outcome tests in this call; no cross-call correction",
+        }
+        if is_paired:
+            warnings.append(
+                "Paired outcomes use subject-key complete pairs for each outcome; independent missing_strategy is not applied."
+            )
         return AnalysisResult(
             dataset_id=dataset.id,
             analysis_type="bivariate_comparison",
             created_at=datetime.now(),
             tests=tuple(tests),
             summary=self._build_summary(tests),
-            tables={"case_sets": case_sets} if case_sets else {},
+            tables={
+                "case_sets": case_sets,
+                "multiplicity": family,
+                "missing_strategy": missing_strategy,
+            },
             warnings=tuple(warnings),
         )
 

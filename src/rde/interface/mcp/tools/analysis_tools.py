@@ -14,6 +14,32 @@ from pathlib import Path
 from typing import Any
 
 
+def _inference_policy(project, alpha=None, missing_strategy=None, multiple_comparison_method=None):
+    from rde.infrastructure.persistence.artifact_store import ArtifactStore
+    from rde.application.pipeline import PipelinePhase
+    from rde.domain.services.analysis_policy import validate_policy
+
+    plan = (
+        ArtifactStore(project.artifacts_dir).load(
+            PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml"
+        )
+        or {}
+    )
+    policy = {
+        "alpha": plan.get("alpha", 0.05) if alpha is None else alpha,
+        "missing_strategy": plan.get("missing_strategy", "listwise")
+        if missing_strategy is None
+        else missing_strategy,
+        "multiple_comparison_method": plan.get("multiple_comparison_method", "bonferroni")
+        if multiple_comparison_method is None
+        else multiple_comparison_method,
+    }
+    validate_policy(
+        policy["alpha"], policy["missing_strategy"], policy["multiple_comparison_method"]
+    )
+    return policy
+
+
 def _sanitize_analysis_frame(
     df: Any,
     variables: list[str] | tuple[str, ...],
@@ -1336,8 +1362,15 @@ def register_analysis_tools(server: Any) -> None:
         group_variable: str,
         is_paired: bool = False,
         subject_variable: str | None = None,
+        alpha: float | None = None,
+        missing_strategy: str | None = None,
+        multiple_comparison_method: str | None = None,
     ) -> str:
         """組間比較，自動選擇適當統計檢定。
+
+        政策未指定時使用鎖定計畫。listwise 使用本次所有結果／組別的共同完整列，
+        pairwise 使用各結果／組別的完整列；配對比較始終按 subject key 配對。
+        本次所有結果檢定構成一個校正家族，保留 raw / adjusted p，不跨呼叫校正。
 
         自動應用: S-001 (常態性 → 有母數/無母數), S-002 (多重比較),
         S-008 (樣本平衡), S-009 (effect size), S-010 (power)。H-009 自動記錄。
@@ -1349,6 +1382,9 @@ def register_analysis_tools(server: Any) -> None:
             group_variable: 分組變數，如 "treatment_group"、"gender"
             is_paired: 是否為配對資料（如前後測），預設 false
             subject_variable: 長格式配對資料必填的個案鍵；寬格式請用 run_repeated_measures
+            alpha: 顯著水準；省略時讀取鎖定計畫
+            missing_strategy: listwise / pairwise；省略時讀取鎖定計畫
+            multiple_comparison_method: bonferroni / holm / fdr (BH)；省略時讀取鎖定計畫
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -1379,8 +1415,6 @@ def register_analysis_tools(server: Any) -> None:
 
         try:
             from dataclasses import replace
-            from datetime import datetime
-            from rde.domain.models.analysis import AnalysisResult
             from rde.application.use_cases.compare_groups import CompareGroupsUseCase
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
             from rde.infrastructure.adapters import ScipyStatisticalEngine
@@ -1392,50 +1426,16 @@ def register_analysis_tools(server: Any) -> None:
                 [*outcome_variables, group_variable],
             )
 
-            if len(outcome_variables) > 1:
-                single_results = [
-                    use_case.execute(
-                        dataset=entry.dataset,
-                        raw_data=analysis_df,
-                        outcome_variables=[outcome],
-                        group_variable=group_variable,
-                        is_paired=is_paired,
-                        subject_variable=subject_variable,
-                    )
-                    for outcome in outcome_variables
-                ]
-                tests = tuple(test for item in single_results for test in item.tests)
-                warnings = tuple(warning for item in single_results for warning in item.warnings)
-                if len(outcome_variables) > 1:
-                    warnings = (
-                        "[S-002] Multiple comparisons: apply Bonferroni/FDR correction.",
-                        *warnings,
-                    )
-                result = AnalysisResult(
-                    dataset_id=entry.dataset.id,
-                    analysis_type="bivariate_comparison",
-                    created_at=datetime.now(),
-                    tests=tests,
-                    summary=f"Compared {len(tests)} variables: "
-                    f"{sum(1 for test in tests if test.is_significant)} significant.",
-                    warnings=warnings,
-                    tables={
-                        "case_sets": {
-                            key: value
-                            for item in single_results
-                            for key, value in item.tables.get("case_sets", {}).items()
-                        }
-                    },
-                )
-            else:
-                result = use_case.execute(
-                    dataset=entry.dataset,
-                    raw_data=analysis_df,
-                    outcome_variables=outcome_variables,
-                    group_variable=group_variable,
-                    is_paired=is_paired,
-                    subject_variable=subject_variable,
-                )
+            policy = _inference_policy(project, alpha, missing_strategy, multiple_comparison_method)
+            result = use_case.execute(
+                dataset=entry.dataset,
+                raw_data=analysis_df,
+                outcome_variables=outcome_variables,
+                group_variable=group_variable,
+                is_paired=is_paired,
+                subject_variable=subject_variable,
+                **policy,
+            )
 
             if not is_paired and os.environ.get("RDE_COMPARE_AUTO_FIGURES", "0") == "1":
                 figures, figure_warnings = _auto_create_group_comparison_figures(
@@ -1469,7 +1469,11 @@ def register_analysis_tools(server: Any) -> None:
                 lines.append(f"## {sig_icon} {', '.join(t.variables_involved)}")
                 lines.append(f"- **檢定:** {t.test_name}")
                 lines.append(f"- **統計量:** {t.statistic:.4f}")
-                lines.append(f"- **p 值:** {t.p_value:.4f}")
+                lines.append(f"- **原始 p 值:** {t.p_value:.6g}")
+                lines.append(
+                    f"- **校正 p 值 ({t.correction_method}):** {t.adjusted_p_value:.6g}；α={t.alpha:g}"
+                )
+                lines.append(f"- **各組實際納入數:** {list(t.sample_sizes)}")
 
                 # S-009: Effect size
                 if t.effect_size is not None:
@@ -1479,37 +1483,22 @@ def register_analysis_tools(server: Any) -> None:
 
                 lines.append(f"- **解讀:** {t.interpretation}")
                 case_set = result.tables.get("case_sets", {}).get(t.variables_involved[0])
-                if case_set:
+                if case_set and is_paired:
                     lines.append(
                         f"- **Complete subject pairs:** {case_set['n_complete_pairs']} / {case_set['n_subjects']}; excluded subjects: {case_set['n_excluded_subjects']}; unidentified rows: {case_set['n_unidentified_rows']}; order: {case_set['group_order']}"
                     )
 
-                # S-010: Compute post-hoc power for non-significant results
-                if not t.is_significant and t.effect_size is not None:
-                    try:
-                        total_n = len(df[group_variable].dropna())
-                        n_groups = df[group_variable].nunique()
-                        power_result = engine.post_hoc_power(
-                            test_name=t.test_name,
-                            effect_size=abs(t.effect_size),
-                            n=total_n,
-                            n_groups=n_groups,
-                        )
-                        pw = power_result["power"]
-                        lines.append(
-                            f"- 💡 [S-010] 檢定力 = {pw:.1%}"
-                            f" {'(足夠)' if power_result['adequate'] else '(不足 — 可能 Type II error)'}"
-                        )
-                    except Exception:
-                        lines.append("- 💡 [S-010] 結果不顯著，建議進行檢定力分析。")
+                elif case_set:
+                    lines.append(
+                        f"- **Case set ({case_set['strategy']}):** {case_set['n_analyzed']} / {case_set['n_input']}; excluded: {case_set['n_excluded']}"
+                    )
+
                 lines.append("")
 
-            # S-002: Multiple comparisons
-            if len(result.tests) > 1:
-                lines.append(
-                    f"⚠️ **[S-002] 多重比較:** {len(result.tests)} 個檢定，"
-                    f"結果已/應進行 Bonferroni 或 FDR 校正。"
-                )
+            family = result.tables["multiplicity"]
+            lines.append(
+                f"**多重檢定家族:** {family['size']} 個結果檢定，{family['method']}；範圍僅本次呼叫，不包含模型係數、其他呼叫或探索分支。"
+            )
 
             if result.warnings:
                 lines.append("\n**警告:**")
@@ -1547,6 +1536,11 @@ def register_analysis_tools(server: Any) -> None:
                     "variables": list(t.variables_involved),
                     "statistic": t.statistic,
                     "p_value": t.p_value,
+                    "adjusted_p_value": t.adjusted_p_value,
+                    "alpha": t.alpha,
+                    "significant": t.is_significant,
+                    "correction_method": t.correction_method,
+                    "sample_sizes": list(t.sample_sizes),
                     "effect_size": t.effect_size,
                     "effect_size_name": t.effect_size_name,
                     "interpretation": t.interpretation,
@@ -1563,6 +1557,8 @@ def register_analysis_tools(server: Any) -> None:
                     "is_paired": is_paired,
                     "subject_variable": subject_variable,
                     "case_sets": result.tables.get("case_sets", {}),
+                    "policy": policy,
+                    "multiplicity": family,
                     "summary": result.summary,
                     "tests": tests_payload,
                     "figures": figures,
@@ -1583,6 +1579,7 @@ def register_analysis_tools(server: Any) -> None:
                     "group_variable": group_variable,
                     "is_paired": is_paired,
                     "subject_variable": subject_variable,
+                    **policy,
                 },
                 "組間比較分析",
                 (
@@ -1609,10 +1606,11 @@ def register_analysis_tools(server: Any) -> None:
     def correlation_matrix(
         dataset_id: str,
         variables: list[str] | None = None,
+        missing_strategy: str | None = None,
     ) -> str:
         """計算相關性矩陣，自動檢查共線性 (S-007)。H-009 自動記錄。
 
-        若發現 VIF > 10 的變數對，會給出警告並建議移除。
+        回報高相關變數對；這不是 VIF 計算。列出每一對實際 n，僅描述相關，不進行 p 值檢定。
 
         Args:
             dataset_id: 資料集 ID
@@ -1680,7 +1678,16 @@ def register_analysis_tools(server: Any) -> None:
                 numeric_cols,
             )
 
-            corr = analysis_df[numeric_cols].corr()
+            from rde.domain.services.analysis_policy import correlation_with_cases
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+            policy = _inference_policy(project, missing_strategy=missing_strategy)
+            result = correlation_with_cases(analysis_df, numeric_cols, policy["missing_strategy"])
+            corr = result.pop("matrix")
+            result["matrix"] = corr.astype(object).where(corr.notna(), None).to_dict()
+            artifact = ArtifactStore(project.artifacts_dir).save(
+                PipelinePhase.EXECUTE_EXPLORATION, "correlation_matrix.json", result
+            )
 
             lines = ["# 📊 相關性矩陣\n"]
 
@@ -1691,8 +1698,27 @@ def register_analysis_tools(server: Any) -> None:
                 rows.append([row_name] + [f"{corr.loc[row_name, c]:.3f}" for c in numeric_cols])
             lines.append(fmt_table(header, rows))
 
+            lines.append(
+                f"\n**Missing strategy:** {policy['missing_strategy']}; descriptive Pearson correlations, no p-value tests."
+            )
+            lines.append(
+                fmt_table(
+                    ["Pair", "Analyzed", "Excluded"],
+                    [
+                        [pair, case["n_analyzed"], case["n_excluded"]]
+                        for pair, case in result["case_sets"].items()
+                    ],
+                )
+            )
+            lines.append(f"\n**Artifact:** {artifact}")
+
             # S-007: Collinearity check (delegated to domain service)
-            report = check_collinearity(analysis_df, numeric_cols)
+            check_frame = (
+                analysis_df.dropna(subset=numeric_cols)
+                if policy["missing_strategy"] == "listwise"
+                else analysis_df
+            )
+            report = check_collinearity(check_frame, numeric_cols)
             if report.has_collinearity:
                 lines.append("\n## ⚠️ [S-007] 高共線性")
                 for w in report.format_warnings():
@@ -1707,7 +1733,7 @@ def register_analysis_tools(server: Any) -> None:
             # H-009
             _auto_log_decision(
                 "correlation_matrix",
-                {"variables": numeric_cols},
+                {"variables": numeric_cols, "missing_strategy": policy["missing_strategy"]},
                 "相關性矩陣分析",
                 (
                     f"{len(numeric_cols)} vars, {len(report.pairs)} collinear pairs"
@@ -1726,6 +1752,7 @@ def register_analysis_tools(server: Any) -> None:
         dataset_id: str,
         group_variable: str,
         variables: list[str] | None = None,
+        include_p_values: bool = False,
     ) -> str:
         """生成 Table 1（基線特徵表）。H-009 自動記錄。
 
@@ -1787,7 +1814,16 @@ def register_analysis_tools(server: Any) -> None:
             )
 
             engine = ScipyStatisticalEngine()
-            result = engine.generate_table_one(analysis_df, group_variable, cols)
+            result = engine.generate_table_one(
+                analysis_df, group_variable, cols, include_p_values=include_p_values
+            )
+            case_summary = {
+                "n_input": len(df),
+                "n_missing_group": int(analysis_df[group_variable].isna().sum()),
+                "observed_by_variable": {c: int(analysis_df[c].notna().sum()) for c in cols},
+                "strategy": "available observations per baseline variable; no imputation",
+                "include_p_values": include_p_values,
+            }
 
             if "error" in result:
                 return fmt_error(result["error"])
@@ -1827,6 +1863,10 @@ def register_analysis_tools(server: Any) -> None:
                 for note in plausibility_notes:
                     lines.append(f"- {note}")
 
+            lines.append(
+                f"\nBaseline case policy: available observations per variable; missing group = {case_summary['n_missing_group']}. P-value tests: {include_p_values} (when enabled, unadjusted)."
+            )
+            lines.append(str(case_summary["observed_by_variable"]))
             table_one_content = "\n".join(lines)
             store = ArtifactStore(project.artifacts_dir)
             table_one_md_path = store.save(
@@ -1838,6 +1878,7 @@ def register_analysis_tools(server: Any) -> None:
                 PipelinePhase.EXECUTE_EXPLORATION,
                 "table_one.json",
                 {
+                    "case_summary": case_summary,
                     "group_variable": group_variable,
                     "variables": cols,
                     "table_text": result.get("table_text", ""),
@@ -1852,7 +1893,11 @@ def register_analysis_tools(server: Any) -> None:
             # H-009
             _auto_log_decision(
                 "generate_table_one",
-                {"group_variable": group_variable, "variables": cols},
+                {
+                    "group_variable": group_variable,
+                    "variables": cols,
+                    "include_p_values": include_p_values,
+                },
                 "生成 Table 1 (基線特徵表)",
                 (
                     f"Table 1: {result.get('n_variables', len(cols))} variables"
@@ -1882,7 +1927,8 @@ def register_analysis_tools(server: Any) -> None:
         test_type: str | None = None,
         vendor_options: dict[str, Any] | None = None,
         subject_variable: str | None = None,
-        confidence_level: float = 0.95,
+        confidence_level: float | None = None,
+        missing_strategy: str | None = None,
         clinical_options: dict[str, Any] | None = None,
     ) -> str:
         """執行進階統計分析，自動委派給 automl-stat-mcp（如可用）。
@@ -1951,6 +1997,10 @@ def register_analysis_tools(server: Any) -> None:
             from rde.infrastructure.adapters import get_analysis_delegator
 
             delegator = get_analysis_delegator()
+            policy = _inference_policy(project, missing_strategy=missing_strategy)
+            confidence_level = 1 - policy["alpha"] if confidence_level is None else confidence_level
+            if not 0 < confidence_level < 1:
+                raise ValueError("confidence_level must be strictly between 0 and 1.")
 
             config: dict = {
                 "variables": [],
@@ -1995,6 +2045,7 @@ def register_analysis_tools(server: Any) -> None:
                     return fmt_error(f"Unknown clinical_options: {sorted(unknown)}")
                 config.update(clinical_options)
             config["confidence_level"] = confidence_level
+            config["missing_strategy"] = policy["missing_strategy"]
             if subject_variable:
                 config["subject_variable"] = subject_variable
                 config["variables"].append(subject_variable)
@@ -2013,6 +2064,16 @@ def register_analysis_tools(server: Any) -> None:
 
             source = result["source"]
             analysis_result = result["result"]
+            if isinstance(analysis_result, dict):
+                analysis_result["inference_policy"] = {
+                    **policy,
+                    "plan_alpha": policy["alpha"],
+                    "alpha": 1 - confidence_level,
+                    "confidence_level": confidence_level,
+                    "interval_scope": "pointwise, not multiplicity adjusted",
+                    "multiplicity_scope": "model coefficients and estimates unadjusted; not included in compare_groups family",
+                    "case_policy": "model/estimator-specific complete observations; pairwise applies only to comparisons/correlations",
+                }
 
             artifact_path = _save_advanced_analysis_artifact(
                 project,
@@ -2062,6 +2123,13 @@ def register_analysis_tools(server: Any) -> None:
                     False if source.startswith("local-clinical") else delegator.automl_available
                 ),
             )
+            if isinstance(analysis_result, dict):
+                rendered_output += "\n\n## Inference policy\n" + str(
+                    analysis_result["inference_policy"]
+                )
+                if analysis_result.get("case_set"):
+                    cases = analysis_result["case_set"]
+                    rendered_output += f"\n\n**Case set:** {cases.get('n_analyzed')} / {cases.get('n_input')}; excluded: {cases.get('n_excluded')}. {cases.get('strategy')}"
             if figures:
                 rendered_output += "\n\n## Figures\n" + "\n".join(
                     f"- `{figure['path']}` ({figure['plot_type']})" for figure in figures

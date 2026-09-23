@@ -1153,8 +1153,8 @@ def register_plan_tools(server: Any) -> None:
             project_id: 專案 ID（可選，預設使用當前專案）
             analyses: 計畫分析項目清單，每項必須含 type 和 variables，如 [{"type": "compare_groups", "variables": ["sofa_score"], "rationale": "比較兩組 SOFA"}]
             alpha: 顯著水準 α，如 0.05、0.01（預設 0.05）
-            missing_strategy: 缺失值處理策略: listwise（預設）、pairwise、impute_median
-            multiple_comparison_method: 多重比較校正方法: bonferroni（預設）、fdr
+            missing_strategy: 缺失值處理策略: listwise（預設）、pairwise；不隱含補值
+            multiple_comparison_method: 同次結果比較家族校正: bonferroni（預設）、holm、fdr (BH)
             allow_methodology_override: 若 plan 明顯低於方法學最低覆蓋要求，是否仍強制允許鎖定（預設 false）
             confirm: 是否確認並鎖定計畫，必須設為 true 才會鎖定（預設 false）
         """
@@ -1196,6 +1196,10 @@ def register_plan_tools(server: Any) -> None:
             from rde.application.pipeline import PipelinePhase, PhaseResult
             from rde.domain.models.project import ProjectStatus
             from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+            from rde.domain.services.analysis_policy import validate_policy
+
+            validate_policy(alpha, missing_strategy, multiple_comparison_method)
 
             session = get_session()
             pipeline = session.get_pipeline(project.id)

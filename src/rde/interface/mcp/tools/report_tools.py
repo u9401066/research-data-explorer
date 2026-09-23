@@ -500,6 +500,8 @@ def register_report_tools(server: Any) -> None:
                         "test_count": len(result.tests),
                         "significant_count": len(result.significant_tests),
                         "warnings": result.warnings,
+                        "inference_policy": result.tables.get("multiplicity", {}),
+                        "case_sets": result.tables.get("case_sets", {}),
                     }
                     all_results.append(result_dict)
 
@@ -510,7 +512,12 @@ def register_report_tools(server: Any) -> None:
                                 "dataset_id": ds_id,
                                 "test_name": t.test_name,
                                 "variables": list(t.variables_involved),
-                                "p_value": t.p_value,
+                                "p_value": t.adjusted_p_value
+                                if t.adjusted_p_value is not None
+                                else t.p_value,
+                                "raw_p_value": t.p_value,
+                                "p_value_kind": t.correction_method or "unadjusted",
+                                "alpha": t.alpha,
                                 "effect_size": t.effect_size,
                                 "effect_size_name": getattr(t, "effect_size_name", None),
                                 "marker": "STATISTICALLY_SIGNIFICANT_CANDIDATE",
@@ -655,7 +662,7 @@ def register_report_tools(server: Any) -> None:
                         else ""
                     )
                     lines.append(
-                        f"- {', '.join(p['variables'])}: {p['test_name']} p={p['p_value']:.4f}{es}"
+                        f"- {', '.join(p['variables'])}: {p['test_name']} {_candidate_p_text(p)}{es}"
                     )
                 lines.append(
                     "\nThese are candidates only; audit must confirm effect size, "
@@ -958,12 +965,15 @@ def register_report_tools(server: Any) -> None:
         variables: list[str],
         output_filename: str | None = None,
         group_var: str | None = None,
+        include_tests: bool = False,
+        missing_strategy: str | None = None,
     ) -> str:
         """建立資料視覺化圖表。H-009 自動記錄。
 
         支援類型: histogram, boxplot, scatter, bar, violin, heatmap, line, paired。
         對 histogram / boxplot / scatter / bar / violin / heatmap / line / paired 會自動附加摘要統計；
-        若圖表支援比較或關聯檢定，預設會在圖中標註 p 值或相關係數。
+        圖表預設僅描述資料；include_tests=true 才加入未校正的探索性檢定。
+        heatmap 遵照 missing_strategy 或鎖定計畫的共同／成對完整策略。
         圖表儲存在專案的 figures/ 目錄，報告和 handoff 時自動嵌入。
 
         Args:
@@ -1031,7 +1041,13 @@ def register_report_tools(server: Any) -> None:
             output_path = output_dir / output_filename
 
             viz = MatplotlibVisualizer()
-            kwargs = {}
+            from rde.interface.mcp.tools.analysis_tools import _inference_policy
+
+            policy = _inference_policy(project, missing_strategy=missing_strategy)
+            kwargs = {
+                "include_tests": include_tests,
+                "missing_strategy": policy["missing_strategy"],
+            }
             if group_var:
                 kwargs["group_var"] = group_var
 
@@ -1057,7 +1073,13 @@ def register_report_tools(server: Any) -> None:
 
             _auto_log_decision(
                 "create_visualization",
-                {"plot_type": plot_type, "variables": variables, "group_var": group_var},
+                {
+                    "plot_type": plot_type,
+                    "variables": variables,
+                    "group_var": group_var,
+                    "include_tests": include_tests,
+                    "missing_strategy": policy["missing_strategy"],
+                },
                 "生成視覺化圖表",
                 (
                     f"{plot_type}: {relative_result_path} | {stats_summary}"
@@ -1610,7 +1632,7 @@ def _format_analyses(results: dict | None) -> str:
     if pub:
         lines.append("\n**Candidate signals (audit required):**")
         for p in pub:
-            lines.append(f"- {p.get('test_name', '?')}: p={p.get('p_value', '?')}")
+            lines.append(f"- {p.get('test_name', '?')}: {_candidate_p_text(p)}")
     return "\n".join(lines)
 
 
@@ -1867,6 +1889,12 @@ def _formal_variable_summary(schema: dict | None, *, variable_roles: dict | None
     return "\n".join(lines)
 
 
+def _candidate_p_text(item: dict) -> str:
+    method = item.get("p_value_kind", "unadjusted")
+    raw = item.get("raw_p_value", item.get("p_value", "NA"))
+    return f"p ({method})={item.get('p_value', 'NA')}; raw p={raw}; alpha={item.get('alpha', 0.05)}"
+
+
 def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
@@ -1879,9 +1907,7 @@ def _formal_key_findings(results: dict | None) -> str:
     lines = ["審計候選結果如下，仍需正式方法學確認："]
     for item in publishable:
         variables = ", ".join(item.get("variables", []))
-        lines.append(
-            f"- {variables}: {item.get('test_name', 'test')}，p={item.get('p_value', 'NA')}"
-        )
+        lines.append(f"- {variables}: {item.get('test_name', 'test')}，{_candidate_p_text(item)}")
     return "\n".join(lines)
 
 
@@ -2384,7 +2410,10 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
         significant_terms = [
             f"{term} (p={float(p):.3g})"
             for term, p in p_values.items()
-            if term != "const" and _is_numeric_less_than(p, 0.05)
+            if term != "const"
+            and _is_numeric_less_than(
+                p, float(result.get("inference_policy", {}).get("alpha", 0.05))
+            )
         ]
         r_squared = result.get("adj_r_squared", result.get("r_squared"))
         fit_text = (
@@ -2392,14 +2421,14 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
         )
         if significant_terms:
             interpretation = (
-                f"`{analysis_type}` for `{target}` has candidate adjusted terms: "
+                f"`{analysis_type}` for `{target}` has candidate model terms (unadjusted coefficient p-values): "
                 + ", ".join(significant_terms)
                 + fit_text
                 + "."
             )
         elif p_values:
             interpretation = (
-                f"`{analysis_type}` for `{target}` did not identify covariates with p<0.05"
+                f"`{analysis_type}` for `{target}` did not identify covariates below alpha={result.get('inference_policy', {}).get('alpha', 0.05)} (unadjusted coefficient p-values)"
                 f"{fit_text}; this is not evidence of equivalence or absence of an effect."
             )
         else:
@@ -2503,7 +2532,7 @@ def _format_findings(results: dict | None) -> str:
     lines.append("Audit required before treating these candidates as publishable conclusions.")
     for p in pub:
         vars_str = ", ".join(p.get("variables", []))
-        details = [f"p={p.get('p_value', '?')}"]
+        details = [_candidate_p_text(p)]
         if p.get("effect_size") is not None:
             es_name = p.get("effect_size_name", "effect size")
             es_val = p["effect_size"]
@@ -3825,7 +3854,7 @@ def _build_claim_provenance_manifest(
             effect = item.get("effect_size")
             detail = f"{item.get('test_name', 'statistical test')}"
             if p_value is not None:
-                detail += f", p={p_value}"
+                detail += f", {_candidate_p_text(item)}"
             if effect is not None:
                 detail += f", effect_size={effect}"
             add_claim(

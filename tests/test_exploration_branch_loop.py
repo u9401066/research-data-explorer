@@ -77,7 +77,7 @@ def _make_phase8_ready_project(tmp_path: Path) -> tuple[Project, ArtifactStore]:
     plan = {
         "project_id": project.id,
         "locked": True,
-        "missing_strategy": "complete_case",
+        "missing_strategy": "listwise",
         "analyses": [
             {
                 "type": "compare_groups",
@@ -1561,7 +1561,7 @@ def test_provenance_branch_closes_readiness_loop_under_tight_budget(tmp_path: Pa
     plan = {
         "project_id": project.id,
         "locked": True,
-        "missing_strategy": "complete_case",
+        "missing_strategy": "listwise",
         "analyses": [
             {
                 "type": "compare_groups",

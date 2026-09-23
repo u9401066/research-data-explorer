@@ -92,16 +92,17 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         data: Any,
         group_var: str,
         variables: list[str],
+        include_p_values: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
         df: pd.DataFrame = data
         if os.environ.get("RDE_TABLE_ONE_ENGINE", "local-lite").lower() != "tableone":
-            return self._generate_table_one_lite(df, group_var, variables)
+            return self._generate_table_one_lite(df, group_var, variables, include_p_values)
 
         try:
             from tableone import TableOne
         except ImportError:
-            return self._generate_table_one_lite(df, group_var, variables)
+            return self._generate_table_one_lite(df, group_var, variables, include_p_values)
 
         cols = [c for c in variables if c in df.columns and c != group_var]
         if not cols:
@@ -121,7 +122,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 columns=cols,
                 categorical=categorical,
                 groupby=group_var,
-                pval=True,
+                pval=include_p_values,
                 htest_name=True,
                 **kwargs,
             )
@@ -149,6 +150,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         df: pd.DataFrame,
         group_var: str,
         variables: list[str],
+        include_p_values: bool = False,
     ) -> dict[str, Any]:
         cols = [c for c in variables if c in df.columns and c != group_var]
         if group_var not in df.columns:
@@ -159,7 +161,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         groups = [
             group for group in sorted(df[group_var].dropna().unique(), key=lambda value: str(value))
         ]
-        headers = ["Variable", "Overall"] + [str(group) for group in groups] + ["p"]
+        headers = (
+            ["Variable", "Overall"]
+            + [str(group) for group in groups]
+            + (["p (unadjusted)"] if include_p_values else [])
+        )
         rows: list[list[str]] = []
         table_dict: dict[str, dict[str, str]] = {}
         n_categorical = 0
@@ -178,16 +184,20 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                     self._format_categorical_summary(df.loc[df[group_var] == group, col])
                     for group in groups
                 ]
-                p_value = self._safe_categorical_p_value(df, col, group_var)
+                p_value = (
+                    self._safe_categorical_p_value(df, col, group_var) if include_p_values else None
+                )
             else:
                 overall = self._format_continuous_summary(series)
                 group_values = [
                     self._format_continuous_summary(df.loc[df[group_var] == group, col])
                     for group in groups
                 ]
-                p_value = self._safe_continuous_p_value(df, col, group_var)
+                p_value = (
+                    self._safe_continuous_p_value(df, col, group_var) if include_p_values else None
+                )
 
-            row = [col, overall, *group_values, p_value]
+            row = [col, overall, *group_values] + ([p_value] if include_p_values else [])
             rows.append(row)
             table_dict[col] = dict(zip(headers[1:], row[1:], strict=False))
 
@@ -221,8 +231,6 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         return "; ".join(parts)
 
     def _safe_continuous_p_value(self, df: pd.DataFrame, col: str, group_var: str) -> str:
-        if os.environ.get("RDE_TABLE_ONE_P_VALUES", "0") != "1":
-            return "NA"
         try:
             from scipy import stats
 
@@ -242,8 +250,6 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             return "NA"
 
     def _safe_categorical_p_value(self, df: pd.DataFrame, col: str, group_var: str) -> str:
-        if os.environ.get("RDE_TABLE_ONE_P_VALUES", "0") != "1":
-            return "NA"
         try:
             from scipy import stats
 

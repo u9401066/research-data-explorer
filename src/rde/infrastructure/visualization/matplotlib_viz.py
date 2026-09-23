@@ -67,6 +67,7 @@ class MatplotlibVisualizer(VisualizationPort):
     def __init__(self) -> None:
         self.last_annotation_summary: str | None = None
         self._plausibility_notes_by_variable: dict[str, list[str]] = {}
+        self._include_tests = True
 
     def create_plot(
         self,
@@ -77,6 +78,7 @@ class MatplotlibVisualizer(VisualizationPort):
         **kwargs: Any,
     ) -> str:
         df: pd.DataFrame = data
+        self._include_tests = kwargs.pop("include_tests", True)
         self.last_annotation_summary = None
         self._plausibility_notes_by_variable = {}
 
@@ -370,6 +372,14 @@ class MatplotlibVisualizer(VisualizationPort):
         groups = [values for _, values in valid_groups]
         counts_line = ", ".join(f"{label} n={len(values)}" for label, values in zip(labels, groups))
 
+        if not self._include_tests:
+            self._set_annotation(
+                ax,
+                ["Descriptive only", counts_line],
+                summary=f"Descriptive only; {counts_line}",
+                context=value_var,
+            )
+            return
         if len(groups) == 2:
             statistic, p_value = self._mann_whitney_lite(groups[0], groups[1])
             p_text = self._format_p_value(float(p_value))
@@ -408,6 +418,15 @@ class MatplotlibVisualizer(VisualizationPort):
             )
             return
 
+        if not self._include_tests:
+            rho = sub[x_var].rank().corr(sub[y_var].rank())
+            self._set_annotation(
+                ax,
+                [f"Spearman rho = {rho:.2f}", f"n = {len(sub)}", "Descriptive only"],
+                summary=f"Descriptive Spearman rho={rho:.2f}; n={len(sub)}",
+                context=[x_var, y_var],
+            )
+            return
         rho, p_value = self._spearman_lite(sub, x_var, y_var)
         self._set_annotation(
             ax,
@@ -612,15 +631,19 @@ class MatplotlibVisualizer(VisualizationPort):
                 ax.set_ylim(0, 1)
                 ax.legend(title=var)
 
-                chi2, p_value = self._chi_square_test_lite(contingency)
                 counts_line = ", ".join(
                     f"{index} n={int(contingency.loc[index].sum())}" for index in contingency.index
                 )
-                self._set_annotation(
-                    ax,
-                    [f"Chi-square = {chi2:.2f}", self._format_p_value(float(p_value)), counts_line],
-                    summary=f"Chi-square; {self._format_p_value(float(p_value))}; {counts_line}",
-                )
+                if self._include_tests:
+                    chi2, p_value = self._chi_square_test_lite(contingency)
+                    lines = [
+                        f"Chi-square = {chi2:.2f}",
+                        self._format_p_value(float(p_value)),
+                        counts_line,
+                    ]
+                else:
+                    lines = ["Descriptive only", counts_line]
+                self._set_annotation(ax, lines, summary="; ".join(lines))
                 plt.tight_layout()
                 fig.savefig(output_path, dpi=150, bbox_inches="tight")
                 plt.close(fig)
@@ -697,7 +720,14 @@ class MatplotlibVisualizer(VisualizationPort):
         if not numeric_vars:
             raise ValueError("No numeric variables for heatmap.")
 
-        corr = df[numeric_vars].corr()
+        from rde.domain.services.analysis_policy import correlation_with_cases
+
+        result = correlation_with_cases(
+            df, numeric_vars, kwargs.get("missing_strategy", "pairwise")
+        )
+        corr = result["matrix"]
+        counts = [case["n_analyzed"] for case in result["case_sets"].values()]
+        case_summary = f"{result['missing_strategy']}; cell n={min(counts)}..{max(counts)}"
         fig, ax = plt.subplots(figsize=(max(6, len(numeric_vars)), max(5, len(numeric_vars) * 0.8)))
         image = ax.imshow(corr.to_numpy(dtype=float), cmap="RdBu_r", vmin=-1, vmax=1)
         ax.set_xticks(range(len(numeric_vars)))
@@ -715,9 +745,9 @@ class MatplotlibVisualizer(VisualizationPort):
             ax,
             [
                 f"variables = {len(numeric_vars)}",
-                f"complete rows = {len(df[numeric_vars].dropna())}",
+                case_summary,
             ],
-            summary=f"variables={len(numeric_vars)}; complete_rows={len(df[numeric_vars].dropna())}",
+            summary=f"variables={len(numeric_vars)}; {case_summary}",
             context=numeric_vars,
         )
         plt.tight_layout()

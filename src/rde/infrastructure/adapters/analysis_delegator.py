@@ -344,7 +344,12 @@ class AnalysisDelegator:
                 },
             )
         columns = [target, *covariates]
-        working = df[columns].copy().dropna()
+        from rde.domain.services.analysis_policy import finite_frame, case_record
+
+        if len(set(columns)) != len(columns):
+            return None, None, None, {"error": "Target and covariates must be distinct."}
+        source = finite_frame(df, columns).reset_index(drop=True)
+        working = source[columns].copy().dropna()
         if working.empty or len(working) < 3:
             return (
                 None,
@@ -379,6 +384,13 @@ class AnalysisDelegator:
                 },
             )
         encoded_x = model_frame[list(x.columns)]
+        mask = pd.Series(source.index.isin(model_frame.index), index=source.index)
+        encoded_x.attrs["case_set"] = case_record(
+            source,
+            columns,
+            mask,
+            "model-specific complete cases after encoding; no pairwise fitting or imputation",
+        )
         encoded_x.attrs["source_covariates"] = covariates
         encoded_x.attrs["encoded_covariates"] = encoded_covariates
         return model_frame, model_frame[target], encoded_x, None
@@ -679,6 +691,7 @@ class AnalysisDelegator:
         result = self._logistic_result_from_fit(
             fit, confidence_level=float(config.get("confidence_level", 0.95))
         )
+        result["case_set"] = fit["x_raw"].attrs.get("case_set", {})
         result.update(
             {
                 "interpretation": (
@@ -760,6 +773,7 @@ class AnalysisDelegator:
             "source_covariates": list(x_raw.attrs.get("source_covariates", covariates)),
             "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
             "nobs": int(fitted.nobs),
+            "case_set": x_raw.attrs.get("case_set", {}),
             "coefficients": {name: float(value) for name, value in fitted.params.items()},
             "coefficient_ci": {
                 str(name): [float(bounds.iloc[0]), float(bounds.iloc[1])]
@@ -825,6 +839,7 @@ class AnalysisDelegator:
             "source_covariates": list(x_raw.attrs.get("source_covariates", covariates)),
             "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
             "nobs": int(nobs),
+            "case_set": x_raw.attrs.get("case_set", {}),
             "coefficients": coefficients,
             "p_values": {name: None for name in coefficients},
             "r_squared": float(max(0.0, min(1.0, r_squared))),
