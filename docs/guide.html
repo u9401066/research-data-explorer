@@ -1006,7 +1006,7 @@
       <div class="content">
         <aside class="section" aria-label="Current capabilities">
           <h2>MCP 2.2+ · 開放研究 / Open research</h2>
-          <p>50 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
+          <p>51 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
           <p><a href="index.html#clinical">臨床方法 / Clinical methods</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/mcp-v2.md">SDK migration</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md">Autoresearch contracts</a></p>
           <p>研究證據以效應量、不確定性、實際個案與限制為核心；工具完成、稽核分數或 p 值都不等於臨床可信度。 / Estimates, uncertainty, actual cases, and limitations matter. Tool completion, audit scores, and p-values do not establish clinical credibility.</p>
         </aside>
@@ -1052,7 +1052,7 @@
 
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>受治理 Phase</span></div>
-            <div class="stat"><strong>50</strong><span>已註冊 MCP 工具</span></div>
+            <div class="stat"><strong>51</strong><span>已註冊 MCP 工具</span></div>
             <div class="stat"><strong>9</strong><span>工具群組</span></div>
             <div class="stat"><strong>3</strong><span>完成度等級</span></div>
           </div>
@@ -1367,7 +1367,7 @@
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 50 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
+              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 51 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -1808,7 +1808,7 @@ python3 -m rde</pre>
 
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>Governed phases</span></div>
-            <div class="stat"><strong>50</strong><span>Registered MCP tools</span></div>
+            <div class="stat"><strong>51</strong><span>Registered MCP tools</span></div>
             <div class="stat"><strong>9</strong><span>Tool groups</span></div>
             <div class="stat"><strong>3</strong><span>Completion tiers</span></div>
           </div>
@@ -2051,7 +2051,7 @@ python3 -m rde</pre>
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> lists 50 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
+              <p><code>vscode-extension/package.json</code> lists 51 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2446,6 +2446,7 @@ python3 -m rde</pre>
       ["profiling_tools.py", 2, "profile_dataset, assess_quality"],
       ["plan_tools.py", 4, "align_concept, propose_analysis_plan, register_analysis_plan, check_readiness"],
       ["analysis_tools.py", 8, "suggest_cleaning, apply_cleaning, analyze_variable, compare_groups, correlation_matrix, generate_table_one, run_advanced_analysis, run_repeated_measures"],
+      ["prediction_tools.py", 1, "run_prediction_study"],
       ["branch_tools.py", 13, "open_exploration_branch, suggest_branch_experiments, run_branch_experiment, evaluate_branch, promote_branch_to_plan_amendment, discard_branch, get_exploration_board, start_autoresearch_run, get_autoresearch_status, stop_autoresearch_run, resume_autoresearch_run, run_autoresearch_next_task, run_autoresearch_queue"],
       ["ux_tools.py", 4, "get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook"],
       ["report_tools.py", 4, "collect_results, assemble_report, create_visualization, export_report"],

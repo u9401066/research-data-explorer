@@ -33,7 +33,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 ## Current Code-Verified Snapshot
 
 Release 0.5.0 local verification: 411 Python tests passed (six explicitly skipped),
-40 extension tests passed, all 50 MCP tools audited, desktop/mobile Chromium QA
+40 extension tests passed, all 51 MCP tools audited, desktop/mobile Chromium QA
 passed, and wheel/source archive/VSIX payloads matched reviewed sources. See the
 [release workboard](docs/release-0.5.0-plan.md) for scope and final remote evidence.
 
@@ -88,7 +88,7 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 50 MCP tools across 10 modules:
+The current implementation exposes 51 MCP tools across 11 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
@@ -98,6 +98,7 @@ The current implementation exposes 50 MCP tools across 10 modules:
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |
 | `plan_tools.py` | 4 | `align_concept`, `propose_analysis_plan`, `register_analysis_plan`, `check_readiness` |
 | `analysis_tools.py` | 8 | `suggest_cleaning`, `apply_cleaning`, `analyze_variable`, `compare_groups`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures` |
+| `prediction_tools.py` | 1 | `run_prediction_study` |
 | `branch_tools.py` | 13 | `open_exploration_branch`, `suggest_branch_experiments`, `run_branch_experiment`, `evaluate_branch`, `promote_branch_to_plan_amendment`, `discard_branch`, `get_exploration_board`, `start_autoresearch_run`, `get_autoresearch_status`, `stop_autoresearch_run`, `resume_autoresearch_run`, `run_autoresearch_next_task`, `run_autoresearch_queue` |
 | `ux_tools.py` | 4 | `get_approval_card`, `get_harness_dashboard`, `build_artifact_index`, `get_blocker_playbook` |
 | `report_tools.py` | 4 | `collect_results`, `assemble_report`, `create_visualization`, `export_report` |

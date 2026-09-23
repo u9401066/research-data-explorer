@@ -54,6 +54,11 @@ CONTRACTS = {
     "run_repeated_measures": ToolContract(
         "8", "locked plan + readiness", "case ledger and decision"
     ),
+    "run_prediction_study": ToolContract(
+        "8",
+        "exact locked prediction options + readiness + holdout reuse guard",
+        "training CV, validation receipt, predictions, figures and decision",
+    ),
     "open_exploration_branch": ToolContract("8", "locked plan + readiness", "branch event"),
     "suggest_branch_experiments": ToolContract(
         "8", "project context", "candidate suggestions", True

@@ -247,6 +247,7 @@ analysis_plan_schema:
     - generate_table_one
     - run_advanced_analysis
     - run_repeated_measures
+    - run_prediction_study
     - propensity_score
     - survival_analysis
     - roc_auc

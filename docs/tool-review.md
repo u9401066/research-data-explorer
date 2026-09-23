@@ -2,7 +2,7 @@
 
 This inventory is generated from the live official SDK registry by
 `uv run python scripts/audit_mcp_surface.py`, not inferred from function names.
-All 50 tools have matching SDK/extension inventories, input and output schemas,
+All 51 tools have matching SDK/extension inventories, input and output schemas,
 descriptions, explicit effect/gate contracts and annotations. Every row is covered
 by the parameterized `tests/test_mcp_tool_boundaries.py` isolation/error-boundary
 test; focused suites additionally exercise successful workflows.
@@ -56,6 +56,7 @@ dataset, clinical estimand or external vendor configuration.
 | `run_autoresearch_queue` | 8 | governed project + lease + budget | bounded experiments | no |
 | `run_branch_experiment` | 8 | governed branch | experiment ledger | no |
 | `run_intake` | 1 | format/size/PII | intake and datasets | no |
+| `run_prediction_study` | 8 | exact locked prediction options + readiness + holdout reuse guard | training CV, validation receipt, predictions, figures and decision | no |
 | `run_repeated_measures` | 8 | locked plan + readiness | case ledger and decision | no |
 | `scan_data_folder` | 1 | supported local files | file metadata | yes |
 | `start_autoresearch_run` | 8 | locked plan + readiness + budget | run/queue/budget | no |
@@ -79,3 +80,6 @@ dataset, clinical estimand or external vendor configuration.
 
 See [MCP v2 design](mcp-v2.md), [clinical methods](clinical-methods.md) and
 [autoresearch evidence contracts](autoresearch-design.md).
+
+
+Prediction validation regressions cover held-out perturbation isolation, group/time separation, candidate failure, saved-result reuse and renderer recovery.

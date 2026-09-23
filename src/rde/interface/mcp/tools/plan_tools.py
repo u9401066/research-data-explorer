@@ -1308,6 +1308,7 @@ def register_plan_tools(server: Any) -> None:
                 "correlation_matrix",
                 "generate_table_one",
                 "run_advanced_analysis",
+                "run_prediction_study",
                 "run_repeated_measures",
                 "propensity_score",
                 "survival_analysis",
@@ -1345,13 +1346,45 @@ def register_plan_tools(server: Any) -> None:
                     "每項分析應含 type (必填)、variables (建議)、rationale (選填)。",
                 )
 
+            prediction_entries = [
+                entry for entry in analyses if entry.get("type") == "run_prediction_study"
+            ]
+            prediction_only = bool(prediction_entries)
+            if prediction_only:
+                from rde.interface.mcp.tools.prediction_tools import planned_spec
+
+                if len(analyses) != 1:
+                    return fmt_error(
+                        "Prediction plans contain exactly one prediction study; do not mix full-data inferential analyses into held-out validation."
+                    )
+                try:
+                    prediction_spec = planned_spec(prediction_entries[0])
+                    expected_columns = {
+                        prediction_spec.target,
+                        *prediction_spec.predictors,
+                        *[
+                            v
+                            for v in [
+                                prediction_spec.subject_variable,
+                                prediction_spec.time_variable,
+                            ]
+                            if v
+                        ],
+                    }
+                    if set(prediction_entries[0]["variables"]) != expected_columns:
+                        raise ValueError(
+                            "Prediction plan variables must exactly enumerate target, predictors and split keys."
+                        )
+                except (ValueError, TypeError, KeyError) as error:
+                    return fmt_error(f"Invalid prediction specification: {error}")
+
             methodology_review_dict: dict[str, Any] | None = None
             execution_schedule: list[dict[str, Any]] = []
             dataset_ok, _, dataset_entry = ensure_dataset(project=project)
             dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
             planner = None
             auto_expanded_labels: list[str] = []
-            if dataset is not None:
+            if dataset is not None and not prediction_only:
                 from rde.domain.services.autonomous_eda_planner import AutonomousEDAPlanner
 
                 planner = AutonomousEDAPlanner()
@@ -1418,6 +1451,34 @@ def register_plan_tools(server: Any) -> None:
                 if script_dataset is not None
                 else "# No dataset available; statsmodels base analysis script was not generated.\n"
             )
+
+            if prediction_only:
+                methodology_review_dict = {
+                    "status": "pass",
+                    "scope": "prediction_specification_review",
+                    "completeness_tier": "prediction_validation",
+                    "recommended_analysis_floor": 1,
+                    "academic_analysis_target": 1,
+                    "production_analysis_target": 1,
+                    "final_analysis_count": 1,
+                    "checks": [{"name": "prespecified_prediction_contract", "passed": True}],
+                    "warnings": [
+                        "This validates the prespecified software contract, not clinical sample size, predictor timing or model applicability. Train/validation separation and actual performance are checked after execution."
+                    ],
+                }
+                execution_schedule = [
+                    {
+                        "order": 1,
+                        "step_id": "run_prediction_study",
+                        "stage": "prediction_validation",
+                        "tool_name": "run_prediction_study",
+                        "analysis_label": "run_prediction_study",
+                        "variables": prediction_entries[0]["variables"],
+                        "depends_on": [],
+                        "rationale": "Split before fitting; all preprocessing and model selection remain inside training folds.",
+                    }
+                ]
+                script_content = "# Execute run_prediction_study through RDE MCP with the locked prediction_options.\n# No full-dataset cleaning, imputation, predictor screening or statsmodels fit precedes the split.\n"
 
             plan = {
                 "project_id": project.id,

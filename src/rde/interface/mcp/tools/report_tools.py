@@ -565,6 +565,7 @@ def register_report_tools(server: Any) -> None:
             exploration_branches = _summarize_exploration_branches(store)
             summary = {
                 "comparisons": _persisted_comparisons(store),
+                "predictions": _prediction_summaries(store),
                 "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
                 "publishable_items": publishable,
@@ -635,7 +636,9 @@ def register_report_tools(server: Any) -> None:
                     f"promote candidates: {exploration_branches['promote_candidates']}"
                 )
 
-            lines.append(f"- **Table 1:** {'✅' if deliverables['table_one_present'] else '❌'}")
+            lines.append(
+                f"- **Table 1:** {'不適用於預測驗證' if deliverables.get('table_one_required') is False else '✅' if deliverables.get('table_one_present') else '❌'}"
+            )
             lines.append(
                 f"- **粗分析圖:** {deliverables['descriptive_figures']}/{deliverables['required_descriptive_figures']}"
             )
@@ -1579,6 +1582,8 @@ def _format_analyses(results: dict | None) -> str:
         return "[No analysis results collected]"
     lines = [f"**分析總數:** {results.get('total_analyses', 0)}"]
     lines.append(_comparison_results_markdown(results))
+    for prediction in results.get("predictions", []):
+        lines.append(prediction["summary_markdown"])
     report_readiness = results.get("report_readiness") or {}
     if report_readiness:
         lines.extend(
@@ -1596,7 +1601,7 @@ def _format_analyses(results: dict | None) -> str:
     if deliverables:
         lines.extend(
             [
-                f"**Table 1:** {'已提供' if deliverables.get('table_one_present') else '缺少'}",
+                f"**Table 1:** {'不適用於此預測驗證契約' if deliverables.get('table_one_required') is False else '已提供' if deliverables.get('table_one_present') else '缺少'}",
                 f"**粗分析圖:** {deliverables.get('descriptive_figures', 0)}/{deliverables.get('required_descriptive_figures', MIN_DESCRIPTIVE_FIGURES)}",
                 f"**細分析圖:** {deliverables.get('analytical_figures', 0)}/{deliverables.get('required_analytical_figures', MIN_ANALYTICAL_FIGURES)}",
             ]
@@ -1897,6 +1902,20 @@ def _candidate_p_text(item: dict) -> str:
     return f"p ({method})={item.get('p_value', 'NA')}; raw p={raw}; alpha={item.get('alpha', 0.05)}"
 
 
+def _prediction_summaries(store: Any) -> list[dict]:
+    from rde.interface.mcp.tools.prediction_tools import persisted_predictions
+    from rde.infrastructure.prediction.report import markdown
+
+    return [
+        {
+            "artifact": record["artifact"],
+            "receipt_sha256": record["result"]["receipt_sha256"],
+            "summary_markdown": markdown(record["result"]),
+        }
+        for record in persisted_predictions(store)
+    ]
+
+
 def _persisted_comparisons(store: Any) -> list[dict]:
     """Read primary comparison receipts, including nonsignificant tests after restart."""
     from rde.application.pipeline import PipelinePhase
@@ -1980,6 +1999,8 @@ def _formal_key_findings(results: dict | None) -> str:
 
 def _formal_statistical_summary(project: Any, store: Any, results: dict | None) -> str:
     lines: list[str] = []
+    if results and results.get("predictions"):
+        return "\n\n".join(item["summary_markdown"] for item in results["predictions"])
     if isinstance(results, dict):
         deliverables = results.get("deliverables") or {}
         lines.append(
@@ -2020,6 +2041,8 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     focus_variables = _select_focus_variables(schema, variable_roles, results, limit=5)
+    if results and results.get("predictions"):
+        return "本報告評估預先指定的預測流程及其內部保留集表現。需檢視校準、誤差與資料代表性，並以獨立資料外部驗證；目前不能據此宣稱臨床效益或部署適用性。"
     focus_text = "、".join(focus_variables) if focus_variables else "主要研究變項"
     lines = [
         f"本輪分析支持以 {focus_text} 作為後續研究設計與假說精煉的核心線索。",
@@ -2085,6 +2108,15 @@ def _build_interpretation_discussion(
     include_figure_details: bool = True,
 ) -> str:
     """Build narrative interpretation, recommendations, and literature context."""
+
+    if results and results.get("predictions"):
+        return (
+            "## Prediction Interpretation\n\n模型依訓練內交叉驗證選擇；保留集只評估所選模型。"
+            "請同時檢視區辨度、校準或誤差、信賴區間與基準模型。"
+            "數值及每張圖的適用範圍見 Prediction validation 與圖說。"
+            "受試者分組與時間先後已由執行紀錄檢查，但預測時點可取得性仍需研究者確認。"
+            "報告完整不表示模型可臨床部署，下一步需要確認抽樣／測量偏差、樣本數與事件數、臨床閾值及獨立外部驗證。"
+        )
 
     lines = ["## Interpretation Narrative\n"]
     lines.append(
@@ -2964,6 +2996,16 @@ def _evaluate_report_readiness(
 ) -> dict[str, Any]:
     from rde.application.pipeline import PipelinePhase
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
+    from rde.interface.mcp.tools.prediction_tools import prediction_plan
+
+    if prediction_plan(store) is not None:
+        from rde.interface.mcp.tools._shared.prediction_readiness import prediction_readiness
+
+        return prediction_readiness(
+            store,
+            data_quality=_evaluate_data_quality_evidence(store),
+            require_report_generation=require_report_generation,
+        )
 
     normalized_results = dict(results or {})
     persisted_results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
@@ -4061,6 +4103,12 @@ def _resolved_visualization_manifest_entries(project: Any, store: Any) -> list[d
 
 def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, Any]:
     from rde.application.pipeline import PipelinePhase
+    from rde.interface.mcp.tools.prediction_tools import prediction_plan
+
+    if prediction_plan(store) is not None:
+        from rde.interface.mcp.tools._shared.prediction_readiness import prediction_deliverables
+
+        return prediction_deliverables(project, store)
 
     valid_entries = [
         entry

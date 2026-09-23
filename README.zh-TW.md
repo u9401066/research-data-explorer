@@ -14,7 +14,7 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 - 長格式配對比較必須以受試者 ID 對齊，不依資料列順序配對；每項 outcome 保存分析個案及排除數。重複測量明確區分共同完整樣本與各 contrast 的 pairwise-complete 樣本。
 - 分析完整性逐一核對鎖定計畫中的必要項目與成功產物；重複執行、失敗或僅記錄想法不會灌高完成度。
 - Autoresearch 接受 agent 自訂 `agent_proposals`；探索支線保留獨立證據，未支援的方法記為 `recorded` 而不是假裝執行。沒有顯著差異不代表研究失敗，p 值也不是研究品質分數。[設計與參考 repo](docs/autoresearch-design.md)。
-- 使用官方 [MCP SDK v2](docs/mcp-v2.md)，提供結構化結果、工具效果／gate 宣告、workflow resources 與 prompts。[50 個工具的逐項檢查](docs/tool-review.md)列明驗證範圍。
+- 使用官方 [MCP SDK v2](docs/mcp-v2.md)，提供結構化結果、工具效果／gate 宣告、workflow resources 與 prompts。[51 個工具的逐項檢查](docs/tool-review.md)列明驗證範圍。
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,7 @@ wheel、source archive 與 VSIX 已核對程式和圖片內容。最終遠端發
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | `PipelinePhase` 定義 13 個 phase，從 `phase_00_project_setup` 到 `phase_12_auto_improve` |
 | MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 官方 SDK v2 `MCPServer` 註冊 10 組 tool modules |
-| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 50 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
+| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 51 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls、override flags、audit paths、delegation、UX harness、core goal contract |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) 與 [vscode-extension/package.json](vscode-extension/package.json) | MCP provider、`@rde` chat participant、Command Palette 指令、Codex config helper、optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`、`academic_ready`、`production_ready`、publication bundle、semantic quality、claim provenance、core-goal audit |
@@ -78,6 +78,7 @@ RDE 是給非資料科學家使用的 agent harness，不是只產生漂亮摘�
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |
 | `plan_tools.py` | 4 | `align_concept`, `propose_analysis_plan`, `register_analysis_plan`, `check_readiness` |
 | `analysis_tools.py` | 8 | `suggest_cleaning`, `apply_cleaning`, `analyze_variable`, `compare_groups`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures` |
+| `prediction_tools.py` | 1 | `run_prediction_study` |
 | `branch_tools.py` | 13 | `open_exploration_branch`, `suggest_branch_experiments`, `run_branch_experiment`, `evaluate_branch`, `promote_branch_to_plan_amendment`, `discard_branch`, `get_exploration_board`, `start_autoresearch_run`, `get_autoresearch_status`, `stop_autoresearch_run`, `resume_autoresearch_run`, `run_autoresearch_next_task`, `run_autoresearch_queue` |
 | `ux_tools.py` | 4 | `get_approval_card`, `get_harness_dashboard`, `build_artifact_index`, `get_blocker_playbook` |
 | `report_tools.py` | 4 | `collect_results`, `assemble_report`, `create_visualization`, `export_report` |

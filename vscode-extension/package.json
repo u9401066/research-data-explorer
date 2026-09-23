@@ -62,6 +62,7 @@
       "generate_table_one",
       "run_advanced_analysis",
       "run_repeated_measures",
+      "run_prediction_study",
       "open_exploration_branch",
       "suggest_branch_experiments",
       "start_autoresearch_run",
