@@ -1663,8 +1663,6 @@ def _format_analyses(results: dict | None) -> str:
         lines.append(
             f"**core goal audit:** {'ready' if core_goal_audit.get('ready') else 'missing'}"
         )
-    if results.get("repeated_measurements"):
-        return _formal_key_findings(results)
     pub = results.get("publishable_items", [])
     if pub:
         lines.append("\n**Candidate signals (audit required):**")
@@ -2697,6 +2695,8 @@ def _format_findings(results: dict | None) -> str:
     """Format key findings section."""
     if not results:
         return "[No findings to report]"
+    if results.get("repeated_measurements"):
+        return _formal_key_findings(results)
     pub = results.get("publishable_items", [])
     if not pub:
         return "No audit-ready candidate signals."

@@ -20,6 +20,7 @@ from rde.interface.mcp.tools.report_tools import (
     _format_data_overview,
     _format_data_quality,
     _format_figure_gallery,
+    _format_findings,
     _format_variable_profiles,
     _load_latest_repeated_measures_markdown_bundle,
     _parse_table_markdown_rows,
@@ -53,6 +54,39 @@ class _ToolCapture:
             return fn
 
         return decorator
+
+
+def test_repeated_report_keeps_findings_and_readiness_in_their_sections() -> None:
+    results = {
+        "total_analyses": 1,
+        "repeated_measurements": [{"summary_markdown": "paired results"}],
+        "publishable_items": [],
+        "report_readiness": {
+            "target_tier": "repeated-wide-v1",
+            "current_tier": "repeated-wide-v1",
+            "ready": True,
+        },
+        "deliverables": {
+            "table_one_required": False,
+            "descriptive_figures": 1,
+            "required_descriptive_figures": 1,
+            "analytical_figures": 0,
+            "required_analytical_figures": 0,
+        },
+    }
+
+    findings = _format_findings(results)
+    analyses = _format_analyses(results)
+
+    assert "受試者內時間比較" in findings
+    assert "時間變化不代表治療組效果" in findings
+    assert "No audit-ready candidate signals" not in findings
+    assert "**分析總數:** 1" in analyses
+    assert "**完整度目標:** repeated-wide-v1" in analyses
+    assert "**最終報告就緒:** 是" in analyses
+    assert "**Table 1:** 不適用於此核准研究契約" in analyses
+    assert "**粗分析圖:** 1/1" in analyses
+    assert "**細分析圖:** 0/0" in analyses
 
 
 def test_repeated_measures_report_bundle_keeps_latest_version(tmp_path: Path) -> None:
