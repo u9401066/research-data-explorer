@@ -566,6 +566,7 @@ def register_report_tools(server: Any) -> None:
             summary = {
                 "comparisons": _persisted_comparisons(store),
                 "predictions": _prediction_summaries(store),
+                "repeated_measurements": _repeated_summaries(store),
                 "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
                 "publishable_items": publishable,
@@ -774,6 +775,10 @@ def register_report_tools(server: Any) -> None:
             table_one = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
             if table_one:
                 artifacts["baseline_table"] = _format_baseline_table(table_one)
+            elif results and results.get("repeated_measurements"):
+                artifacts["baseline_table"] = (
+                    "本計畫沒有治療組間基線比較。各時點共同完整個案的描述統計列於重複量測結果；追蹤終點不充作基線共變項。"
+                )
 
             # Statistical analyses from results summary
             if results:
@@ -971,6 +976,9 @@ def register_report_tools(server: Any) -> None:
         group_var: str | None = None,
         include_tests: bool = False,
         missing_strategy: str | None = None,
+        subject_variable: str | None = None,
+        labels: list[str] | None = None,
+        ylabel: str | None = None,
     ) -> str:
         """建立資料視覺化圖表。H-009 自動記錄。
 
@@ -1052,6 +1060,22 @@ def register_report_tools(server: Any) -> None:
                 "include_tests": include_tests,
                 "missing_strategy": policy["missing_strategy"],
             }
+            if subject_variable is not None:
+                if plot_type not in {"paired", "line"}:
+                    raise ValueError("subject_variable 僅適用配對／時間序列圖。")
+                kwargs["subject_variable"] = subject_variable
+            if labels is not None:
+                if (
+                    plot_type not in {"paired", "line"}
+                    or len(labels) != len(variables)
+                    or any(not label.strip() or len(label) > 120 for label in labels)
+                ):
+                    raise ValueError("時點標籤需與量測欄位依序一對一，且每個標籤為 1–120 字。")
+                kwargs["labels"] = labels
+            if ylabel is not None:
+                if not ylabel.strip() or len(ylabel) > 120:
+                    raise ValueError("量測軸標題需為 1–120 字。")
+                kwargs["ylabel"] = ylabel
             if group_var:
                 kwargs["group_var"] = group_var
 
@@ -1070,6 +1094,7 @@ def register_report_tools(server: Any) -> None:
                 result_path=result_path,
                 group_var=group_var,
                 stats_summary=stats_summary,
+                execution_arguments={"plot_type": plot_type, "variables": variables, **kwargs},
             )
             relative_result_path = _figure_manifest_output_path(project, result_path) or result_path
 
@@ -1082,6 +1107,9 @@ def register_report_tools(server: Any) -> None:
                     "variables": variables,
                     "group_var": group_var,
                     "include_tests": include_tests,
+                    "subject_variable": subject_variable,
+                    "labels": labels,
+                    "ylabel": ylabel,
                     "missing_strategy": policy["missing_strategy"],
                 },
                 "生成視覺化圖表",
@@ -1601,7 +1629,7 @@ def _format_analyses(results: dict | None) -> str:
     if deliverables:
         lines.extend(
             [
-                f"**Table 1:** {'不適用於此預測驗證契約' if deliverables.get('table_one_required') is False else '已提供' if deliverables.get('table_one_present') else '缺少'}",
+                f"**Table 1:** {'不適用於此核准研究契約' if deliverables.get('table_one_required') is False else '已提供' if deliverables.get('table_one_present') else '缺少'}",
                 f"**粗分析圖:** {deliverables.get('descriptive_figures', 0)}/{deliverables.get('required_descriptive_figures', MIN_DESCRIPTIVE_FIGURES)}",
                 f"**細分析圖:** {deliverables.get('analytical_figures', 0)}/{deliverables.get('required_analytical_figures', MIN_ANALYTICAL_FIGURES)}",
             ]
@@ -1635,6 +1663,8 @@ def _format_analyses(results: dict | None) -> str:
         lines.append(
             f"**core goal audit:** {'ready' if core_goal_audit.get('ready') else 'missing'}"
         )
+    if results.get("repeated_measurements"):
+        return _formal_key_findings(results)
     pub = results.get("publishable_items", [])
     if pub:
         lines.append("\n**Candidate signals (audit required):**")
@@ -1902,6 +1932,25 @@ def _candidate_p_text(item: dict) -> str:
     return f"p ({method})={item.get('p_value', 'NA')}; raw p={raw}; alpha={item.get('alpha', 0.05)}"
 
 
+def _repeated_summaries(store: Any) -> list[dict]:
+    from rde.interface.mcp.tools._shared.repeated_readiness import repeated_plan, repeated_record
+
+    if repeated_plan(store) is None:
+        return []
+    record = repeated_record(store)
+    if not record:
+        return []
+    return [
+        {
+            "artifact": record["artifact"],
+            "summary_markdown": str(
+                store.load(PipelinePhase.EXECUTE_EXPLORATION, record["markdown_artifact"]) or ""
+            ),
+            "receipt_sha256": record["receipt_sha256"],
+        }
+    ]
+
+
 def _prediction_summaries(store: Any) -> list[dict]:
     from rde.interface.mcp.tools.prediction_tools import persisted_predictions
     from rde.infrastructure.prediction.report import markdown
@@ -1984,6 +2033,8 @@ def _comparison_results_markdown(results: dict | None) -> str:
 def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
+    if results.get("repeated_measurements"):
+        return "本次結果為預先指定的受試者內時間比較。完整配對數、缺失排除、檢定及全部事後比較列於重複量測結果；時間變化不代表治療組效果。"
     publishable = results.get("publishable_items") or []
     if not publishable:
         return (
@@ -1998,6 +2049,8 @@ def _formal_key_findings(results: dict | None) -> str:
 
 
 def _formal_statistical_summary(project: Any, store: Any, results: dict | None) -> str:
+    if results and results.get("repeated_measurements"):
+        return "\n\n".join(item["summary_markdown"] for item in results["repeated_measurements"])
     lines: list[str] = []
     if results and results.get("predictions"):
         return "\n\n".join(item["summary_markdown"] for item in results["predictions"])
@@ -2040,6 +2093,8 @@ def _formal_conclusions(
     schema: dict | None = None,
     variable_roles: dict | None = None,
 ) -> str:
+    if results and results.get("repeated_measurements"):
+        return "本報告描述核准時點的受試者內變化；需依實際個案、差值方向、校正家族與方法限制解讀。缺失個案可能產生選擇偏差，未估計組間治療效果或時間×治療交互作用，也未提供效應量信賴區間。"
     focus_variables = _select_focus_variables(schema, variable_roles, results, limit=5)
     if results and results.get("predictions"):
         return "本報告評估預先指定的預測流程及其內部保留集表現。需檢視校準、誤差與資料代表性，並以獨立資料外部驗證；目前不能據此宣稱臨床效益或部署適用性。"
@@ -2109,6 +2164,14 @@ def _build_interpretation_discussion(
 ) -> str:
     """Build narrative interpretation, recommendations, and literature context."""
 
+    if results and results.get("repeated_measurements"):
+        return (
+            "## 重複量測結果解讀\n\n同一受試者的各時間點需共同解讀；差值與 r 均為後列時點減前列時點。"
+            "圖表描述所有時點共同完整個案，不另加 p 值；Friedman 主檢定與事後比較的實際 n 可能因核准的 pairwise 策略而不同。"
+            "請檢視逐列納排、個別時點缺失及合理性篩除，不能把完整個案視為無偏的全體代表。"
+            "Wilcoxon 差值對稱性與受試者間獨立性需研究者判斷；Friedman 卡方近似在少量時點／小樣本時可靠性有限。"
+            "目前未估計治療組差異、時間×治療交互作用或效應量信賴區間；統計差異不是療效或臨床重要性的證明。"
+        )
     if results and results.get("predictions"):
         return (
             "## Prediction Interpretation\n\n模型依訓練內交叉驗證選擇；保留集只評估所選模型。"
@@ -2269,7 +2332,16 @@ def _figure_interpretation_harness_entry(
     plot = plot_type.lower()
     variables_text = ", ".join(variables) if variables else "unspecified variables"
 
-    if plot == "histogram":
+    if plot in {"line", "paired"}:
+        evidence_role = "Within-subject complete-case description"
+        visual_read = "Columns are ordered measurement occasions of the same subjects; lines do not represent independent treatment groups."
+        statistical_support = stats_summary or "No inferential test is attached."
+        validity_caveat = "Complete cases may differ from the enrolled population; a within-person change cannot establish treatment efficacy."
+        reportable_claim = (
+            f"The figure describes the paired measurements {variables_text} in their stated order."
+        )
+        next_analysis = "Read the locked repeated-measures receipt for actual denominators, exclusions, effect direction and adjusted post-hoc results."
+    elif plot == "histogram":
         distribution = _describe_distribution(stats_summary)
         evidence_role = "Distribution and assumption check"
         visual_read = (
@@ -3002,6 +3074,15 @@ def _evaluate_report_readiness(
         from rde.interface.mcp.tools._shared.prediction_readiness import prediction_readiness
 
         return prediction_readiness(
+            store,
+            data_quality=_evaluate_data_quality_evidence(store),
+            require_report_generation=require_report_generation,
+        )
+
+    from rde.interface.mcp.tools._shared.repeated_readiness import repeated_plan, repeated_readiness
+
+    if repeated_plan(store) is not None:
+        return repeated_readiness(
             store,
             data_quality=_evaluate_data_quality_evidence(store),
             require_report_generation=require_report_generation,
@@ -4053,6 +4134,7 @@ def _upsert_visualization_manifest(
     result_path: str,
     group_var: str | None,
     stats_summary: str | None,
+    execution_arguments: dict | None = None,
 ) -> None:
     from rde.application.pipeline import PipelinePhase
     from rde.infrastructure.persistence.artifact_store import ArtifactStore
@@ -4088,6 +4170,8 @@ def _upsert_visualization_manifest(
             "output_path": output_path,
             "stats_summary": stats_summary,
             "category": _visualization_category(plot_type, group_var),
+            "sha256": hashlib.sha256(Path(result_path).read_bytes()).hexdigest(),
+            "execution_arguments": execution_arguments,
         }
     )
     store.save(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json", updated)
@@ -4109,6 +4193,14 @@ def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, A
         from rde.interface.mcp.tools._shared.prediction_readiness import prediction_deliverables
 
         return prediction_deliverables(project, store)
+
+    from rde.interface.mcp.tools._shared.repeated_readiness import (
+        repeated_plan,
+        repeated_deliverables,
+    )
+
+    if repeated_plan(store) is not None:
+        return repeated_deliverables(project, store)
 
     valid_entries = [
         entry

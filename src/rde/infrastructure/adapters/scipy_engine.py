@@ -425,12 +425,18 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             return {"error": "Wilcoxon test requires at least 1 complete pair; found 0."}
         a = paired[variables[0]].to_numpy(dtype=float)
         b = paired[variables[1]].to_numpy(dtype=float)
-        differences = a - b
+        differences = b - a
         nonzero = differences[differences != 0]
         if len(nonzero) == 0:
             stat, p, rank_biserial = 0.0, 1.0, 0.0
         else:
-            stat, p = stats.wilcoxon(a, b)
+            stat, p = stats.wilcoxon(
+                differences,
+                zero_method="wilcox",
+                correction=False,
+                alternative="two-sided",
+                method="auto",
+            )
             ranks = stats.rankdata(np.abs(nonzero))
             positive_ranks = float(ranks[nonzero > 0].sum())
             negative_ranks = float(ranks[nonzero < 0].sum())
@@ -442,10 +448,25 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
 
         return {
             "test_name": "Wilcoxon signed-rank",
+            "descriptives": [
+                {
+                    "variable": c,
+                    "n": n,
+                    "mean": float(paired[c].mean()),
+                    "std": float(paired[c].std()) if n > 1 else 0.0,
+                    "median": float(paired[c].median()),
+                    "q25": float(paired[c].quantile(0.25)),
+                    "q75": float(paired[c].quantile(0.75)),
+                }
+                for c in variables[:2]
+            ],
             "statistic": float(stat),
             "p_value": float(p),
             "effect_size": float(rank_biserial),
             "effect_size_name": "matched-pairs rank-biserial r",
+            "effect_direction": f"{variables[1]} - {variables[0]}",
+            "zero_difference_pairs": int(n - len(nonzero)),
+            "p_value_method": "all_zero_convention" if not len(nonzero) else "scipy_auto",
             "sample_sizes": [n],
             "n_pairs": n,
             "case_handling": case_handling,
@@ -455,10 +476,10 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 "median": float(np.median(change)),
                 "std": float(np.std(change, ddof=1)) if n > 1 else 0.0,
             },
-            "interpretation": self._interpret_comparison(
-                p,
-                abs(rank_biserial),
-                "matched-pairs rank-biserial r",
+            "interpretation": (
+                f"同一受試者配對差異：p={p:.6g}, alpha={kw.get('alpha', 0.05):.6g}, "
+                f"reject_null={bool(p < kw.get('alpha', 0.05))}; "
+                f"r={rank_biserial:.6g} ({variables[1]} - {variables[0]})"
             ),
         }
 
@@ -548,6 +569,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         if len(cols) < 3:
             return {"error": f"僅找到 {len(cols)} 個有效變數，需要 ≥3。"}
 
+        posthoc_case_strategy = str(kw.get("posthoc_case_strategy", "complete")).strip().lower()
+        if posthoc_case_strategy not in {"complete", "pairwise"}:
+            return {"error": "posthoc_case_strategy must be complete or pairwise."}
+        if len(cols) != len(set(cols)):
+            return {"error": "Friedman variables must be unique."}
         numeric = df[cols].apply(pd.to_numeric, errors="coerce")
         observed_counts = {column: int(numeric[column].notna().sum()) for column in cols}
 
@@ -557,8 +583,17 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         if n < 5:
             return {"error": f"完整配對個案 (n={n}) 不足，需要 ≥5。"}
 
+        if not np.isfinite(complete.to_numpy(dtype=float)).all():
+            return {"error": "Friedman measurements must be finite."}
+        if complete.nunique(axis=1).eq(1).all():
+            return {
+                "error": "所有完整受試者的各時點皆相同，Friedman tie correction 為零，無法估計檢定。"
+            }
         arrays = [complete[c].values for c in cols]
         stat, p = stats.friedmanchisquare(*arrays)
+
+        if not np.isfinite([stat, p]).all():
+            return {"error": "Friedman returned a non-finite statistic or p-value."}
 
         # Kendall's W = chi2 / (n * (k - 1))
         k = len(cols)
@@ -572,8 +607,14 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size_name": "Kendall's W",
             "n_complete": n,
             "n_timepoints": k,
+            "p_value_method": "chi_squared_approximation",
+            "warnings": (
+                ["Friedman p 值採卡方近似；n ≤ 10 或時間點 ≤ 6 時近似可靠性有限。"]
+                if n <= 10 or k <= 6
+                else []
+            ),
             "variables": cols,
-            "significant": p < kw.get("alpha", 0.05),
+            "significant": bool(p < kw.get("alpha", 0.05)),
             "case_handling": {
                 "omnibus_strategy": "shared_complete_cases",
                 "input_rows": int(len(df)),
@@ -622,12 +663,18 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                 pair_a = pair_frame[cols[i]].to_numpy(dtype=float)
                 pair_b = pair_frame[cols[j]].to_numpy(dtype=float)
                 pair_n = len(pair_frame)
-                pair_differences = pair_a - pair_b
+                pair_differences = pair_b - pair_a
                 pair_nonzero = pair_differences[pair_differences != 0]
                 if pair_n == 0 or len(pair_nonzero) == 0:
                     w_stat, w_p, rank_biserial = 0.0, 1.0, 0.0
                 else:
-                    w_stat, w_p = stats.wilcoxon(pair_a, pair_b)
+                    w_stat, w_p = stats.wilcoxon(
+                        pair_differences,
+                        zero_method="wilcox",
+                        correction=False,
+                        alternative="two-sided",
+                        method="auto",
+                    )
                     ranks = stats.rankdata(np.abs(pair_nonzero))
                     positive_ranks = float(ranks[pair_nonzero > 0].sum())
                     negative_ranks = float(ranks[pair_nonzero < 0].sum())
@@ -645,9 +692,14 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
                         "statistic": float(w_stat),
                         "p_value": float(w_p),
                         "p_adjusted": float(min(w_p * n_pairs, 1.0)),
-                        "significant": w_p < bonferroni_alpha,
+                        "significant": bool(w_p < bonferroni_alpha),
                         "effect_size": float(rank_biserial),
                         "effect_size_name": "matched-pairs rank-biserial r",
+                        "effect_direction": f"{cols[j]} - {cols[i]}",
+                        "zero_difference_pairs": int(pair_n - len(pair_nonzero)),
+                        "p_value_method": "all_zero_convention"
+                        if not len(pair_nonzero)
+                        else "scipy_auto",
                     }
                 )
             result["posthoc"] = posthoc

@@ -2191,6 +2191,7 @@ def register_analysis_tools(server: Any) -> None:
         variables: str,
         alpha: float = 0.05,
         posthoc_case_strategy: str = "complete",
+        subject_variable: str | None = None,
     ) -> str:
         """執行兩時點 Wilcoxon 或 3+ 時點 Friedman 重複量測分析。
 
@@ -2203,6 +2204,7 @@ def register_analysis_tools(server: Any) -> None:
             dataset_id: 已載入的資料集 ID
             variables: 逗號分隔的重複測量欄位名稱（至少 2 個）
             alpha: 顯著水準（預設 0.05），用於判定顯著性和 Bonferroni 校正
+            subject_variable: 寬格式的一列一人識別欄；指定時逐列驗證非空且唯一
             posthoc_case_strategy: 3+ 時點 post-hoc 使用 complete（共同完整 cohort）
                 或 pairwise（每一對各自完整配對）；Friedman 主檢定永遠使用共同完整 cohort
         """
@@ -2223,6 +2225,7 @@ def register_analysis_tools(server: Any) -> None:
                 "variables": variables,
                 "alpha": alpha,
                 "posthoc_case_strategy": posthoc_case_strategy,
+                "subject_variable": subject_variable,
             },
         )
 
@@ -2240,6 +2243,8 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
 
         var_list = [v.strip() for v in variables.split(",") if v.strip()]
+        if not 0 < alpha < 1:
+            return fmt_error("alpha 必須介於 0 與 1。")
         if len(var_list) < 2:
             return fmt_error("至少需要 2 個重複測量變數（如 24h, 48h）。")
         posthoc_case_strategy = posthoc_case_strategy.strip().lower()
@@ -2254,11 +2259,26 @@ def register_analysis_tools(server: Any) -> None:
         try:
             from rde.infrastructure.adapters import ScipyStatisticalEngine
 
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
+            from rde.interface.mcp.tools._shared.repeated_readiness import repeated_plan, digest
+            import time
+
+            locked = repeated_plan(ArtifactStore(project.artifacts_dir))
+            if locked and locked["test"] != {
+                "variables": variables,
+                "alpha": alpha,
+                "posthoc_case_strategy": posthoc_case_strategy,
+                "subject_variable": subject_variable,
+            }:
+                return fmt_error("Repeated execution arguments differ from the locked plan.")
             engine = ScipyStatisticalEngine()
-            analysis_df, plausibility_notes, plausibility_summary = _sanitize_analysis_frame(
-                entry.dataframe,
-                var_list,
+            from rde.domain.services.repeated_measures import prepare_repeated_frame
+            import scipy
+
+            analysis_df, case_ledger, plausibility_notes = prepare_repeated_frame(
+                entry.dataframe, var_list, subject_variable
             )
+            plausibility_summary = "; ".join(plausibility_notes) or None
             test_name = "Wilcoxon signed-rank test" if len(var_list) == 2 else "Friedman test"
             result = engine.run_test(
                 analysis_df,
@@ -2270,9 +2290,31 @@ def register_analysis_tools(server: Any) -> None:
             if result.get("error"):
                 return fmt_error(str(result["error"]))
 
+            result["case_ledger"] = case_ledger
+            result["engine"] = {"name": "scipy", "version": scipy.__version__}
+            result["wilcoxon_policy"] = {
+                "alternative": "two-sided",
+                "zero_method": "wilcox",
+                "correction": False,
+                "method": "auto",
+                "rounding": "none",
+                "all_zero_convention": "W=0, p=1, r=0",
+                "effect_direction": "later listed timepoint minus earlier listed timepoint",
+            }
             analysis_label = "Wilcoxon signed-rank" if len(var_list) == 2 else "Friedman"
             lines = [f"# 📊 重複測量分析 — {analysis_label}\n"]
-            lines.append(f"**變數:** {', '.join(var_list)}")
+            lines.append(f"**變數（按核准順序）:** {', '.join(var_list)}")
+            lines.append(
+                f"**受試者欄位:** {subject_variable or '未指定，依原始列對齊'}；SciPy {scipy.__version__}。"
+            )
+            lines.append(
+                "配對差值與 r 方向均為後列時點減前列時點。Wilcoxon：two-sided、wilcox、correction=false、method=auto、不自動四捨五入；全部差值為零時採 W=0、p=1、r=0 的明示慣例。"
+            )
+            lines.append(
+                "Wilcoxon 的差值分布須具對稱性，各受試者間須獨立；時間差異不等於組間治療效果，也未估計時間×治療交互作用。"
+            )
+            for warning in result.get("warnings", []):
+                lines.append(f"**方法限制:** {warning}")
 
             case_handling = result.get("case_handling", {})
             observed_counts = case_handling.get("observed_by_variable", {})
@@ -2316,7 +2358,7 @@ def register_analysis_tools(server: Any) -> None:
                         ["統計量", "值"],
                         [
                             ["Wilcoxon W", f"{stat:.3f}"],
-                            ["p-value", f"{p:.6f}"],
+                            ["p-value", f"{p:.6g}"],
                             ["Matched-pairs rank-biserial r", f"{effect:.3f}"],
                             ["判定", sig],
                         ],
@@ -2336,7 +2378,7 @@ def register_analysis_tools(server: Any) -> None:
                         ["統計量", "值"],
                         [
                             ["Friedman χ²", f"{stat:.3f}"],
-                            ["p-value", f"{p:.6f}"],
+                            ["p-value", f"{p:.6g}"],
                             ["Kendall's W", f"{effect:.3f}"],
                             ["判定", sig],
                         ],
@@ -2344,7 +2386,7 @@ def register_analysis_tools(server: Any) -> None:
                 )
 
             if result.get("descriptives"):
-                lines.append("\n## 各時間點描述統計（Friedman 共同完整 cohort）")
+                lines.append("\n## 各時間點描述統計（主檢定共同完整個案）")
                 desc_rows = []
                 for tp in result["descriptives"]:
                     desc_rows.append(
@@ -2376,8 +2418,8 @@ def register_analysis_tools(server: Any) -> None:
                             ph.get("n_pairs", "?"),
                             ph.get("case_strategy", posthoc_case_strategy),
                             f"{ph.get('statistic', 0):.1f}",
-                            f"{ph.get('p_value', 1.0):.6f}",
-                            f"{adj_p:.6f}",
+                            f"{ph.get('p_value', 1.0):.6g}",
+                            f"{adj_p:.6g}",
                             f"{ph.get('effect_size', 0):.3f}",
                             pair_sig,
                         ]
@@ -2418,18 +2460,19 @@ def register_analysis_tools(server: Any) -> None:
                 phase_dir,
                 _shorten_artifact_filename(phase_dir, f"{stem}.md"),
             )
-            json_path = store.save(
-                PipelinePhase.EXECUTE_EXPLORATION,
-                json_name,
-                {
-                    "dataset_id": dataset_id,
-                    "variables": var_list,
-                    "alpha": alpha,
-                    "posthoc_case_strategy": posthoc_case_strategy,
-                    "markdown_artifact": md_name,
-                    "result": result,
-                },
-            )
+            record = {
+                "dataset_id": dataset_id,
+                "variables": var_list,
+                "alpha": alpha,
+                "posthoc_case_strategy": posthoc_case_strategy,
+                "subject_variable": subject_variable,
+                "markdown_artifact": md_name,
+                "result": result,
+                "created_at_ns": time.time_ns(),
+            }
+            record["receipt_sha256"] = digest(record)
+            rendered += f"\n\nReceipt SHA256: {record['receipt_sha256']}"
+            json_path = store.save(PipelinePhase.EXECUTE_EXPLORATION, json_name, record)
             md_path = store.save(PipelinePhase.EXECUTE_EXPLORATION, md_name, rendered)
 
             summary_label = "W" if len(var_list) == 2 else "χ²"
@@ -2439,6 +2482,7 @@ def register_analysis_tools(server: Any) -> None:
                     "variables": var_list,
                     "alpha": alpha,
                     "posthoc_case_strategy": posthoc_case_strategy,
+                    "subject_variable": subject_variable,
                 },
                 f"{analysis_label} 檢定: {len(var_list)} 個重複測量時間點",
                 f"{summary_label}={stat:.3f}, p={p:.6f}, effect={effect:.3f}"

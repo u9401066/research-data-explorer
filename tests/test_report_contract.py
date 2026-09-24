@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+import hashlib
 
 from rde.domain.models.report import EDAReport, ReportSection
 from rde.application.pipeline import PhaseResult, PipelinePhase
@@ -91,6 +92,7 @@ def test_visualization_manifest_replaces_same_output_path(tmp_path: Path) -> Non
     )
     figure_path = project.output_dir / "figures" / "paired.png"
     figure_path.parent.mkdir(parents=True)
+    figure_path.write_bytes(b"synthetic image bytes for manifest test")
 
     _upsert_visualization_manifest(
         project,
@@ -121,6 +123,8 @@ def test_visualization_manifest_replaces_same_output_path(tmp_path: Path) -> Non
             "output_path": "figures/paired.png",
             "stats_summary": "latest result",
             "category": "analytical",
+            "execution_arguments": None,
+            "sha256": hashlib.sha256(figure_path.read_bytes()).hexdigest(),
         }
     ]
 

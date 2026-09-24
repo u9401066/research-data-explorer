@@ -88,6 +88,15 @@ class MatplotlibVisualizer(VisualizationPort):
                 f"Unsupported plot type: {plot_type}. Supported: {list(self._PLOT_DISPATCH.keys())}"
             )
 
+        if plot_type in {"line", "paired"}:
+            from rde.domain.services.repeated_measures import prepare_repeated_frame
+
+            # Use the same numeric validation, subject identity and exclusions as the test.
+            df, _, _ = prepare_repeated_frame(
+                df, variables, kwargs.get("subject_variable"), apply_plausibility=False
+            )
+            if df[variables].dropna().empty:
+                raise ValueError("重複量測圖沒有共同完整個案。")
         cleaned_df, plausibility_findings = apply_numeric_plausibility_filters(df, variables)
         for finding in plausibility_findings:
             self._plausibility_notes_by_variable.setdefault(finding.variable_name, []).append(
@@ -436,6 +445,14 @@ class MatplotlibVisualizer(VisualizationPort):
         )
 
     def _annotate_line_stats(self, ax: Any, complete: pd.DataFrame, cols: list[str]) -> None:
+        if not self._include_tests:
+            self._set_annotation(
+                ax,
+                ["Shared complete cases", f"n = {len(complete)}"],
+                summary=f"Shared complete cases; median and IQR; n={len(complete)}",
+                context=cols,
+            )
+            return
         if len(complete) < 3:
             self._set_annotation(
                 ax,
@@ -446,12 +463,22 @@ class MatplotlibVisualizer(VisualizationPort):
             return
 
         if len(cols) >= 3:
-            statistic, p_value = self._kruskal_lite([complete[col] for col in cols])
+            from scipy import stats
+
+            if complete.nunique(axis=1).eq(1).all():
+                self._set_annotation(
+                    ax,
+                    ["No within-subject variation", f"n = {len(complete)}"],
+                    summary=f"Friedman unavailable: no within-subject variation; n={len(complete)}",
+                    context=cols,
+                )
+                return
+            statistic, p_value = stats.friedmanchisquare(*[complete[col] for col in cols])
             p_text = self._format_p_value(float(p_value))
             self._set_annotation(
                 ax,
-                [f"Rank trend H = {statistic:.2f}", p_text, f"n = {len(complete)}"],
-                summary=f"Rank trend H={statistic:.2f}; {p_text}; n={len(complete)}",
+                [f"Exploratory Friedman chi2 = {statistic:.2f}", p_text, f"n = {len(complete)}"],
+                summary=f"Exploratory Friedman chi2={statistic:.2f}; {p_text}; n={len(complete)}",
                 context=cols,
             )
             return
@@ -472,6 +499,15 @@ class MatplotlibVisualizer(VisualizationPort):
         x_var: str,
         y_var: str,
     ) -> None:
+        if not self._include_tests:
+            median_delta = (sub[y_var] - sub[x_var]).median()
+            self._set_annotation(
+                ax,
+                [f"median change = {median_delta:.2f}", f"n = {len(sub)}"],
+                summary=f"Paired complete cases; median change={median_delta:.2f}; n={len(sub)}",
+                context=[x_var, y_var],
+            )
+            return
         if len(sub) < 3:
             self._set_annotation(
                 ax,

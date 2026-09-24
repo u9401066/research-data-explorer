@@ -1346,6 +1346,21 @@ def register_plan_tools(server: Any) -> None:
                     "每項分析應含 type (必填)、variables (建議)、rationale (選填)。",
                 )
 
+            from rde.interface.mcp.tools._shared.repeated_readiness import repeated_spec
+
+            try:
+                repeated_contract = repeated_spec(analyses)
+                if repeated_contract and (
+                    alpha != repeated_contract["test"]["alpha"]
+                    or missing_strategy != "listwise"
+                    or multiple_comparison_method != "bonferroni"
+                ):
+                    raise ValueError(
+                        "Repeated plans require matching alpha, listwise omnibus cases and Bonferroni post-hoc correction."
+                    )
+            except (ValueError, TypeError, KeyError) as error:
+                return fmt_error(f"Invalid repeated specification: {error}")
+
             prediction_entries = [
                 entry for entry in analyses if entry.get("type") == "run_prediction_study"
             ]
@@ -1384,7 +1399,7 @@ def register_plan_tools(server: Any) -> None:
             dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
             planner = None
             auto_expanded_labels: list[str] = []
-            if dataset is not None and not prediction_only:
+            if dataset is not None and not prediction_only and repeated_contract is None:
                 from rde.domain.services.autonomous_eda_planner import AutonomousEDAPlanner
 
                 planner = AutonomousEDAPlanner()
@@ -1479,6 +1494,22 @@ def register_plan_tools(server: Any) -> None:
                     }
                 ]
                 script_content = "# Execute run_prediction_study through RDE MCP with the locked prediction_options.\n# No full-dataset cleaning, imputation, predictor screening or statsmodels fit precedes the split.\n"
+
+            if repeated_contract is not None:
+                methodology_review_dict = {
+                    "status": "pass",
+                    "scope": "repeated_specification_review",
+                    "completeness_tier": "repeated_measurement",
+                    "recommended_analysis_floor": 1,
+                    "academic_analysis_target": 1,
+                    "production_analysis_target": 1,
+                    "final_analysis_count": 2,
+                    "checks": [{"name": "prespecified_repeated_contract", "passed": True}],
+                    "warnings": [
+                        "Only the specified within-subject comparison is reviewed. Subject uniqueness, actual case sets, numerical estimates, post-hoc family and figure integrity are checked after execution. No treatment effect or sample-size adequacy is certified."
+                    ],
+                }
+                script_content = "# Execute the locked repeated-measures test and complete-case figure through RDE MCP. No independent-sample model is substituted.\n"
 
             plan = {
                 "project_id": project.id,
