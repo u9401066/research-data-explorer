@@ -176,8 +176,11 @@ def _figures(result, directory, prefix, profile):
     ax.set(xlabel=f"Time ({time_unit})", ylabel=ylabel)
     if spec["distribution"] == "binomial":
         ax.set_ylim(-0.03, 1.03)
+    observed_times = sorted({p["time"] for p in result["observed_by_time"]})
     if spec["time_mode"] == "categorical":
         ax.set_xticks(spec["time_levels"])
+    elif len(observed_times) <= 12:
+        ax.set_xticks(observed_times)
     else:
         ax.xaxis.set_major_locator(MaxNLocator(6))
     ax.legend(

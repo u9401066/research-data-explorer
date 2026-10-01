@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import uuid
+from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -43,6 +44,31 @@ def call(name, args):
     response = asyncio.run(create_server().call_tool(name, args))
     assert not response.is_error, response.content
     return response.content[0].text
+
+
+def test_linear_observed_figure_labels_the_actual_visits_including_endpoints(tmp_path):
+    from test_clinical_survival import clinical_project
+    from test_longitudinal_models import observations, study
+
+    frame = observations()
+    frame = frame[frame["time"].isin([-2, -1, 0, 1])].copy()
+    frame["time"] = frame["time"] * 2 + 12
+    project, store, dataset, spec = clinical_project(
+        tmp_path, frame=frame, options=study(time_reference=8)
+    )
+    call("run_clinical_study", {"dataset_id": dataset.id, "clinical_options": spec.to_dict()})
+    record = clinical_records(store)[0]
+    figure = next(f for f in record["figures"] if f["plot_type"].endswith("_observed"))
+    # Inspect the exported tick text, not an internal plotting helper. Automatic
+    # ticks previously showed 9, 10.5, 12, 13.5 instead of the four actual visits.
+    root = ET.fromstring(
+        Path(figure["publication"]["files"]["svg"]).read_text(),
+        parser=ET.XMLParser(target=ET.TreeBuilder(insert_comments=True)),
+    )
+    axis = root.find(".//{http://www.w3.org/2000/svg}g[@id='matplotlib.axis_1']")
+    assert axis is not None
+    text = [node.text.strip() for node in axis.iter() if node.tag is ET.Comment]
+    assert text[:4] == ["8", "10", "12", "14"]
 
 
 @pytest.mark.parametrize(
