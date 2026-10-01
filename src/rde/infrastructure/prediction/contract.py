@@ -9,6 +9,10 @@ class PredictionSpec:
     target: str
     predictors: list[str]
     prediction_time_definition: str
+    study_design: str
+    sampling: str
+    sampling_description: str
+    target_definition: str
     features_available_at_prediction: bool = False
     task: str = "binary"
     positive_class: str = "1"
@@ -24,6 +28,7 @@ class PredictionSpec:
     threshold: float = 0.5
     confidence_level: float = 0.95
     bootstrap_samples: int = 200
+    decision_curve: dict | None = None
 
     @classmethod
     def parse(cls, options: dict) -> "PredictionSpec":
@@ -32,6 +37,17 @@ class PredictionSpec:
         unknown = set(options) - {field.name for field in fields(cls)}
         if unknown:
             raise ValueError(f"Unknown prediction options: {sorted(unknown)}")
+        required = {
+            "target",
+            "predictors",
+            "prediction_time_definition",
+            "study_design",
+            "sampling",
+            "sampling_description",
+            "target_definition",
+        }
+        if not required.issubset(options):
+            raise ValueError(f"Missing prediction design fields: {sorted(required - set(options))}")
         spec = cls(**options)
         spec.validate()
         return spec
@@ -47,6 +63,66 @@ class PredictionSpec:
             raise ValueError("Predictors must be distinct, nonempty column names.")
         if self.task not in {"binary", "regression"}:
             raise ValueError("task must be binary or regression.")
+        if self.study_design not in {"observational_cohort", "diagnostic_accuracy", "case_control"}:
+            raise ValueError("Specify the actual cohort, diagnostic or case-control study design.")
+        if self.sampling not in {"single_gate", "two_gate", "unknown"}:
+            raise ValueError("sampling must be single_gate, two_gate or unknown.")
+        for name in ["sampling_description", "target_definition"]:
+            value = getattr(self, name)
+            if not isinstance(value, str) or not 5 <= len(value.strip()) <= 4000:
+                raise ValueError(
+                    f"{name} must describe known design facts and unknowns (5..4000 characters)."
+                )
+        if self.study_design == "case_control" and self.sampling != "two_gate":
+            raise ValueError(
+                "Case-control studies require explicit outcome-selected (two_gate) sampling."
+            )
+        if self.study_design == "observational_cohort" and self.sampling == "two_gate":
+            raise ValueError("Outcome-selected sampling cannot be labeled an observational cohort.")
+        if self.task != "binary" and self.study_design != "observational_cohort":
+            raise ValueError(
+                "Diagnostic and case-control prediction currently support binary outcomes only."
+            )
+        if self.decision_curve is not None:
+            curve = self.decision_curve
+            if not isinstance(curve, dict) or set(curve) != {
+                "thresholds",
+                "action",
+                "threshold_basis",
+                "independent_observations",
+            }:
+                raise ValueError(
+                    "decision_curve requires thresholds, action, threshold_basis and independent_observations."
+                )
+            if self.task != "binary" or self.sampling != "single_gate":
+                raise ValueError(
+                    "Decision curves require binary outcomes and declared single-gate sampling; unknown or outcome-selected samples cannot establish population net benefit."
+                )
+            if curve["independent_observations"] is not True:
+                raise ValueError(
+                    "Decision curves require confirmation of one independent decision per participant."
+                )
+            for name in ["action", "threshold_basis"]:
+                if not isinstance(curve[name], str) or not 5 <= len(curve[name].strip()) <= 2000:
+                    raise ValueError(
+                        f"decision_curve.{name} must describe the intended decision and prespecified utility trade-off."
+                    )
+            thresholds = curve["thresholds"]
+            if (
+                not isinstance(thresholds, list)
+                or not 1 <= len(thresholds) <= 19
+                or any(
+                    isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not math.isfinite(value)
+                    or not 0.001 <= value <= 0.999
+                    for value in thresholds
+                )
+                or thresholds != sorted(set(thresholds))
+            ):
+                raise ValueError(
+                    "Decision thresholds must be 1..19 distinct increasing probabilities between 0.001 and 0.999."
+                )
         if self.split not in {"random", "group", "temporal"}:
             raise ValueError("split must be random, group or temporal.")
         for name in ["subject_variable", "time_variable", "cutoff"]:

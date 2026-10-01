@@ -7,6 +7,48 @@ No AutoML service, Docker, or patient-data upload is needed.
 Agents remain free to propose methods outside this catalog and document additional
 analyses. The catalog reduces routine coding, not scientific discretion.
 
+## Prediction designs and decision analysis
+
+`run_prediction_study` requires `study_design` (observational_cohort,
+diagnostic_accuracy or case_control), `sampling` (single_gate, two_gate or unknown),
+`sampling_description`, `target_definition` and `prediction_time_definition`.
+Case-control requires two-gate sampling; diagnostic/case-control tasks are binary.
+Unknown ascertainment, blinding and sampling must remain explicit; text supplied
+by a researcher is not independently certified by the pipeline.
+
+All preprocessing and candidate selection remain inside training folds. The chosen
+fixed model is scored once on the holdout. In outcome-selected/unknown samples,
+AP, PPV/NPV, F1, accuracy, Brier/log loss and calibration are retained as **sample
+diagnostics only**, not validated population risk. This differs from the fixed
+single-marker diagnostic workflow below, which withholds predictive values under
+those designs. ROC/sensitivity/specificity can also suffer spectrum/selection bias.
+
+Optional `decision_curve` requires binary, single-gate sampling and an explicit
+`independent_observations=true` declaration. Its other required fields are `action`,
+`threshold_basis`, and 1–19 unique increasing `thresholds` in [0.001,0.999]. Subject
+duplicates are rejected before outcome exclusions, if a subject key is supplied.
+No external prevalence correction, threshold search or extra test-cost adjustment
+is implemented; case-control/unknown sampling is rejected for this feature.
+
+At each fixed threshold t, NB = TP/n − FP/n × t/(1−t), compared with treat-all and
+treat-none. Model NB and model-minus-all percentile CIs use the **same paired
+bootstrap draws** as validation metrics. They are pointwise intervals conditional
+on the fixed fitted model, not simultaneous confidence bands or clinical-utility
+certification. Enabling DCA cannot change fitting, CV, model selection or splitting.
+
+Chinese reports include design facts, participant flow, candidate comparison,
+held-out metrics/CIs, confusion denominators, calibration-bin counts, a training-only
+constant baseline and limitations. CSVs retain each of these tables plus model
+parameters and row dispositions. Binary studies have six required plots (seven
+with DCA); regression has four. Regenerating deliverables uses persisted numbers.
+Tests cover hand-computed NB, paired difference intervals, invalid designs,
+source duplicates, unchanged fits/splits, complete real MCP export and recovery.
+Local suite: 544 passed, five optional skipped on 2026-10-01.
+
+Method sources: [TRIPOD+AI](https://www.tripod-statement.org/),
+[DCA methods](https://www.mskcc.org/departments/epidemiology-biostatistics/biostatistics/decision-curve-analysis),
+[dcurves sampling and probability guidance](https://www.danieldsjoberg.com/dcurves/reference/dca.html).
+
 ## Locked diagnostic and measurement studies
 
 `inspect_clinical_study` and `run_clinical_study` also accept `family` values

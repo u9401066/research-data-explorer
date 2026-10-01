@@ -293,8 +293,17 @@ def run_prediction(df, spec: PredictionSpec, *, budget_seconds: float = 300, pro
             population["groups"].iloc[valid].tolist() if population["groups"] is not None else None
         )
         baseline = np.repeat(float(population["y"].iloc[train].mean()), len(valid))
+        uncertainty = bootstrap_intervals(y, predictions, groups, spec, check_budget)
+        decision = uncertainty.pop("decision_curve")
         receipt["validation"] = {
             "scope": "single internal held-out evaluation of selected model",
+            "sampling": spec.sampling,
+            "population_risk_validated": False,
+            "metric_interpretation": (
+                "All metrics describe this held-out sample. Single-gate inclusion alone does not establish external transportability or clinical utility."
+                if spec.sampling == "single_gate"
+                else "Outcome-selected or unknown sampling: AP, predictive values, accuracy, F1, Brier/log loss and calibration describe the selected sample only. Model scores are not validated population disease probabilities. ROC/sensitivity/specificity may also be affected by spectrum and selection bias."
+            ),
             "n": len(valid),
             "threshold": spec.threshold if spec.task == "binary" else None,
             "metrics": score_metrics(y, predictions, spec),
@@ -305,7 +314,8 @@ def run_prediction(df, spec: PredictionSpec, *, budget_seconds: float = 300, pro
             },
             "predictions": prediction_rows(valid, y, predictions, spec),
             "calibration_bins": calibration_bins(y, predictions) if spec.task == "binary" else [],
-            "uncertainty": bootstrap_intervals(y, predictions, groups, spec, check_budget),
+            "uncertainty": uncertainty,
+            "decision_curve": decision,
         }
         receipt.update(
             status="completed",
@@ -316,6 +326,7 @@ def run_prediction(df, spec: PredictionSpec, *, budget_seconds: float = 300, pro
                 "Fixed candidates and hyperparameters, not exhaustive model optimization. No predictor selection uses the holdout.",
                 "Imputation, scaling and categorical vocabulary are learned separately in each training partition.",
                 "A split cannot remove selection bias, confounding, measurement error or temporal drift.",
+                "Outcome definitions and sampling descriptions are researcher statements; the pipeline cannot independently certify diagnostic reference standards, blinding, or population representativeness.",
             ],
         )
         receipt["receipt_sha256"] = digest(receipt)

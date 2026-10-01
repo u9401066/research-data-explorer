@@ -75,11 +75,46 @@ def calibration_bins(y, prediction) -> list[dict]:
     return bins
 
 
+def decision_curve_points(y, prediction, thresholds) -> list[dict]:
+    """Binary net benefit per observed decision; thresholds never select/refit a model."""
+    y, prediction = np.asarray(y), np.asarray(prediction)
+    positive = y == 1
+    n = len(y)
+    if not n or not set(np.unique(y)).issubset({0, 1}):
+        raise ValueError("Decision curves require nonempty binary observations.")
+    points = []
+    for threshold in thresholds:
+        selected = prediction >= threshold
+        tp, fp = int((selected & positive).sum()), int((selected & ~positive).sum())
+        odds = threshold / (1 - threshold)
+        model = tp / n - fp / n * odds
+        treat_all = float(positive.mean() - (~positive).mean() * odds)
+        points.append(
+            dict(
+                threshold=threshold,
+                n=n,
+                true_positives=tp,
+                false_positives=fp,
+                model=model,
+                treat_all=treat_all,
+                treat_none=0.0,
+                difference_vs_all=model - treat_all,
+            )
+        )
+    return points
+
+
 def bootstrap_intervals(y, prediction, groups, spec: PredictionSpec, check_budget) -> dict:
     """Sample observations or complete subject clusters; never refit or select models."""
     y, prediction = np.asarray(y), np.asarray(prediction)
     point = score_metrics(y, prediction, spec)
     values = {key: [] for key in point if key not in {"tn", "fp", "fn", "tp"}}
+    curve = (
+        decision_curve_points(y, prediction, spec.decision_curve["thresholds"])
+        if spec.decision_curve
+        else []
+    )
+    curve_draws = [{key: [] for key in ["model", "treat_all", "difference_vs_all"]} for _ in curve]
     units = [np.array([i]) for i in range(len(y))]
     if groups is not None:
         lookup = {}
@@ -97,8 +132,47 @@ def bootstrap_intervals(y, prediction, groups, spec: PredictionSpec, check_budge
         for key in values:
             if scores[key] is not None:
                 values[key].append(scores[key])
+        if curve:
+            for draw, sampled in zip(
+                curve_draws,
+                decision_curve_points(
+                    y[positions], prediction[positions], spec.decision_curve["thresholds"]
+                ),
+                strict=True,
+            ):
+                for key in draw:
+                    draw[key].append(sampled[key])
     tail = (1 - spec.confidence_level) / 2
+    decision = None
+    if curve:
+        decision = {
+            "action": spec.decision_curve["action"],
+            "threshold_basis": spec.decision_curve["threshold_basis"],
+            "formula": "NB=TP/n - FP/n * threshold/(1-threshold)",
+            "scope": "internal sample; prespecified decision thresholds; no threshold optimization",
+            "interval_method": "paired pointwise percentile bootstrap, same draws as held-out metrics; not simultaneous intervals",
+            "points": [
+                {
+                    **row,
+                    "intervals": {
+                        key: {
+                            "estimate": row[key],
+                            "lower": float(np.quantile(draw[key], tail))
+                            if len(draw[key]) >= 20
+                            else None,
+                            "upper": float(np.quantile(draw[key], 1 - tail))
+                            if len(draw[key]) >= 20
+                            else None,
+                            "estimable_replicates": len(draw[key]),
+                        }
+                        for key in draw
+                    },
+                }
+                for row, draw in zip(curve, curve_draws, strict=True)
+            ],
+        }
     return {
+        "decision_curve": decision,
         "method": "percentile bootstrap; fixed selected model; no retraining",
         "unit": "subject_cluster" if groups is not None else "observation",
         "units": len(units),

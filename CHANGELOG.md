@@ -8,6 +8,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Added
 
+- Explicit prediction study design, sampling and outcome definitions; sample-scoped calibration and predictive values, prespecified decision curves with paired pointwise bootstrap, complete Chinese prediction reports and CSV/figure deliverables. Training/holdout isolation and immutable-result recovery remain enforced.
 - Prespecified survival studies through `inspect_clinical_study` and `run_clinical_study`: full-source eligibility review, KM/log-rank, tied competing-event cumulative incidence, adjusted Cox estimates, PH diagnostics, participant ledgers and complete Chinese reports.
 - Source/specification-bound numerical receipts, renderer recovery without refitting, exact-plan execution and artifact-integrity report gates. The MCP inventory now has 53 tools; the version remains 0.5.0.
 

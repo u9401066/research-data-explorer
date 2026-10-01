@@ -69,6 +69,10 @@ def prepare_population(df: pd.DataFrame, spec: PredictionSpec) -> dict:
     if spec.subject_variable:
         raw_groups = frame[spec.subject_variable]
         groups = raw_groups.map(lambda v: None if pd.isna(v) or not str(v).strip() else label(v))
+        if spec.decision_curve and groups.dropna().duplicated().any():
+            raise ValueError(
+                "Decision curves support one independent observation per subject; repeated subject keys require a different decision estimand."
+            )
         reasons["missing_subject_key"] = groups.isna()
     dates = None
     if spec.split == "temporal":

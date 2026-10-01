@@ -38,12 +38,110 @@ def specification(**kwargs):
             "predictors": ["x", "noise", "category"],
             "categorical_predictors": ["category"],
             "prediction_time_definition": "Admission, before treatment or outcome",
+            "study_design": "observational_cohort",
+            "sampling": "single_gate",
+            "sampling_description": "Synthetic cohort with one common inclusion path",
+            "target_definition": "Synthetic endpoint; no clinical claims",
             "features_available_at_prediction": True,
             "candidates": ["linear", "random_forest"],
             "bootstrap_samples": 20,
             **kwargs,
         }
     )
+
+
+def decision_options(**changes):
+    return {
+        "thresholds": [0.2, 0.8, 0.95],
+        "action": "Synthetic next-step assessment",
+        "threshold_basis": "Prespecified engineering demonstration, no clinical utility claim",
+        "independent_observations": True,
+        **changes,
+    }
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"study_design": "case_control", "sampling": "single_gate"},
+        {"study_design": "observational_cohort", "sampling": "two_gate"},
+        {"study_design": "diagnostic_accuracy", "task": "regression"},
+        {"sampling_description": ""},
+        {"target_definition": ""},
+        {"sampling": "unknown", "decision_curve": decision_options()},
+        {"decision_curve": decision_options(independent_observations=False)},
+        {"decision_curve": decision_options(thresholds=[0.8, 0.2])},
+        {"decision_curve": decision_options(thresholds=[0.2, 0.2])},
+        {"decision_curve": decision_options(thresholds=[0])},
+        {"decision_curve": decision_options(thresholds=[True])},
+    ],
+)
+def test_prediction_design_cannot_imply_population_risk_or_silently_pick_utilities(changes):
+    with pytest.raises(ValueError):
+        specification(**changes)
+
+
+def test_selected_samples_retain_design_and_sample_performance_without_population_claims():
+    from rde.infrastructure.prediction.report import markdown
+
+    frame = sample()
+    cohort = run_prediction(frame, specification(candidates=["linear"]))
+    for design, sampling in [("diagnostic_accuracy", "unknown"), ("case_control", "two_gate")]:
+        result = run_prediction(
+            frame, specification(candidates=["linear"], study_design=design, sampling=sampling)
+        )
+        assert result["selection"] == cohort["selection"]
+        assert result["final_fit"] == cohort["final_fit"]
+        assert result["validation"]["metrics"] == cohort["validation"]["metrics"]
+        assert result["validation"]["decision_curve"] is None
+        assert result["validation"]["population_risk_validated"] is False
+        assert "selected sample only" in result["validation"]["metric_interpretation"]
+        assert "不能解讀為臨床母群風險" in markdown(result)
+        assert (
+            "病例對照研究" in markdown(result)
+            if design == "case_control"
+            else "診斷研究" in markdown(result)
+        )
+
+
+def test_decision_curve_manual_counts_and_paired_uncertainty():
+    from rde.infrastructure.prediction.metrics import decision_curve_points
+
+    points = decision_curve_points([1, 0, 1, 0, 1], [0.9, 0.8, 0.3, 0.1, 0.1], [0.2, 0.8, 0.95])
+    assert [p["true_positives"] for p in points] == [2, 1, 0]
+    assert [p["false_positives"] for p in points] == [1, 1, 0]
+    assert [p["model"] for p in points] == pytest.approx([0.35, -0.6, 0])
+    assert [p["treat_all"] for p in points] == pytest.approx([0.5, -1, -7])
+    assert [p["difference_vs_all"] for p in points] == pytest.approx([-0.15, 0.4, 7])
+    spec = specification(decision_curve=decision_options(thresholds=[0.2]), bootstrap_samples=200)
+    y = np.asarray([0, 1] * 4)
+    receipt = bootstrap_intervals(y, y, None, spec, lambda: None)
+    curve = receipt["decision_curve"]["points"][0]
+    # Perfect classification: improvement over treating all is 0.25 * the
+    # negative fraction on EACH shared resample. Independent CI subtraction is wrong.
+    draws = np.random.default_rng(spec.seed + 1).integers(0, 8, size=(200, 8))
+    expected = 0.25 * (1 - y[draws].mean(axis=1))
+    bounds = curve["intervals"]["difference_vs_all"]
+    assert [bounds["lower"], bounds["upper"]] == pytest.approx(
+        np.quantile(expected, [0.025, 0.975])
+    )
+    assert bounds["estimable_replicates"] == 200
+    assert curve["model"] == 0.5 and curve["difference_vs_all"] == 0.125
+
+
+def test_decision_curves_do_not_refit_select_or_mask_repeated_participants():
+    frame = sample()
+    frame["subject"] = range(len(frame))
+    spec = specification(candidates=["linear"], split="group", subject_variable="subject")
+    baseline = run_prediction(frame, spec)
+    result = run_prediction(frame, replace(spec, decision_curve=decision_options()))
+    for key in ["selection", "candidates", "final_fit", "outer_split", "cv_splits"]:
+        assert result[key] == baseline[key]
+    assert result["validation"]["uncertainty"] == baseline["validation"]["uncertainty"]
+    frame.loc[0, "subject"] = frame.loc[1, "subject"]
+    frame.loc[0, "outcome"] = np.nan
+    with pytest.raises(PredictionFailure, match="one independent observation"):
+        run_prediction(frame, replace(spec, decision_curve=decision_options()))
 
 
 def test_heldout_features_cannot_change_cv_or_training_transform():
@@ -186,14 +284,14 @@ def test_binary_infinite_target_is_an_excluded_case():
     assert result["validation"]["uncertainty"]["replicates_requested"] == 0
 
 
-def prediction_project(tmp_path):
+def prediction_project(tmp_path, **options):
     from test_exploration_branch_loop import _make_phase8_ready_project
     from rde.application.pipeline import PipelinePhase
     from rde.application.session import get_session
     from rde.domain.models.dataset import Dataset
 
     project, store = _make_phase8_ready_project(tmp_path)
-    frame, spec = sample(), specification(candidates=["linear"])
+    frame, spec = sample(), specification(candidates=["linear"], **options)
     dataset = Dataset(row_count=len(frame))
     get_session().register_dataset(dataset, frame)
     project.dataset_ids = [dataset.id]
@@ -220,8 +318,9 @@ def prediction_project(tmp_path):
     return project, store, dataset, spec
 
 
+@pytest.mark.parametrize("curve", [None, decision_options()])
 def test_real_mcp_prediction_persists_evidence_collects_and_restores_without_refit(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, curve
 ):
     import asyncio
     from rde.application.pipeline import PipelinePhase
@@ -233,7 +332,7 @@ def test_real_mcp_prediction_persists_evidence_collects_and_restores_without_ref
     from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
     from rde.infrastructure.prediction import engine
 
-    project, store, dataset, spec = prediction_project(tmp_path)
+    project, store, dataset, spec = prediction_project(tmp_path, decision_curve=curve)
 
     async def call(name, args):
         return await create_server().call_tool(name, args)
@@ -243,7 +342,10 @@ def test_real_mcp_prediction_persists_evidence_collects_and_restores_without_ref
     assert not response.is_error, response.content
     record = persisted_predictions(store)[0]
     assert verify_prediction_artifacts(record, project.output_dir)
-    assert len(record["figures"]) == 4
+    assert len(record["figures"]) == (7 if curve else 6)
+    if curve:
+        assert record["result"]["validation"]["decision_curve"]["points"][0]["threshold"] == 0.2
+        assert any(a["path"].endswith("_decision_curve.csv") for a in record["artifacts"])
     assert all((project.output_dir / item["path"]).is_file() for item in record["artifacts"])
     monkeypatch.setattr(
         engine, "run_prediction", lambda *a, **kw: pytest.fail("saved holdout refitted")

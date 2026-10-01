@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from rde.application.pipeline import PipelinePhase
+from rde.infrastructure.prediction.report import required_figures
 from rde.interface.mcp.tools.prediction_tools import (
     persisted_predictions,
     planned_spec,
@@ -112,11 +113,7 @@ def prediction_readiness(store, *, data_quality: dict, require_report_generation
             "phase_07_pre_explore_check/readiness_checklist.json",
         ],
     )
-    expected_plots = (
-        {"prediction_cv", "prediction_roc", "prediction_pr", "prediction_calibration"}
-        if spec["task"] == "binary"
-        else {"prediction_cv", "prediction_observed", "prediction_residual"}
-    )
+    expected_plots = required_figures(spec)
     actual_plots = (
         {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
     )
@@ -168,7 +165,7 @@ def prediction_deliverables(project, store) -> dict:
     records = persisted_predictions(store)
     complete = len(records) == 1 and verify_prediction_artifacts(records[0], project.output_dir)
     figures = records[0].get("figures", []) if records else []
-    needed = 4 if planned_spec(prediction_plan(store)).task == "binary" else 3
+    needed = len(required_figures(planned_spec(prediction_plan(store)).to_dict()))
     return {
         "scope": "prediction_validation",
         "minimum_publication_bundle_met": complete and len(figures) == needed,

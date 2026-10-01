@@ -82,7 +82,7 @@ def register_prediction_tools(server: Any) -> None:
         """依鎖定計畫執行預測模型訓練內 CV 與單一保留集驗證。
 
         prediction_options 必須與計畫 execution_arguments.prediction_options 完全相符。
-        必填 target、predictors、prediction_time_definition、features_available_at_prediction=true。
+        必填 target、predictors、study_design、sampling、sampling_description、target_definition、prediction_time_definition、features_available_at_prediction=true。
         task=binary/regression；split=random/group/temporal；候選 linear/random_forest。
         同一資料集已完成的驗證只讀取保存結果，禁止看過保留集後更換設定重測。
         所有補值、縮放與編碼只 fit 訓練 partition；完整列位置、CV、失敗、指標、圖表可稽核。
@@ -92,8 +92,7 @@ def register_prediction_tools(server: Any) -> None:
         from rde.interface.mcp.tools.analysis_tools import _auto_log_decision
         from rde.interface.mcp.tools.report_tools import _upsert_visualization_manifest
         from rde.infrastructure.prediction.engine import PredictionFailure, run_prediction
-        from rde.infrastructure.prediction.report import figures, markdown
-        import pandas as pd
+        from rde.infrastructure.prediction.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
             PipelinePhase.EXECUTE_EXPLORATION, dataset_id=dataset_id, require_dataset=True
@@ -200,9 +199,8 @@ def register_prediction_tools(server: Any) -> None:
             report_path = store.save(
                 PipelinePhase.EXECUTE_EXPLORATION, f"{prefix}.md", markdown(result)
             )
-            csv_path = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, f"{prefix}_validation.csv")
-            pd.DataFrame(result["validation"]["predictions"]).to_csv(csv_path, index=False)
-            paths = [report_path, csv_path, *[Path(image["path"]) for image in images]]
+            csv_paths = tables(result, report_path.parent, prefix)
+            paths = [report_path, *csv_paths, *[Path(image["path"]) for image in images]]
             record["artifacts"] = [
                 {
                     "path": str(path.relative_to(project.output_dir)),
