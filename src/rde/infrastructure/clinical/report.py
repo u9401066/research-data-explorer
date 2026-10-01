@@ -185,6 +185,9 @@ def figures(result: dict, directory: Path, prefix: str):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter, LogLocator
+    from rde.infrastructure.visualization.fonts import configure_plot_fonts
+
+    font_receipt = configure_plot_fonts()
 
     directory.mkdir(parents=True, exist_ok=True)
     records = []
@@ -196,7 +199,11 @@ def figures(result: dict, directory: Path, prefix: str):
         path = directory / f"{prefix}_{suffix}.png"
         fig.savefig(path, dpi=160, bbox_inches="tight")
         plt.close(fig)
-        records.append(dict(path=str(path), plot_type=f"clinical_{suffix}", caption=caption))
+        records.append(
+            dict(
+                path=str(path), plot_type=f"clinical_{suffix}", caption=caption, fonts=font_receipt
+            )
+        )
 
     if spec["competing_values"]:
         count = len(result["strata"])

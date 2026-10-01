@@ -149,3 +149,18 @@ Implementation sources: [lifelines CoxPHFitter](https://lifelines.readthedocs.io
 Tests: `tests/test_clinical_survival.py` includes manually specified KM intervals,
 independent statsmodels Cox/log-rank comparisons, case flow, strict coding, failed
 fits, actual MCP/report gates, retry without refitting and artifact tampering.
+
+### Chinese plot labels
+
+Set `RDE_PLOT_FONT` to an absolute path to a local CJK font file when column
+names, group labels or time units contain Chinese. The renderer registers that
+file directly, including on servers with an older matplotlib font cache. It does
+not download fonts at analysis time. An invalid configured path fails explicitly;
+without this setting, available installed CJK fonts are preferred.
+
+Every survival figure receipt includes the configured font filename and SHA256
+plus the selected sans-serif fallback list. Re-rendering requires the original
+numerical receipt; it does not refit models or alter old artifact snapshots.
+`tests/test_plot_fonts.py` covers missing files, registration outside the font
+cache, and Chinese survival labels when `RDE_CJK_TEST_FONT` points to a local test
+font. The optional label test is skipped when that fixture is unavailable.
