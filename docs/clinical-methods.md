@@ -26,7 +26,11 @@ when supplied, must be present and unique before complete-case exclusion.
 - Sensitivity/specificity and, only for declared single-gate sampling, PPV/NPV
   and accuracy use Wilson intervals with individual denominators. No hidden
   prevalence correction or continuity correction is applied. Zero denominators
-  remain not estimable. A numeric score adds directional ROC/AUC and stratified
+  remain not estimable. Selected/unknown sampling records
+  `status=withheld_by_sampling_design` for PPV/NPV/accuracy: sample fractions can
+  be calculated, but this workflow withholds them to avoid implying population
+  performance. Reports distinguish this policy from undefined ratios.
+  A numeric score adds directional ROC/AUC and stratified
   subject percentile bootstrap CI (1,000 iterations, seed 20261001). Fewer than
   two subjects in either class yields no AUC CI; one class yields no ROC/AUC.
   Perfect separation may produce a degenerate interval, not certain clinical
@@ -57,6 +61,19 @@ limits, invalid/indeterminate/missing codes, incomplete and duplicate pairs,
 separate agreement coverage/confidence, hand-calculated kappa, all three real MCP
 report workflows, tampering, and render recovery without re-estimation. Local
 full suite: 529 passed, 5 optional skipped (2026-10-01).
+
+Public-data integration (2026-10-01) also exercised the TypeScript workbench,
+actual MCP server and browser reports. WDBC's 569 rows at the illustrative
+radius_mean >= 15 rule yielded TP=161, FN=51, TN=344, FP=13 and AUC=0.937517;
+sampling remained unknown, with PPV/NPV/accuracy withheld. Bland's original
+17-subject PEFR first readings yielded Wright-minus-mini bias=-2.117647 L/min
+and 95% normal-quantile limits [-78.095905, 73.860611]. These are demonstrations,
+not validated clinical cutoffs or evidence of interchangeable instruments.
+A synthetic 24-row Excel rater fixture retained 22 pairs (kappa=0.032).
+All ten plots matched the reviewed development PNG hashes, and saved numbers
+survived restart without refitting. Human review corrected an LLM draft that
+omitted the explicitly supplied subject ID; the original draft was retained.
+The workbench's complete HTTP artifact audit covered 3,195 files with no errors.
 
 Primary method references: [STARD](https://www.equator-network.org/reporting-guidelines/stard/),
 [Wilson intervals](https://www.statsmodels.org/stable/generated/statsmodels.stats.proportion.proportion_confint.html),
