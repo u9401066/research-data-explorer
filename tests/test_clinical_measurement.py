@@ -142,19 +142,29 @@ def test_diagnostic_manual_counts_wilson_and_reversed_direction_preserve_source(
 
 @pytest.mark.parametrize("sampling", ["two_gate", "unknown"])
 def test_selected_or_unknown_sampling_never_promotes_sample_predictive_values(sampling):
+    from rde.infrastructure.clinical.measurement_report import markdown, ESTIMATES
+
     result = run_measurement(diagnostic_frame(), diagnostic_spec(diagnostic={"sampling": sampling}))
     assert result["estimates"]["sensitivity"]["estimate"] == 0.8
+    report = markdown(result)
     for key in ["positive_predictive_value", "negative_predictive_value", "accuracy"]:
         assert result["estimates"][key]["estimate"] is None and result["estimates"][key]["reason"]
+        assert result["estimates"][key]["status"] == "withheld_by_sampling_design"
+        assert f"| {ESTIMATES[key]} | 依抽樣設計不提供 | — | — |" in report
+    assert "並非數學上無法計算" in report
 
 
 def test_zero_denominators_and_one_reference_class_are_not_perfect_performance():
+    from rde.infrastructure.clinical.measurement_report import markdown
+
     result = run_measurement(
         pd.DataFrame({"reference": ["B"] * 5, "index": [0] * 5}), diagnostic_spec()
     )
     assert result["estimates"]["sensitivity"]["estimate"] is None
     assert result["estimates"]["positive_predictive_value"]["denominator"] == 0
     assert result["roc"]["estimate"] is None and not result["roc"]["curve"]
+    assert "| 敏感度（Sensitivity） | 無法估計 |" in markdown(result)
+    assert "withheld_by_sampling_design" not in str(result["estimates"])
 
 
 def test_single_positive_subject_does_not_get_a_degenerate_bootstrap_interval():

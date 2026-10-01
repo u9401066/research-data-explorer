@@ -290,10 +290,11 @@ def run_measurement(df, spec: MeasurementSpec):
         if d["sampling"] != "single_gate":
             for name in ["positive_predictive_value", "negative_predictive_value", "accuracy"]:
                 calculated["estimates"][name] = dict(
+                    status="withheld_by_sampling_design",
                     estimate=None,
                     ci_lower=None,
                     ci_upper=None,
-                    reason="抽樣未確認為共同納入途徑；不提供可能被解讀為母群表現的 PPV、NPV 或正確率。",
+                    reason="依抽樣設計不提供：樣本比例雖可由交叉表計算，但抽樣未確認為共同納入途徑，不可將 PPV、NPV 或正確率推論為臨床母群表現。",
                 )
         if d["test_kind"] == "score":
             gold = frame["first"].to_numpy(dtype=int)

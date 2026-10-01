@@ -104,7 +104,7 @@ def markdown(result):
         ]
         if d["sampling"] != "single_gate":
             lines.append(
-                "**此抽樣設計不提供 PPV、NPV 與正確率。** 它們受疾病比例影響；不能從特意選入或抽樣方式不明的有病／無病比例推論臨床母群。敏感度與特異度仍可能受疾病譜與選擇偏差影響。"
+                "**此抽樣設計不提供 PPV、NPV 與正確率。** 樣本比例仍可由交叉表計算，並非數學上無法計算；平台因抽樣設計限制不列出這些指標。它們受疾病比例影響，不能從特意選入或抽樣方式不明的有病／無病比例推論臨床母群。敏感度與特異度仍可能受疾病譜與選擇偏差影響。"
             )
         else:
             lines.append(
@@ -119,8 +119,12 @@ def markdown(result):
     ]
     for key, row in result["estimates"].items():
         denominator = f"{row['numerator']} / {row['denominator']}" if "denominator" in row else "—"
+        withheld = row.get("status") == "withheld_by_sampling_design"
+        estimate = "依抽樣設計不提供" if withheld else number(row["estimate"])
+        lower = "—" if withheld else number(row["ci_lower"])
+        upper = "—" if withheld else number(row["ci_upper"])
         lines.append(
-            f"| {ESTIMATES.get(key, cell(key))} | {number(row['estimate'])} | {number(row['ci_lower'])} | {number(row['ci_upper'])} | {denominator} | {cell(row.get('reason') or row.get('ci_method', ''))} |"
+            f"| {ESTIMATES.get(key, cell(key))} | {estimate} | {lower} | {upper} | {denominator} | {cell(row.get('reason') or row.get('ci_method', ''))} |"
         )
     if result["roc"] is not None:
         roc = result["roc"]
