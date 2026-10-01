@@ -86,7 +86,7 @@ a residual Q–Q plot; ordinal models show original and mean fitted category
 probabilities without treating ordered categories as equally spaced numbers.
 Captions state the reference values, scale, covariance, pointwise interval meaning
 and limits of interpretation. Each figure exports PNG, vector PDF/SVG, TIFF,
-caption JSON and exact data CSV. Journal editions retain the original figures and
+caption Markdown and exact data CSV. Journal editions retain the original figures and
 source receipt; see [publication formats and presets](publication-figures.md).
 
 ## Public-source verification

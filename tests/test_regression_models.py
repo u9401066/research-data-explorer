@@ -202,7 +202,15 @@ def test_nb2_joint_dispersion_matches_independent_negative_binomial_likelihood()
         size = np.exp(-params[3])
         return -nbinom.logpmf(data.y, size, size / (size + mu)).sum()
 
-    reference = minimize(nll, [0.2, 0.2, 0.2, np.log(0.5)], method="BFGS", options={"gtol": 1e-5})
+    # Central differences avoid cancellation in the summed log likelihood near
+    # the optimum; keep the convergence requirement and parameter tolerances.
+    reference = minimize(
+        nll,
+        [0.2, 0.2, 0.2, np.log(0.5)],
+        method="BFGS",
+        jac="3-point",
+        options={"gtol": 1e-5},
+    )
     assert reference.success, reference.message
     assert result["optimization_parameters"][:3] == pytest.approx(reference.x[:3], abs=2e-6)
     alpha = result["nuisance_parameters"][0]["estimate"]
