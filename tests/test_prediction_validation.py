@@ -343,6 +343,30 @@ def test_real_mcp_prediction_persists_evidence_collects_and_restores_without_ref
     record = persisted_predictions(store)[0]
     assert verify_prediction_artifacts(record, project.output_dir)
     assert len(record["figures"]) == (7 if curve else 6)
+    from pathlib import Path
+    from PIL import Image
+    import xml.etree.ElementTree as ET
+
+    for figure in record["figures"]:
+        publication = figure["publication"]
+        paths = publication["files"]
+        assert publication["language"] == "en"
+        assert publication["text_outside_canvas"] == []
+        assert publication["source_receipt_sha256"] == record["result"]["receipt_sha256"]
+        assert set(paths) == {"png", "pdf", "svg", "tiff", "caption", "data"}
+        with Image.open(paths["png"]) as png, Image.open(paths["tiff"]) as tiff:
+            assert png.width >= 2100
+            assert png.size == tiff.size
+            assert png.info["dpi"][0] == pytest.approx(300, abs=0.01)
+            assert tiff.info["dpi"] == (300, 300)
+            assert tiff.mode == "RGB"
+        assert Path(paths["pdf"]).read_bytes().startswith(b"%PDF-")
+        svg = ET.parse(paths["svg"]).getroot()
+        assert svg.tag.endswith("svg")
+        assert svg.findall(".//{http://www.w3.org/2000/svg}path")
+        assert not svg.findall(".//{http://www.w3.org/2000/svg}image")
+        assert "中文解釋" in Path(paths["caption"]).read_text()
+        assert len(Path(paths["data"]).read_text().splitlines()) > 1
     if curve:
         assert record["result"]["validation"]["decision_curve"]["points"][0]["threshold"] == 0.2
         assert any(a["path"].endswith("_decision_curve.csv") for a in record["artifacts"])

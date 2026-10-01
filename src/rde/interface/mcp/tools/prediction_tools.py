@@ -200,7 +200,15 @@ def register_prediction_tools(server: Any) -> None:
                 PipelinePhase.EXECUTE_EXPLORATION, f"{prefix}.md", markdown(result)
             )
             csv_paths = tables(result, report_path.parent, prefix)
-            paths = [report_path, *csv_paths, *[Path(image["path"]) for image in images]]
+            paths = [
+                report_path,
+                *csv_paths,
+                *[
+                    Path(path)
+                    for image in images
+                    for path in image["publication"]["files"].values()
+                ],
+            ]
             record["artifacts"] = [
                 {
                     "path": str(path.relative_to(project.output_dir)),

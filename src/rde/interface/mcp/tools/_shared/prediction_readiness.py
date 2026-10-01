@@ -118,6 +118,21 @@ def prediction_readiness(store, *, data_quality: dict, require_report_generation
         {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
     )
     check("task_specific_figures", expected_plots == actual_plots, sorted(expected_plots))
+    check(
+        "publication_figure_exports",
+        bool(records)
+        and all(
+            set(f.get("publication", {}).get("files", {}))
+            == {"png", "pdf", "svg", "tiff", "caption", "data"}
+            and f["publication"].get("source_receipt_sha256") == result.get("receipt_sha256")
+            and f["publication"].get("text_outside_canvas") == []
+            and f["publication"].get("raster_dpi") == 300
+            for f in records[0].get("figures", [])
+        ),
+        [
+            "publication figure metadata and immutable artifact hashes; journal-specific visual review remains required"
+        ],
+    )
     if require_report_generation:
         report = str(store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md") or "")
         check(

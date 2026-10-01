@@ -45,6 +45,18 @@ Tests cover hand-computed NB, paired difference intervals, invalid designs,
 source duplicates, unchanged fits/splits, complete real MCP export and recovery.
 Local suite: 544 passed, five optional skipped on 2026-10-01.
 
+Prediction figures now use a journal-neutral English publication profile with
+Chinese explanations. Each figure is exported as native vector PDF (embedded
+TrueType) / SVG (outlined text), 300 dpi PNG / RGB LZW TIFF, a separate caption
+and plotting-data CSV. A 180 mm canvas, explicit typography, distinguishable
+markers/line styles and source/font/renderer hashes are recorded. CV plots show
+fold scores and their mean, not an invented confidence interval. Calibration
+shows nonempty bin counts without fitting a curve; DCA uses pointwise interval
+bars. All formats are included in immutable artifact-integrity gates. Tests read
+actual raster dimensions/DPI/mode, SVG geometry, captions and preserved receipts.
+Journal-specific requirements and semantic/visual review remain separate; this
+profile has not yet been applied to the other clinical figure families.
+
 Method sources: [TRIPOD+AI](https://www.tripod-statement.org/),
 [DCA methods](https://www.mskcc.org/departments/epidemiology-biostatistics/biostatistics/decision-curve-analysis),
 [dcurves sampling and probability guidance](https://www.danieldsjoberg.com/dcurves/reference/dca.html).

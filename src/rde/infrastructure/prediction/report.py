@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from sklearn.metrics import precision_recall_curve, roc_curve
 
 
 DESIGNS = {
@@ -18,6 +17,7 @@ SAMPLING = {
     "two_gate": "依結果分別納入有病／無病個案",
     "unknown": "抽樣方式尚未確認",
 }
+SPLITS = {"random": "獨立觀察列隨機分割", "group": "按受試者分組分割", "temporal": "按時間界線分割"}
 MODELS = {"linear": "正則化線性／Logistic 模型", "random_forest": "隨機森林"}
 METRICS = {
     "auroc": "區辨能力（AUROC）",
@@ -79,6 +79,21 @@ def markdown(result: dict) -> str:
     )
     uncertainty = validation["uncertainty"]
     ci = f"{uncertainty['confidence_level']:.1%}"
+    encoding = (
+        "、".join(
+            f"{cell(label)} → {'事件／陽性' if code == 1 else '非事件／陰性'}（{code}）"
+            for label, code in result["target_encoding"].items()
+        )
+        or "連續數值，保持原始尺度"
+    )
+    invalid = (
+        "、".join(
+            f"{cell(key)}：{count} 次"
+            for key, count in result["invalid_predictor_values"].items()
+            if count
+        )
+        or "沒有非缺失但無效的數值"
+    )
     lines = [
         "## 預測建模與內部驗證（Prediction validation）",
         "",
@@ -89,12 +104,12 @@ def markdown(result: dict) -> str:
         f"- 設計：{DESIGNS[spec['study_design']]}；抽樣：{SAMPLING[spec['sampling']]}。",
         f"- 收集與抽樣事實：{cell(spec['sampling_description'])}。",
         f"- 結果定義：{cell(spec['target_definition'])}；結果欄位 {cell(spec['target'])}。",
-        f"- 原始結果編碼：{cell(result['target_encoding'])}。研究者的標籤說明不代表軟體已驗證診斷真值或盲判。",
+        f"- 原始結果編碼：{encoding}。研究者的標籤說明不代表軟體已驗證診斷真值或盲判。",
         f"- 預測時點：{cell(spec['prediction_time_definition'])}；特徵當時可取得由研究者確認。",
         f"- 事先選定特徵：{cell('、'.join(spec['predictors']))}；類別型特徵：{cell('、'.join(spec['categorical_predictors']) or '無')}。",
         f"- 受試者欄位：{cell(spec['subject_variable'] or '未指定；需確認各列獨立')}。日期欄位：{cell(spec['time_variable'] or '未使用')}；時間界線：{cell(spec['cutoff'] or '未使用')}。",
-        f"- 分割：{cell(spec['split'])}；seed={spec['seed']}；要求保留比例 {spec['test_fraction']:.1%}。分組分割按受試者數，時間分割以指定界線為準。",
-        "- 補值、縮放、缺失指標與類別詞彙，只從每個訓練 partition 估計；不補結果或分割鍵，不從保留集選變項、調參或找最佳閾值。",
+        f"- 分割：{SPLITS[spec['split']]}；固定種子={spec['seed']}；要求保留比例 {spec['test_fraction']:.1%}。分組分割按受試者數，時間分割以指定界線為準。",
+        "- 補值、縮放、缺失指標與類別詞彙，只從每個訓練子集估計；不補結果或分割鍵，不從保留集選變項、調參或找最佳閾值。",
     ]
     if spec["sampling"] != "single_gate":
         lines += [
@@ -111,8 +126,8 @@ def markdown(result: dict) -> str:
     lines += [
         "",
         "訓練、保留及移除列分開保存；原始位置從 0 起算，不包含標題列。相同個人多列時，列數不是受試者數。",
-        f"排除原因可重疊：{cell({key: len(rows) for key, rows in result['exclusions'].items()})}。",
-        f"非缺失但無效的數值特徵轉為缺失的次數：{cell(result['invalid_predictor_values'])}。須核對資料字典，不能以補值掩蓋原始格式錯誤。",
+        "個別排除原因可能重疊；原始列位置及完整原因另附納排表 CSV。",
+        f"數值特徵格式核對：{invalid}。無效數值轉為缺失；須核對資料字典，不能以補值掩蓋原始格式錯誤。",
         "",
         "### 訓練內模型比較（Training-only candidate comparison）",
         "",
@@ -215,7 +230,7 @@ def markdown(result: dict) -> str:
         "",
         f"- 數值收據 SHA256：`{result['receipt_sha256']}`；模型 fit SHA256：`{fit['fit_sha256']}`。",
         f"- 資料框 SHA256：`{result['dataframe_sha256']}`；規格 SHA256：`{result['spec_sha256']}`。",
-        f"- 套件：{cell(result['versions'])}；Python {result['python']}。",
+        f"- 套件：{cell('、'.join(f'{name} {version}' for name, version in result['versions'].items()))}；Python {result['python']}。",
         "- 保存原始列位置、納排、完整切分、訓練轉換、固定超參數、每折與保留集預測、候選失敗及 bootstrap 抽樣雜湊；顯示與匯出不重訓模型。",
         "",
         "### 方法參考",
@@ -228,226 +243,9 @@ def markdown(result: dict) -> str:
 
 
 def figures(result: dict, directory: Path, prefix: str) -> list[dict]:
-    import matplotlib
+    from .publication import figures as publication_figures
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from rde.infrastructure.visualization.fonts import configure_plot_fonts
-
-    font_receipt = configure_plot_fonts()
-    directory.mkdir(parents=True, exist_ok=True)
-    records = []
-
-    def save(fig, kind, caption):
-        path = directory / f"{prefix}_{kind}.png"
-        fig.tight_layout()
-        fig.savefig(path, dpi=150)
-        plt.close(fig)
-        records.append(
-            {
-                "path": str(path),
-                "plot_type": f"prediction_{kind}",
-                "caption": caption,
-                "fonts": font_receipt,
-            }
-        )
-
-    rows = result["validation"]["predictions"]
-    y, prediction = (
-        np.asarray([r["observed"] for r in rows]),
-        np.asarray([r["prediction"] for r in rows]),
-    )
-    n = len(y)
-    spec, scores = result["spec"], result["validation"]["metrics"]
-    labels, counts = zip(*participant_flow(result), strict=True)
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.barh(labels[::-1], counts[::-1], color="#227c7a")
-    ax.set(xlabel="觀察列數", xlim=(0, max(counts) * 1.18), title="納排與訓練／保留分割")
-    for index, count in enumerate(counts[::-1]):
-        ax.text(count + max(counts) * 0.015, index, str(count), va="center")
-    save(
-        fig,
-        "participants",
-        "來源、排除與訓練／保留列數；同一受試者多列時，列數不等於受試者數。原始列位置與排除原因另附 CSV。",
-    )
-    candidates = [c for c in result["candidates"] if c["status"] == "completed"]
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    criterion = result["selection"]["criterion"]
-    ax.bar([c["name"] for c in candidates], [c["cv_score"] for c in candidates], color="#227c7a")
-    ax.set(ylabel=f"Mean CV {criterion}", title="Model selection: training folds only")
-    save(
-        fig,
-        "cv",
-        f"Training-only mean {criterion}; {len(result['cv_splits'])} folds. Holdout performance is not used in this comparison.",
-    )
-    if spec["task"] == "binary":
-        fig, ax = plt.subplots(figsize=(6, 5))
-        matrix = np.asarray([[scores["tn"], scores["fn"]], [scores["fp"], scores["tp"]]])
-        ax.imshow(matrix, cmap="Blues", vmin=0)
-        for (row, col), count in np.ndenumerate(matrix):
-            ax.text(
-                col,
-                row,
-                str(count),
-                ha="center",
-                va="center",
-                color="white" if count > matrix.max() * 0.5 else "#153e3b",
-                fontsize=15,
-            )
-        ax.set(
-            xticks=[0, 1],
-            xticklabels=["原始陰性", "原始陽性"],
-            yticks=[0, 1],
-            yticklabels=["預測陰性", "預測陽性"],
-            xlabel="實際結果",
-            ylabel="固定閾值判定",
-            title=f"保留樣本交叉表（n={n}；閾值={spec['threshold']}）",
-        )
-        save(fig, "confusion", "保留樣本在事先分類閾值的 TP／FP／FN／TN；沒有依這些結果調整閾值。")
-        fig, ax = plt.subplots(figsize=(6, 5))
-        if len(np.unique(y)) == 2:
-            fpr, tpr, _ = roc_curve(y, prediction)
-            ax.plot(fpr, tpr, color="#227c7a", label=f"AUROC={number(scores['auroc'])}")
-            ax.legend(loc="lower right")
-        else:
-            ax.text(0.5, 0.5, "ROC not estimable: one outcome class", ha="center", wrap=True)
-        ax.plot([0, 1], [0, 1], "--", color="gray")
-        ax.set(
-            xlabel="False positive rate",
-            ylabel="Sensitivity",
-            title=f"Held-out ROC (n={n})",
-            xlim=(0, 1),
-            ylim=(0, 1),
-        )
-        save(
-            fig,
-            "roc",
-            f"Held-out ROC, n={n}, AUROC={number(scores['auroc'])}; discrimination alone does not establish calibration or clinical benefit.",
-        )
-        fig, ax = plt.subplots(figsize=(6, 5))
-        if len(np.unique(y)) == 2:
-            precision, recall, _ = precision_recall_curve(y, prediction)
-            ax.step(
-                recall,
-                precision,
-                where="post",
-                color="#227c7a",
-                label=f"AP={number(scores['average_precision'])}",
-            )
-            ax.legend()
-        else:
-            ax.text(0.5, 0.5, "PR not estimable: one outcome class", ha="center", wrap=True)
-        ax.axhline(y.mean(), linestyle="--", color="gray")
-        ax.set(
-            xlabel="Recall",
-            ylabel="Precision",
-            title=f"Held-out precision–recall (n={n})",
-            xlim=(0, 1),
-            ylim=(0, 1.02),
-        )
-        save(
-            fig,
-            "pr",
-            f"Held-out precision–recall, n={n}; average precision={number(scores['average_precision'])}; dashed line is held-out outcome prevalence.",
-        )
-        fig, ax = plt.subplots(figsize=(6, 5))
-        bins = result["validation"]["calibration_bins"]
-        ax.plot([0, 1], [0, 1], "--", color="gray")
-        ax.plot(
-            [b["mean_prediction"] for b in bins],
-            [b["observed_fraction"] for b in bins],
-            "o-",
-            color="#227c7a",
-        )
-        for b in bins:
-            ax.annotate(
-                f"n={b['n']}",
-                (b["mean_prediction"], b["observed_fraction"]),
-                xytext=(3, 6),
-                textcoords="offset points",
-                fontsize=8,
-            )
-        ax.set(
-            xlabel="Mean predicted probability",
-            ylabel="Observed fraction",
-            title=f"Calibration in this sampled holdout (n={n})",
-            xlim=(-0.03, 1.03),
-            ylim=(-0.03, 1.1),
-        )
-        save(
-            fig,
-            "calibration",
-            f"Held-out calibration in fixed-width probability bins, n={n}; counts label each nonempty bin. Sparse bins are unstable; no curve was fitted on the holdout.",
-        )
-        curve = result["validation"]["decision_curve"]
-        if curve:
-            rows = curve["points"]
-            thresholds = [r["threshold"] for r in rows]
-            fig, ax = plt.subplots(figsize=(7, 5))
-            ax.plot(
-                thresholds,
-                [r["model"] for r in rows],
-                "o-",
-                color="#227c7a",
-                label="依模型採取行動",
-            )
-            ax.plot(
-                thresholds,
-                [r["treat_all"] for r in rows],
-                "--",
-                color="#aa6845",
-                label="全部採取行動",
-            )
-            ax.axhline(0, color="gray", linestyle=":", label="全部不採取行動")
-            if all(r["intervals"]["model"]["lower"] is not None for r in rows):
-                ax.fill_between(
-                    thresholds,
-                    [r["intervals"]["model"]["lower"] for r in rows],
-                    [r["intervals"]["model"]["upper"] for r in rows],
-                    color="#227c7a",
-                    alpha=0.16,
-                    label=f"{spec['confidence_level']:.0%} 逐項 CI",
-                )
-            ax.set(
-                xlabel="事先指定的機率閾值",
-                ylabel="每筆判斷的淨效益（NB）",
-                title=f"保留樣本決策曲線（n={n}）",
-            )
-            ax.legend()
-            save(
-                fig,
-                "decision_curve",
-                "固定候選／所選模型之後的條件性淨效益；陰影為逐項 bootstrap CI，不是同時區間，不用曲線自動選最佳閾值，亦不代表臨床結局已改善。",
-            )
-    else:
-        fig, ax = plt.subplots(figsize=(6, 5))
-        ax.scatter(prediction, y, alpha=0.5, s=16, color="#227c7a", rasterized=True)
-        low, high = min(y.min(), prediction.min()), max(y.max(), prediction.max())
-        ax.plot([low, high], [low, high], "--", color="gray")
-        ax.set(
-            xlabel="Predicted outcome",
-            ylabel="Observed outcome",
-            title=f"Held-out predictions (n={n})",
-        )
-        save(
-            fig,
-            "observed",
-            f"Held-out observed versus predicted, n={n}; RMSE={number(scores['rmse'])}, MAE={number(scores['mae'])}. Dashed line indicates perfect agreement.",
-        )
-        fig, ax = plt.subplots(figsize=(6, 5))
-        ax.scatter(prediction, y - prediction, alpha=0.5, s=16, color="#227c7a", rasterized=True)
-        ax.axhline(0, linestyle="--", color="gray")
-        ax.set(
-            xlabel="Predicted outcome",
-            ylabel="Observed − predicted",
-            title=f"Held-out residuals (n={n})",
-        )
-        save(
-            fig,
-            "residual",
-            f"Held-out residuals, n={n}; inspect nonlinearity, outliers and nonconstant error spread. This plot does not refit the model.",
-        )
-    return records
+    return publication_figures(result, directory, prefix)
 
 
 def tables(result, directory: Path, prefix):
