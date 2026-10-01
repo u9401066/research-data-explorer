@@ -32,12 +32,18 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Current main, version 0.5.0: 493 Python tests passed (five explicitly skipped),
-40 extension tests passed, and all 53 MCP tools were audited. Wheel/source archive/
-VSIX payloads matched reviewed sources. Survival additions were exercised through
+Current main, version 0.5.0: 496 local Python tests passed, including the configured
+Chinese-font fixture; five optional tests were explicitly skipped.
+CI passed 495 tests, skipped the optional local-font fixture and deselected five
+vendor tests. The prior 40 extension tests and 53-tool audit remain unchanged.
+The preceding wheel/source archive/VSIX audit matched reviewed sources. Survival additions were exercised through
 Research Workbench with public heart-failure and PBC data, complete reports,
 14 figures, desktop/mobile Chromium and actual LLM discussion. Evidence checks do
-not certify clinical interpretation. The [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36815514566)
+not certify clinical interpretation. An additional public heart-failure workflow
+used an LLM-proposed plan, human approval, actual MCP execution and seven reviewed
+figures with Chinese time units; font filenames and hashes are retained in figure
+receipts. See [plot font configuration](docs/clinical-methods.md#chinese-plot-labels).
+The [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36820715422)
 passed Python quality, extension quality and four OS/architecture installation
 smokes; the optional vendor job was skipped. The historical tagged-release scope
 remains in the [release workboard](docs/release-0.5.0-plan.md).
@@ -48,7 +54,7 @@ This README is aligned with the current implementation, not only the older prose
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
 | MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 10 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
-| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 50 tools, explicit effect/gate metadata, structured output and live inventory tests |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 53 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
