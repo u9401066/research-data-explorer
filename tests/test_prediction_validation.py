@@ -372,7 +372,9 @@ def test_real_mcp_prediction_persists_evidence_collects_and_restores_without_ref
         assert record["result"]["validation"]["decision_curve"]["points"][0]["threshold"] == 0.2
         assert any(a["path"].endswith("_decision_curve.csv") for a in record["artifacts"])
         decision_figure = next(
-            figure for figure in record["figures"] if figure["plot_type"] == "prediction_decision_curve"
+            figure
+            for figure in record["figures"]
+            if figure["plot_type"] == "prediction_decision_curve"
         )
         assert "validation. At threshold" in decision_figure["caption"]
     assert all((project.output_dir / item["path"]).is_file() for item in record["artifacts"])
