@@ -500,9 +500,52 @@ def _cox(frame: pd.DataFrame, spec: SurvivalSpec):
 
 
 def run_survival(df: pd.DataFrame, spec: SurvivalSpec):
+    frame, ledger, frame_hash, codes = prepare_population(df, spec)
+    return _run_prepared_survival(frame, ledger, frame_hash, codes, spec)
+
+
+def run_survival_sensitivity(df: pd.DataFrame, baseline: SurvivalSpec, covariates: list[str]):
+    """Adjust a Cox model without changing the primary study's complete-case population."""
+    if (
+        not covariates
+        or len(set(covariates)) != len(covariates)
+        or not set(covariates) < set(baseline.covariates)
+    ):
+        raise ValueError(
+            "A sensitivity model requires a nonempty proper subset of primary covariates."
+        )
+    selected = [name for name in baseline.covariates if name in covariates]
+    spec = SurvivalSpec.parse(
+        {
+            **baseline.to_dict(),
+            "covariates": selected,
+            "categorical_covariates": [n for n in baseline.categorical_covariates if n in selected],
+            "references": {k: v for k, v in baseline.references.items() if k in selected},
+        }
+    )
+    frame, ledger, frame_hash, codes = prepare_population(df, baseline)
+    # Build a new column mapping: renaming x1->x0 in place could overwrite a retained column.
+    model_frame = frame[["duration", "event_code", "group"]].copy()
+    for index, name in enumerate(selected):
+        model_frame[f"x{index}"] = frame[f"x{baseline.covariates.index(name)}"]
+    result = _run_prepared_survival(model_frame, ledger, frame_hash, codes, spec)
+    # The frame hash and exclusions describe ALL baseline roles, including omitted predictors.
+    result["population_spec"] = baseline.to_dict()
+    result["population_spec_sha256"] = digest(baseline.to_dict())
+    result["case_set_sha256"] = digest(ledger["complete_data_rows"])
+    result["limitations"].append(
+        "Exploratory adjustment sensitivity on the primary complete-case population. "
+        "Omitting predictors does not restore excluded participants. "
+        "Intervals are pointwise; no multiplicity correction across exploratory models. "
+        "Changes in hazard ratios are not a formal test between models or evidence of causality."
+    )
+    result["receipt_sha256"] = digest({k: v for k, v in result.items() if k != "receipt_sha256"})
+    return result
+
+
+def _run_prepared_survival(frame, ledger, frame_hash, codes, spec):
     from lifelines.statistics import multivariate_logrank_test
 
-    frame, ledger, frame_hash, codes = prepare_population(df, spec)
     alpha = 1 - spec.confidence_level
     times = spec.risk_times or np.unique(np.linspace(0, float(frame.duration.max()), 5)).tolist()
     strata = []

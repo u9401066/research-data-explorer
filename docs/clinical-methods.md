@@ -150,7 +150,41 @@ Tests: `tests/test_clinical_survival.py` includes manually specified KM interval
 independent statsmodels Cox/log-rank comparisons, case flow, strict coding, failed
 fits, actual MCP/report gates, retry without refitting and artifact tampering.
 
-### Chinese plot labels
+### Bounded survival adjustment branches
+
+The autoresearch queue also executes `tool: run_clinical_study` with
+`analysis_type: survival_sensitivity`. Its exact contract contains `covariates`,
+`focus_variable`, `required_covariates`, `primary_receipt_sha256`,
+`primary_record_sha256` (original record bytes), and `case_set_sha256` (canonical
+JSON digest of primary one-based complete-case source positions). Extra keys fail.
+
+The focus must be required, all required factors must remain, and covariates must
+be a nonempty proper subset in primary order. The sole locked primary survival
+specification supplies all other roles and encodings. The runner verifies the
+primary record, source file/sheet, loaded frame, case ledger and every primary
+report/plot hash before fitting. It never runs a binary logistic model on a
+time-to-event endpoint.
+
+Cases are prepared with the **full primary specification**, then selected model
+columns are remapped on those same rows. Dropping an incomplete predictor cannot
+add participants. Receipts include both model and population specifications,
+the original full-role data hash and an explicit primary binding. Cause-specific
+Cox preserves competing-event coding, category references and risk sets.
+
+Each branch has its own numerical receipt, Chinese comparison/full report, CSVs
+and figures. Numbers are persisted before rendering; a rendering failure remains
+failed with its numerical evidence retained. The returned artifact SHA256 and
+file manifest support checked recovery. The primary report/visualization manifest
+is not rewritten. Branch rendering does not currently auto-retry without refitting.
+
+This is exploratory adjustment sensitivity, with pointwise intervals and no
+cross-model multiplicity correction or automatic primary promotion. HR changes
+are not a formal between-model difference test. Holm applies only to PH tests
+within a model. Independent PHReg comparisons, asymmetric missingness, competing
+events, real MCP queue execution, artifact tampering and retained renderer failure
+evidence are covered in `tests/test_survival_autoresearch.py`.
+
+### Chinese plot font configuration
 
 Set `RDE_PLOT_FONT` to an absolute path to a local CJK font file when column
 names, group labels or time units contain Chinese. The renderer registers that

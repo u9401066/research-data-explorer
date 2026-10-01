@@ -2282,6 +2282,10 @@ def _execute_autoresearch_analysis_contract(
                 "Autoresearch branch has no live analysis contract; recorded branch " "ledger only."
             ),
         }
+    if contract.get("tool") == "run_clinical_study":
+        from rde.interface.mcp.tools._shared.clinical_branch import execute_survival_branch
+
+        return execute_survival_branch(project, store, contract, branch_id, experiment_id)
     if str(contract.get("tool") or "") != "run_advanced_analysis":
         return {
             "executed": False,
