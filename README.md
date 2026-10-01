@@ -44,10 +44,12 @@ Research Workbench exercised four presets against saved WDBC, PEFR and synthetic
 rating studies: 14 figures and 84 browser downloads, desktop/mobile rendering,
 unchanged plotting CSVs, embedded PDF fonts and actual LLM report reading.
 These checks do not certify clinical interpretation or editorial acceptance.
-The preceding [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36842234897)
-passed Python quality, extension quality and four OS/architecture installation
-smokes; the optional vendor job was skipped. CI for this new change is recorded
-after it actually runs. The historical tagged-release scope remains in the
+The [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36848803190)
+passed Python quality (556 passed, 26 skipped, five vendor tests deselected),
+extension quality and four OS/architecture installation smokes. The 25 journal-font
+checks skipped in CI passed locally with the configured Arial fixture; the optional
+vendor job was skipped. Formal LAN verification also passed all four presets and
+a read-only browser check after restarting the service. The historical tagged-release scope remains in the
 [release workboard](docs/release-0.5.0-plan.md).
 
 This README is aligned with the current implementation, not only the older prose docs:
