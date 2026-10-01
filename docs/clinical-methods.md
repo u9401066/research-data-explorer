@@ -184,6 +184,24 @@ within a model. Independent PHReg comparisons, asymmetric missingness, competing
 events, real MCP queue execution, artifact tampering and retained renderer failure
 evidence are covered in `tests/test_survival_autoresearch.py`.
 
+Workbench validation on 2026-10-01 exercised the real MCP queue and official
+Harness/LLM on public UCI heart-failure and PBC data, two branches per source.
+Heart failure kept 299 participants/96 deaths; PBC kept the prespecified 312
+participants/125 deaths/19 transplants/168 right-censored observations. All four
+branch case ledgers, curves and risk sets matched their primary study exactly.
+The Workbench deployment reproduced all coefficients/uncertainty/PH checks and
+the 24 reviewed branch PNGs byte-for-byte. Complete branch reports are readable
+in the web report selector and retain their own figure ownership after restart.
+The Workbench QA ledger records source attribution, run IDs and numerical values;
+these are engineering validation cases, not confirmatory clinical findings.
+
+Local regression: 512 passed/5 skipped including the configured CJK fixture.
+[CI for the executor commit](https://github.com/u9401066/research-data-explorer/actions/runs/36824397029)
+passed Python quality (511 passed/1 font-fixture skipped/5 vendor deselected),
+extension quality and all four VSIX platform smoke jobs. The optional vendor job
+remained skipped. Model wording required human corrections during development;
+stored numerical evidence and investigator review remain separate.
+
 ### Chinese plot font configuration
 
 Set `RDE_PLOT_FONT` to an absolute path to a local CJK font file when column
