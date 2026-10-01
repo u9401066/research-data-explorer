@@ -35,7 +35,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 Version 0.5.0, local verification on 2026-10-01: **595 Python tests passed**,
 including real Arial exports for four journal presets across eight study variants;
 five optional tests were explicitly skipped. Ruff and pre-commit passed.
-The previous journal milestone also passed 40 extension tests and VSIX packaging. The live inventory now contains 55 tools across 13 modules.
+The survival publication commit also passed 40 extension tests and VSIX packaging. The live inventory now contains 55 tools across 13 modules.
 Publication editions preserve the original study and plotting data, support edited
 English captions with Chinese explanations, and retain source, font and output
 hashes. See [publication figures and configured fonts](docs/publication-figures.md).
@@ -51,12 +51,16 @@ three saved-study editions produced 26 figures and 156 verified browser download
 without changing estimates or plotting CSVs. All 17 primary PNGs, 26 edition PNGs,
 16 additional branch PNGs and three PDF renditions were visually reviewed.
 
-The previous journal milestone [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36848803190)
-passed Python quality (556 passed, 26 skipped, five vendor tests deselected),
-extension quality and four OS/architecture installation smokes. The 25 journal-font
+The survival publication [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36854106394)
+passed Python quality (562 passed, 33 skipped, five vendor tests deselected),
+extension quality and four OS/architecture installation smokes. Journal-font
 checks skipped in CI passed locally with the configured Arial fixture; the optional
-vendor job was skipped. Formal LAN verification also passed all four presets and
-a read-only browser check after restarting the service. The historical tagged-release scope remains in the
+vendor job was skipped. Formal LAN survival verification reproduced the development
+numerical receipts, all 29 plotting/result CSVs and 47 primary/branch PNGs exactly;
+three journal editions added 26 identical PNGs and 156 verified browser downloads.
+All 4,744 files in the resulting 35 projects passed an HTTP byte/hash/ownership audit.
+LLM interpretations still required human correction; the Workbench QA ledger distinguishes
+original answers from subsequent corrections. The historical tagged-release scope remains in the
 [release workboard](docs/release-0.5.0-plan.md).
 
 This README is aligned with the current implementation, not only the older prose docs:
