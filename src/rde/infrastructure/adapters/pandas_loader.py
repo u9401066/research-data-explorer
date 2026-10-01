@@ -108,6 +108,11 @@ class PandasLoader(DataLoaderPort):
                     df[col] = df[col].apply(
                         lambda value: pd.NA if str(value).strip() in _SENTINEL_VALUES else value
                     )
+                if any(
+                    str(v).strip() in DEFAULT_HEURISTIC_POLICY.intake.literal_category_values
+                    for v in vals
+                ):
+                    continue
                 converted = pd.to_numeric(df[col], errors="coerce")
                 non_null = df[col].notna().sum()
                 numeric_count = converted.notna().sum()
@@ -170,7 +175,9 @@ class PandasLoader(DataLoaderPort):
         elif sheet_name is None:
             sheet_name = str(workbook.sheet_names[0])
         report.selected_sheet_name = sheet_name
-        return workbook.parse(sheet_name=sheet_name, header=None, dtype=object)
+        return workbook.parse(
+            sheet_name=sheet_name, header=None, dtype=object, keep_default_na=False
+        )
 
     def _select_sheet(
         self,
@@ -185,10 +192,14 @@ class PandasLoader(DataLoaderPort):
 
         for raw_sheet_name in workbook.sheet_names:
             sheet_name = str(raw_sheet_name)
-            frame = workbook.parse(sheet_name=sheet_name, header=None, dtype=object)
+            frame = workbook.parse(
+                sheet_name=sheet_name, header=None, dtype=object, keep_default_na=False
+            )
             row_count, column_count = frame.shape
             total_cells = max(row_count * max(column_count, 1), 1)
-            non_empty_ratio = float(frame.notna().sum().sum()) / total_cells
+            non_empty_ratio = (
+                float(frame.map(self._normalize_text).ne("").sum().sum()) / total_cells
+            )
             name_key = self._simplify_token(sheet_name)
             reasons: list[str] = []
             score = non_empty_ratio
@@ -380,6 +391,14 @@ class PandasLoader(DataLoaderPort):
         coerced = df.copy()
         for column in coerced.columns:
             series = coerced[column]
+            if any(
+                str(v).strip() in DEFAULT_HEURISTIC_POLICY.intake.literal_category_values
+                for v in series.dropna().unique()
+            ):
+                report.add_warning(
+                    f"欄位 {column} 的 None／none 保留為原始類別文字，未當作缺失或強制轉成數字；缺失定義需依資料字典確認。"
+                )
+                continue
             if self._should_preserve_text(column, series):
                 report.add_warning(f"欄位 {column} 疑似代碼欄，保留文字格式。")
                 continue

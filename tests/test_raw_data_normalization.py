@@ -1,9 +1,39 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from rde.domain.models.dataset import DatasetMetadata
 from rde.infrastructure.adapters.pandas_loader import PandasLoader
+
+
+@pytest.mark.parametrize("extension", ["csv", "xlsx"])
+def test_literal_none_outcomes_survive_ingestion_including_mostly_numeric_columns(
+    tmp_path, extension
+):
+    path = tmp_path / f"literal-outcomes.{extension}"
+    # An observed absence is a valid result. A real empty cell remains missing.
+    original = pd.DataFrame(
+        {
+            "ID": list(range(24)),
+            "Improved": ["None", "Some", "Marked", "none", None, "None"] * 4,
+            "MostlyNumeric": [str(i) for i in range(23)] + ["None"],
+        }
+    )
+    if extension == "csv":
+        original.to_csv(path, index=False)
+    else:
+        original.to_excel(path, index=False)
+    metadata = DatasetMetadata(
+        file_path=path, file_format=extension, file_size_bytes=path.stat().st_size
+    )
+    loaded, variables, count, report = PandasLoader().load(metadata)
+    assert count == 24
+    assert loaded.Improved.iloc[:4].tolist() == ["None", "Some", "Marked", "none"]
+    assert pd.isna(loaded.Improved.iloc[4])
+    assert loaded.MostlyNumeric.iloc[23] == "None"
+    assert next(v for v in variables if v.name == "Improved").n_missing == 4
+    assert any("None／none" in warning for warning in report.warnings)
 
 
 def test_pandas_loader_normalizes_messy_raw_csv(tmp_path: Path) -> None:

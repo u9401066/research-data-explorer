@@ -33,8 +33,6 @@ class IntakeHeuristics:
                 "nan",
                 "NULL",
                 "null",
-                "None",
-                "none",
                 ".",
                 "-",
                 "--",
@@ -47,6 +45,9 @@ class IntakeHeuristics:
             }
         )
     )
+    # A written "None" can mean an observed absence (e.g. no improvement), not
+    # an absent observation. Retain these labels even in mostly numeric columns.
+    literal_category_values: frozenset[str] = frozenset({"None", "none"})
     header_scan_limit: int = 12
     max_header_prefix_rows: int = 2
     numeric_coerce_min_ratio: float = 0.9
