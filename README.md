@@ -32,10 +32,15 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Release 0.5.0 local verification: 411 Python tests passed (six explicitly skipped),
-40 extension tests passed, all 51 MCP tools audited, desktop/mobile Chromium QA
-passed, and wheel/source archive/VSIX payloads matched reviewed sources. See the
-[release workboard](docs/release-0.5.0-plan.md) for scope and final remote evidence.
+Current main, version 0.5.0: 493 Python tests passed (five explicitly skipped),
+40 extension tests passed, and all 53 MCP tools were audited. Wheel/source archive/
+VSIX payloads matched reviewed sources. Survival additions were exercised through
+Research Workbench with public heart-failure and PBC data, complete reports,
+14 figures, desktop/mobile Chromium and actual LLM discussion. Evidence checks do
+not certify clinical interpretation. The [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36815514566)
+passed Python quality, extension quality and four OS/architecture installation
+smokes; the optional vendor job was skipped. The historical tagged-release scope
+remains in the [release workboard](docs/release-0.5.0-plan.md).
 
 This README is aligned with the current implementation, not only the older prose docs:
 
