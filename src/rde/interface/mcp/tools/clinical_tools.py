@@ -17,6 +17,11 @@ from rde.infrastructure.clinical.measurement import (
     prepare_measurement,
     run_measurement,
 )
+from rde.infrastructure.clinical.longitudinal_contract import (
+    LongitudinalSpec,
+    longitudinal_preflight,
+    prepare_longitudinal,
+)
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
@@ -26,6 +31,8 @@ def planned_clinical_spec(entry):
 
 
 def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family") == "longitudinal":
+        return LongitudinalSpec.parse(options)
     if isinstance(options, dict) and options.get("family", "survival") != "survival":
         return MeasurementSpec.parse(options)
     return SurvivalSpec.parse(options)
@@ -76,7 +83,7 @@ def verify_clinical_artifacts(record, root: Path):
 def register_clinical_tools(server: Any):
     @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對生存／診斷／一致性編碼、受試者及共同個案；不估計模型或 p 值。"""
+        """計畫審閱前核對生存／診斷／一致性／縱向角色、受試者及共同觀察；不估計模型或 p 值。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -89,10 +96,15 @@ def register_clinical_tools(server: Any):
             source = entry.dataset.metadata
             if not source or not source.file_path.is_file():
                 raise ValueError("The clinical source file is required.")
-            if isinstance(spec, MeasurementSpec):
+            if isinstance(spec, (MeasurementSpec, LongitudinalSpec)):
+                preflight = (
+                    longitudinal_preflight
+                    if isinstance(spec, LongitudinalSpec)
+                    else measurement_preflight
+                )
                 return json.dumps(
                     {
-                        **measurement_preflight(entry.dataframe, spec),
+                        **preflight(entry.dataframe, spec),
                         "source_sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest(),
                         "sheet": source.sheet_name,
                     },
@@ -133,7 +145,7 @@ def register_clinical_tools(server: Any):
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa。
+        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal。
 
         clinical_options 必须逐項符合唯一計畫的 execution_arguments.clinical_options。
         必填 time、event、event_value、censor_value、time_origin、time_unit、independent_rows=true。
@@ -142,12 +154,19 @@ def register_clinical_tools(server: Any):
         不將競爭事件合併成目標事件，不自動挑選變項，不改寫既有成功結果。
         診斷／一致性須 first、second、context、independent_rows=true 及明確 diagnostic／agreement／categories。
         診斷固定陽性規則、參照標準與抽樣；一致性保留差異方向、單位、界限涵蓋率與臨床容許差異。
+        longitudinal 必須指定 outcome、subject、time、time_unit、time_origin、outcome_unit、context、
+        independent_subjects=true、method=gee/mixed、distribution=gaussian/binomial/poisson。
+        GEE correlation=independence/exchangeable；Gaussian mixed 要 correlation=null，可 random_slope=true。
+        time_mode=linear/categorical、time_reference、time_levels、group/group_reference、time_by_group 明訂。
+        binomial 指定 positive/negative；Poisson 可指定 exposure/exposure_unit。固定 covariates、
+        categorical_covariates、references、time_varying_covariates，不平均重複 subject/time、不自動選模。
         """
         from rde.application.session import get_session
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error, log_tool_error
         from rde.interface.mcp.tools.analysis_tools import _auto_log_decision
         from rde.interface.mcp.tools.report_tools import _upsert_visualization_manifest
         from rde.infrastructure.clinical.survival import run_survival
+        from rde.infrastructure.clinical.longitudinal import run_longitudinal
         from rde.infrastructure.clinical.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
@@ -169,6 +188,8 @@ def register_clinical_tools(server: Any):
             frame_hash = (
                 prepare_measurement(entry.dataframe, spec)
                 if isinstance(spec, MeasurementSpec)
+                else prepare_longitudinal(entry.dataframe, spec)
+                if isinstance(spec, LongitudinalSpec)
                 else prepare_population(entry.dataframe, spec)
             )[2]
             metadata = entry.dataset.metadata
@@ -218,6 +239,8 @@ def register_clinical_tools(server: Any):
                 else (
                     run_measurement(entry.dataframe, spec)
                     if isinstance(spec, MeasurementSpec)
+                    else run_longitudinal(entry.dataframe, spec)
+                    if isinstance(spec, LongitudinalSpec)
                     else run_survival(entry.dataframe, spec)
                 )
             )

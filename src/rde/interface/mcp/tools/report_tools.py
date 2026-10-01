@@ -2054,6 +2054,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
+            return "本次按鎖定的長格式追蹤規格估計 GEE 或 Gaussian 混合模型；同一人的多次觀察有相關性。請分別核對觀察列數與受試者數、固定效果及其逐項區間、參考時間、交互作用與失訪限制，不把觀察關聯當作因果療效。"
         if any(
             r.get("family") in {"diagnostic_accuracy", "bland_altman", "cohens_kappa"}
             for r in results["clinical_studies"]
@@ -2123,6 +2125,8 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
+            return "縱向結果適用於已記錄的受試者、追蹤時點、完整觀察與模型。GEE 的群體平均關聯、混合模型的固定效果及含個人隨機效果的配適值各有不同含義；二元勝算比不是風險比，交互作用不能直接當作組別主效果。失訪、時間变動暴露與模型假設仍需研究者審閱。"
         if any(
             r.get("family") in {"diagnostic_accuracy", "bland_altman", "cohens_kappa"}
             for r in results["clinical_studies"]
@@ -2201,6 +2205,8 @@ def _build_interpretation_discussion(
     """Build narrative interpretation, recommendations, and literature context."""
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
+            return "## 縱向結果解讀\n\n先核對受試者／時間身份、參考組與各人保留次數，再檢視固定效果、區間與殘差。原始時間摘要沒有調整共變項，不能當成模型預測軌跡。含時間×組別時需明確說明主效果的參考時間／參考組，及交互作用的差異或比值之比。Holm 只校正同一模型全部非截距係數的 p 值；逐項 CI、未執行的整體檢定或跨模型比較不受這項校正保護。收斂與圖形均不能證明缺失可忽略、模型正確或因果效果。"
         if any(
             r.get("family") in {"diagnostic_accuracy", "bland_altman", "cohens_kappa"}
             for r in results["clinical_studies"]

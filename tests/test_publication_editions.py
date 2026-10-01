@@ -53,6 +53,17 @@ def completed(tmp_path, family):
             json_result=False,
         )
         record = clinical_records(store)[0]
+    elif family.startswith("longitudinal"):
+        from test_longitudinal_workflow import longitudinal_project
+        from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+        project, store, dataset, spec = longitudinal_project(tmp_path, family)
+        call(
+            "run_clinical_study",
+            {"dataset_id": dataset.id, "clinical_options": spec.to_dict()},
+            json_result=False,
+        )
+        record = clinical_records(store)[0]
     else:
         from test_clinical_measurement import measurement_project
         from rde.interface.mcp.tools.clinical_tools import clinical_records
@@ -85,6 +96,8 @@ def completed(tmp_path, family):
         "prediction",
         "survival",
         "survival_competing",
+        "longitudinal_gaussian",
+        "longitudinal_binomial",
     ],
 )
 def test_mcp_creates_immutable_edition_without_refitting_or_changing_originals(
@@ -235,6 +248,8 @@ def test_plos_title_length_rejects_oversized_title_without_partial_edition(tmp_p
         "prediction_regression",
         "survival",
         "survival_competing",
+        "longitudinal_gaussian",
+        "longitudinal_binomial",
     ],
 )
 def test_actual_journal_exports_keep_exact_data_and_meet_format_dimensions(

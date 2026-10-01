@@ -10,6 +10,12 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "longitudinal":
+        from rde.infrastructure.clinical.longitudinal_report import (
+            required_figures as required_longitudinal_figures,
+        )
+
+        return required_longitudinal_figures(result)
     if result["spec"]["family"] != "survival":
         from rde.infrastructure.clinical.measurement_report import (
             required_figures as required_measurement_figures,
@@ -81,13 +87,22 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         shared_cases = [p["data_row"] for p in result.get("points", [])] == included and bool(
             included
         )
+    elif spec["family"] == "longitudinal":
+        points = result.get("points", [])
+        shared_cases = (
+            bool(included)
+            and sorted(p["data_row"] for p in points) == included
+            and len({p["subject_code"] for p in points})
+            == result.get("n_subjects")
+            == ledger.get("n_subjects")
+        )
     else:
         shared_cases = bool(result.get("table")) and sum(
             sum(row) for row in result["table"]
         ) == result.get("n")
     check("shared_case_set", shared_cases, ["case_ledger", "family-specific counts"])
     cox = result.get("cox")
-    if spec.get("covariates"):
+    if spec["family"] == "survival" and spec.get("covariates"):
         check(
             "cox_estimation_and_assumption_checks",
             cox
@@ -95,6 +110,19 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             and len(cox["ph_checks"]) == 2 * len(cox["coefficients"])
             and len(cox["scaled_schoenfeld"]) == result.get("events"),
             ["cox"],
+        )
+    if spec["family"] == "longitudinal":
+        model = result.get("model", {})
+        coefficients = result.get("coefficients", [])
+        check(
+            "longitudinal_model_and_complete_observations",
+            model.get("converged") is True
+            and model.get("parameters") == len(coefficients) > 1
+            and sum(p["observations"] for p in result.get("observed_by_time", []))
+            == result.get("n")
+            and result.get("multiplicity", {}).get("family")
+            == [row["term"] for row in coefficients[1:]],
+            ["model", "points", "coefficients", "observed_by_time", "multiplicity"],
         )
     expected = required_figures(result) if result else set()
     actual = {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
@@ -122,7 +150,13 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         report = str(store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md") or "")
         from rde.infrastructure.clinical.measurement_report import TITLES
 
-        heading = "生存與事件分析" if spec["family"] == "survival" else TITLES[spec["family"]]
+        heading = (
+            "生存與事件分析"
+            if spec["family"] == "survival"
+            else "縱向追蹤與重複觀察"
+            if spec["family"] == "longitudinal"
+            else TITLES[spec["family"]]
+        )
         check(
             "report_clinical_sections",
             all(

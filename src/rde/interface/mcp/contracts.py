@@ -67,7 +67,7 @@ CONTRACTS = {
     "inspect_clinical_study": ToolContract(
         "3",
         "schema and loaded dataset",
-        "read-only event coding and eligibility counts",
+        "read-only clinical coding, longitudinal roles, design rank and eligibility counts",
         read_only=True,
     ),
     "get_publication_presets": ToolContract(

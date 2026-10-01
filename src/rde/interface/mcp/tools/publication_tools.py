@@ -136,6 +136,8 @@ def create_edition(
             from rde.infrastructure.prediction.publication import figures
         elif result["spec"]["family"] == "survival":
             from rde.infrastructure.clinical.survival_publication import figures
+        elif result["spec"]["family"] == "longitudinal":
+            from rde.infrastructure.clinical.longitudinal_publication import figures
         else:
             from rde.infrastructure.clinical.measurement_publication import figures
         rendered = figures(result, staging, "unused", preset_id=preset_id, edition=options)
@@ -229,6 +231,7 @@ def register_publication_tools(server):
                     "diagnostic_accuracy",
                     "bland_altman",
                     "cohens_kappa",
+                    "longitudinal",
                 ],
             },
             ensure_ascii=False,
