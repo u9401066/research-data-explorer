@@ -366,10 +366,15 @@ def test_real_mcp_prediction_persists_evidence_collects_and_restores_without_ref
         assert svg.findall(".//{http://www.w3.org/2000/svg}path")
         assert not svg.findall(".//{http://www.w3.org/2000/svg}image")
         assert "中文解釋" in Path(paths["caption"]).read_text()
+        assert "validation.Scores" not in figure["caption"]
         assert len(Path(paths["data"]).read_text().splitlines()) > 1
     if curve:
         assert record["result"]["validation"]["decision_curve"]["points"][0]["threshold"] == 0.2
         assert any(a["path"].endswith("_decision_curve.csv") for a in record["artifacts"])
+        decision_figure = next(
+            figure for figure in record["figures"] if figure["plot_type"] == "prediction_decision_curve"
+        )
+        assert "validation. At threshold" in decision_figure["caption"]
     assert all((project.output_dir / item["path"]).is_file() for item in record["artifacts"])
     monkeypatch.setattr(
         engine, "run_prediction", lambda *a, **kw: pytest.fail("saved holdout refitted")

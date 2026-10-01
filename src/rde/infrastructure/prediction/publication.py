@@ -385,7 +385,7 @@ def _figures(result, directory, prefix, profile):
             "calibration",
             "Descriptive calibration within the sampled holdout.",
             common
-            + "Scores were assigned to ten prespecified equal-width bins ([0,0.1), …, [0.9,1]). "
+            + " Scores were assigned to ten prespecified equal-width bins ([0,0.1), …, [0.9,1]). "
             "Points show each nonempty bin's mean score and observed positive fraction; labels give its observation count. "
             "The dashed line is identity. No curve, recalibration model or binwise confidence interval was fitted. "
             "Sparse bins can be unstable; no line interpolates them. Sample calibration does not establish calibration in another population.",
@@ -450,7 +450,7 @@ def _figures(result, directory, prefix, profile):
                 "decision_curve",
                 "Net benefit at prespecified decision thresholds.",
                 common
-                + "At threshold t, model-guided action is taken when the score ≥ t. Net benefit = TP/n − FP/n × t/(1−t). "
+                + " At threshold t, model-guided action is taken when the score ≥ t. Net benefit = TP/n − FP/n × t/(1−t). "
                 "Circles denote the model strategy, diamonds action for all, and the dotted line action for none. "
                 f"Vertical bars are {ci} pointwise model-net-benefit intervals, not a simultaneous band. Lines join evaluated thresholds only; no threshold was optimized. "
                 "Model-minus-all intervals in the accompanying table use paired bootstrap differences. Extra test costs are not modeled. "
