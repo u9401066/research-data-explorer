@@ -59,6 +59,17 @@ CONTRACTS = {
         "exact locked prediction options + readiness + holdout reuse guard",
         "training CV, validation receipt, predictions, figures and decision",
     ),
+    "run_clinical_study": ToolContract(
+        "8",
+        "exact locked clinical options + readiness + evidence reuse guard",
+        "case ledger, clinical estimates, diagnostics, figures, tables and decision",
+    ),
+    "inspect_clinical_study": ToolContract(
+        "3",
+        "schema and loaded dataset",
+        "read-only event coding and eligibility counts",
+        read_only=True,
+    ),
     "open_exploration_branch": ToolContract("8", "locked plan + readiness", "branch event"),
     "suggest_branch_experiments": ToolContract(
         "8", "project context", "candidate suggestions", True

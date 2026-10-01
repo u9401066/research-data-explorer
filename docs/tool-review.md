@@ -2,7 +2,7 @@
 
 This inventory is generated from the live official SDK registry by
 `uv run python scripts/audit_mcp_surface.py`, not inferred from function names.
-All 51 tools have matching SDK/extension inventories, input and output schemas,
+All 53 tools have matching SDK/extension inventories, input and output schemas,
 descriptions, explicit effect/gate contracts and annotations. Every row is covered
 by the parameterized `tests/test_mcp_tool_boundaries.py` isolation/error-boundary
 test; focused suites additionally exercise successful workflows.
@@ -42,6 +42,7 @@ dataset, clinical estimand or external vendor configuration.
 | `get_pipeline_status` | all | project exists | status | yes |
 | `get_workflow_contract` | all | server-resolved state | next legal action | yes |
 | `init_project` | 0 | name + mode validation | project and UX artifacts | no |
+| `inspect_clinical_study` | 3 | source and schema available | eligibility, coding and source hashes; no fitting | yes |
 | `load_dataset` | 1 | format/size/PII | session dataset | no |
 | `log_deviation` | all | project exists | append deviation | no |
 | `open_exploration_branch` | 8 | locked plan + readiness | branch event | no |
@@ -55,6 +56,7 @@ dataset, clinical estimand or external vendor configuration.
 | `run_autoresearch_next_task` | 8 | governed project + lease + budget | experiment/evaluation | no |
 | `run_autoresearch_queue` | 8 | governed project + lease + budget | bounded experiments | no |
 | `run_branch_experiment` | 8 | governed branch | experiment ledger | no |
+| `run_clinical_study` | 8 | exact locked clinical options + readiness + source integrity | common-case survival/competing-event models, figures, tables and receipt | no |
 | `run_intake` | 1 | format/size/PII | intake and datasets | no |
 | `run_prediction_study` | 8 | exact locked prediction options + readiness + holdout reuse guard | training CV, validation receipt, predictions, figures and decision | no |
 | `run_repeated_measures` | 8 | locked plan + readiness | case ledger and decision | no |
@@ -71,6 +73,7 @@ dataset, clinical estimand or external vendor configuration.
 - `test_tool_edge_cases.py`: subject-aligned pairs, duplicate visits, failed
   statistical execution, required-plan coverage and artifact path boundaries.
 - `test_clinical_engine.py`: clinical estimates, uncertainty and analyzed case sets.
+- `test_clinical_survival.py`: source preflight, exact survival plans, numerical boundaries, Cox/PH diagnostics, rendering recovery and evidence integrity.
 - `test_autoresearch_contracts.py` and branch governance tests: agent proposals,
   durable baselines, design drift, recorded-only tasks, budgets and null-result review.
 - Existing pipeline/report suites: stage gates, audit trail, report reconstruction,

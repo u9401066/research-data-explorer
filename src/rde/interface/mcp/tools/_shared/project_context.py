@@ -658,6 +658,7 @@ _PLAN_TOOL_TYPE_MAP = {
     "generate_table_one": {"generate_table_one", "table_one", "table_1", "baseline"},
     "run_advanced_analysis": {"run_advanced_analysis"},
     "run_prediction_study": {"run_prediction_study"},
+    "run_clinical_study": {"run_clinical_study"},
     "run_repeated_measures": {"run_repeated_measures", "repeated_measures", "friedman"},
     "apply_cleaning": {"apply_cleaning", "cleaning", "clean"},
     "suggest_cleaning": {"suggest_cleaning", "cleaning", "clean"},

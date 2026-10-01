@@ -566,6 +566,7 @@ def register_report_tools(server: Any) -> None:
             summary = {
                 "comparisons": _persisted_comparisons(store),
                 "predictions": _prediction_summaries(store),
+                "clinical_studies": _clinical_summaries(store),
                 "repeated_measurements": _repeated_summaries(store),
                 "total_analyses": executed_analyses,
                 "publishable_count": len(publishable),
@@ -775,6 +776,10 @@ def register_report_tools(server: Any) -> None:
             table_one = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
             if table_one:
                 artifacts["baseline_table"] = _format_baseline_table(table_one)
+            elif results and results.get("clinical_studies"):
+                artifacts["baseline_table"] = (
+                    "本計畫為生存／事件研究；各組人數、事件數、在險人數及共同完整個案的納排列於臨床研究結果，不以追蹤終點作為基線預測因子。"
+                )
             elif results and results.get("repeated_measurements"):
                 artifacts["baseline_table"] = (
                     "本計畫沒有治療組間基線比較。各時點共同完整個案的描述統計列於重複量測結果；追蹤終點不充作基線共變項。"
@@ -1612,6 +1617,8 @@ def _format_analyses(results: dict | None) -> str:
     lines.append(_comparison_results_markdown(results))
     for prediction in results.get("predictions", []):
         lines.append(prediction["summary_markdown"])
+    for clinical in results.get("clinical_studies", []):
+        lines.append(clinical["summary_markdown"])
     report_readiness = results.get("report_readiness") or {}
     if report_readiness:
         lines.extend(
@@ -1949,6 +1956,20 @@ def _repeated_summaries(store: Any) -> list[dict]:
     ]
 
 
+def _clinical_summaries(store: Any) -> list[dict]:
+    from rde.interface.mcp.tools.clinical_tools import clinical_records
+    from rde.infrastructure.clinical.report import markdown
+
+    return [
+        dict(
+            artifact=r["artifact"],
+            receipt_sha256=r["result"]["receipt_sha256"],
+            summary_markdown=markdown(r["result"]),
+        )
+        for r in clinical_records(store)
+    ]
+
+
 def _prediction_summaries(store: Any) -> list[dict]:
     from rde.interface.mcp.tools.prediction_tools import persisted_predictions
     from rde.infrastructure.prediction.report import markdown
@@ -2031,6 +2052,8 @@ def _comparison_results_markdown(results: dict | None) -> str:
 def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
+    if results.get("clinical_studies"):
+        return "本次依預先指定的追蹤起點與事件編碼估計生存或累積發生率；完整樣本流向、信賴區間、Cox 模型與適用限制見臨床研究結果。沒有事件或不顯著結果不能證明沒有風險／差異，分組關聯不直接代表治療效果。"
     if results.get("repeated_measurements"):
         return "本次結果為預先指定的受試者內時間比較。完整配對數、缺失排除、檢定及全部事後比較列於重複量測結果；時間變化不代表治療組效果。"
     publishable = results.get("publishable_items") or []
@@ -2047,6 +2070,8 @@ def _formal_key_findings(results: dict | None) -> str:
 
 
 def _formal_statistical_summary(project: Any, store: Any, results: dict | None) -> str:
+    if results and results.get("clinical_studies"):
+        return "\n\n".join(r["summary_markdown"] for r in results["clinical_studies"])
     if results and results.get("repeated_measurements"):
         return "\n\n".join(item["summary_markdown"] for item in results["repeated_measurements"])
     lines: list[str] = []
@@ -2091,6 +2116,8 @@ def _formal_conclusions(
     schema: dict | None = None,
     variable_roles: dict | None = None,
 ) -> str:
+    if results and results.get("clinical_studies"):
+        return "本報告的估計適用於明列的共同完整個案、追蹤起點與事件定義；須結合在險人數、估計不確定性、失訪與模型假設解讀。競爭事件累積發生率、原因別危險比與固定時點風險是不同量，不能相互替代。觀察性關聯不證明因果療效。"
     if results and results.get("repeated_measurements"):
         return "本報告描述核准時點的受試者內變化；需依實際個案、差值方向、校正家族與方法限制解讀。缺失個案可能產生選擇偏差，未估計組間治療效果或時間×治療交互作用，也未提供效應量信賴區間。"
     focus_variables = _select_focus_variables(schema, variable_roles, results, limit=5)
@@ -2161,6 +2188,14 @@ def _build_interpretation_discussion(
     include_figure_details: bool = True,
 ) -> str:
     """Build narrative interpretation, recommendations, and literature context."""
+
+    if results and results.get("clinical_studies"):
+        return (
+            "## 臨床事件結果解讀\n\n先確認死亡、失訪、追蹤截止與移植等競爭事件的原始編碼，再檢視納排與事件數。"
+            "生存曲線與在險人數使用相同個案；追蹤尾端少量人數可能使估計不穩定。"
+            "若有調整模型，HR 比較的是瞬時事件率，不能寫成累積風險比；比例風險檢查不取代臨床判斷。"
+            "完整結果與可下載紀錄列出區間及限制，未估計的效果不能由文字敘述補出。"
+        )
 
     if results and results.get("repeated_measurements"):
         return (
@@ -2695,7 +2730,7 @@ def _format_findings(results: dict | None) -> str:
     """Format key findings section."""
     if not results:
         return "[No findings to report]"
-    if results.get("repeated_measurements"):
+    if results.get("repeated_measurements") or results.get("clinical_studies"):
         return _formal_key_findings(results)
     pub = results.get("publishable_items", [])
     if not pub:
@@ -3069,6 +3104,16 @@ def _evaluate_report_readiness(
     from rde.application.pipeline import PipelinePhase
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
     from rde.interface.mcp.tools.prediction_tools import prediction_plan
+    from rde.interface.mcp.tools.clinical_tools import clinical_plan
+
+    if clinical_plan(store) is not None:
+        from rde.interface.mcp.tools._shared.clinical_readiness import clinical_readiness
+
+        return clinical_readiness(
+            store,
+            data_quality=_evaluate_data_quality_evidence(store),
+            require_report_generation=require_report_generation,
+        )
 
     if prediction_plan(store) is not None:
         from rde.interface.mcp.tools._shared.prediction_readiness import prediction_readiness
@@ -4186,6 +4231,12 @@ def _resolved_visualization_manifest_entries(project: Any, store: Any) -> list[d
 
 
 def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, Any]:
+    from rde.interface.mcp.tools.clinical_tools import clinical_plan
+
+    if clinical_plan(store) is not None:
+        from rde.interface.mcp.tools._shared.clinical_readiness import clinical_deliverables
+
+        return clinical_deliverables(project, store)
     from rde.application.pipeline import PipelinePhase
     from rde.interface.mcp.tools.prediction_tools import prediction_plan
 

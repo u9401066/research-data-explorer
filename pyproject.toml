@@ -16,6 +16,7 @@ dependencies = [
     "httpx>=0.24",
     "pyyaml>=6.0",
     "python-docx>=1.1",
+    "lifelines==0.30.3",
 ]
 
 [project.scripts]

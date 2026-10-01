@@ -2,7 +2,8 @@
 
 RDE is a tool and harness layer for research agents, not a substitute for study
 design or statistical review. These seven methods run locally through
-`run_advanced_analysis`; no AutoML service, Docker, or patient-data upload is needed.
+`run_advanced_analysis`; a separate prespecified survival bundle is described below.
+No AutoML service, Docker, or patient-data upload is needed.
 Agents remain free to propose methods outside this catalog and document additional
 analyses. The catalog reduces routine coding, not scientific discretion.
 
@@ -96,3 +97,55 @@ are included by the report assembler. Missing p-values never imply a null findin
 Regression tests use synthetic data and independently specified numerical
 expectations, including asymmetric missingness, empty cells, nonconvergence,
 denominator preservation, report integration, and failed-execution accounting.
+
+## Prespecified survival and competing-event studies
+
+`inspect_clinical_study(dataset_id, clinical_options)` checks the full source before
+plan review: event labels, cohort eligibility, participant identity, missingness,
+common analyzed counts and each stratum. It does not fit models or calculate p-values.
+`run_clinical_study` executes one exact locked `family: survival` bundle; the options
+must match the sole plan entry's `execution_arguments.clinical_options`.
+
+Required options: `time`, `event`, `event_value`, `censor_value`, `time_origin`,
+`time_unit`, `independent_rows: true`. Optional choices are `group`, `subject`,
+`covariates`, `categorical_covariates`, exact `references`, `competing_values`,
+`risk_times`, `confidence_level`, and `cohort_filter: {column, values}`. No category
+meaning is inferred from order. All curves, models and risk tables share complete
+cases across the selected columns. Unknown codes and malformed numeric values
+stop execution; they are not silently discarded or treated as censoring.
+
+| Output | Estimator and interpretation |
+| --- | --- |
+| Survival without competing events | Kaplan–Meier, Greenwood log–log pointwise CI, median only if reached, overall log-rank comparison |
+| Competing events | Aalen–Johansen cumulative incidence for every declared cause; original ties retained, no random jitter; pointwise normal CI bounded to [0, 1] |
+| Adjusted association | Unpenalized Cox model, Efron ties, Breslow baseline; exact categorical reference, HR and Wald CI |
+| Competing-event association | Cause-specific Cox HR; competing causes leave the risk set at their observed times; not a subdistribution HR |
+| Assumption checks | Scaled Schoenfeld residuals; rank and KM time transforms, Holm correction across all term × transform checks |
+| Follow-up counts | Participants at risk immediately **before** each requested time; target, competing and censored counts retain distinct meanings |
+
+The competing-risk variance uses statsmodels' estimate. At an exhausted terminal
+risk set its expanded formula can be singular; only non-finite standard errors are
+recomputed using the algebraically equivalent difference form with its zero-limit
+term. The receipt records those adjustments. A hand-computed multinomial boundary
+test and a censored-package comparison cover this case. A group with no events has
+no estimated uncertainty, not a fabricated zero-risk confidence interval.
+
+Outputs include a Chinese methods/results/limitations report, participant ledger,
+curve and coefficient CSVs, risk table, forest plot and one residual figure per
+encoded parameter. A numerical receipt is written before rendering; renderer retry
+reuses that receipt. Successful records are reused only after source, specification,
+numerical and file hash checks. Changed plans/sources or corrupted evidence require
+an explicit new study, not overwriting the old result.
+
+No left truncation, recurrent events, time-dependent covariates, RMST, Gray test or
+Fine–Gray regression is implemented in this bundle. Proportional-hazards tests do
+not certify assumptions. Complete cases and a nominal CI do not establish clinical
+representativeness, causality or adequate power. Readiness checks cover recorded
+evidence and cannot replace study-specific scientific review.
+
+Implementation sources: [lifelines CoxPHFitter](https://lifelines.readthedocs.io/en/latest/fitters/regression/CoxPHFitter.html),
+[lifelines proportional-hazards diagnostics](https://lifelines.readthedocs.io/en/latest/Statistics.html#lifelines.statistics.proportional_hazard_test),
+[statsmodels cumulative incidence](https://www.statsmodels.org/stable/generated/statsmodels.duration.survfunc.CumIncidenceRight.html).
+Tests: `tests/test_clinical_survival.py` includes manually specified KM intervals,
+independent statsmodels Cox/log-rank comparisons, case flow, strict coding, failed
+fits, actual MCP/report gates, retry without refitting and artifact tampering.

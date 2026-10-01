@@ -6,6 +6,11 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+### Added
+
+- Prespecified survival studies through `inspect_clinical_study` and `run_clinical_study`: full-source eligibility review, KM/log-rank, tied competing-event cumulative incidence, adjusted Cox estimates, PH diagnostics, participant ledgers and complete Chinese reports.
+- Source/specification-bound numerical receipts, renderer recovery without refitting, exact-plan execution and artifact-integrity report gates. The MCP inventory now has 53 tools; the version remains 0.5.0.
+
 ### Fixed
 
 - Isolated autoresearch figures and visualization manifests by branch and experiment, preserving the primary report and earlier experiments.

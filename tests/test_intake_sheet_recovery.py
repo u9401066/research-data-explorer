@@ -25,18 +25,25 @@ def test_intake_sheet_selection_survives_session_restart(tmp_path):
 
     async def intake():
         server = create_server()
-        result = await server.call_tool("init_project", {"name": "sheet-recovery", "data_dir": str(raw)})
+        result = await server.call_tool(
+            "init_project", {"name": "sheet-recovery", "data_dir": str(raw)}
+        )
         assert not result.is_error
         project = session_module.get_session().get_project()
         result = await server.call_tool(
-            "run_intake", {"directory": str(raw), "project_id": project.id, "sheet_name": "選定 cohort"}
+            "run_intake",
+            {"directory": str(raw), "project_id": project.id, "sheet_name": "選定 cohort"},
         )
         assert not result.is_error, result
         assert not result.content[0].text.startswith("❌"), result
         dataset_id = project.dataset_ids[-1]
-        result = await server.call_tool("build_schema", {"project_id": project.id, "dataset_id": dataset_id})
+        result = await server.call_tool(
+            "build_schema", {"project_id": project.id, "dataset_id": dataset_id}
+        )
         assert not result.is_error
-        receipt = ArtifactStore(project.artifacts_dir).load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+        receipt = ArtifactStore(project.artifacts_dir).load(
+            PipelinePhase.DATA_INTAKE, "intake_report.json"
+        )
         assert receipt["sheet_name"] == "選定 cohort"
         return project.id, dataset_id
 

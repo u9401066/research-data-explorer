@@ -1309,6 +1309,7 @@ def register_plan_tools(server: Any) -> None:
                 "generate_table_one",
                 "run_advanced_analysis",
                 "run_prediction_study",
+                "run_clinical_study",
                 "run_repeated_measures",
                 "propensity_score",
                 "survival_analysis",
@@ -1393,13 +1394,43 @@ def register_plan_tools(server: Any) -> None:
                 except (ValueError, TypeError, KeyError) as error:
                     return fmt_error(f"Invalid prediction specification: {error}")
 
+            clinical_entries = [e for e in analyses if e.get("type") == "run_clinical_study"]
+            if clinical_entries:
+                from rde.interface.mcp.tools.clinical_tools import planned_clinical_spec
+
+                try:
+                    if len(analyses) != 1:
+                        raise ValueError("Clinical plans require one complete study bundle.")
+                    clinical_spec = planned_clinical_spec(clinical_entries[0])
+                    if set(clinical_entries[0].get("variables", [])) != set(
+                        clinical_spec.variables()
+                    ):
+                        raise ValueError(
+                            "Clinical plan variables must exactly enumerate all analysis roles."
+                        )
+                    if (
+                        abs(alpha - (1 - clinical_spec.confidence_level)) > 1e-12
+                        or missing_strategy != "listwise"
+                        or multiple_comparison_method != "holm"
+                    ):
+                        raise ValueError(
+                            "Clinical survival requires matching alpha, listwise cases and Holm diagnostic correction."
+                        )
+                except (ValueError, TypeError, KeyError) as error:
+                    return fmt_error(f"Invalid clinical specification: {error}")
+
             methodology_review_dict: dict[str, Any] | None = None
             execution_schedule: list[dict[str, Any]] = []
             dataset_ok, _, dataset_entry = ensure_dataset(project=project)
             dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
             planner = None
             auto_expanded_labels: list[str] = []
-            if dataset is not None and not prediction_only and repeated_contract is None:
+            if (
+                dataset is not None
+                and not prediction_only
+                and repeated_contract is None
+                and not clinical_entries
+            ):
                 from rde.domain.services.autonomous_eda_planner import AutonomousEDAPlanner
 
                 planner = AutonomousEDAPlanner()
@@ -1494,6 +1525,34 @@ def register_plan_tools(server: Any) -> None:
                     }
                 ]
                 script_content = "# Execute run_prediction_study through RDE MCP with the locked prediction_options.\n# No full-dataset cleaning, imputation, predictor screening or statsmodels fit precedes the split.\n"
+
+            if clinical_entries:
+                methodology_review_dict = dict(
+                    status="pass",
+                    scope="clinical_specification_review",
+                    completeness_tier="clinical_study",
+                    recommended_analysis_floor=1,
+                    academic_analysis_target=1,
+                    production_analysis_target=1,
+                    final_analysis_count=1,
+                    checks=[dict(name="prespecified_clinical_contract", passed=True)],
+                    warnings=[
+                        "Software contract reviewed only; event coding, clinical eligibility, censoring and model assumptions require researcher review. Numerical evidence is checked after execution."
+                    ],
+                )
+                execution_schedule = [
+                    dict(
+                        order=1,
+                        step_id="run_clinical_study",
+                        stage="clinical_study",
+                        tool_name="run_clinical_study",
+                        analysis_label="run_clinical_study",
+                        variables=clinical_entries[0]["variables"],
+                        depends_on=[],
+                        rationale="Exact event definitions and shared complete cases; no automatic method expansion.",
+                    )
+                ]
+                script_content = "# Execute run_clinical_study through RDE MCP with the locked clinical_options.\n"
 
             if repeated_contract is not None:
                 methodology_review_dict = {
