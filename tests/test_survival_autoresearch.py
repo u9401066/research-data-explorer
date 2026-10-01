@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -132,7 +133,13 @@ def test_real_mcp_survival_branch_has_full_reports_and_cannot_overwrite_primary(
     payload = json.loads((project.output_dir / artifact).read_text())
     assert payload["status"] == "completed"
     assert payload["analysis_result"]["case_ledger"] == record["result"]["case_ledger"]
-    assert len(payload["figures"]) == 4
+    assert len(payload["figures"]) == 5
+    for figure in payload["figures"]:
+        for path in figure["publication"]["files"].values():
+            assert str(Path(path).relative_to(project.output_dir)) in {
+                a["path"] for a in payload["artifacts"]
+            }
+        assert "exploratory adjustment-sensitivity" in figure["publication"]["caption_en"]
     for a in payload["artifacts"]:
         assert (
             hashlib.sha256((project.output_dir / a["path"]).read_bytes()).hexdigest() == a["sha256"]

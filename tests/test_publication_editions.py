@@ -40,6 +40,19 @@ def completed(tmp_path, family):
             json_result=False,
         )
         record = persisted_predictions(store)[0]
+    elif family.startswith("survival"):
+        from test_clinical_survival import clinical_project
+        from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+        project, store, dataset, spec = clinical_project(
+            tmp_path, competing=family == "survival_competing"
+        )
+        call(
+            "run_clinical_study",
+            {"dataset_id": dataset.id, "clinical_options": spec.to_dict()},
+            json_result=False,
+        )
+        record = clinical_records(store)[0]
     else:
         from test_clinical_measurement import measurement_project
         from rde.interface.mcp.tools.clinical_tools import clinical_records
@@ -64,7 +77,15 @@ def completed(tmp_path, family):
 
 
 @pytest.mark.parametrize(
-    "family", ["diagnostic_accuracy", "bland_altman", "cohens_kappa", "prediction"]
+    "family",
+    [
+        "diagnostic_accuracy",
+        "bland_altman",
+        "cohens_kappa",
+        "prediction",
+        "survival",
+        "survival_competing",
+    ],
 )
 def test_mcp_creates_immutable_edition_without_refitting_or_changing_originals(
     tmp_path, monkeypatch, family
@@ -79,6 +100,10 @@ def test_mcp_creates_immutable_edition_without_refitting_or_changing_originals(
     }
     from rde.interface.mcp.tools import clinical_tools
     from rde.infrastructure.prediction import engine
+
+    from rde.infrastructure.clinical import survival
+
+    monkeypatch.setattr(survival, "run_survival", lambda *a, **kw: pytest.fail("Refitted survival"))
 
     monkeypatch.setattr(
         clinical_tools, "run_measurement", lambda *a, **kw: pytest.fail("Re-estimated measurements")
@@ -208,6 +233,8 @@ def test_plos_title_length_rejects_oversized_title_without_partial_edition(tmp_p
         "prediction",
         "prediction_dca",
         "prediction_regression",
+        "survival",
+        "survival_competing",
     ],
 )
 def test_actual_journal_exports_keep_exact_data_and_meet_format_dimensions(

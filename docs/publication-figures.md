@@ -4,7 +4,7 @@
 `render_publication_figures` renders a **new display edition from a completed saved study**.
 It never reruns a model, bootstrap, cutoff search or significance test. Supported bundles:
 prediction (binary, optional DCA, continuous outcome), diagnostic accuracy, Bland–Altman,
-and unweighted Cohen's kappa. Other families need separate publication renderers.
+unweighted Cohen's kappa, and survival/competing-event studies. Other families need separate publication renderers.
 
 Pass the project ID, exact `clinical_study_*.json` / `prediction_study_*.json` filename,
 its SHA256, a preset ID, a new canonical UUID, optional starting figure number, and optional
@@ -41,3 +41,45 @@ An edition also contains a human-readable report and integrity-checked JSON rece
 Review actual images and vector PDF rendering alongside full captions. Mechanical canvas checks
 do not detect every overlap or establish clinical interpretation. Figure editions are independent
 historical outputs; changing a preset or caption must create a new edition, never rewrite an old one.
+
+## Survival and competing-event figures
+
+The survival renderer uses saved participant counts, KM/Aalen–Johansen points, risk tables,
+Cox coefficients and scaled Schoenfeld residuals. It performs no fitting, resampling, smoothing,
+cutoff selection or new significance test. Each new bundle includes participant flow, curves,
+risk counts, all Cox coefficients and one diagnostic per encoded term when a Cox model exists.
+Competing-event curves use a separate figure for each group. Risk tables use at most six time
+columns per figure and coefficient plots at most eight rows; every panel has a distinct report
+identity, so later panels cannot displace earlier ones in the report index.
+
+- KM captions state Greenwood log–log pointwise intervals, the meaning of censor marks and
+  the saved overall log-rank comparison. A mark at a tied event/censor time lies at the
+  post-event estimate; its multiplicity stays in the plotted-data CSV. Curves stop at each
+  group's last observation. See [lifelines KM intervals](https://lifelines.readthedocs.io/en/latest/fitters/univariate/KaplanMeierFitter.html).
+- Risk counts refer to **immediately before** the stated time, including people whose follow-up
+  ends at that time. This explicit convention is preserved from the numerical receipt;
+  it is not silently changed to a library's end-of-period default. The tables retain prior
+  target events, competing events and censoring separately. See [lifelines risk-count conventions](https://lifelines.readthedocs.io/en/latest/lifelines.plotting.html).
+- Aalen–Johansen figures retain tied times, every declared cause and bounded pointwise normal
+  intervals. No-event groups are labelled as having no estimated uncertainty. A plotted
+  pre-event origin is labelled separately from stored estimates in the CSV. There is no
+  new Gray test, Fine–Gray fit or interpretation of competing events as ordinary loss to follow-up.
+  See [statsmodels cumulative incidence](https://www.statsmodels.org/stable/generated/statsmodels.duration.survfunc.CumIncidenceRight.html).
+- Cox plots use a log axis, HR=1 reference and every saved Wald interval. Units, categorical
+  references and the cause-specific interpretation stay explicit. PH panels retain each event's
+  scaled residual and report the saved rank/KM checks with within-model Holm adjustment;
+  a flat plot or large p value does not prove PH. [Cox model documentation](https://lifelines.readthedocs.io/en/latest/Survival%20Regression.html).
+
+Figures use English labels with exact source mappings in captions and CSVs. Group codes G1…
+are stable within a study. Long or non-ASCII covariate labels use V codes; common Chinese time
+unit names have explicit English display translations without numerical conversion, while
+unrecognized unit text uses U1 with its original value recorded. Covariate units are not inferred
+from a column name or the follow-up unit. Local dictionary/display-label editing remains a
+separate extension.
+
+New survival sensitivity branches export the same six formats, identify their exploratory
+scope, and keep the primary complete-case population. Their full reports show one image per
+figure and separate captions; the Workbench exploration summary embeds one browser-readable
+format per figure while retaining every original download. Journal editions currently select
+primary study bundles; branch-specific preset editions remain a further extension. Historical
+PNG-only studies and reports remain unchanged.

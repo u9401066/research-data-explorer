@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import csv
 from pathlib import Path
 
-from .presets import DEFAULT_PRESET, apply_preset, resolve_preset
+from .presets import DEFAULT_PRESET, apply_preset, figure_artists, resolve_preset
 
 
 @contextmanager
@@ -88,7 +88,9 @@ def save_publication_figure(
             undrawn.update(
                 [ax.xaxis.label, ax.yaxis.label, ax.xaxis.offsetText, ax.yaxis.offsetText]
             )
-    for artist in fig.findobj(match=Text):
+    for artist in figure_artists(fig):
+        if not isinstance(artist, Text):
+            continue
         if artist in undrawn or not artist.get_visible() or not artist.get_text().strip():
             continue
         bounds = artist.get_window_extent(renderer)

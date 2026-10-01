@@ -1,7 +1,6 @@
 """Chinese plot labels must use a configured local font, including a fresh font cache."""
 
 import hashlib
-import os
 from pathlib import Path
 import shutil
 import warnings
@@ -40,15 +39,14 @@ def test_explicit_font_is_registered_even_when_not_in_the_system_cache(monkeypat
         assert any(font.fname == str(path) for font in font_manager.fontManager.ttflist)
 
 
-@pytest.mark.skipif(
-    not os.environ.get("RDE_CJK_TEST_FONT"), reason="Optional local CJK font fixture"
-)
-def test_chinese_survival_labels_render_without_missing_glyphs(monkeypatch, tmp_path):
+def test_english_survival_figures_keep_chinese_source_identity_without_substitution(
+    monkeypatch, tmp_path
+):
     import pandas as pd
     from rde.infrastructure.clinical.survival import SurvivalSpec, run_survival
     from rde.infrastructure.clinical.report import figures
 
-    monkeypatch.setenv("RDE_PLOT_FONT", os.environ["RDE_CJK_TEST_FONT"])
+    monkeypatch.delenv("RDE_PLOT_FONT", raising=False)
     data = pd.DataFrame(
         {
             "時間": [1, 2, 3, 4, 5, 6],
@@ -72,8 +70,10 @@ def test_chinese_survival_labels_render_without_missing_glyphs(monkeypatch, tmp_
     with matplotlib.rc_context(), warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         records = figures(run_survival(data, spec), tmp_path, "chinese")
-    assert len(records) == 2
+    assert len(records) == 3
     assert not any("Glyph" in str(w.message) and "missing" in str(w.message) for w in caught)
     for record in records:
         assert Path(record["path"]).stat().st_size > 1000
-        assert record["fonts"]["configured_font_sha256"]
+        assert record["publication"]["font_sha256"]
+    caption = records[1]["publication"]["caption_en"]
+    assert "days" in caption and "天" in caption and "對照" in caption and "治療" in caption

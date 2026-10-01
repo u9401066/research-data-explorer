@@ -114,6 +114,17 @@ def list_presets():
     return values
 
 
+def figure_artists(fig):
+    """Matplotlib Table cells do not expose their Text through normal traversal."""
+    from matplotlib.table import Table
+
+    artists = fig.findobj()
+    for table in [a for a in artists if isinstance(a, Table)]:
+        for cell in table.get_celld().values():
+            artists.extend([cell, cell.get_text()])
+    return list({id(artist): artist for artist in artists}.values())
+
+
 def apply_preset(fig, profile):
     """Re-layout original vector artists at the final physical dimensions."""
     from matplotlib import font_manager
@@ -136,7 +147,7 @@ def apply_preset(fig, profile):
     font = font_manager.findfont(profile["font_family"], fallback_to_default=False)
     glyphs = FT2Font(font).get_charmap()
     missing = set()
-    for artist in fig.findobj():
+    for artist in figure_artists(fig):
         if isinstance(artist, Text):
             artist.set_fontfamily(profile["font_family"])
             artist.set_fontsize(

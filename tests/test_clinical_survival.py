@@ -1,6 +1,7 @@
 """Numerical and case-set checks for the reusable clinical survival executor."""
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -217,19 +218,22 @@ def test_repeated_subject_and_nonestimable_models_are_explicit_failures():
         run_survival(frame, spec(covariates=["x"]))
 
 
-def clinical_project(tmp_path):
+def clinical_project(tmp_path, *, competing=False, frame=None, options=None):
     from test_exploration_branch_loop import _make_phase8_ready_project
     from rde.application.pipeline import PipelinePhase
     from rde.application.session import get_session
     from rde.domain.models.dataset import Dataset, DatasetMetadata
 
     project, store = _make_phase8_ready_project(tmp_path)
-    frame = cox_frame()
-    options = spec(
+    frame = cox_frame() if frame is None else frame
+    if competing:
+        frame.loc[frame.index % 7 == 0, "status"] = "T"
+    options = options or spec(
         group="group",
         covariates=["x", "group"],
         categorical_covariates=["group"],
         references={"group": "control"},
+        competing_values=["T"] if competing else [],
     )
     source = tmp_path / "clinical-fixture.csv"
     frame.to_csv(source, index=False)
@@ -261,7 +265,71 @@ def clinical_project(tmp_path):
     return project, store, dataset, options
 
 
-def test_real_mcp_clinical_receipt_report_integrity_and_no_refit(tmp_path, monkeypatch):
+@pytest.mark.parametrize("competing", [False, True])
+def test_mcp_report_keeps_all_panels_for_no_events_and_many_risk_times(
+    tmp_path, monkeypatch, competing
+):
+    import asyncio
+    import csv
+    import hashlib
+    import os
+    import uuid
+    from rde.application.pipeline import PipelinePhase
+    from rde.interface.mcp.server import create_server
+    from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+    frame = pd.DataFrame(
+        {
+            "time": [1, 2, 3, 4] * 6,
+            "status": ["C"] * 24,
+            "group": [f"治療組別{i}" for i in range(6) for _ in range(4)],
+        }
+    )
+    times = [0, 0.5, 1, 1.00000001, 1.00000002, 1.5, 2, 2.5, 3, 3.5, 3.9, 4]
+    options = spec(group="group", risk_times=times, competing_values=["T"] if competing else [])
+    project, store, dataset, _ = clinical_project(tmp_path, frame=frame, options=options)
+
+    def call(name, args):
+        response = asyncio.run(create_server().call_tool(name, args))
+        assert not response.is_error, response.content
+        return response
+
+    call("run_clinical_study", {"dataset_id": dataset.id, "clinical_options": options.to_dict()})
+    record = clinical_records(store)[0]
+    assert len(record["figures"]) == (9 if competing else 4)
+    risk_rows = []
+    for figure in record["figures"]:
+        with Path(figure["publication"]["files"]["data"]).open() as stream:
+            rows = list(csv.DictReader(stream))
+        if figure["plot_type"].startswith("clinical_risk_table"):
+            risk_rows.extend(rows)
+        if figure["plot_type"].startswith("clinical_incidence"):
+            assert all(r["plot_role"] == "not_estimated_no_events" for r in rows)
+            assert not any(r.get("estimate") or r.get("lower") or r.get("upper") for r in rows)
+    assert len(risk_rows) == 72
+    for group in frame.group.unique():
+        assert [float(r["time"]) for r in risk_rows if r["source_group"] == group] == times
+    call("collect_results", {"project_id": project.id})
+    call("assemble_report", {"project_id": project.id})
+    report = store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+    assert all(Path(f["path"]).name in report for f in record["figures"])
+    if os.environ.get("RDE_JOURNAL_TEST_FONT_DIR"):
+        monkeypatch.setenv("RDE_PUBLICATION_FONT_DIR", os.environ["RDE_JOURNAL_TEST_FONT_DIR"])
+        source = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, record["artifact"])
+        call(
+            "render_publication_figures",
+            {
+                "project_id": project.id,
+                "study_artifact": source.name,
+                "expected_record_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "preset_id": "nature-single-v1",
+                "edition_id": str(uuid.uuid4()),
+            },
+        )
+
+
+@pytest.mark.parametrize("competing", [False, True])
+def test_real_mcp_clinical_receipt_report_integrity_and_no_refit(tmp_path, monkeypatch, competing):
     import asyncio
     from rde.application.pipeline import PipelinePhase
     from rde.infrastructure.clinical import survival
@@ -269,7 +337,7 @@ def test_real_mcp_clinical_receipt_report_integrity_and_no_refit(tmp_path, monke
     from rde.interface.mcp.tools.clinical_tools import clinical_records, verify_clinical_artifacts
     from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
 
-    project, store, dataset, options = clinical_project(tmp_path)
+    project, store, dataset, options = clinical_project(tmp_path, competing=competing)
 
     async def call(name, args):
         return await create_server().call_tool(name, args)
@@ -287,7 +355,7 @@ def test_real_mcp_clinical_receipt_report_integrity_and_no_refit(tmp_path, monke
     assert not response.is_error, response.content
     record = clinical_records(store)[0]
     assert verify_clinical_artifacts(record, project.output_dir)
-    assert len(record["figures"]) == 5
+    assert len(record["figures"]) == (7 if competing else 6)
     monkeypatch.setattr(
         survival,
         "run_survival",
@@ -304,6 +372,9 @@ def test_real_mcp_clinical_receipt_report_integrity_and_no_refit(tmp_path, monke
     assert not assembled.is_error, assembled.content
     report = str(store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))
     assert "生存與事件分析" in report and "在險人數" in report
+    assert len({f["plot_type"] for f in record["figures"]}) == len(record["figures"])
+    for figure in record["figures"]:
+        assert Path(figure["path"]).name in report
     assert record["result"]["receipt_sha256"] in report
     assert _evaluate_report_readiness(summary, store)["ready"]
     plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")

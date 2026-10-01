@@ -329,17 +329,17 @@ extension quality and all four VSIX platform smoke jobs. The optional vendor job
 remained skipped. Model wording required human corrections during development;
 stored numerical evidence and investigator review remain separate.
 
-### Chinese plot font configuration
+### English publication graphics and source labels
 
-Set `RDE_PLOT_FONT` to an absolute path to a local CJK font file when column
-names, group labels or time units contain Chinese. The renderer registers that
-file directly, including on servers with an older matplotlib font cache. It does
-not download fonts at analysis time. An invalid configured path fails explicitly;
-without this setting, available installed CJK fonts are preferred.
+New survival graphics use the shared [publication exporter](publication-figures.md), with
+English captions, Chinese explanations, PDF/SVG/PNG/TIFF, plot CSVs and font hashes.
+Each group and coefficient panel has its own report identity. Raw Chinese group/column labels
+remain explicit in caption mappings; common time-unit names receive display-only English
+translations without changing numerical values. Other unit names are preserved as U1 mappings.
+The exporter never infers a covariate's unit from the follow-up unit.
 
-Every survival figure receipt includes the configured font filename and SHA256
-plus the selected sans-serif fallback list. Re-rendering requires the original
-numerical receipt; it does not refit models or alter old artifact snapshots.
-`tests/test_plot_fonts.py` covers missing files, registration outside the font
-cache, and Chinese survival labels when `RDE_CJK_TEST_FONT` points to a local test
-font. The optional label test is skipped when that fixture is unavailable.
+`RDE_PUBLICATION_FONT_DIR` supplies exact local fonts for journal presets. General plotting
+can still use `RDE_PLOT_FONT` for CJK labels; legacy rendered files and their original font
+receipts remain unchanged. Font registration and missing-file checks remain in
+`tests/test_plot_fonts.py`, together with an English-rendering check that preserves Chinese
+source identity without silent substitution.

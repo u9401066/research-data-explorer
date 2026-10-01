@@ -102,8 +102,6 @@ def create_edition(
     if record.get("dataset_id") not in project.dataset_ids or result.get("status") != "completed":
         raise ValueError("A completed study belonging to this project is required.")
     prediction = study_artifact.startswith("prediction_")
-    if not prediction and result.get("spec", {}).get("family") == "survival":
-        raise ValueError("Survival publication editions are not yet supported.")
     verifier = verify_prediction_artifacts if prediction else verify_clinical_artifacts
     if not verifier(record, root):
         raise ValueError(
@@ -136,6 +134,8 @@ def create_edition(
     try:
         if prediction:
             from rde.infrastructure.prediction.publication import figures
+        elif result["spec"]["family"] == "survival":
+            from rde.infrastructure.clinical.survival_publication import figures
         else:
             from rde.infrastructure.clinical.measurement_publication import figures
         rendered = figures(result, staging, "unused", preset_id=preset_id, edition=options)
@@ -225,6 +225,7 @@ def register_publication_tools(server):
                 "presets": list_presets(),
                 "supported_studies": [
                     "prediction",
+                    "survival",
                     "diagnostic_accuracy",
                     "bland_altman",
                     "cohens_kappa",

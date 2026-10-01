@@ -16,12 +16,16 @@ def required_figures(result):
         )
 
         return required_measurement_figures(result)
-    plots = {
-        "clinical_incidence" if result["spec"]["competing_values"] else "clinical_survival",
-        "clinical_risk_table",
-    }
+    plots = {"clinical_participant_flow"}
+    if result["spec"]["competing_values"]:
+        plots.update(f"clinical_incidence_G{i + 1}" for i in range(len(result["strata"])))
+    else:
+        plots.add("clinical_survival")
+    times = len(result["strata"][0]["risk_table"])
+    plots.update(f"clinical_risk_table_{i + 1}" for i in range((times + 5) // 6))
     if result.get("cox"):
-        plots.add("clinical_cox")
+        count = len(result["cox"]["coefficients"])
+        plots.update(f"clinical_cox_{i + 1}" for i in range((count + 7) // 8))
         plots.update("clinical_ph_" + r["term"] for r in result["cox"]["coefficients"])
     return plots
 
@@ -95,22 +99,20 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
     expected = required_figures(result) if result else set()
     actual = {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
     check("clinical_figures", bool(expected) and expected == actual, sorted(expected))
-    if spec["family"] != "survival":
-        figures = records[0].get("figures", []) if len(records) == 1 else []
-        check(
-            "clinical_publication_exports",
-            bool(figures)
-            and all(
-                set(figure.get("publication", {}).get("files", {}))
-                == {"png", "pdf", "svg", "tiff", "caption", "data"}
-                and figure["publication"].get("source_receipt_sha256")
-                == result.get("receipt_sha256")
-                and figure["publication"].get("text_outside_canvas") == []
-                and figure["publication"].get("raster_dpi") == 300
-                for figure in figures
-            ),
-            ["native vectors, 300 dpi raster, full bilingual caption and plotted data"],
-        )
+    figures = records[0].get("figures", []) if len(records) == 1 else []
+    check(
+        "clinical_publication_exports",
+        bool(figures)
+        and all(
+            set(figure.get("publication", {}).get("files", {}))
+            == {"png", "pdf", "svg", "tiff", "caption", "data"}
+            and figure["publication"].get("source_receipt_sha256") == result.get("receipt_sha256")
+            and figure["publication"].get("text_outside_canvas") == []
+            and figure["publication"].get("raster_dpi") == 300
+            for figure in figures
+        ),
+        ["native vectors, 300 dpi raster, full bilingual caption and plotted data"],
+    )
     check(
         "data_quality_review",
         not data_quality.get("missing_requirements"),

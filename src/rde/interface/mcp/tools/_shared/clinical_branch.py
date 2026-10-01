@@ -197,12 +197,12 @@ def execute_survival_branch(project, store, contract, branch_id, experiment_id):
         )
         for image in images:
             relative = str(Path(image["path"]).relative_to(project.output_dir))
-            comparison.append(f"![{image['caption']}]({relative})")
+            comparison.extend([f"![Branch figure]({relative})", "", image["caption"], ""])
         report_path.write_text("\n".join(comparison), encoding="utf-8")
         paths = [
             report_path,
             *tables(result, folder / experiment_id, experiment_id),
-            *[Path(i["path"]) for i in images],
+            *[Path(path) for i in images for path in i["publication"]["files"].values()],
         ]
         record["artifacts"] = [
             {

@@ -32,10 +32,10 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Version 0.5.0, local verification on 2026-10-01: **581 Python tests passed**,
-including real Arial exports for four journal presets across six study variants;
-six optional tests were explicitly skipped. Ruff, the 40 extension tests and VSIX
-packaging passed. The live inventory now contains 55 tools across 13 modules.
+Version 0.5.0, local verification on 2026-10-01: **595 Python tests passed**,
+including real Arial exports for four journal presets across eight study variants;
+five optional tests were explicitly skipped. Ruff and pre-commit passed.
+The previous journal milestone also passed 40 extension tests and VSIX packaging. The live inventory now contains 55 tools across 13 modules.
 Publication editions preserve the original study and plotting data, support edited
 English captions with Chinese explanations, and retain source, font and output
 hashes. See [publication figures and configured fonts](docs/publication-figures.md).
@@ -44,7 +44,14 @@ Research Workbench exercised four presets against saved WDBC, PEFR and synthetic
 rating studies: 14 figures and 84 browser downloads, desktop/mobile rendering,
 unchanged plotting CSVs, embedded PDF fonts and actual LLM report reading.
 These checks do not certify clinical interpretation or editorial acceptance.
-The [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36848803190)
+Survival and competing-event figures now include every group and panel, shared
+complete-case flow, KM censor marks, risk counts, Cox forests and PH diagnostics.
+Public heart-failure/PBC browser runs completed four real CPU exploration branches;
+three saved-study editions produced 26 figures and 156 verified browser downloads
+without changing estimates or plotting CSVs. All 17 primary PNGs, 26 edition PNGs,
+16 additional branch PNGs and three PDF renditions were visually reviewed.
+
+The previous journal milestone [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36848803190)
 passed Python quality (556 passed, 26 skipped, five vendor tests deselected),
 extension quality and four OS/architecture installation smokes. The 25 journal-font
 checks skipped in CI passed locally with the configured Arial fixture; the optional
