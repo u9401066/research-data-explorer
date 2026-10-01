@@ -49,6 +49,8 @@ export const RDE_MCP_TOOL_NAMES = [
     'run_prediction_study',
     'run_clinical_study',
     'inspect_clinical_study',
+    'get_publication_presets',
+    'render_publication_figures',
     ...PHASE_08_AUTONOMOUS_BRANCH_TOOL_NAMES,
     ...PHASE_08_BRANCH_PROMOTION_TOOL_NAMES,
     'collect_results',
@@ -127,6 +129,8 @@ export const TOOL_GROUPS = {
     ],
     report: [
         ...WORKFLOW_PREREQUISITE_TOOLS,
+        'get_publication_presets',
+        'render_publication_figures',
         'collect_results',
         'assemble_report',
         'get_approval_card',

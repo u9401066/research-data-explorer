@@ -4,17 +4,19 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import csv
-import hashlib
 from pathlib import Path
+
+from .presets import DEFAULT_PRESET, apply_preset, resolve_preset
 
 
 @contextmanager
-def publication_style():
+def publication_style(preset_id=DEFAULT_PRESET):
     import matplotlib as mpl
-    from matplotlib import font_manager
+
+    preset = resolve_preset(preset_id)
 
     settings = {
-        "font.family": "DejaVu Sans",
+        "font.family": preset["font_family"],
         "font.size": 9,
         "axes.labelsize": 10,
         "axes.titlesize": 11,
@@ -34,21 +36,16 @@ def publication_style():
         "savefig.facecolor": "white",
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
-        "svg.fonttype": "path",
+        "svg.fonttype": "none" if preset["svg_fonts"] == "editable text" else "path",
         "svg.hashsalt": "rde-publication-english-v1",
     }
     with mpl.rc_context(settings):
-        font = Path(font_manager.findfont("DejaVu Sans", fallback_to_default=False))
         yield {
-            "profile": "journal-neutral-english-v1",
-            "font_family": "DejaVu Sans",
-            "font_sha256": hashlib.sha256(font.read_bytes()).hexdigest(),
+            **preset,
             "matplotlib": mpl.__version__,
             "language": "en",
-            "raster_dpi": 300,
             "pdf_fonts": "embedded TrueType",
-            "svg_fonts": "outlined paths",
-            "journal_specific_compliance": "not assessed; apply the target journal's requirements",
+            "journal_specific_compliance": "technical preset only; manuscript context and editorial requirements need final review",
         }
 
 
@@ -71,6 +68,11 @@ def save_publication_figure(
     from PIL import Image
 
     directory.mkdir(parents=True, exist_ok=True)
+    try:
+        apply_preset(fig, profile)
+    except Exception:
+        plt.close(fig)
+        raise
     fig.tight_layout(pad=1.2)
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
@@ -104,6 +106,18 @@ def save_publication_figure(
     if overflow:
         plt.close(fig)
         raise ValueError(f"Publication text extends beyond the canvas: {overflow}")
+    edition = profile.get("edition", {})
+    source_caption = {"title": title, "caption_en": caption, "explanation_zh": explanation}
+    override = edition.get("captions", {}).get(str(number), {})
+    title = override.get("title", title)
+    caption = override.get("caption_en", caption)
+    explanation = override.get("explanation_zh", explanation)
+    if profile["profile"].startswith("plos-") and len(title.split()) > 15:
+        plt.close(fig)
+        raise ValueError("PLOS figure titles must contain no more than 15 words.")
+    number += edition.get("start_number", 1) - 1
+    if edition:
+        stem = f"Fig{number}"
     paths = {
         key: directory / f"{stem}.{ext}"
         for key, ext in [
@@ -116,11 +130,16 @@ def save_publication_figure(
         ]
     }
     try:
-        fig.savefig(paths["png"], dpi=300)
+        fig.savefig(paths["png"], dpi=profile["raster_dpi"])
         fig.savefig(paths["pdf"], metadata={"Title": title, "CreationDate": None, "ModDate": None})
         fig.savefig(paths["svg"], metadata={"Title": title, "Date": None})
         with Image.open(paths["png"]) as raster:
-            raster.convert("RGB").save(paths["tiff"], compression="tiff_lzw", dpi=(300, 300))
+            raster.convert("RGB").save(
+                paths["tiff"], compression="tiff_lzw", dpi=(profile["raster_dpi"],) * 2
+            )
+        primary = paths[profile["submission_format"]]
+        if profile["max_file_bytes"] and primary.stat().st_size > profile["max_file_bytes"]:
+            raise ValueError("Figure exceeds the preset's submission file size limit.")
         legend = f"Fig {number}. {title}\n\n{caption}"
         paths["caption"].write_text(
             f"# {legend}\n\n中文解釋：{explanation}\n\n"
@@ -137,7 +156,10 @@ def save_publication_figure(
             writer.writerows(data)
         width, height = fig.get_size_inches()
         return {
-            **profile,
+            **{key: value for key, value in profile.items() if key != "edition"},
+            "figure_number": number,
+            "original_caption": source_caption,
+            "caption_edited": bool(override),
             "dimensions_mm": [round(width * 25.4, 2), round(height * 25.4, 2)],
             "text_outside_canvas": overflow,
             "source_receipt_sha256": receipt_sha256,

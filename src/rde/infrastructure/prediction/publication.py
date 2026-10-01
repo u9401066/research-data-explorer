@@ -13,11 +13,15 @@ ORANGE = "#D55E00"
 GRAY = "#656565"
 
 
-def figures(result: dict, directory: Path, prefix: str) -> list[dict]:
+def figures(
+    result: dict, directory: Path, prefix: str, preset_id="journal-neutral-english-v1", edition=None
+) -> list[dict]:
     import matplotlib
 
     matplotlib.use("Agg")
-    with publication_style() as profile:
+    with publication_style(preset_id) as profile:
+        if edition:
+            profile["edition"] = edition
         return _figures(result, directory, prefix, profile)
 
 
@@ -89,7 +93,9 @@ def _figures(result, directory, prefix, profile):
             {
                 "path": publication["files"]["png"],
                 "plot_type": f"prediction_{kind}",
-                "caption": publication["caption_en"] + "\n\n中文解釋：" + explanation,
+                "caption": publication["caption_en"]
+                + "\n\n中文解釋："
+                + publication["explanation_zh"],
                 "fonts": {"family": profile["font_family"], "font_sha256": profile["font_sha256"]},
                 "publication": publication,
             }
@@ -207,7 +213,9 @@ def _figures(result, directory, prefix, profile):
     )
     if spec["task"] == "binary":
         ax.set_xlim(0, 1.03)
-    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), ncol=2)
+    ax.legend(
+        loc="lower left", bbox_to_anchor=(0, 1.02), ncol=1 if profile["width_mm"] < 100 else 2
+    )
     save(
         fig,
         "cv",
@@ -379,7 +387,12 @@ def _figures(result, directory, prefix, profile):
             xlim=(-0.03, 1.03),
             ylim=(-0.03, 1.1),
         )
-        ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), ncol=2, fontsize=8)
+        ax.legend(
+            loc="lower left",
+            bbox_to_anchor=(0, 1.02),
+            ncol=1 if profile["width_mm"] < 100 else 2,
+            fontsize=8,
+        )
         save(
             fig,
             "calibration",

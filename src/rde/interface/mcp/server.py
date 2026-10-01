@@ -20,6 +20,7 @@ from rde.interface.mcp.tools.ux_tools import register_ux_tools
 from rde.interface.mcp.tools.protocol_tools import register_protocol_tools
 from rde.interface.mcp.tools.prediction_tools import register_prediction_tools
 from rde.interface.mcp.tools.clinical_tools import register_clinical_tools
+from rde.interface.mcp.tools.publication_tools import register_publication_tools
 
 
 def create_server():
@@ -59,6 +60,7 @@ def create_server():
     register_analysis_tools(server)  # Phase 8-9: Execute & Collect
     register_prediction_tools(server)  # Phase 8: Training-only selection and held-out validation
     register_clinical_tools(server)  # Phase 8: Prespecified clinical study bundles
+    register_publication_tools(server)  # Fixed-evidence figure editions, no reanalysis
     register_branch_tools(server)  # Phase 8: YOLO Exploration Branch Loop
     register_ux_tools(server)  # Cross-phase: no-code UX Harness
     register_report_tools(server)  # Phase 10: Report Assembly

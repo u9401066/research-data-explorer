@@ -20,11 +20,13 @@ def number(value):
     return f"{value:.3f}" if value is not None else "not estimable"
 
 
-def figures(result, directory: Path, prefix):
+def figures(result, directory: Path, prefix, preset_id="journal-neutral-english-v1", edition=None):
     import matplotlib
 
     matplotlib.use("Agg")
-    with publication_style() as profile:
+    with publication_style(preset_id) as profile:
+        if edition:
+            profile["edition"] = edition
         return _figures(result, directory, prefix, profile)
 
 
@@ -62,7 +64,9 @@ def _figures(result, directory, prefix, profile):
             dict(
                 path=publication["files"]["png"],
                 plot_type=f"clinical_{kind}",
-                caption=publication["caption_en"] + "\n\n中文解釋：" + explanation,
+                caption=publication["caption_en"]
+                + "\n\n中文解釋："
+                + publication["explanation_zh"],
                 fonts={"family": profile["font_family"], "font_sha256": profile["font_sha256"]},
                 publication=publication,
             )

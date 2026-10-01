@@ -70,6 +70,17 @@ CONTRACTS = {
         "read-only event coding and eligibility counts",
         read_only=True,
     ),
+    "get_publication_presets": ToolContract(
+        "all",
+        "versioned specifications and local font availability",
+        "read-only journal specification and font metadata",
+        read_only=True,
+    ),
+    "render_publication_figures": ToolContract(
+        "10",
+        "completed hash-pinned study + immutable edition ID + exact available font",
+        "new figure edition and appended decision; no fitting or source changes",
+    ),
     "open_exploration_branch": ToolContract("8", "locked plan + readiness", "branch event"),
     "suggest_branch_experiments": ToolContract(
         "8", "project context", "candidate suggestions", True

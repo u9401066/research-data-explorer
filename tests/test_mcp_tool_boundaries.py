@@ -51,6 +51,7 @@ def test_every_tool_returns_a_structured_boundary_result(name, tmp_path):
             "get_approval_card",
             "get_blocker_playbook",
             "get_workflow_contract",
+            "get_publication_presets",
         }:
             assert result.is_error, (name, result)
         return result

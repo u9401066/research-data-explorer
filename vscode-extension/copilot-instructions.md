@@ -19,7 +19,7 @@
 Interface (MCP tools) → Application (Use Cases) → Domain (Pure logic) ← Infrastructure (Adapters)
 ```
 
-- **53 MCP tools** across 12 tool files
+- **55 MCP tools** across 13 tool files
 - **13-Phase Pipeline** with Hard/Soft constraints
 - **local-first AnalysisDelegator** with local-lite statsmodels/scipy fallback and optional automl-stat-mcp delegation
 

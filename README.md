@@ -32,29 +32,31 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Current main, version 0.5.0: 496 local Python tests passed, including the configured
-Chinese-font fixture; five optional tests were explicitly skipped.
-CI passed 495 tests, skipped the optional local-font fixture and deselected five
-vendor tests. The prior 40 extension tests and 53-tool audit remain unchanged.
-The preceding wheel/source archive/VSIX audit matched reviewed sources. Survival additions were exercised through
-Research Workbench with public heart-failure and PBC data, complete reports,
-14 figures, desktop/mobile Chromium and actual LLM discussion. Evidence checks do
-not certify clinical interpretation. An additional public heart-failure workflow
-used an LLM-proposed plan, human approval, actual MCP execution and seven reviewed
-figures with Chinese time units; font filenames and hashes are retained in figure
-receipts. See [plot font configuration](docs/clinical-methods.md#chinese-plot-labels).
-The [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36820715422)
+Version 0.5.0, local verification on 2026-10-01: **581 Python tests passed**,
+including real Arial exports for four journal presets across six study variants;
+six optional tests were explicitly skipped. Ruff, the 40 extension tests and VSIX
+packaging passed. The live inventory now contains 55 tools across 13 modules.
+Publication editions preserve the original study and plotting data, support edited
+English captions with Chinese explanations, and retain source, font and output
+hashes. See [publication figures and configured fonts](docs/publication-figures.md).
+
+Research Workbench exercised four presets against saved WDBC, PEFR and synthetic
+rating studies: 14 figures and 84 browser downloads, desktop/mobile rendering,
+unchanged plotting CSVs, embedded PDF fonts and actual LLM report reading.
+These checks do not certify clinical interpretation or editorial acceptance.
+The preceding [main CI](https://github.com/u9401066/research-data-explorer/actions/runs/36842234897)
 passed Python quality, extension quality and four OS/architecture installation
-smokes; the optional vendor job was skipped. The historical tagged-release scope
-remains in the [release workboard](docs/release-0.5.0-plan.md).
+smokes; the optional vendor job was skipped. CI for this new change is recorded
+after it actually runs. The historical tagged-release scope remains in the
+[release workboard](docs/release-0.5.0-plan.md).
 
 This README is aligned with the current implementation, not only the older prose docs:
 
 | Contract area | Current implementation source | What it says |
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
-| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 10 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
-| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 53 tools, explicit effect/gate metadata, structured output and live inventory tests |
+| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 13 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 55 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
@@ -99,7 +101,7 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 53 MCP tools across 12 modules:
+The current implementation exposes 55 MCP tools across 13 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
@@ -111,12 +113,18 @@ The current implementation exposes 53 MCP tools across 12 modules:
 | `analysis_tools.py` | 8 | `suggest_cleaning`, `apply_cleaning`, `analyze_variable`, `compare_groups`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures` |
 | `prediction_tools.py` | 1 | `run_prediction_study` |
 | `clinical_tools.py` | 2 | `inspect_clinical_study`, `run_clinical_study` |
+| `publication_tools.py` | 2 | `get_publication_presets`, `render_publication_figures` |
 | `branch_tools.py` | 13 | `open_exploration_branch`, `suggest_branch_experiments`, `run_branch_experiment`, `evaluate_branch`, `promote_branch_to_plan_amendment`, `discard_branch`, `get_exploration_board`, `start_autoresearch_run`, `get_autoresearch_status`, `stop_autoresearch_run`, `resume_autoresearch_run`, `run_autoresearch_next_task`, `run_autoresearch_queue` |
 | `ux_tools.py` | 4 | `get_approval_card`, `get_harness_dashboard`, `build_artifact_index`, `get_blocker_playbook` |
 | `report_tools.py` | 4 | `collect_results`, `assemble_report`, `create_visualization`, `export_report` |
 | `audit_tools.py` | 5 | `run_audit`, `auto_improve`, `export_final_report`, `export_handoff`, `verify_audit_trail` |
 
 ## 13-Phase Workflow
+
+Completed prediction, diagnostic and agreement studies can create immutable English
+figure editions with Chinese explanations, journal presets and editable captions.
+See [publication figures](docs/publication-figures.md) for Nature/PLOS specifications,
+local font configuration and the source-preserving MCP contract.
 
 | Phase | Purpose | Representative tool/artifact |
 | --- | --- | --- |
