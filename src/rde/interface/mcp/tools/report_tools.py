@@ -778,7 +778,7 @@ def register_report_tools(server: Any) -> None:
                 artifacts["baseline_table"] = _format_baseline_table(table_one)
             elif results and results.get("clinical_studies"):
                 artifacts["baseline_table"] = (
-                    "本計畫為生存／事件研究；各組人數、事件數、在險人數及共同完整個案的納排列於臨床研究結果，不以追蹤終點作為基線預測因子。"
+                    "本核准計畫未另外產生組間基線表。各分析的納排、變項定義、編碼／單位與適用描述見下方專用結果；不將結果量測自行當成基線共變項。"
                 )
             elif results and results.get("repeated_measurements"):
                 artifacts["baseline_table"] = (

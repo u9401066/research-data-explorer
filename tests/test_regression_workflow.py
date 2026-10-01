@@ -110,6 +110,8 @@ def test_mcp_all_regression_families_publish_complete_reports_and_reuse_frozen_r
     assert "多因素關聯、計數與序位迴歸" in report and "迴歸結果解讀" in report
     assert "聯合檢定" in report and "第二個 Holm 家族" in report
     assert "臨床事件結果解讀" not in report and "Cox" not in report
+    assert "本計畫為生存／事件研究" not in report
+    assert "本核准計畫未另外產生組間基線表" in report
     assert result["receipt_sha256"] in report
     assert all(Path(f["path"]).name in report for f in record["figures"])
     assert _evaluate_report_readiness(summary, store)["ready"]
