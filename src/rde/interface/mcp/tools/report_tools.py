@@ -2054,6 +2054,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "regression" for r in results["clinical_studies"]):
+            return "本次按鎖定的獨立個案迴歸規格估計；所有係數、條件曲線與聯合檢定採同一完整個案集合。需核對原始單位、參照值、序位順序及效果尺度。樣條基底不是固定每單位效果，勝算比不是風險比；未指定觀察時長的計數模型比較次數，不能稱為率比。"
         if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
             return "本次按鎖定的長格式追蹤規格估計 GEE 或 Gaussian 混合模型；同一人的多次觀察有相關性。請分別核對觀察列數與受試者數、固定效果及其逐項區間、參考時間、交互作用與失訪限制，不把觀察關聯當作因果療效。"
         if any(
@@ -2125,6 +2127,8 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "regression" for r in results["clinical_studies"]):
+            return "迴歸結果限於指定研究設計、共同完整個案與條件參照組合。係數及聯合檢定各有獨立 Holm 家族，逐點區間未校正；條件曲線不是平均因果效果或外部驗證。病例對照配適機率不代表族群風險，序位模型未執行比例勝算假設檢定。迴歸不驗證隨機化或 ITT，也不改變原研究設計。"
         if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
             return "縱向結果適用於已記錄的受試者、追蹤時點、完整觀察與模型。GEE 的群體平均關聯、混合模型的固定效果及含個人隨機效果的配適值各有不同含義；二元勝算比不是風險比，交互作用不能直接當作組別主效果。失訪、時間变動暴露與模型假設仍需研究者審閱。"
         if any(
@@ -2205,6 +2209,8 @@ def _build_interpretation_discussion(
     """Build narrative interpretation, recommendations, and literature context."""
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "regression" for r in results["clinical_studies"]):
+            return "## 迴歸結果解讀\n\n先核對獨立個案、原始單位、類別順序、參照與納排，再檢视係數、聯合檢定及條件曲線。主效果在其餘因素參照下解讀；交互作用比較條件效果，樣條基底不能當成固定每單位的臨床效果。係數與聯合檢定分成兩個 Holm 家族，圖中區間為逐點未校正；未宣稱跨模型整體錯誤率控制。收斂不證明模型假設、缺失可忽略或因果效果。保留指定研究設計，病例對照機率不外推為族群風險；序位比例勝算假設仍需另行審閱。"
         if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
             return "## 縱向結果解讀\n\n先核對受試者／時間身份、參考組與各人保留次數，再檢視固定效果、區間與殘差。原始時間摘要沒有調整共變項，不能當成模型預測軌跡。含時間×組別時需明確說明主效果的參考時間／參考組，及交互作用的差異或比值之比。Holm 只校正同一模型全部非截距係數的 p 值；逐項 CI、未執行的整體檢定或跨模型比較不受這項校正保護。收斂與圖形均不能證明缺失可忽略、模型正確或因果效果。"
         if any(

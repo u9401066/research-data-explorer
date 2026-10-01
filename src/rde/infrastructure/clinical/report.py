@@ -16,6 +16,10 @@ def number(value):
 
 
 def markdown(result: dict) -> str:
+    if result["spec"]["family"] == "regression":
+        from .regression_report import markdown as regression_markdown
+
+        return regression_markdown(result)
     if result["spec"]["family"] == "longitudinal":
         from .longitudinal_report import markdown as longitudinal_markdown
 
@@ -191,12 +195,18 @@ def figures(result: dict, directory: Path, prefix: str):
         from .survival_publication import figures as publication_figures
     elif result["spec"]["family"] == "longitudinal":
         from .longitudinal_publication import figures as publication_figures
+    elif result["spec"]["family"] == "regression":
+        from .regression_publication import figures as publication_figures
     else:
         from .measurement_report import figures as publication_figures
     return publication_figures(result, directory, prefix)
 
 
 def tables(result: dict, directory: Path, prefix: str):
+    if result["spec"]["family"] == "regression":
+        from .regression_report import tables as regression_tables
+
+        return regression_tables(result, directory, prefix)
     if result["spec"]["family"] == "longitudinal":
         from .longitudinal_report import tables as longitudinal_tables
 

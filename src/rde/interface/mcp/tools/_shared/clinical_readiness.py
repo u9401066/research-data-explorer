@@ -10,6 +10,12 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "regression":
+        from rde.infrastructure.clinical.regression_report import (
+            required_figures as regression_figures,
+        )
+
+        return regression_figures(result)
     if result["spec"]["family"] == "longitudinal":
         from rde.infrastructure.clinical.longitudinal_report import (
             required_figures as required_longitudinal_figures,
@@ -83,7 +89,7 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         shared_cases = bool(result.get("confusion_counts")) and sum(
             result["confusion_counts"].values()
         ) == result.get("n")
-    elif spec["family"] == "bland_altman":
+    elif spec["family"] in {"bland_altman", "regression"}:
         shared_cases = [p["data_row"] for p in result.get("points", [])] == included and bool(
             included
         )
@@ -124,6 +130,27 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             == [row["term"] for row in coefficients[1:]],
             ["model", "points", "coefficients", "observed_by_time", "multiplicity"],
         )
+    if spec["family"] == "regression":
+        model = result.get("model", {})
+        coefficients = result.get("coefficients", [])
+        check(
+            "regression_model_and_complete_cases",
+            model.get("converged") is True
+            and model.get("mean_parameters") == len(coefficients) > 0
+            and bool(result.get("joint_tests"))
+            and result.get("multiplicity", {}).get("coefficient_family")
+            == [row["term"] for row in coefficients if row["role"] != "intercept"]
+            and len(result.get("conditional_curves", []))
+            == sum(p["kind"] == "continuous" for p in spec["predictors"]),
+            [
+                "model",
+                "points",
+                "coefficients",
+                "joint_tests",
+                "conditional_curves",
+                "multiplicity",
+            ],
+        )
     expected = required_figures(result) if result else set()
     actual = {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
     check("clinical_figures", bool(expected) and expected == actual, sorted(expected))
@@ -155,6 +182,8 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             if spec["family"] == "survival"
             else "縱向追蹤與重複觀察"
             if spec["family"] == "longitudinal"
+            else "多因素關聯、計數與序位迴歸"
+            if spec["family"] == "regression"
             else TITLES[spec["family"]]
         )
         check(

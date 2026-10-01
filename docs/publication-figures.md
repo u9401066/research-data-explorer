@@ -4,7 +4,7 @@
 `render_publication_figures` renders a **new display edition from a completed saved study**.
 It never reruns a model, bootstrap, cutoff search or significance test. Supported bundles:
 prediction (binary, optional DCA, continuous outcome), diagnostic accuracy, Bland–Altman,
-unweighted Cohen's kappa, survival/competing-event studies, and [longitudinal GEE/Gaussian mixed models](longitudinal.md). Other families need separate publication renderers.
+unweighted Cohen's kappa, survival/competing-event studies, [longitudinal GEE/Gaussian mixed models](longitudinal.md), and [independent-case regression](regression.md). Other families need separate publication renderers.
 
 Pass the project ID, exact `clinical_study_*.json` / `prediction_study_*.json` filename,
 its SHA256, a preset ID, a new canonical UUID, optional starting figure number, and optional

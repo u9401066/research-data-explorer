@@ -74,7 +74,7 @@ MCP restart/reuse preserved 380 original and edition artifacts across the four r
 Workbench browser reproduced every model/coefficient, including an explicitly selected Excel
 sheet for Orthodont mixed models and an actual LLM proposal for Ohio.
 
-`scripts/smoke_longitudinal_mcp.py --help` documents the source-hash-pinned full MCP smoke,
+`scripts/smoke_clinical_mcp.py --help` documents the source-hash-pinned full MCP smoke,
 including immutable editions, a process restart, saved-result reuse and complete artifact hashes.
 Synthetic regressions check binary label reversal, exposure unit changes, recentering of mixed
 random effects, complete-observation handling and identity errors without replacing public MCP runs.

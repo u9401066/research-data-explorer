@@ -177,6 +177,15 @@ def run_regression(df, spec: RegressionSpec):
         "poisson": "rate ratio" if spec.exposure else "mean count ratio",
         "negative_binomial": "rate ratio" if spec.exposure else "mean count ratio",
     }[spec.distribution]
+    interaction_scale = {
+        "gaussian": "difference in conditional effects",
+        "binomial": "ratio of odds ratios",
+        "ordinal": "ratio of common cumulative odds ratios",
+        "poisson": "ratio of rate ratios" if spec.exposure else "ratio of mean count ratios",
+        "negative_binomial": "ratio of rate ratios"
+        if spec.exposure
+        else "ratio of mean count ratios",
+    }[spec.distribution]
     spline_terms = {term["term"] for term in terms if term["role"] == "spline_basis"}
     coefficients = []
     for i, term in enumerate(terms):
@@ -198,9 +207,7 @@ def run_regression(df, spec: RegressionSpec):
             if spec.exposure and term["role"] == "intercept"
             else "reference mean count"
             if term["role"] == "intercept"
-            else "difference in conditional effects"
-            if gaussian and term["role"] == "interaction"
-            else f"ratio of {effect_scale}s"
+            else interaction_scale
             if term["role"] == "interaction"
             else effect_scale
         )

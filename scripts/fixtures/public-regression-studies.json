@@ -1,0 +1,313 @@
+[
+  {
+    "key": "doctor-visits-poisson",
+    "source": "DoctorVisits",
+    "source_sha256": "cd0b612c1637dd51d9f173ecc52e3c8402c4de3c23f6b270a41ef630bc5e2699",
+    "name": "Public DoctorVisits poisson regression",
+    "spec": {
+      "family": "regression",
+      "outcome": "visits",
+      "outcome_unit": "doctor visits in past 2 weeks",
+      "distribution": "poisson",
+      "predictors": [
+        {
+          "column": "age",
+          "kind": "continuous",
+          "label": "Age",
+          "unit": "100-year units",
+          "reference": 0.4,
+          "increment": 0.1,
+          "knots": []
+        },
+        {
+          "column": "gender",
+          "kind": "categorical",
+          "label": "Gender",
+          "reference": "male",
+          "levels": [
+            "male",
+            "female"
+          ]
+        },
+        {
+          "column": "illness",
+          "kind": "continuous",
+          "label": "Recent illnesses",
+          "unit": "illnesses",
+          "reference": 0,
+          "increment": 1,
+          "knots": []
+        },
+        {
+          "column": "health",
+          "kind": "continuous",
+          "label": "Health questionnaire",
+          "unit": "points",
+          "reference": 0,
+          "increment": 1,
+          "knots": []
+        },
+        {
+          "column": "nchronic",
+          "kind": "categorical",
+          "label": "Nonlimiting chronic",
+          "reference": "no",
+          "levels": [
+            "no",
+            "yes"
+          ]
+        }
+      ],
+      "independent_rows": true,
+      "study_design": "cross_sectional",
+      "context": "Public AER 1.2-17 DoctorVisits engineering validation: 1977-1978 Australian Health Survey cross-section. Unweighted conditional associations only; the retained data provide no survey design weights. Age is years divided by 100, so an increment of 0.1 is 10 years. Same two-week count window, no source duration offset. No new clinical or population inference. The unchanged age/100 values are measured in 100-year units (0.4 means 40 years, +0.1 means +10 years). Illness is a count over the same two weeks; health is the original Goldberg questionnaire score in points."
+    }
+  },
+  {
+    "key": "doctor-visits-negative_binomial",
+    "source": "DoctorVisits",
+    "source_sha256": "cd0b612c1637dd51d9f173ecc52e3c8402c4de3c23f6b270a41ef630bc5e2699",
+    "name": "Public DoctorVisits negative_binomial regression",
+    "spec": {
+      "family": "regression",
+      "outcome": "visits",
+      "outcome_unit": "doctor visits in past 2 weeks",
+      "distribution": "negative_binomial",
+      "predictors": [
+        {
+          "column": "age",
+          "kind": "continuous",
+          "label": "Age",
+          "unit": "100-year units",
+          "reference": 0.4,
+          "increment": 0.1,
+          "knots": []
+        },
+        {
+          "column": "gender",
+          "kind": "categorical",
+          "label": "Gender",
+          "reference": "male",
+          "levels": [
+            "male",
+            "female"
+          ]
+        },
+        {
+          "column": "illness",
+          "kind": "continuous",
+          "label": "Recent illnesses",
+          "unit": "illnesses",
+          "reference": 0,
+          "increment": 1,
+          "knots": []
+        },
+        {
+          "column": "health",
+          "kind": "continuous",
+          "label": "Health questionnaire",
+          "unit": "points",
+          "reference": 0,
+          "increment": 1,
+          "knots": []
+        },
+        {
+          "column": "nchronic",
+          "kind": "categorical",
+          "label": "Nonlimiting chronic",
+          "reference": "no",
+          "levels": [
+            "no",
+            "yes"
+          ]
+        }
+      ],
+      "independent_rows": true,
+      "study_design": "cross_sectional",
+      "context": "Public AER 1.2-17 DoctorVisits engineering validation: 1977-1978 Australian Health Survey cross-section. Unweighted conditional associations only; the retained data provide no survey design weights. Age is years divided by 100, so an increment of 0.1 is 10 years. Same two-week count window, no source duration offset. No new clinical or population inference. The unchanged age/100 values are measured in 100-year units (0.4 means 40 years, +0.1 means +10 years). Illness is a count over the same two weeks; health is the original Goldberg questionnaire score in points."
+    }
+  },
+  {
+    "key": "arthritis-ordinal",
+    "source": "Arthritis",
+    "source_sha256": "8c30dceee3165ab19f163fc868e2ad92a70e420ab9d719cdfdc3f00501ebbea5",
+    "name": "Public Arthritis ordinal regression",
+    "spec": {
+      "family": "regression",
+      "outcome": "Improved",
+      "outcome_unit": "ordered improvement category",
+      "distribution": "ordinal",
+      "predictors": [
+        {
+          "column": "Treatment",
+          "kind": "categorical",
+          "label": "Treatment",
+          "reference": "Placebo",
+          "levels": [
+            "Placebo",
+            "Treated"
+          ]
+        },
+        {
+          "column": "Age",
+          "kind": "continuous",
+          "label": "Age",
+          "unit": "source age units",
+          "reference": 50,
+          "increment": 10,
+          "knots": []
+        },
+        {
+          "column": "Sex",
+          "kind": "categorical",
+          "label": "Sex",
+          "reference": "Female",
+          "levels": [
+            "Female",
+            "Male"
+          ]
+        }
+      ],
+      "independent_rows": true,
+      "study_design": "unspecified",
+      "context": "Public vcd 1.4-14 Arthritis engineering validation. Retained documentation describes a double-blind clinical trial, but does not independently establish allocation protocol, complete ITT or an explicit age unit. Preserve Improved order None < Some < Marked. Age values are unchanged source units, not a verified year conversion. Conditional common cumulative odds, no new efficacy claim.",
+      "subject": "ID",
+      "outcome_levels": [
+        "None",
+        "Some",
+        "Marked"
+      ]
+    }
+  },
+  {
+    "key": "birthwt-gaussian-spline",
+    "source": "birthwt",
+    "source_sha256": "50102db24a1fc05d351f83b341d71fa6b5847493bbb1a709811f9910a38f62ca",
+    "name": "Public birthwt Gaussian spline and interaction",
+    "spec": {
+      "family": "regression",
+      "outcome": "bwt",
+      "outcome_unit": "grams",
+      "distribution": "gaussian",
+      "predictors": [
+        {
+          "column": "lwt",
+          "kind": "continuous",
+          "label": "Maternal weight",
+          "unit": "pounds",
+          "reference": 120,
+          "increment": 10,
+          "knots": [
+            90,
+            120,
+            160,
+            200
+          ]
+        },
+        {
+          "column": "age",
+          "kind": "continuous",
+          "label": "Maternal age",
+          "unit": "years",
+          "reference": 25,
+          "increment": 5,
+          "knots": []
+        },
+        {
+          "column": "smoke",
+          "kind": "categorical",
+          "label": "Smoking during pregnancy",
+          "reference": "0",
+          "levels": [
+            "0",
+            "1"
+          ]
+        },
+        {
+          "column": "race",
+          "kind": "categorical",
+          "label": "Source race category",
+          "reference": "1",
+          "levels": [
+            "1",
+            "2",
+            "3"
+          ]
+        }
+      ],
+      "independent_rows": true,
+      "study_design": "unspecified",
+      "context": "Public MASS 7.3-65 birthwt engineering validation. Baystate Medical Center data collected in 1986; retained documentation does not establish a complete sampling protocol. Maternal lwt is pounds at the last menstrual period, bwt is grams, age is years. Explicit engineering spline knots 90,120,160,200 pounds are fixed before fitting, not clinically validated cutoffs. Source race codes: 1 white, 2 black, 3 other. Low-birthweight indicator is excluded from predictors because it is derived from bwt. No causal or external prediction claim.",
+      "interactions": [
+        [
+          "lwt",
+          "smoke"
+        ]
+      ]
+    }
+  },
+  {
+    "key": "birthwt-binomial-spline",
+    "source": "birthwt",
+    "source_sha256": "50102db24a1fc05d351f83b341d71fa6b5847493bbb1a709811f9910a38f62ca",
+    "name": "Public birthwt binary spline regression",
+    "spec": {
+      "family": "regression",
+      "outcome": "low",
+      "outcome_unit": "indicator of birth weight below 2500 grams",
+      "distribution": "binomial",
+      "predictors": [
+        {
+          "column": "lwt",
+          "kind": "continuous",
+          "label": "Maternal weight",
+          "unit": "pounds",
+          "reference": 120,
+          "increment": 10,
+          "knots": [
+            90,
+            120,
+            160,
+            200
+          ]
+        },
+        {
+          "column": "age",
+          "kind": "continuous",
+          "label": "Maternal age",
+          "unit": "years",
+          "reference": 25,
+          "increment": 5,
+          "knots": []
+        },
+        {
+          "column": "smoke",
+          "kind": "categorical",
+          "label": "Smoking during pregnancy",
+          "reference": "0",
+          "levels": [
+            "0",
+            "1"
+          ]
+        },
+        {
+          "column": "ht",
+          "kind": "categorical",
+          "label": "Hypertension history",
+          "reference": "0",
+          "levels": [
+            "0",
+            "1"
+          ]
+        }
+      ],
+      "independent_rows": true,
+      "study_design": "unspecified",
+      "context": "Public MASS 7.3-65 birthwt engineering validation with original binary low outcome. Source bwt defines low and is excluded from predictors to prevent outcome leakage. Maternal lwt remains pounds; age remains years. Explicit engineering knots 90,120,160,200 pounds are fixed before fitting, not clinically validated cutoffs. Sampling protocol is unspecified in the retained dictionary; no population risk, causal or independent validation claim.",
+      "outcome_levels": [
+        "0",
+        "1"
+      ]
+    }
+  }
+]

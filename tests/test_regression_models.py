@@ -287,3 +287,22 @@ def test_spline_basis_is_not_mislabeled_as_unit_effect_and_reference_change_pres
     assert result["conditional_curves"][0]["profile"] == {"group": "A"}
     assert result["multiplicity"]["families_separate"] is True
     assert result["multiplicity"]["ci_adjusted"] is False
+
+
+def test_interaction_group_reference_swap_preserves_fit_and_inverts_ratio_of_ratios():
+    data = source("binary")
+    spec = study(distribution="binomial", outcome_levels=["0", "1"], interactions=[["x", "group"]])
+    result = run_regression(data, spec)
+    predictors = deepcopy(spec.predictors)
+    predictors[1]["reference"] = "B"
+    reverse = run_regression(data, replace(spec, predictors=predictors))
+    assert [r["fitted"] for r in result["points"]] == pytest.approx(
+        [r["fitted"] for r in reverse["points"]], abs=1e-10
+    )
+    left, right = result["coefficients"][-1], reverse["coefficients"][-1]
+    assert left["effect_scale"] == right["effect_scale"] == "ratio of odds ratios"
+    assert left["estimate"] == pytest.approx(1 / right["estimate"])
+    assert left["lower"] == pytest.approx(1 / right["upper"])
+    assert result["coefficients"][1]["coefficient"] + left["coefficient"] == pytest.approx(
+        reverse["coefficients"][1]["coefficient"]
+    )

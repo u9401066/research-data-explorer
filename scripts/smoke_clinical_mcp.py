@@ -1,4 +1,4 @@
-"""Run a source-pinned longitudinal study only through the actual stdio MCP server.
+"""Run a source-pinned clinical study only through the actual stdio MCP server.
 
 This engineering harness confirms its supplied study specification, retains all tool
 responses, and verifies restart/reuse. It never reads a dataframe or fits a model.
@@ -28,8 +28,10 @@ async def run(args):
     workspace = args.workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=False)
     spec = json.loads(args.spec.read_text())
-    if spec.get("family") != "longitudinal":
-        raise ValueError("An explicit longitudinal engineering specification is required")
+    if spec.get("family") not in {"longitudinal", "regression"}:
+        raise ValueError(
+            "An explicit longitudinal or regression engineering specification is required"
+        )
     if sha(args.source) != args.source_sha256:
         raise ValueError("Source bytes differ from the pinned acquisition")
     raw = workspace / "rawdata"
@@ -44,13 +46,17 @@ async def run(args):
         dict.fromkeys(
             [
                 spec["outcome"],
-                spec["subject"],
-                spec["time"],
+                *(
+                    [spec["time"]]
+                    if spec["family"] == "longitudinal"
+                    else [p["column"] for p in spec["predictors"]]
+                ),
                 *spec.get("covariates", []),
                 *[
                     name
                     for name in [
                         spec.get("group"),
+                        spec.get("subject"),
                         spec.get("exposure"),
                         (spec.get("cohort_filter") or {}).get("column"),
                     ]
@@ -135,8 +141,10 @@ async def run(args):
                 confirm=True,
                 variable_roles={
                     "outcome": spec["outcome"],
-                    "id": spec["subject"],
-                    "covariates": [spec["time"], *spec.get("covariates", [])],
+                    **({"id": spec["subject"]} if spec.get("subject") else {}),
+                    "covariates": [spec["time"], *spec.get("covariates", [])]
+                    if spec["family"] == "longitudinal"
+                    else [p["column"] for p in spec["predictors"]],
                     **({"group": spec["group"]} if spec.get("group") else {}),
                 },
             ),
@@ -159,7 +167,7 @@ async def run(args):
                     dict(
                         type="run_clinical_study",
                         variables=variables,
-                        rationale="Source-pinned engineering validation of an explicit repeated-observation model, not a new clinical claim.",
+                        rationale="Source-pinned engineering validation of an explicit clinical model, not a new clinical claim.",
                         execution_arguments={"clinical_options": spec},
                     )
                 ],
@@ -232,7 +240,7 @@ async def run(args):
         receipt_path=str(receipt_path),
         receipt_sha256=result["receipt_sha256"],
         n=result["n"],
-        n_subjects=result["n_subjects"],
+        n_subjects=result.get("n_subjects"),
         model=result["model"],
         coefficients=result["coefficients"],
         warnings=result["warnings"],
