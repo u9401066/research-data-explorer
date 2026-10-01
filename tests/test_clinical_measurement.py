@@ -331,6 +331,29 @@ def test_actual_mcp_preflight_execution_report_integrity_and_reuse(
     assert len(record["figures"]) == figures and verify_clinical_artifacts(
         record, project.output_dir
     )
+    from pathlib import Path
+    from PIL import Image
+    import xml.etree.ElementTree as ET
+
+    exported = {item["path"] for item in record["artifacts"]}
+    for figure in record["figures"]:
+        publication = figure["publication"]
+        assert publication["source_receipt_sha256"] == record["result"]["receipt_sha256"]
+        assert publication["language"] == "en"
+        assert publication["text_outside_canvas"] == []
+        paths = publication["files"]
+        assert set(paths) == {"png", "pdf", "svg", "tiff", "caption", "data"}
+        assert all(
+            str(Path(path).relative_to(project.output_dir)) in exported for path in paths.values()
+        )
+        with Image.open(paths["png"]) as png, Image.open(paths["tiff"]) as tiff:
+            assert png.width >= 2100 and png.size == tiff.size
+            assert png.info["dpi"][0] == pytest.approx(300, abs=0.01)
+            assert tiff.mode == "RGB" and tiff.info["dpi"] == (300, 300)
+        svg = ET.parse(paths["svg"]).getroot()
+        assert svg.findall(".//{http://www.w3.org/2000/svg}path")
+        assert not svg.findall(".//{http://www.w3.org/2000/svg}image")
+        assert "中文解釋" in Path(paths["caption"]).read_text()
     monkeypatch.setattr(
         clinical_tools, "run_measurement", lambda *a: pytest.fail("Saved study was recomputed")
     )
@@ -377,3 +400,97 @@ def test_renderer_failure_retains_numbers_and_can_recover_without_reanalysis(tmp
     recovered = asyncio.run(call("run_clinical_study", args))
     assert not recovered.is_error, recovered.content
     assert clinical_records(store)[0]["result"]["receipt_sha256"] == receipt
+
+
+def test_publication_keeps_excluded_pairs_out_and_separates_limits_from_intervals(tmp_path):
+    import csv
+    from pathlib import Path
+    from rde.infrastructure.clinical.measurement_publication import figures
+
+    frame = agreement_frame()
+    frame.loc[0, "first"] = np.nan
+    result = run_measurement(frame, agreement_spec())
+    frozen = json.dumps(result, sort_keys=True)
+    exported = {f["plot_type"]: f["publication"] for f in figures(result, tmp_path, "pairs")}
+    assert json.dumps(result, sort_keys=True) == frozen
+    data = list(csv.DictReader(Path(exported["clinical_bland_altman"]["files"]["data"]).open()))
+    pairs = [r for r in data if r["record_type"] == "pair"]
+    assert [int(r["data_row"]) for r in pairs] == result["case_ledger"]["complete_data_rows"]
+    assert 1 not in [int(r["data_row"]) for r in pairs]
+    for row in data:
+        if row["record_type"] == "estimate":
+            saved = result["estimates"][row["indicator"]]
+            for key in ["estimate", "ci_lower", "ci_upper"]:
+                assert float(row[key]) == saved[key]
+    caption = exported["clinical_bland_altman"]["caption_en"]
+    assert "neither a simultaneous band nor intervals for individual differences" in caption
+    assert "formal equivalence test" in caption
+    qq = list(csv.DictReader(Path(exported["clinical_agreement_qq"]["files"]["data"]).open()))
+    assert sorted(int(r["data_row"]) for r in qq) == result["case_ledger"]["complete_data_rows"]
+    assert [float(r["ordered_difference"]) for r in qq] == sorted(
+        p["difference"] for p in result["points"]
+    )
+    assert "no new regression line" in exported["clinical_agreement_qq"]["caption_en"]
+
+
+def test_publication_does_not_hide_withheld_or_unestimable_diagnostic_results(tmp_path):
+    import csv
+    from pathlib import Path
+    from rde.infrastructure.clinical.measurement_publication import figures
+
+    frame = pd.DataFrame({"reference": ["M"] * 5, "index": [1, 2, 3, 4, 5]})
+    result = run_measurement(frame, diagnostic_spec(diagnostic={"sampling": "unknown"}))
+    exported = {f["plot_type"]: f["publication"] for f in figures(result, tmp_path, "single_class")}
+    entries = list(
+        csv.DictReader(Path(exported["clinical_diagnostic_intervals"]["files"]["data"]).open())
+    )
+    by_name = {r["indicator"]: r for r in entries}
+    assert by_name["specificity"]["denominator"] == "0"
+    assert by_name["positive_predictive_value"]["status"] == "withheld_by_sampling_design"
+    assert by_name["positive_predictive_value"]["estimate"] == ""
+    svg = Path(exported["clinical_diagnostic_intervals"]["files"]["svg"]).read_text()
+    assert "Not reported: sampling design" in svg and "Not estimable: zero denominator" in svg
+    roc_svg = Path(exported["clinical_diagnostic_roc"]["files"]["svg"]).read_text()
+    assert "ROC not estimable:" in roc_svg and "only one reference class" in roc_svg
+    assert "no external validation" in exported["clinical_diagnostic_roc"]["caption_en"]
+
+
+def test_diagnostic_plot_data_distinguishes_index_classification_from_reference_codes(tmp_path):
+    import csv
+    from pathlib import Path
+    from rde.infrastructure.clinical.measurement_publication import figures
+
+    result = run_measurement(diagnostic_frame(), diagnostic_spec())
+    exported = {f["plot_type"]: f["publication"] for f in figures(result, tmp_path, "diagnosis")}
+    cells = list(
+        csv.DictReader(Path(exported["clinical_diagnostic_matrix"]["files"]["data"]).open())
+    )
+    # Index score >= 5 defines positive; M/B are reference codes, not score values.
+    assert "列為待測方法" in exported["clinical_diagnostic_matrix"]["explanation_zh"]
+    assert "score ≥ 5.0" in exported["clinical_diagnostic_roc"]["caption_en"]
+    assert {(r["row_label"], r["column_label"]): int(r["count"]) for r in cells} == {
+        ("Positive", "M"): 4,
+        ("Positive", "B"): 2,
+        ("Negative", "M"): 1,
+        ("Negative", "B"): 3,
+    }
+
+
+def test_large_kappa_tables_use_readable_panels_with_exact_category_mapping(tmp_path):
+    import csv
+    from pathlib import Path
+    from rde.infrastructure.clinical.measurement_publication import figures
+
+    labels = [f"類別 {i}: " + "long source wording " * 10 for i in range(20)]
+    spec = MeasurementSpec.parse({**kappa_spec().to_dict(), "categories": labels})
+    frame = pd.DataFrame({"first": labels * 2, "second": labels + labels[1:] + labels[:1]})
+    result = run_measurement(frame, spec)
+    exported = figures(result, tmp_path, "many_ratings")
+    panels = [f["publication"] for f in exported if f["plot_type"] == "clinical_kappa_matrix"]
+    assert len(panels) == 4
+    cells = [row for panel in panels for row in csv.DictReader(Path(panel["files"]["data"]).open())]
+    assert len(cells) == 400 and len({(r["row_code"], r["column_code"]) for r in cells}) == 400
+    assert sum(int(r["count"]) for r in cells) == 40
+    assert set(r["row_label"] for r in cells) == set(labels)
+    assert set(r["column_label"] for r in cells) == set(labels)
+    assert all(p["text_outside_canvas"] == [] for p in panels)

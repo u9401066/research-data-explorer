@@ -232,7 +232,14 @@ def register_clinical_tools(server: Any):
             images = figures(result, project.output_dir / "figures", prefix)
             report = store.save(PipelinePhase.EXECUTE_EXPLORATION, f"{prefix}.md", markdown(result))
             table_dir = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "unused").parent
-            paths = [report, *tables(result, table_dir, prefix), *[Path(i["path"]) for i in images]]
+            figure_paths = [
+                Path(path)
+                for image in images
+                for path in image.get("publication", {})
+                .get("files", {"png": image["path"]})
+                .values()
+            ]
+            paths = [report, *tables(result, table_dir, prefix), *figure_paths]
             record["artifacts"] = [
                 dict(
                     path=str(p.relative_to(project.output_dir)),
