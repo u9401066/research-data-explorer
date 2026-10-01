@@ -1963,6 +1963,7 @@ def _clinical_summaries(store: Any) -> list[dict]:
     return [
         dict(
             artifact=r["artifact"],
+            family=r["result"]["spec"]["family"],
             receipt_sha256=r["result"]["receipt_sha256"],
             summary_markdown=markdown(r["result"]),
         )
@@ -2053,6 +2054,11 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(
+            r.get("family") in {"diagnostic_accuracy", "bland_altman", "cohens_kappa"}
+            for r in results["clinical_studies"]
+        ):
+            return "本次依鎖定的診斷／一致性規格估計，同一組完整配對用於全部圖表。請檢視原始交叉表或差異、各指標分母與區間，以及排除個案。閾值未自動最佳化；一致性不等於診斷有效或臨床可互換。"
         return "本次依預先指定的追蹤起點與事件編碼估計生存或累積發生率；完整樣本流向、信賴區間、Cox 模型與適用限制見臨床研究結果。沒有事件或不顯著結果不能證明沒有風險／差異，分組關聯不直接代表治療效果。"
     if results.get("repeated_measurements"):
         return "本次結果為預先指定的受試者內時間比較。完整配對數、缺失排除、檢定及全部事後比較列於重複量測結果；時間變化不代表治療組效果。"
@@ -2117,6 +2123,11 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     if results and results.get("clinical_studies"):
+        if any(
+            r.get("family") in {"diagnostic_accuracy", "bland_altman", "cohens_kappa"}
+            for r in results["clinical_studies"]
+        ):
+            return "診斷與一致性估計僅適用於已記錄的研究樣本、配對與判定規則。參照標準、抽樣、缺失與無法判讀可能影響推論；不代表外部驗證、臨床效益或可互換性。"
         return "本報告的估計適用於明列的共同完整個案、追蹤起點與事件定義；須結合在險人數、估計不確定性、失訪與模型假設解讀。競爭事件累積發生率、原因別危險比與固定時點風險是不同量，不能相互替代。觀察性關聯不證明因果療效。"
     if results and results.get("repeated_measurements"):
         return "本報告描述核准時點的受試者內變化；需依實際個案、差值方向、校正家族與方法限制解讀。缺失個案可能產生選擇偏差，未估計組間治療效果或時間×治療交互作用，也未提供效應量信賴區間。"
@@ -2190,6 +2201,11 @@ def _build_interpretation_discussion(
     """Build narrative interpretation, recommendations, and literature context."""
 
     if results and results.get("clinical_studies"):
+        if any(
+            r.get("family") in {"diagnostic_accuracy", "bland_altman", "cohens_kappa"}
+            for r in results["clinical_studies"]
+        ):
+            return "## 診斷與一致性結果解讀\n\n先核對參照、配對、判定規則與納排。診斷區間需依各自分母解讀；來源抽樣方式不明時不能推論母群預測值。Bland–Altman 圖需檢視差異分布與變異，Kappa 受類別比例影響。已保存數值、圖表與限制不能由文字敘述補成外部驗證、因果或可互換性結論。"
         return (
             "## 臨床事件結果解讀\n\n先確認死亡、失訪、追蹤截止與移植等競爭事件的原始編碼，再檢視納排與事件數。"
             "生存曲線與在險人數使用相同個案；追蹤尾端少量人數可能使估計不穩定。"

@@ -1414,7 +1414,7 @@ def register_plan_tools(server: Any) -> None:
                         or multiple_comparison_method != "holm"
                     ):
                         raise ValueError(
-                            "Clinical survival requires matching alpha, listwise cases and Holm diagnostic correction."
+                            "Clinical studies require matching alpha, listwise cases and the Holm plan setting; individual measurement intervals remain pointwise and unadjusted."
                         )
                 except (ValueError, TypeError, KeyError) as error:
                     return fmt_error(f"Invalid clinical specification: {error}")
@@ -1537,7 +1537,7 @@ def register_plan_tools(server: Any) -> None:
                     final_analysis_count=1,
                     checks=[dict(name="prespecified_clinical_contract", passed=True)],
                     warnings=[
-                        "Software contract reviewed only; event coding, clinical eligibility, censoring and model assumptions require researcher review. Numerical evidence is checked after execution."
+                        "Software contract reviewed only; source coding, clinical eligibility, sampling, pairing and family-specific assumptions require researcher review. Numerical evidence is checked after execution."
                     ],
                 )
                 execution_schedule = [
@@ -1549,7 +1549,7 @@ def register_plan_tools(server: Any) -> None:
                         analysis_label="run_clinical_study",
                         variables=clinical_entries[0]["variables"],
                         depends_on=[],
-                        rationale="Exact event definitions and shared complete cases; no automatic method expansion.",
+                        rationale="Exact clinical definitions and shared complete cases; no automatic method expansion.",
                     )
                 ]
                 script_content = "# Execute run_clinical_study through RDE MCP with the locked clinical_options.\n"

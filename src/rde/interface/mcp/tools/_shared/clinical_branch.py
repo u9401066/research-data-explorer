@@ -63,6 +63,10 @@ def execute_survival_branch(project, store, contract, branch_id, experiment_id):
         if not plan:
             raise ValueError("A single primary clinical study is required.")
         spec = planned_clinical_spec(plan)
+        if spec.family != "survival":
+            raise ValueError(
+                "Cox sensitivity branches require a survival primary study; diagnostic thresholds stay locked."
+            )
         covariates = contract["covariates"]
         required = contract["required_covariates"]
         focus = contract["focus_variable"]

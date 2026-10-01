@@ -11,11 +11,23 @@ import uuid
 from rde.application.pipeline import PipelinePhase
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 from rde.infrastructure.clinical.survival import SurvivalSpec, digest, prepare_population
+from rde.infrastructure.clinical.measurement import (
+    MeasurementSpec,
+    measurement_preflight,
+    prepare_measurement,
+    run_measurement,
+)
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
 def planned_clinical_spec(entry):
     options = entry.get("execution_arguments", {}).get("clinical_options")
+    return parse_clinical_spec(options)
+
+
+def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family", "survival") != "survival":
+        return MeasurementSpec.parse(options)
     return SurvivalSpec.parse(options)
 
 
@@ -64,7 +76,7 @@ def verify_clinical_artifacts(record, root: Path):
 def register_clinical_tools(server: Any):
     @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對生存事件編碼、受試者、共同完整個案與各組人數；不估計模型或 p 值。"""
+        """計畫審閱前核對生存／診斷／一致性編碼、受試者及共同個案；不估計模型或 p 值。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -73,11 +85,21 @@ def register_clinical_tools(server: Any):
         if not ok:
             return fmt_error(message)
         try:
-            spec = SurvivalSpec.parse(clinical_options)
-            frame, ledger, frame_hash, codes = prepare_population(entry.dataframe, spec)
+            spec = parse_clinical_spec(clinical_options)
             source = entry.dataset.metadata
             if not source or not source.file_path.is_file():
                 raise ValueError("The clinical source file is required.")
+            if isinstance(spec, MeasurementSpec):
+                return json.dumps(
+                    {
+                        **measurement_preflight(entry.dataframe, spec),
+                        "source_sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest(),
+                        "sheet": source.sheet_name,
+                    },
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+            frame, ledger, frame_hash, codes = prepare_population(entry.dataframe, spec)
             return json.dumps(
                 dict(
                     schema="clinical-preflight-v1",
@@ -111,13 +133,15 @@ def register_clinical_tools(server: Any):
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """執行鎖定的臨床研究，目前 family=survival（生存／競爭事件）。
+        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa。
 
         clinical_options 必须逐項符合唯一計畫的 execution_arguments.clinical_options。
         必填 time、event、event_value、censor_value、time_origin、time_unit、independent_rows=true。
         可明列 group、subject、covariates、categorical_covariates、references、competing_values、risk_times、cohort_filter。
         同一完整個案集合提供 KM/競爭事件曲線、在險人數、Cox HR/CI/比例風險檢查、圖表與中文報告。
         不將競爭事件合併成目標事件，不自動挑選變項，不改寫既有成功結果。
+        診斷／一致性須 first、second、context、independent_rows=true 及明確 diagnostic／agreement／categories。
+        診斷固定陽性規則、參照標準與抽樣；一致性保留差異方向、單位、界限涵蓋率與臨床容許差異。
         """
         from rde.application.session import get_session
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error, log_tool_error
@@ -135,14 +159,18 @@ def register_clinical_tools(server: Any):
         parameters = {"dataset_id": dataset_id, "clinical_options": clinical_options}
         attempt = None
         try:
-            spec = SurvivalSpec.parse(clinical_options)
+            spec = parse_clinical_spec(clinical_options)
             plan = clinical_plan(store)
             if plan is None or planned_clinical_spec(plan).to_dict() != spec.to_dict():
                 raise ValueError(
                     "Clinical options must exactly match the single locked study plan."
                 )
             parameters["variables"] = spec.variables()
-            _, _, frame_hash, _ = prepare_population(entry.dataframe, spec)
+            frame_hash = (
+                prepare_measurement(entry.dataframe, spec)
+                if isinstance(spec, MeasurementSpec)
+                else prepare_population(entry.dataframe, spec)
+            )[2]
             metadata = entry.dataset.metadata
             if not metadata or not metadata.file_path.is_file():
                 raise ValueError(
@@ -184,7 +212,15 @@ def register_clinical_tools(server: Any):
             attempt = store.get_path(
                 PipelinePhase.EXECUTE_EXPLORATION, f"clinical_attempt_{run_id}.json"
             )
-            result = previous["result"] if previous else run_survival(entry.dataframe, spec)
+            result = (
+                previous["result"]
+                if previous
+                else (
+                    run_measurement(entry.dataframe, spec)
+                    if isinstance(spec, MeasurementSpec)
+                    else run_survival(entry.dataframe, spec)
+                )
+            )
             record = dict(
                 dataset_id=dataset_id, run_id=run_id, source=source, result=result, artifacts=[]
             )
@@ -218,8 +254,8 @@ def register_clinical_tools(server: Any):
             _auto_log_decision(
                 "run_clinical_study",
                 parameters,
-                "Prespecified right-censored survival study with explicit event types and shared complete cases.",
-                f"n={result['n']}; target events={result['events']}; competing events={result['competing']}; no causal promotion.",
+                "Prespecified clinical study with exact source coding and shared complete cases.",
+                f"family={spec.family}; n={result['n']}; no automatic clinical validity or causal promotion.",
                 artifacts=[filename, *[a["path"] for a in record["artifacts"]]],
             )
             return markdown(result) + f"\n**數值收據：** `{final}`\n"

@@ -2,12 +2,68 @@
 
 RDE is a tool and harness layer for research agents, not a substitute for study
 design or statistical review. These seven methods run locally through
-`run_advanced_analysis`; a separate prespecified survival bundle is described below.
+`run_advanced_analysis`; separate locked survival and measurement bundles are described below.
 No AutoML service, Docker, or patient-data upload is needed.
 Agents remain free to propose methods outside this catalog and document additional
 analyses. The catalog reduces routine coding, not scientific discretion.
 
-## Parameters and estimands
+## Locked diagnostic and measurement studies
+
+`inspect_clinical_study` and `run_clinical_study` also accept `family` values
+`diagnostic_accuracy`, `bland_altman`, and `cohens_kappa`. They use the same single
+locked-plan, source/sheet/frame, immutable numerical receipt and artifact-hash
+guards as survival. Each study requires distinct `first`, `second` and optional
+`subject` columns, a factual `context`, and `independent_rows=true`. Subject IDs,
+when supplied, must be present and unique before complete-case exclusion.
+
+- Diagnostic `first` is the reference, `second` the index test. The nested
+  `diagnostic` contract requires original positive/negative codes, reference
+  description and independence, sampling (`single_gate`, `two_gate`, `unknown`),
+  score threshold/direction or binary test codes, rule provenance/status, and
+  explicit reference/test indeterminate labels. Unknown codes and invalid numbers
+  stop execution. Missing and indeterminate exclusions have exclusive flow counts;
+  all original indeterminate row positions remain separately available.
+- Sensitivity/specificity and, only for declared single-gate sampling, PPV/NPV
+  and accuracy use Wilson intervals with individual denominators. No hidden
+  prevalence correction or continuity correction is applied. Zero denominators
+  remain not estimable. A numeric score adds directional ROC/AUC and stratified
+  subject percentile bootstrap CI (1,000 iterations, seed 20261001). Fewer than
+  two subjects in either class yields no AUC CI; one class yields no ROC/AUC.
+  Perfect separation may produce a degenerate interval, not certain clinical
+  performance. No cutoff optimization or external-validation claim is made.
+- Bland–Altman `agreement` explicitly separates `coverage` from
+  `confidence_level`. Difference is first minus second in the shared declared
+  `unit`. Bias CI uses t; limits use normal quantiles with approximate t-based
+  uncertainty. Optional `acceptable_lower`, `acceptable_upper`, `margin_basis`
+  compare point limits and outer CI bounds descriptively, never declare formal
+  equivalence. No unit conversion, log transformation or repeated-pair extension
+  is silently applied. Saved paired points feed difference, Q–Q and identity plots.
+- Kappa requires a complete shared `categories` list. It is unweighted, with
+  asymptotic CI, observed agreement and rater cross-tabulation; ordinal weights,
+  multiple raters and clustered ratings require another method.
+
+Every report includes factual design context, original coding, participant flow,
+uncertainty, interpretation limits, CSVs, native PNGs and a numerical SHA receipt.
+The report/readiness layer checks family-specific counts and required figures;
+it does not insert survival claims into diagnostic/measurement reports. Rendering
+retries use saved numbers, and tampered artifacts are refused. Individual CIs are
+pointwise and unadjusted; the pipeline's required Holm plan setting is not a claim
+that these intervals have been adjusted. Cox autoresearch rejects non-survival
+primary studies; a changed threshold/margin requires a separately reviewed plan.
+
+`tests/test_clinical_measurement.py` exercises manual Wilson calculations,
+pairwise-tie AUC, reverse direction, selected sampling, single-class and tiny-class
+limits, invalid/indeterminate/missing codes, incomplete and duplicate pairs,
+separate agreement coverage/confidence, hand-calculated kappa, all three real MCP
+report workflows, tampering, and render recovery without re-estimation. Local
+full suite: 529 passed, 5 optional skipped (2026-10-01).
+
+Primary method references: [STARD](https://www.equator-network.org/reporting-guidelines/stard/),
+[Wilson intervals](https://www.statsmodels.org/stable/generated/statsmodels.stats.proportion.proportion_confint.html),
+[Bland and Altman original paper](https://www-users.york.ac.uk/~mb55/meas/ba.htm),
+[statsmodels kappa](https://www.statsmodels.org/stable/generated/statsmodels.stats.inter_rater.cohens_kappa.html).
+
+## General advanced-analysis parameters and estimands
 
 All methods accept `confidence_level` (default 0.95). Binary outcomes must be
 explicitly coded 0/1; categorical reference choices must not be guessed.

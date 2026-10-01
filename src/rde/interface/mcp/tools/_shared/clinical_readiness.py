@@ -10,6 +10,12 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] != "survival":
+        from rde.infrastructure.clinical.measurement_report import (
+            required_figures as required_measurement_figures,
+        )
+
+        return required_measurement_figures(result)
     plots = {
         "clinical_incidence" if result["spec"]["competing_values"] else "clinical_survival",
         "clinical_risk_table",
@@ -44,8 +50,10 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
     )
     ledger = result.get("case_ledger", {})
     included = ledger.get("complete_data_rows", [])
-    excluded = ledger.get("filter_excluded_data_rows", []) + ledger.get(
-        "missing_excluded_data_rows", []
+    excluded = (
+        ledger.get("filter_excluded_data_rows", [])
+        + ledger.get("missing_excluded_data_rows", [])
+        + ledger.get("indeterminate_excluded_data_rows", [])
     )
     check(
         "participant_flow",
@@ -54,16 +62,28 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         and sorted(included + excluded) == list(range(1, ledger.get("input_rows", 0) + 1)),
         ["case_ledger"],
     )
-    strata = result.get("strata", [])
-    check(
-        "shared_case_set",
-        bool(strata)
-        and sum(g["n"] for g in strata) == result.get("n")
-        and all(g["n"] == g["events"] + g["censored"] + g["competing"] for g in strata),
-        ["strata", "case_ledger"],
-    )
+    if spec["family"] == "survival":
+        strata = result.get("strata", [])
+        shared_cases = (
+            bool(strata)
+            and sum(g["n"] for g in strata) == result.get("n")
+            and all(g["n"] == g["events"] + g["censored"] + g["competing"] for g in strata)
+        )
+    elif spec["family"] == "diagnostic_accuracy":
+        shared_cases = bool(result.get("confusion_counts")) and sum(
+            result["confusion_counts"].values()
+        ) == result.get("n")
+    elif spec["family"] == "bland_altman":
+        shared_cases = [p["data_row"] for p in result.get("points", [])] == included and bool(
+            included
+        )
+    else:
+        shared_cases = bool(result.get("table")) and sum(
+            sum(row) for row in result["table"]
+        ) == result.get("n")
+    check("shared_case_set", shared_cases, ["case_ledger", "family-specific counts"])
     cox = result.get("cox")
-    if spec["covariates"]:
+    if spec.get("covariates"):
         check(
             "cox_estimation_and_assumption_checks",
             cox
@@ -82,12 +102,15 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
     )
     if require_report_generation:
         report = str(store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md") or "")
+        from rde.infrastructure.clinical.measurement_report import TITLES
+
+        heading = "生存與事件分析" if spec["family"] == "survival" else TITLES[spec["family"]]
         check(
             "report_clinical_sections",
             all(
                 part in report
                 for part in [
-                    "生存與事件分析",
+                    heading,
                     "個案納入與排除",
                     "解讀與適用範圍",
                     result.get("receipt_sha256") or "missing receipt",

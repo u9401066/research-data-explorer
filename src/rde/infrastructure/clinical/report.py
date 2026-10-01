@@ -17,6 +17,10 @@ def number(value):
 
 
 def markdown(result: dict) -> str:
+    if result["spec"]["family"] != "survival":
+        from .measurement_report import markdown as measurement_markdown
+
+        return measurement_markdown(result)
     s, ledger = result["spec"], result["case_ledger"]
     competing = bool(s["competing_values"])
     ci = f"{s['confidence_level']:.1%}"
@@ -180,6 +184,10 @@ def markdown(result: dict) -> str:
 
 
 def figures(result: dict, directory: Path, prefix: str):
+    if result["spec"]["family"] != "survival":
+        from .measurement_report import figures as measurement_figures
+
+        return measurement_figures(result, directory, prefix)
     import matplotlib
 
     matplotlib.use("Agg")
@@ -352,6 +360,10 @@ def figures(result: dict, directory: Path, prefix: str):
 
 
 def tables(result: dict, directory: Path, prefix: str):
+    if result["spec"]["family"] != "survival":
+        from .measurement_report import tables as measurement_tables
+
+        return measurement_tables(result, directory, prefix)
     directory.mkdir(parents=True, exist_ok=True)
     ledger = result["case_ledger"]
     rows = [
