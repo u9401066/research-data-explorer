@@ -22,6 +22,7 @@ from rde.interface.mcp.tools.prediction_tools import register_prediction_tools
 from rde.interface.mcp.tools.clinical_tools import register_clinical_tools
 from rde.interface.mcp.tools.publication_tools import register_publication_tools
 from rde.interface.mcp.tools.evidence_tools import register_evidence_tools
+from rde.interface.mcp.tools.genomics_tools import register_genomics_tools
 from rde.interface.mcp.tools.sample_size_tools import register_sample_size_tools
 
 
@@ -64,6 +65,7 @@ def create_server():
     register_prediction_tools(server)  # Phase 8: Training-only selection and held-out validation
     register_clinical_tools(server)  # Phase 8: Prespecified clinical study bundles
     register_evidence_tools(server)  # Verified external R evidence, no patient EDA advancement
+    register_genomics_tools(server)  # Verified multi-source DESeq2 figures, no patient EDA
     register_publication_tools(server)  # Fixed-evidence figure editions, no reanalysis
     register_branch_tools(server)  # Phase 8: YOLO Exploration Branch Loop
     register_ux_tools(server)  # Cross-phase: no-code UX Harness

@@ -35,6 +35,10 @@
   "rde": {
     "expectedMcpTools": [
       "evidence_arm_preparation",
+      "import_genomics_source",
+      "get_genomics_source",
+      "render_genomics_study",
+      "render_genomics_publication",
       "import_evidence_source",
       "get_evidence_source",
       "render_evidence_study",

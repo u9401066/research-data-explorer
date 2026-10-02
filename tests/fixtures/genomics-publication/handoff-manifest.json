@@ -1,0 +1,48 @@
+{
+  "schema": "genomics-handoff-fixture-v1",
+  "scope": "Synthetic software verification only; no biological observations or findings",
+  "producer": "Research Workbench tests/integration/genomics-publication.test.ts, actual CSV intake, explicit synthetic plan approval and fixed R execution",
+  "sha256": "9f1945f111cbc3ca5dda605bc5554d190258148267a910b8b5fde3e1491cb677",
+  "bytes": 1104108,
+  "bundle_sha256": "0a66a098d2aa5379f5ec5d46acd2aaa5613c724d8053cec0db19c302c926617b",
+  "image": "sha256:4275f54e30423c53d01be2e0ab9be2e7ed677a0b431f7be521ea02500cc15e7d",
+  "analysis_hash": "cdaa9bb842fb207560af755056a63f2d2369a9bb41fc3ebf014af39854100365",
+  "input_sha256": "89611e3ed7cb338a8836b399ff82ad82643b9e295e0880a7d57c77880f2997fd",
+  "script_sha256": "205d2f33b7cfcf2bc6173cb5c43e6ebb8ebf038ace5fb7ffbae4b8d0493c560e",
+  "source_roles": {
+    "counts": {
+      "dataset_id": "cf017c83-85ec-4fcd-829f-e144218d57b6",
+      "file": "sources/counts/data.csv",
+      "schema_file": "sources/counts/source-schema.json",
+      "table_file": "sources/counts/source-table.json",
+      "filename": "counts.csv",
+      "sheet": null,
+      "sha256": "64461cd3a90a2f2368a7e97d99d23d7cd47a996abd3a41137dcb8b04ced2a0ba",
+      "schema_sha256": "ec68dc3cd8ea60fdc2c36728089acde73ad2240a6a8aa7b33670a0c889db64fd"
+    },
+    "sample_metadata": {
+      "dataset_id": "ca0479e8-3259-4f3e-93ee-4dffc9d9bfdc",
+      "file": "sources/sample_metadata/data.csv",
+      "schema_file": "sources/sample_metadata/source-schema.json",
+      "table_file": "sources/sample_metadata/source-table.json",
+      "filename": "samples.csv",
+      "sheet": null,
+      "sha256": "3bcb1f669d0f014924787165ebc21dc6b4a01f89ec06e67e9869bc24c689b7cd",
+      "schema_sha256": "88deb7eae8283e45dab2d57ee71a4eeb6a6dde35c6971f67c8d65b10127f35bf"
+    },
+    "gene_sets": {
+      "dataset_id": "9d8cce99-e7cb-4976-9067-527780944a60",
+      "file": "sources/gene_sets/data.csv",
+      "schema_file": "sources/gene_sets/source-schema.json",
+      "table_file": "sources/gene_sets/source-table.json",
+      "filename": "sets.csv",
+      "sheet": null,
+      "sha256": "724b987dbf1b39a0b27f060a30e29cb532c91e09f384f5dcb61c8f483a0ed2de",
+      "schema_sha256": "679aa5765180891517696319d9075ab27870ac46f9c6a696248ef64e711050f6"
+    }
+  },
+  "format": "CSV",
+  "genes": 603,
+  "samples": 12,
+  "source_transport_test_policy": "Only the RDE project/source transport identity changes when replayed; original approved plan, raw input, schemas, source tables, R script and all R outputs retain their bytes."
+}

@@ -71,6 +71,27 @@ CONTRACTS = {
         "completed study hash + source/artifact integrity + immutable edition ID",
         "new journal edition from saved R numbers; no fitting",
     ),
+    "import_genomics_source": ToolContract(
+        "external-genomics",
+        "project ownership + exact bundle hash + approved plan + complete approved counts/metadata/gene-set roles and R closure",
+        "immutable external genomics snapshot and decision log; no analysis or EDA advancement",
+    ),
+    "get_genomics_source": ToolContract(
+        "external-genomics",
+        "project ownership + complete saved source and artifact integrity",
+        "fixed genomics and completed/failed/unfinished render attempts",
+        read_only=True,
+    ),
+    "render_genomics_study": ToolContract(
+        "external-genomics",
+        "exact imported source hash + full closure verification + immutable render ID",
+        "six-format figures and report from saved R numbers; no fitting",
+    ),
+    "render_genomics_publication": ToolContract(
+        "external-genomics",
+        "completed study hash + source/artifact integrity + immutable edition ID",
+        "new journal edition from saved R numbers; no fitting",
+    ),
     "get_pipeline_status": ToolContract("all", "project exists", "status", True),
     "get_decision_log": ToolContract("all", "project exists", "decision log read", True),
     "get_deviation_log": ToolContract("all", "project exists", "deviation log read", True),

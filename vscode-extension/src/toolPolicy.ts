@@ -1,3 +1,10 @@
+const EXTERNAL_GENOMICS_TOOL_NAMES = [
+    'import_genomics_source',
+    'get_genomics_source',
+    'render_genomics_study',
+    'render_genomics_publication',
+] as const;
+
 const EXTERNAL_EVIDENCE_TOOL_NAMES = [
     'evidence_arm_preparation',
     'import_evidence_source',
@@ -35,6 +42,7 @@ const PHASE_08_BRANCH_PROMOTION_TOOL_NAMES = [
 
 export const RDE_MCP_TOOL_NAMES = [
     ...EXTERNAL_EVIDENCE_TOOL_NAMES,
+    ...EXTERNAL_GENOMICS_TOOL_NAMES,
     ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
     'init_project',
@@ -137,6 +145,7 @@ export const TOOL_GROUPS = {
     ],
     advanced: [
         ...EXTERNAL_EVIDENCE_TOOL_NAMES,
+        ...EXTERNAL_GENOMICS_TOOL_NAMES,
         ...PROSPECTIVE_DESIGN_TOOL_NAMES,
         ...WORKFLOW_PREREQUISITE_TOOLS,
         'run_advanced_analysis',
@@ -148,6 +157,9 @@ export const TOOL_GROUPS = {
         'log_deviation',
     ],
     report: [
+        'get_genomics_source',
+        'render_genomics_study',
+        'render_genomics_publication',
         'get_evidence_source',
         'render_evidence_study',
         'render_evidence_publication',

@@ -47,6 +47,16 @@ external_evidence_publication:
   decision_log: artifacts/evidence_publication/decision_log.jsonl
   does_not_establish: [source_truth, clinical_appropriateness, independent_extraction, cryptographic_human_signature, completed_patient_eda_audit]
 
+external_genomics_publication:
+  scope: separate_external_r_receipt_workflow_no_patient_dataset_no_eda_phase_advancement
+  tools: [import_genomics_source, get_genomics_source, render_genomics_study, render_genomics_publication]
+  import_requires: [exact_bundle_sha256, project_ownership, every_original_source_and_parsed_table, exact_reviewed_plan_bytes, approved_source_roles_sheets_and_settings, complete_r_input_script_execution_output_hashes]
+  rendering: frozen_numerical_receipt_no_model_or_test_execution
+  immutable: [source_snapshot, successful_render, failed_attempt, interrupted_attempt, journal_edition]
+  artifacts: artifacts/genomics_publication/sources/{source_uuid}/
+  decision_log: artifacts/genomics_publication/decision_log.jsonl
+  does_not_establish: [biological_source_truth, biological_replicate_independence, independent_extraction, cryptographic_human_signature, completed_patient_eda_audit]
+
 phase_controls:
   concept_alignment:
     tool: align_concept
