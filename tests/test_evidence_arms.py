@@ -4,6 +4,7 @@ import asyncio
 import csv
 import json
 import uuid
+import shutil
 from zipfile import ZipFile
 from copy import deepcopy
 from io import BytesIO, StringIO
@@ -358,3 +359,142 @@ def test_inspection_requires_no_clinical_decisions_and_pins_every_source_page():
     )
     incoming.write_text("different source")
     assert "source differs" in call({**identity, "request": inspection}, error=True)
+
+
+def portable_source(tmp_path):
+    from rde.infrastructure.evidence.arm_lineage import PREFIX
+
+    project, identity, request, plan = setup()
+    approval = approve(identity, request, plan)
+    run_request = execute_request(request, plan, approval)
+    run = call({**identity, "request": run_request})
+    original = workflow.directory(project, request["preparation_id"])
+    directory = tmp_path / "portable-source"
+    relative = original.relative_to(project.output_dir)
+    copied = directory / PREFIX / relative
+    shutil.copytree(original, copied)
+    data = (copied / "runs" / run["run_id"] / "contrasts.csv").read_bytes()
+    origin = {
+        "contract": "workbench-arm-source-v1",
+        "projectId": str(uuid.uuid4()),
+        "sourceDatasetId": str(uuid.uuid4()),
+        "preparationId": request["preparation_id"],
+        "runId": run["run_id"],
+        "nativeProjectId": project.id,
+        "sourceHash": request["source_sha256"],
+        "planSha256": plan["receipt_sha256"],
+        "approvalSha256": approval["receipt_sha256"],
+        "runSha256": run["receipt_sha256"],
+        "contrastSha256": workflow.w.sha(data),
+    }
+    (directory / "source").mkdir()
+    (directory / "source/data.csv").write_bytes(data)
+    (directory / "source-schema.json").write_text(json.dumps({"armOrigin": origin}))
+    table = list(csv.reader(StringIO(data.decode(), newline="")))
+    (directory / "source-table.json").write_text(
+        json.dumps({"columns": table[0], "rows": table[1:]})
+    )
+    files = {
+        p.relative_to(directory).as_posix(): {
+            "sha256": workflow.w.file_hash(p),
+            "bytes": p.stat().st_size,
+        }
+        for p in directory.rglob("*")
+        if p.is_file()
+    }
+    bundle = {
+        "identity": {"project_id": origin["projectId"], "dataset_id": str(uuid.uuid4())},
+        "source": {
+            "file": "source/data.csv",
+            "sha256": origin["contrastSha256"],
+            "sheet": None,
+            "arm_origin": origin,
+        },
+        "files": files,
+    }
+    options = {k: request["specification"][k] for k in ("measure", "outcome", "timepoint")}
+    options["independentParallelTrials"] = True
+    return directory, copied, original, bundle, options
+
+
+def test_portable_arm_source_recovers_without_original_workspace_or_recalculation(
+    tmp_path, monkeypatch
+):
+    from rde.infrastructure.evidence.arm_lineage import verify
+
+    directory, _, original, bundle, options = portable_source(tmp_path)
+    shutil.rmtree(original)
+
+    def denied(*args, **kwargs):
+        raise AssertionError(
+            "portable source verification must not recalculate or parse the original source"
+        )
+
+    monkeypatch.setattr(engine, "calculate", denied)
+    monkeypatch.setattr(arm_source, "source_grid", denied)
+    assert verify(bundle, directory, options) == bundle["source"]["arm_origin"]
+
+
+@pytest.mark.parametrize(
+    "problem",
+    [
+        "schema_origin",
+        "omitted_origin",
+        "other_project",
+        "same_dataset",
+        "endpoint",
+        "scale",
+        "table",
+        "original_bytes",
+        "missing_member",
+        "extra_member",
+        "approval",
+        "run_identity",
+    ],
+)
+def test_portable_arm_source_rejects_broken_or_relabelled_lineage(tmp_path, problem):
+    from rde.infrastructure.evidence.arm_lineage import verify
+
+    directory, root, _, bundle, options = portable_source(tmp_path)
+    origin = bundle["source"]["arm_origin"]
+    if problem == "schema_origin":
+        (directory / "source-schema.json").write_text("{}")
+    elif problem == "omitted_origin":
+        (directory / "source-schema.json").write_text("{}")
+        bundle["source"].pop("arm_origin")
+    elif problem == "other_project":
+        bundle["identity"]["project_id"] = str(uuid.uuid4())
+    elif problem == "same_dataset":
+        bundle["identity"]["dataset_id"] = origin["sourceDatasetId"]
+    elif problem == "endpoint":
+        options["outcome"] = "other endpoint"
+    elif problem == "scale":
+        options["measure"] = "RR"
+    elif problem == "table":
+        (directory / "source-table.json").write_text('{"columns": [], "rows": []}')
+    elif problem == "original_bytes":
+        (root / "source/source.csv").write_text("changed original")
+    elif problem == "missing_member":
+        name = next(n for n in bundle["files"] if n.endswith("/grid.json"))
+        del bundle["files"][name]
+    elif problem == "extra_member":
+        path = root / "runs" / str(uuid.uuid4()) / "unexpected.txt"
+        path.parent.mkdir()
+        path.write_text("unrelated attempt")
+        bundle["files"][path.relative_to(directory).as_posix()] = {
+            "sha256": workflow.w.file_hash(path),
+            "bytes": path.stat().st_size,
+        }
+    elif problem == "approval":
+        (root / "approval.json").write_text("{}")
+    elif problem == "run_identity":
+        path = root / "runs" / origin["runId"] / "result-receipt.json"
+        record = json.loads(path.read_text())
+        record["project_id"] = "12345678"
+        record.pop("receipt_sha256")
+        record = workflow.w.sealed(record)
+        path.write_text(json.dumps(record))
+        origin["runSha256"] = record["receipt_sha256"]
+        (directory / "source-schema.json").write_text(json.dumps({"armOrigin": origin}))
+    with pytest.raises((ValueError, OSError)):
+        verify(bundle, directory, options)

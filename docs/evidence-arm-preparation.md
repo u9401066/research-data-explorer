@@ -89,9 +89,16 @@ all source decisions and complete method assumptions. `contrasts.csv` is a
 machine-readable canonical analysis input, not a clinical report. It must be
 passed with its full preparation/source/approval closure into the downstream
 Workbench audit; exporting a CSV alone is not sufficient provenance. Workbench
-now has development HTTP/MCP source inspection, editable source mapping and
-immutable draft review. Website approval, conversion, downstream source-chain
-integration and full public clinical analysis are still pending.
+now has development HTTP/MCP source inspection, editable source mapping,
+immutable draft review, explicit approval and conversion. A derived comparison
+dataset carries `workbench-arm-source-v1` identity from its first persistence.
+Downstream synthesis imports all nine frozen source/preparation/approval/run
+files, verifies their exact inventory and bytes, and binds the original source,
+native project, preparation, approval and run to the Workbench project/dataset.
+The prepared CSV must exactly match both the derived source and parsed table;
+endpoint, follow-up and effect scale cannot change. Publication provenance keeps
+this origin. Reads of imported evidence never re-parse the original workbook or
+recalculate effects. Public clinical adjudication and analysis are still pending.
 
 These Wald inverse-variance estimates differ from a binomial likelihood NMA.
 Fractional author estimates also have uncertainty not modeled here. No GRADE,
@@ -123,3 +130,14 @@ changes, missing saved project metadata and exact draft recovery after restartin
 both the service and MCP. Its browser review retained the original Cipriani
 workbook's complete 1268-row/37-column grid and the selected 1199 unresolved
 arms. These are source/draft checks, not a completed clinical analysis.
+
+The subsequent portable-lineage addition passes the full RDE suite (871 passed,
+66 skipped), including missing/extra files, changed approval/raw bytes/parsed
+table, foreign identities and altered synthesis endpoint/scale. A frozen bundle
+remains verifiable after the original native directory is removed; the test
+explicitly forbids source parsing and effect recalculation. Workbench's actual
+HTTP/MCP/R integration simulates interrupted delivery after successful native
+calculation, restarts the service and MCP, recovers the same receipt and dataset,
+then completes synthesis and publication with all original lineage. Desktop and
+mobile browser QA approves only synthetic engineering data; the real Cipriani
+workbook retains all 1199 unresolved arms and cannot be approved.

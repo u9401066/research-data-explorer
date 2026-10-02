@@ -197,6 +197,22 @@ class ContractRequest(StrictModel):
     op: Literal["contract"]
 
 
+class ArmOrigin(StrictModel):
+    """Portable Workbench identity for a frozen, approved contrast derivation."""
+
+    contract: Literal["workbench-arm-source-v1"]
+    projectId: UUIDText
+    sourceDatasetId: UUIDText
+    preparationId: UUIDText
+    runId: UUIDText
+    nativeProjectId: Annotated[str, Field(pattern=r"^[a-f0-9]{8}$")]
+    sourceHash: Hash
+    planSha256: Hash
+    approvalSha256: Hash
+    runSha256: Hash
+    contrastSha256: Hash
+
+
 class SourceSelection(StrictModel):
     sheet: Annotated[str, Field(min_length=1, max_length=31)] | None
 

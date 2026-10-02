@@ -305,6 +305,8 @@ def read_run(project, plan, run_id, approval):
     receipt = w.read_sealed(w.safe_path(root, "result-receipt.json"))
     w.require(
         receipt.get("schema") == "binary-arm-execution-v1"
+        and receipt.get("project_id") == project.id
+        and receipt.get("preparation_id") == plan["preparation_id"]
         and receipt.get("run_id") == run_id
         and receipt.get("plan_sha256") == plan["receipt_sha256"]
         and receipt.get("approval_sha256") == approval["receipt_sha256"],

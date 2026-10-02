@@ -268,6 +268,9 @@ def verify_bundle(project, source_id, directory, expected):
         "plan source binding differs",
     )
     options, review = read("options.json"), read("review.json")
+    from rde.infrastructure.evidence.arm_lineage import verify as verify_arm_lineage
+
+    arm_origin = verify_arm_lineage(bundle, directory, options)
     payload, execution = read("engine/engine-input.json"), read("engine/execution.json")
     analysis = read("engine/numeric-result.json")
     require(
@@ -341,6 +344,7 @@ def verify_bundle(project, source_id, directory, expected):
             "image": execution["image"],
             "script_sha256": execution["scriptSha256"],
             **({"execution_origin": execution_origin} if execution_origin else {}),
+            **({"arm_origin": arm_origin} if arm_origin else {}),
             "verification_scope": "saved bytes, approved plan, parsed table, review and R receipt; not source truth or patient EDA audit",
         },
     )
