@@ -1,0 +1,19 @@
+{
+  "scope": "Synthetic software verification only; not clinical evidence. Fixed typed R executor; source script is ../reference.R.",
+  "execution": {
+    "image": "sha256:d417eab09c6bcdc37dc5142f73a5c4fed5ef6ca52fb4ff8bb79cd65789cf9f76",
+    "container": "rw-evidence-2c2eb907-23cb-44a4-8137-a1bd2b64f6fe",
+    "startedAt": "2026-10-02T11:03:28.938Z",
+    "inputSha256": "e7b3c8211acd88218e05a914977b476181989ed64e159ef154002404dd47e232",
+    "scriptSha256": "d38417063cb635f5a480260e8063620924e0a9ffa342f9672a31c12bd06424f0",
+    "optionsHash": "41b0a83600b65762210f7d57c8631d50387659fa0c94eff74ad86036de909ef3",
+    "auditHash": "0d61ae2f0fff64ffa3e338873f872e72bc8a2ac03bede7c2c1572006c46c8b11",
+    "stoppedAt": "2026-10-02T11:03:30.358Z",
+    "status": "completed",
+    "containerRemoved": true
+  },
+  "files": {
+    "numeric-result.json": "df9947a4cbda7d378c29972af9a33da0fe6b28eb636e2792751d0938e251785d",
+    "engine-input.json": "e7b3c8211acd88218e05a914977b476181989ed64e159ef154002404dd47e232"
+  }
+}

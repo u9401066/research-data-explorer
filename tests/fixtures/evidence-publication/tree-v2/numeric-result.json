@@ -1,0 +1,741 @@
+{
+  "contract": "evidence-synthesis-v2",
+  "options": {
+    "mode": "network",
+    "measure": "MD",
+    "model": "random",
+    "reference": "Control",
+    "outcome": "response",
+    "outcomeUnit": "synthetic unit",
+    "timepoint": "12 weeks",
+    "confidence": 0.95,
+    "riskOfBiasTool": "RoB 2",
+    "transitivity": "Synthetic equal populations and effect modifiers; no clinical conclusions.",
+    "independentParallelTrials": true,
+    "searchQuery": "",
+    "searchLimit": 100
+  },
+  "direction": "row treatment relative to comparator; OR/RR effect and SE are on log scale",
+  "treatment_map": [
+    {
+      "code": "T001",
+      "label": "A"
+    },
+    {
+      "code": "T002",
+      "label": "B"
+    },
+    {
+      "code": "T003",
+      "label": "Control"
+    }
+  ],
+  "study_map": [
+    {
+      "code": "S001",
+      "study_id": "SYNTH-2"
+    },
+    {
+      "code": "S002",
+      "study_id": "SYNTH-3"
+    },
+    {
+      "code": "S003",
+      "study_id": "SYNTH-5"
+    }
+  ],
+  "observations": [
+    {
+      "study_id": "SYNTH-2",
+      "report_id": "R2",
+      "treatment": "A",
+      "comparator": "Control",
+      "effect": -0.2,
+      "se": 0.18,
+      "outcome": "response",
+      "timepoint": "12 weeks",
+      "decision": "include",
+      "reason": "Software fixture",
+      "source": "synthetic://S2",
+      "locator": "generated contrast table",
+      "risk_of_bias": "low",
+      "bias_reason": "Synthetic label only",
+      "design": "parallel_rct",
+      "population": "Synthetic adults",
+      "effect_modifiers": "Synthetic equal severity",
+      "effect_measure": "MD",
+      "row": 2,
+      "treatment_code": "T001",
+      "comparator_code": "T003",
+      "study_code": "S001"
+    },
+    {
+      "study_id": "SYNTH-3",
+      "report_id": "R3",
+      "treatment": "B",
+      "comparator": "Control",
+      "effect": -0.6,
+      "se": 0.22,
+      "outcome": "response",
+      "timepoint": "12 weeks",
+      "decision": "include",
+      "reason": "Software fixture",
+      "source": "synthetic://S3",
+      "locator": "generated contrast table",
+      "risk_of_bias": "some_concerns",
+      "bias_reason": "Synthetic label only",
+      "design": "parallel_rct",
+      "population": "Synthetic adults",
+      "effect_modifiers": "Synthetic equal severity",
+      "effect_measure": "MD",
+      "row": 3,
+      "treatment_code": "T002",
+      "comparator_code": "T003",
+      "study_code": "S002"
+    },
+    {
+      "study_id": "SYNTH-5",
+      "report_id": "R5",
+      "treatment": "A",
+      "comparator": "Control",
+      "effect": -2.2,
+      "se": 0.2,
+      "outcome": "response",
+      "timepoint": "12 weeks",
+      "decision": "include",
+      "reason": "Software fixture",
+      "source": "synthetic://S5",
+      "locator": "generated contrast table",
+      "risk_of_bias": "low",
+      "bias_reason": "Synthetic label only",
+      "design": "parallel_rct",
+      "population": "Synthetic adults",
+      "effect_modifiers": "Synthetic equal severity",
+      "effect_measure": "MD",
+      "row": 4,
+      "treatment_code": "T001",
+      "comparator_code": "T003",
+      "study_code": "S003"
+    }
+  ],
+  "direct_observations": [
+    {
+      "pair": "T001:T003",
+      "row": 2,
+      "study_code": "S001",
+      "study_id": "SYNTH-2",
+      "treatment_code": "T001",
+      "comparator_code": "T003",
+      "treatment": "A",
+      "comparator": "Control",
+      "source_direction_reversed": false,
+      "effect": -0.2,
+      "se": 0.18,
+      "lower_effect": -0.55279351721721,
+      "upper_effect": 0.15279351721721,
+      "estimate": -0.2,
+      "lower": -0.55279351721721,
+      "upper": 0.15279351721721,
+      "p": 0.266520525805011,
+      "weight": 0.500951808436029,
+      "weight_percent": 50.095
+    },
+    {
+      "pair": "T001:T003",
+      "row": 4,
+      "study_code": "S003",
+      "study_id": "SYNTH-5",
+      "treatment_code": "T001",
+      "comparator_code": "T003",
+      "treatment": "A",
+      "comparator": "Control",
+      "source_direction_reversed": false,
+      "effect": -2.2,
+      "se": 0.2,
+      "lower_effect": -2.59199279690801,
+      "upper_effect": -1.80800720309199,
+      "estimate": -2.2,
+      "lower": -2.59199279690801,
+      "upper": -1.80800720309199,
+      "p": 3.82131914899735e-28,
+      "weight": 0.499051801577004,
+      "weight_percent": 49.905
+    },
+    {
+      "pair": "T002:T003",
+      "row": 3,
+      "study_code": "S002",
+      "study_id": "SYNTH-3",
+      "treatment_code": "T002",
+      "comparator_code": "T003",
+      "treatment": "B",
+      "comparator": "Control",
+      "source_direction_reversed": false,
+      "effect": -0.6,
+      "se": 0.22,
+      "lower_effect": -1.03119207659881,
+      "upper_effect": -0.168807923401188,
+      "estimate": -0.6,
+      "lower": -1.03119207659881,
+      "upper": -0.168807923401188,
+      "p": 0.00638602328270706,
+      "weight": 20.6611570247934,
+      "weight_percent": 100
+    }
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "code": "T001",
+        "label": "A",
+        "studies": 2,
+        "study_codes": [
+          "S001",
+          "S003"
+        ],
+        "rows": [
+          2,
+          4
+        ]
+      },
+      {
+        "code": "T002",
+        "label": "B",
+        "studies": 1,
+        "study_codes": [
+          "S002"
+        ],
+        "rows": [
+          3
+        ]
+      },
+      {
+        "code": "T003",
+        "label": "Control",
+        "studies": 3,
+        "study_codes": [
+          "S001",
+          "S002",
+          "S003"
+        ],
+        "rows": [
+          2,
+          3,
+          4
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "pair": "T001:T003",
+        "treatment_code": "T001",
+        "comparator_code": "T003",
+        "studies": 2,
+        "study_codes": [
+          "S001",
+          "S003"
+        ],
+        "rows": [
+          2,
+          4
+        ]
+      },
+      {
+        "pair": "T002:T003",
+        "treatment_code": "T002",
+        "comparator_code": "T003",
+        "studies": 1,
+        "study_codes": [
+          "S002"
+        ],
+        "rows": [
+          3
+        ]
+      }
+    ]
+  },
+  "review": {
+    "inputRows": 3,
+    "inputHash": "c123acf48dc9012711ca5d3b02c53ac0a1ed360bfde988a785f54a6fce02a978",
+    "optionsHash": "75871063339cca889b6dde446d456d3325b32bbbc5cf4de3f4d7835d27957ea7",
+    "decisions": [
+      {
+        "row": 2,
+        "study_id": "SYNTH-2",
+        "report_id": "R2",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S2"
+      },
+      {
+        "row": 3,
+        "study_id": "SYNTH-3",
+        "report_id": "R3",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S3"
+      },
+      {
+        "row": 4,
+        "study_id": "SYNTH-5",
+        "report_id": "R5",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S5"
+      }
+    ]
+  },
+  "pairwise": [
+    {
+      "pair": "T001:T003",
+      "treatment_code": "T001",
+      "comparator_code": "T003",
+      "treatment": "A",
+      "comparator": "Control",
+      "studies": 2,
+      "estimate": -1.1981,
+      "lower": -3.15806044680187,
+      "upper": 0.761860446801868,
+      "effect": -1.1981,
+      "lower_effect": -3.15806044680187,
+      "upper_effect": 0.761860446801868,
+      "se": 0.999998194998371,
+      "p": 0.230877247062443,
+      "tau2": 1.9638,
+      "I2": 0.9819
+    },
+    {
+      "pair": "T002:T003",
+      "treatment_code": "T002",
+      "comparator_code": "T003",
+      "treatment": "B",
+      "comparator": "Control",
+      "studies": 1,
+      "estimate": -0.6,
+      "lower": -1.03119207659881,
+      "upper": -0.168807923401188,
+      "effect": -0.6,
+      "lower_effect": -1.03119207659881,
+      "upper_effect": -0.168807923401188,
+      "se": 0.22,
+      "p": 0.00638602328270706,
+      "tau2": null,
+      "I2": null
+    }
+  ],
+  "study_count": 3,
+  "contrast_count": 3,
+  "diagnostics": {
+    "global": {
+      "Q": 0,
+      "df": 0,
+      "p": null,
+      "status": "not_estimable"
+    },
+    "within_design": {
+      "Q": 55.2486187845304,
+      "df": 1,
+      "p": 1.06208911700292e-13
+    },
+    "local": {
+      "method": "Back-calculation",
+      "direct": [
+        {
+          "comparison": "T001 ~ T002",
+          "TE": null,
+          "seTE": null,
+          "lower": null,
+          "upper": null,
+          "statistic": null,
+          "p": null,
+          "n": null,
+          "Q": null,
+          "tau2": null,
+          "tau": null,
+          "I2": null
+        },
+        {
+          "comparison": "T001 ~ T003",
+          "TE": -1.19810000165701,
+          "seTE": 0.999998631055348,
+          "lower": -3.15806130311485,
+          "upper": 0.761861299800832,
+          "statistic": -1.19810164179184,
+          "p": 0.230877449781471,
+          "n": null,
+          "Q": 55.2486187845304,
+          "tau2": 1.9638,
+          "tau": 1.4013564856952,
+          "I2": 0.9819
+        },
+        {
+          "comparison": "T002 ~ T003",
+          "TE": -0.6,
+          "seTE": 1.41852097066587,
+          "lower": -3.3802500138199,
+          "upper": 2.1802500138199,
+          "statistic": -0.42297577012087,
+          "p": 0.672312939321436,
+          "n": null,
+          "Q": 0,
+          "tau2": null,
+          "tau": null,
+          "I2": null
+        }
+      ],
+      "indirect": [
+        {
+          "comparison": "T001 ~ T002",
+          "TE": -0.598100001657007,
+          "seTE": 1.73556878467303,
+          "lower": -3.99975231230809,
+          "upper": 2.80355230899408,
+          "statistic": -0.344613251251627,
+          "p": 0.730385142334871
+        },
+        {
+          "comparison": "T001 ~ T003",
+          "TE": null,
+          "seTE": null,
+          "lower": null,
+          "upper": null,
+          "statistic": null,
+          "p": null
+        },
+        {
+          "comparison": "T002 ~ T003",
+          "TE": null,
+          "seTE": null,
+          "lower": null,
+          "upper": null,
+          "statistic": null,
+          "p": null
+        }
+      ],
+      "comparison": [
+        {
+          "comparison": "T001 ~ T002",
+          "TE": null,
+          "seTE": null,
+          "lower": null,
+          "upper": null,
+          "statistic": null,
+          "p": null,
+          "z": null
+        },
+        {
+          "comparison": "T001 ~ T003",
+          "TE": null,
+          "seTE": null,
+          "lower": null,
+          "upper": null,
+          "statistic": null,
+          "p": null,
+          "z": null
+        },
+        {
+          "comparison": "T002 ~ T003",
+          "TE": null,
+          "seTE": null,
+          "lower": null,
+          "upper": null,
+          "statistic": null,
+          "p": null,
+          "z": null
+        }
+      ],
+      "rows": [
+        {
+          "treatment_code": "T001",
+          "comparator_code": "T002",
+          "treatment": "A",
+          "comparator": "B",
+          "component": "direct",
+          "effect": null,
+          "se": null,
+          "lower_effect": null,
+          "upper_effect": null,
+          "estimate": null,
+          "lower": null,
+          "upper": null,
+          "p": null,
+          "direct_studies": 0,
+          "direct_proportion": 0,
+          "status": "not_estimable"
+        },
+        {
+          "treatment_code": "T001",
+          "comparator_code": "T003",
+          "treatment": "A",
+          "comparator": "Control",
+          "component": "direct",
+          "effect": -1.19810000165701,
+          "se": 0.999998631055348,
+          "lower_effect": -3.15806130311485,
+          "upper_effect": 0.761861299800832,
+          "estimate": -1.19810000165701,
+          "lower": -3.15806130311485,
+          "upper": 0.761861299800832,
+          "p": 0.230877449781471,
+          "direct_studies": 2,
+          "direct_proportion": 1,
+          "status": "estimated"
+        },
+        {
+          "treatment_code": "T002",
+          "comparator_code": "T003",
+          "treatment": "B",
+          "comparator": "Control",
+          "component": "direct",
+          "effect": -0.6,
+          "se": 1.41852097066587,
+          "lower_effect": -3.3802500138199,
+          "upper_effect": 2.1802500138199,
+          "estimate": -0.6,
+          "lower": -3.3802500138199,
+          "upper": 2.1802500138199,
+          "p": 0.672312939321436,
+          "direct_studies": 1,
+          "direct_proportion": 1,
+          "status": "estimated"
+        },
+        {
+          "treatment_code": "T001",
+          "comparator_code": "T002",
+          "treatment": "A",
+          "comparator": "B",
+          "component": "indirect",
+          "effect": -0.598100001657007,
+          "se": 1.73556878467303,
+          "lower_effect": -3.99975231230809,
+          "upper_effect": 2.80355230899408,
+          "estimate": -0.598100001657007,
+          "lower": -3.99975231230809,
+          "upper": 2.80355230899408,
+          "p": 0.730385142334871,
+          "direct_studies": 0,
+          "direct_proportion": 0,
+          "status": "estimated"
+        },
+        {
+          "treatment_code": "T001",
+          "comparator_code": "T003",
+          "treatment": "A",
+          "comparator": "Control",
+          "component": "indirect",
+          "effect": null,
+          "se": null,
+          "lower_effect": null,
+          "upper_effect": null,
+          "estimate": null,
+          "lower": null,
+          "upper": null,
+          "p": null,
+          "direct_studies": 2,
+          "direct_proportion": 1,
+          "status": "not_estimable"
+        },
+        {
+          "treatment_code": "T002",
+          "comparator_code": "T003",
+          "treatment": "B",
+          "comparator": "Control",
+          "component": "indirect",
+          "effect": null,
+          "se": null,
+          "lower_effect": null,
+          "upper_effect": null,
+          "estimate": null,
+          "lower": null,
+          "upper": null,
+          "p": null,
+          "direct_studies": 1,
+          "direct_proportion": 1,
+          "status": "not_estimable"
+        },
+        {
+          "treatment_code": "T001",
+          "comparator_code": "T002",
+          "treatment": "A",
+          "comparator": "B",
+          "component": "compare",
+          "effect": null,
+          "se": null,
+          "lower_effect": null,
+          "upper_effect": null,
+          "estimate": null,
+          "lower": null,
+          "upper": null,
+          "p": null,
+          "direct_studies": 0,
+          "direct_proportion": 0,
+          "status": "not_estimable"
+        },
+        {
+          "treatment_code": "T001",
+          "comparator_code": "T003",
+          "treatment": "A",
+          "comparator": "Control",
+          "component": "compare",
+          "effect": null,
+          "se": null,
+          "lower_effect": null,
+          "upper_effect": null,
+          "estimate": null,
+          "lower": null,
+          "upper": null,
+          "p": null,
+          "direct_studies": 2,
+          "direct_proportion": 1,
+          "status": "not_estimable"
+        },
+        {
+          "treatment_code": "T002",
+          "comparator_code": "T003",
+          "treatment": "B",
+          "comparator": "Control",
+          "component": "compare",
+          "effect": null,
+          "se": null,
+          "lower_effect": null,
+          "upper_effect": null,
+          "estimate": null,
+          "lower": null,
+          "upper": null,
+          "p": null,
+          "direct_studies": 1,
+          "direct_proportion": 1,
+          "status": "not_estimable"
+        }
+      ],
+      "direct_tau2_policy": "network common between-study variance; not pairwise.csv tau2",
+      "difference_scale": "MD difference in the declared outcome unit"
+    }
+  },
+  "network": {
+    "estimates": [
+      {
+        "treatment_code": "T002",
+        "comparator_code": "T001",
+        "treatment": "B",
+        "comparator": "A",
+        "effect": 0.598100001657007,
+        "se": 1.73556878467303,
+        "estimate": 0.598100001657007,
+        "lower_effect": -2.80355230899408,
+        "upper_effect": 3.99975231230809,
+        "lower": -2.80355230899408,
+        "upper": 3.99975231230809,
+        "p": 0.730385142334871
+      },
+      {
+        "treatment_code": "T003",
+        "comparator_code": "T001",
+        "treatment": "Control",
+        "comparator": "A",
+        "effect": 1.19810000165701,
+        "se": 0.999998631055348,
+        "estimate": 1.19810000165701,
+        "lower_effect": -0.761861299800833,
+        "upper_effect": 3.15806130311485,
+        "lower": -0.761861299800833,
+        "upper": 3.15806130311485,
+        "p": 0.230877449781471
+      },
+      {
+        "treatment_code": "T001",
+        "comparator_code": "T002",
+        "treatment": "A",
+        "comparator": "B",
+        "effect": -0.598100001657007,
+        "se": 1.73556878467303,
+        "estimate": -0.598100001657007,
+        "lower_effect": -3.99975231230809,
+        "upper_effect": 2.80355230899408,
+        "lower": -3.99975231230809,
+        "upper": 2.80355230899408,
+        "p": 0.730385142334871
+      },
+      {
+        "treatment_code": "T003",
+        "comparator_code": "T002",
+        "treatment": "Control",
+        "comparator": "B",
+        "effect": 0.6,
+        "se": 1.41852097066587,
+        "estimate": 0.6,
+        "lower_effect": -2.1802500138199,
+        "upper_effect": 3.3802500138199,
+        "lower": -2.1802500138199,
+        "upper": 3.3802500138199,
+        "p": 0.672312939321436
+      },
+      {
+        "treatment_code": "T001",
+        "comparator_code": "T003",
+        "treatment": "A",
+        "comparator": "Control",
+        "effect": -1.19810000165701,
+        "se": 0.999998631055348,
+        "estimate": -1.19810000165701,
+        "lower_effect": -3.15806130311485,
+        "upper_effect": 0.761861299800833,
+        "lower": -3.15806130311485,
+        "upper": 0.761861299800833,
+        "p": 0.230877449781471
+      },
+      {
+        "treatment_code": "T002",
+        "comparator_code": "T003",
+        "treatment": "B",
+        "comparator": "Control",
+        "effect": -0.6,
+        "se": 1.41852097066587,
+        "estimate": -0.6,
+        "lower_effect": -3.3802500138199,
+        "upper_effect": 2.1802500138199,
+        "lower": -3.3802500138199,
+        "upper": 2.1802500138199,
+        "p": 0.672312939321436
+      }
+    ],
+    "reference": [
+      {
+        "treatment_code": "T001",
+        "comparator_code": "T003",
+        "treatment": "A",
+        "comparator": "Control",
+        "effect": -1.19810000165701,
+        "se": 0.999998631055348,
+        "estimate": -1.19810000165701,
+        "lower_effect": -3.15806130311485,
+        "upper_effect": 0.761861299800833,
+        "lower": -3.15806130311485,
+        "upper": 0.761861299800833,
+        "p": 0.230877449781471
+      },
+      {
+        "treatment_code": "T002",
+        "comparator_code": "T003",
+        "treatment": "B",
+        "comparator": "Control",
+        "effect": -0.6,
+        "se": 1.41852097066587,
+        "estimate": -0.6,
+        "lower_effect": -3.3802500138199,
+        "upper_effect": 2.1802500138199,
+        "lower": -3.3802500138199,
+        "upper": 2.1802500138199,
+        "p": 0.672312939321436
+      }
+    ],
+    "tau2": 1.96380174421884,
+    "I2": 0.9819,
+    "Q": 55.2486187845304,
+    "df": 1,
+    "p": 1.06208911700292e-13
+  },
+  "warnings": [
+    "No comparisons selected with argument 'show = both'. You could use 'show = \"all\" to show all comparisons."
+  ]
+}

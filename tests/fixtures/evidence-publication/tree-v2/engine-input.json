@@ -1,0 +1,193 @@
+{
+  "options": {
+    "mode": "network",
+    "measure": "MD",
+    "model": "random",
+    "reference": "Control",
+    "outcome": "response",
+    "outcomeUnit": "synthetic unit",
+    "timepoint": "12 weeks",
+    "confidence": 0.95,
+    "riskOfBiasTool": "RoB 2",
+    "transitivity": "Synthetic equal populations and effect modifiers; no clinical conclusions.",
+    "independentParallelTrials": true,
+    "searchQuery": "",
+    "searchLimit": 100
+  },
+  "rows": [
+    {
+      "study_id": "SYNTH-2",
+      "report_id": "R2",
+      "treatment": "A",
+      "comparator": "Control",
+      "effect": -0.2,
+      "se": 0.18,
+      "outcome": "response",
+      "timepoint": "12 weeks",
+      "decision": "include",
+      "reason": "Software fixture",
+      "source": "synthetic://S2",
+      "locator": "generated contrast table",
+      "risk_of_bias": "low",
+      "bias_reason": "Synthetic label only",
+      "design": "parallel_rct",
+      "population": "Synthetic adults",
+      "effect_modifiers": "Synthetic equal severity",
+      "effect_measure": "MD",
+      "row": 2
+    },
+    {
+      "study_id": "SYNTH-3",
+      "report_id": "R3",
+      "treatment": "B",
+      "comparator": "Control",
+      "effect": -0.6,
+      "se": 0.22,
+      "outcome": "response",
+      "timepoint": "12 weeks",
+      "decision": "include",
+      "reason": "Software fixture",
+      "source": "synthetic://S3",
+      "locator": "generated contrast table",
+      "risk_of_bias": "some_concerns",
+      "bias_reason": "Synthetic label only",
+      "design": "parallel_rct",
+      "population": "Synthetic adults",
+      "effect_modifiers": "Synthetic equal severity",
+      "effect_measure": "MD",
+      "row": 3
+    },
+    {
+      "study_id": "SYNTH-5",
+      "report_id": "R5",
+      "treatment": "A",
+      "comparator": "Control",
+      "effect": -2.2,
+      "se": 0.2,
+      "outcome": "response",
+      "timepoint": "12 weeks",
+      "decision": "include",
+      "reason": "Software fixture",
+      "source": "synthetic://S5",
+      "locator": "generated contrast table",
+      "risk_of_bias": "low",
+      "bias_reason": "Synthetic label only",
+      "design": "parallel_rct",
+      "population": "Synthetic adults",
+      "effect_modifiers": "Synthetic equal severity",
+      "effect_measure": "MD",
+      "row": 4
+    }
+  ],
+  "review": {
+    "valid": true,
+    "issues": [],
+    "included": [
+      {
+        "study_id": "SYNTH-2",
+        "report_id": "R2",
+        "treatment": "A",
+        "comparator": "Control",
+        "effect": -0.2,
+        "se": 0.18,
+        "outcome": "response",
+        "timepoint": "12 weeks",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S2",
+        "locator": "generated contrast table",
+        "risk_of_bias": "low",
+        "bias_reason": "Synthetic label only",
+        "design": "parallel_rct",
+        "population": "Synthetic adults",
+        "effect_modifiers": "Synthetic equal severity",
+        "effect_measure": "MD",
+        "row": 2
+      },
+      {
+        "study_id": "SYNTH-3",
+        "report_id": "R3",
+        "treatment": "B",
+        "comparator": "Control",
+        "effect": -0.6,
+        "se": 0.22,
+        "outcome": "response",
+        "timepoint": "12 weeks",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S3",
+        "locator": "generated contrast table",
+        "risk_of_bias": "some_concerns",
+        "bias_reason": "Synthetic label only",
+        "design": "parallel_rct",
+        "population": "Synthetic adults",
+        "effect_modifiers": "Synthetic equal severity",
+        "effect_measure": "MD",
+        "row": 3
+      },
+      {
+        "study_id": "SYNTH-5",
+        "report_id": "R5",
+        "treatment": "A",
+        "comparator": "Control",
+        "effect": -2.2,
+        "se": 0.2,
+        "outcome": "response",
+        "timepoint": "12 weeks",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S5",
+        "locator": "generated contrast table",
+        "risk_of_bias": "low",
+        "bias_reason": "Synthetic label only",
+        "design": "parallel_rct",
+        "population": "Synthetic adults",
+        "effect_modifiers": "Synthetic equal severity",
+        "effect_measure": "MD",
+        "row": 4
+      }
+    ],
+    "decisions": [
+      {
+        "row": 2,
+        "study_id": "SYNTH-2",
+        "report_id": "R2",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S2"
+      },
+      {
+        "row": 3,
+        "study_id": "SYNTH-3",
+        "report_id": "R3",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S3"
+      },
+      {
+        "row": 4,
+        "study_id": "SYNTH-5",
+        "report_id": "R5",
+        "decision": "include",
+        "reason": "Software fixture",
+        "source": "synthetic://S5"
+      }
+    ],
+    "treatments": [
+      "A",
+      "B",
+      "Control"
+    ],
+    "components": [
+      [
+        "A",
+        "B",
+        "Control"
+      ]
+    ],
+    "studies": 3,
+    "inputRows": 3,
+    "inputHash": "c123acf48dc9012711ca5d3b02c53ac0a1ed360bfde988a785f54a6fce02a978",
+    "optionsHash": "75871063339cca889b6dde446d456d3325b32bbbc5cf4de3f4d7835d27957ea7"
+  }
+}
