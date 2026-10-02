@@ -12,6 +12,19 @@ defaults:
   artifact_root: data/projects/{project_id}/artifacts
   figures_dir: data/projects/{project_id}/figures
 
+prospective_sample_size:
+  scope: separate_design_workflow_under_project_no_patient_dataset_no_eda_phase_advancement
+  tools: [draft_sample_size_plan, get_sample_size_plan, approve_sample_size_plan, run_sample_size_plan, render_sample_size_publication]
+  sequence: draft_then_read_complete_review_then_explicit_human_approval_then_readiness_then_calculation
+  approval_requires: [exact_plan_sha256, assumptions_and_sources, population_and_endpoint, method_and_independence, primary_scenario_allocation_and_loss]
+  execution_requires: [exact_approval_sha256, unchanged_review, unchanged_method_implementation, strict_specification]
+  designs: [independent_means, paired_means, independent_proportions]
+  inference: single_two_sided_zero_difference_null_prospective_superiority
+  artifacts: artifacts/prospective_design/{plan_uuid}/
+  decision_log: artifacts/prospective_design/decision_log.jsonl
+  immutable: [draft, review, approval, successful_run, failed_attempt]
+  does_not_establish: [assumption_truth, clinical_appropriateness, completed_patient_eda_audit]
+
 phase_controls:
   concept_alignment:
     tool: align_concept
@@ -254,7 +267,6 @@ analysis_plan_schema:
     - roc_auc
     - logistic_regression
     - multiple_regression
-    - power_analysis_advanced
     - descriptive
     - univariate
     - table_one
@@ -292,7 +304,6 @@ delegation:
       - multiple_regression
       - glm
       - roc_auc
-      - power_analysis_advanced
       - kaplan_meier
       - survival_analysis
       - cox_regression
@@ -312,13 +323,12 @@ delegation:
       - logistic_regression
       - multiple_regression
       - glm
-      - power_analysis_advanced
       - automl
     startup: cd vendor/automl-stat-mcp && docker compose up -d
 
   fallback_behavior: >-
     When automl is unavailable, run_advanced_analysis attempts local-lite
-    implementations for adjusted models, ROC/AUC, basic power analysis,
+    implementations for adjusted models, ROC/AUC,
     Kaplan-Meier summaries, Cox regression, and lightweight propensity
     scoring. Only unsupported heavy AutoML/vendor workflows return a
     descriptive error and suggest starting automl.

@@ -8,7 +8,7 @@ Use RDE as a 13-phase auditable EDA harness for clinically meaningful, reproduci
 - Prefer reusable local clinical methods over extensive custom coding. Report subject-aligned case sets, excluded cases, effect estimates, uncertainty and limitations. Audit scores are not scientific quality certificates.
 
 - The VSIX path is local-first for non-data-scientists: a user should not need Docker or analysis code to complete the core report flow.
-- Treat automl-stat-mcp as optional. Use local-lite fallbacks for adjusted models, ROC/AUC, basic power, Kaplan-Meier, and lightweight propensity scoring when Docker is unavailable.
+- Treat automl-stat-mcp as optional. Use local-lite fallbacks for adjusted models, ROC/AUC, Kaplan-Meier, and lightweight propensity scoring when Docker is unavailable.
 - Check `report_readiness.core_goal_audit`; `core_goal:*` gaps mean the run is not production-ready.
 - Follow `.github/agent-control.yaml` when it is present in the workspace.
 - Use the RDE MCP tools for dataset intake, schema, planning, execution, reporting, audit, and handoff.
@@ -30,3 +30,11 @@ Codex should use the RDE MCP server directly. The VSIX auto-upserts `~/.codex/co
 - Copilot: `.github/copilot-instructions.md`, `.github/agents`, `.github/prompts`.
 - Codex: this `AGENTS.md` plus `.codex/skills`.
 - Cline: `.clinerules` and `.clinerules/workflows`.
+
+## Prospective sample-size design
+
+Use `draft_sample_size_plan` → `get_sample_size_plan` → explicit human review and
+`approve_sample_size_plan` → `run_sample_size_plan`. Keep assumptions and approval
+hashes fixed. No patient dataset or EDA phase advancement is required or implied.
+`render_sample_size_publication` only renders saved numerical receipts.
+Do not use observed-effect post-hoc power to interpret a nonsignificant result.

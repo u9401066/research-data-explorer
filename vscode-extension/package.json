@@ -34,6 +34,11 @@
   "main": "./out/extension.js",
   "rde": {
     "expectedMcpTools": [
+      "draft_sample_size_plan",
+      "get_sample_size_plan",
+      "approve_sample_size_plan",
+      "run_sample_size_plan",
+      "render_sample_size_publication",
       "get_workflow_contract",
       "init_project",
       "get_pipeline_status",

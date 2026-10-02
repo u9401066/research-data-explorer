@@ -6,6 +6,7 @@ import builtins
 from typing import Any
 
 import pandas as pd
+import pytest
 
 from rde.infrastructure.adapters.analysis_delegator import AnalysisDelegator
 from rde.infrastructure.adapters.automl_gateway import (
@@ -356,10 +357,11 @@ def test_delegator_uses_logistic_probability_when_roc_score_is_missing() -> None
     assert 0.5 <= result["result"]["auc"] <= 1.0
 
 
-def test_delegator_runs_local_power_analysis_without_automl() -> None:
+@pytest.mark.parametrize("available", [True, False])
+def test_legacy_power_requires_source_supported_prospective_review(available) -> None:
     df = pd.DataFrame({"placeholder": [1]})
     delegator = AnalysisDelegator()
-    delegator._automl_available = False
+    delegator._automl_available = available
 
     result = delegator.run_analysis(
         df,
@@ -367,10 +369,9 @@ def test_delegator_runs_local_power_analysis_without_automl() -> None:
         {"test_type": "ttest", "effect_size": 0.5, "nobs1": 64, "alpha": 0.05},
     )
 
-    assert result["source"] == "local-lite (statsmodels)"
-    assert result["result"]["analysis_type"] == "power_analysis"
-    assert result["result"]["test_type"] == "ttest"
-    assert 0 < result["result"]["power"] < 1
+    assert result["source"] == "planning-gate"
+    assert "draft_sample_size_plan" in result["result"]["error"]
+    assert "power" not in result["result"]
 
 
 def test_delegator_propensity_score_local_lite_returns_score_diagnostics() -> None:

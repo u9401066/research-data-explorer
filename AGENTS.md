@@ -11,7 +11,7 @@
 
 - 使用者可能不知道要跑什麼分析、不知道怎樣組合方法、也不會寫分析程式；Agent 必須協助完成資料理解、分析規劃、可重現探索、結果解釋與完整報告。
 - `report_readiness` 與 `run_audit` 會以 `core_goal:*` 缺口檢查這份契約；缺少 intake/schema、concept alignment、plan review/lock、readiness、decision log、results、report deliverables 時，不可宣稱 production-ready。
-- automl-stat-mcp 是可選重型引擎，不是 VSIX 完成核心報告的必要條件；Docker 不可用時，Phase 8 應使用 local-lite 調整模型、ROC/AUC、基本 power、Kaplan-Meier 與輕量 propensity scoring。
+- automl-stat-mcp 是可選重型引擎，不是 VSIX 完成核心報告的必要條件；Docker 不可用時，Phase 8 應使用 local-lite 調整模型、ROC/AUC、Kaplan-Meier 與輕量 propensity scoring。
 
 > **Agent 不是黑箱做探索，是用工具詳細記錄並經得起審視。**
 
@@ -364,3 +364,13 @@ Agent 應該在回覆時引用具體的 artifact：
 - 測試命令以 `python3 -m pytest -q` 為準
 - decision/deviation log 的實體路徑在 `artifacts/phase_08_execute_exploration/`
 - 圖表匯出與 handoff 以專案自己的 `figures/` 目錄為準，不使用全域共享圖檔目錄
+
+## 前瞻樣本數規劃（開發中）
+
+`draft_sample_size_plan` → `get_sample_size_plan` 完整審閱 → `approve_sample_size_plan` →
+`run_sample_size_plan`。核准需固定草案 SHA256 與假設／來源／主要結果／獨立性／
+主情境／分配／缺失的明確確認；執行另固定 approval SHA256 與計算實作。
+此流程在既有專案下保存 `artifacts/prospective_design/`；不製造病人 CSV、
+不推進 EDA 13 階段，也不代表完成病人資料的完整稽核。成功與失敗均保留，
+重啟驗證全產物；假設改變新建草案。完整契約及驗收見 `docs/sample-size-planning.md`。
+舊 `power_analysis_advanced` 不再允許隱含數值預設或用觀察效應解釋未顯著結果。

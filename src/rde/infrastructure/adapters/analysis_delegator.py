@@ -36,7 +36,6 @@ AUTOML_PREFERRED = frozenset(
         "multiple_regression",
         "glm",
         "automl",
-        "power_analysis_advanced",
     }
 )
 
@@ -74,7 +73,6 @@ LOCAL_ADVANCED_LITE = frozenset(
         "logistic_regression",
         "multiple_regression",
         "glm",
-        "power_analysis_advanced",
     }
 )
 
@@ -114,6 +112,13 @@ class AnalysisDelegator:
         Returns dict with at least: {"source": "automl"|"local", "result": ...}
         """
         normalized = analysis_type.lower().replace("-", "_").replace(" ", "_")
+        if normalized in {"power_analysis", "power_analysis_advanced"}:
+            return {
+                "source": "planning-gate",
+                "result": {
+                    "error": "Prospective sample-size planning requires draft_sample_size_plan, a source-supported review, explicit approval and run_sample_size_plan. Observed-effect post-hoc power is not an analysis interpretation.",
+                },
+            }
 
         if normalized in CLINICAL_METHODS:
             try:
@@ -260,11 +265,7 @@ class AnalysisDelegator:
                 "source": "local-lite (scipy)",
                 "result": self._run_roc_auc(df, config),
             }
-        if analysis_type == "power_analysis_advanced":
-            return {
-                "source": "local-lite (statsmodels)",
-                "result": self._run_power_analysis(config),
-            }
+
         if analysis_type == "propensity_score":
             return {
                 "source": "local-lite (statsmodels)",
@@ -910,91 +911,6 @@ class AnalysisDelegator:
             "n_negative": int(n_neg),
             "interpretation": (
                 "AUC estimates discrimination: 0.5 is no better than chance, 1.0 is perfect separation."
-            ),
-        }
-
-    def _run_power_analysis(self, config: dict[str, Any]) -> dict[str, Any]:
-        from statsmodels.stats.power import FTestAnovaPower, GofChisquarePower, TTestIndPower
-
-        test_type = str(config.get("test_type") or "ttest").lower().replace("-", "_")
-        effect_size = float(config.get("effect_size", 0.5))
-        alpha = float(config.get("alpha", 0.05))
-        power_target = config.get("power")
-        nobs1 = config.get("nobs1") or config.get("n")
-        ratio = float(config.get("ratio", 1.0))
-
-        if test_type in {"ttest", "t_test", "two_sample_ttest"}:
-            analyzer = TTestIndPower()
-            if nobs1 is not None:
-                power = analyzer.power(
-                    effect_size=effect_size, nobs1=float(nobs1), alpha=alpha, ratio=ratio
-                )
-                solved_nobs1 = float(nobs1)
-            else:
-                target_power = float(power_target or 0.8)
-                solved_nobs1 = float(
-                    analyzer.solve_power(
-                        effect_size=effect_size,
-                        power=target_power,
-                        alpha=alpha,
-                        ratio=ratio,
-                    )
-                )
-                power = target_power
-        elif test_type == "anova":
-            analyzer = FTestAnovaPower()
-            k_groups = int(config.get("k_groups", config.get("groups", 3)))
-            if nobs1 is not None:
-                solved_nobs1 = float(nobs1)
-                power = analyzer.power(
-                    effect_size=effect_size, nobs=float(nobs1), alpha=alpha, k_groups=k_groups
-                )
-            else:
-                target_power = float(power_target or 0.8)
-                solved_nobs1 = float(
-                    analyzer.solve_power(
-                        effect_size=effect_size,
-                        power=target_power,
-                        alpha=alpha,
-                        k_groups=k_groups,
-                    )
-                )
-                power = target_power
-        elif test_type in {"chisquare", "chi_square"}:
-            analyzer = GofChisquarePower()
-            n_bins = int(config.get("n_bins", 2))
-            if nobs1 is not None:
-                solved_nobs1 = float(nobs1)
-                power = analyzer.power(
-                    effect_size=effect_size, nobs=float(nobs1), alpha=alpha, n_bins=n_bins
-                )
-            else:
-                target_power = float(power_target or 0.8)
-                solved_nobs1 = float(
-                    analyzer.solve_power(
-                        effect_size=effect_size,
-                        power=target_power,
-                        alpha=alpha,
-                        n_bins=n_bins,
-                    )
-                )
-                power = target_power
-        else:
-            return {
-                "error": f"Local power analysis does not support '{test_type}'.",
-                "suggestion": "Use test_type='ttest', 'anova', or 'chisquare', or configure the optional advanced engine.",
-            }
-
-        return {
-            "analysis_type": "power_analysis",
-            "engine": "statsmodels.stats.power",
-            "test_type": test_type,
-            "effect_size": effect_size,
-            "alpha": alpha,
-            "nobs1": solved_nobs1,
-            "power": float(power),
-            "interpretation": (
-                "Power analysis is approximate and should be reported with effect-size assumptions."
             ),
         }
 

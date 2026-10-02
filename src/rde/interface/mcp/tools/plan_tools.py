@@ -1331,7 +1331,6 @@ def register_plan_tools(server: Any) -> None:
                 "roc_auc",
                 "logistic_regression",
                 "multiple_regression",
-                "power_analysis_advanced",
                 "descriptive",
                 "univariate",
                 "table_one",

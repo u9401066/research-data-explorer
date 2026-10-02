@@ -21,6 +21,7 @@ from rde.interface.mcp.tools.protocol_tools import register_protocol_tools
 from rde.interface.mcp.tools.prediction_tools import register_prediction_tools
 from rde.interface.mcp.tools.clinical_tools import register_clinical_tools
 from rde.interface.mcp.tools.publication_tools import register_publication_tools
+from rde.interface.mcp.tools.sample_size_tools import register_sample_size_tools
 
 
 def create_server():
@@ -54,6 +55,7 @@ def create_server():
 
     # Register tool groups (organized by pipeline phases)
     register_project_tools(server)  # Phase 0: Project Setup
+    register_sample_size_tools(server)  # Separate prospective design governance, no patient intake
     register_discovery_tools(server)  # Phase 1-2: Data Intake & Schema
     register_profiling_tools(server)  # Phase 2: Schema Registry (profiling)
     register_plan_tools(server)  # Phase 3-7: Concept, Plan, Pre-check

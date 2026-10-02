@@ -107,6 +107,39 @@ def create_edition(
         raise ValueError(
             "Original numerical receipt or study artifacts failed integrity verification."
         )
+    return _create_verified_edition(
+        project,
+        source=source,
+        study_artifact=study_artifact,
+        expected_record_sha256=expected_record_sha256,
+        record=record,
+        result=result,
+        prediction=prediction,
+        preset_id=preset_id,
+        edition_id=edition_id,
+        start_number=start_number,
+        captions=captions,
+    )
+
+
+def _create_verified_edition(
+    project,
+    *,
+    source,
+    study_artifact,
+    expected_record_sha256,
+    record,
+    result,
+    prediction=False,
+    preset_id,
+    edition_id,
+    start_number,
+    captions,
+):
+    """Shared renderer; callers must first verify their full, typed source workflow."""
+    if str(uuid.UUID(edition_id)) != edition_id:
+        raise ValueError("Edition ID must be a canonical UUID.")
+    root = project.output_dir.resolve()
     options = render_options(start_number, captions, len(record.get("figures", [])))
     request = {
         "source_artifact": study_artifact,
@@ -132,7 +165,9 @@ def create_edition(
     staging = editions / f".pending-{uuid.uuid4()}"
     staging.mkdir()
     try:
-        if prediction:
+        if result.get("spec", {}).get("family") == "sample_size":
+            from rde.infrastructure.clinical.sample_size_report import figures
+        elif prediction:
             from rde.infrastructure.prediction.publication import figures
         elif result["spec"]["family"] == "survival":
             from rde.infrastructure.clinical.survival_publication import figures
@@ -206,7 +241,12 @@ def create_edition(
             "edition_id": edition_id,
             "request": request,
             "source_numerical_receipt_sha256": result["receipt_sha256"],
-            "source_dataset_id": record["dataset_id"],
+            "source_dataset_id": record.get("dataset_id"),
+            **(
+                {"source_plan_id": record["plan_id"], "source_run_id": record["run_id"]}
+                if "plan_id" in record
+                else {}
+            ),
             "numerical_analysis": "unchanged; no fitting or resampling",
             "preset": preset,
             "figures": rendered,
@@ -238,6 +278,7 @@ def register_publication_tools(server):
                     "longitudinal",
                     "regression",
                     "weighting",
+                    "sample_size",
                 ],
             },
             ensure_ascii=False,

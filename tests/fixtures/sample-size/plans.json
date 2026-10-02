@@ -1,0 +1,347 @@
+[
+  {
+    "id": "independent_means",
+    "planning_options": {
+      "design": "independent_means",
+      "population": "Synthetic planning fixture; not a clinical recommendation",
+      "endpoint": "Prespecified test outcome",
+      "time_horizon": "At 30 days",
+      "outcome_unit": "score points",
+      "contrast": "Group/measurement 1 minus group/measurement 2",
+      "group_labels": [
+        "Group 1",
+        "Group 2"
+      ],
+      "independent_units": true,
+      "normal_model": "common_normal_sd",
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "allocation": [
+        1,
+        1
+      ],
+      "max_evaluable": 100000,
+      "sources": [
+        {
+          "id": "qa",
+          "kind": "engineering_fixture",
+          "citation": "Explicit synthetic QA specification",
+          "locator": "tests/test_sample_size_planning.py planning_spec",
+          "justification": "Chosen for computational verification only; not a clinically established important difference."
+        }
+      ],
+      "design_source_ids": [
+        "qa"
+      ],
+      "primary_scenario_id": "primary",
+      "scenarios": [
+        {
+          "id": "primary",
+          "label": "Primary",
+          "loss_rate": 0.1,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 5,
+          "sd": 10
+        },
+        {
+          "id": "sensitivity",
+          "label": "Smaller difference sensitivity",
+          "loss_rate": 0.2,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 4,
+          "sd": 10
+        }
+      ],
+      "family": "sample_size",
+      "purpose": "prospective_superiority",
+      "alternative": "two-sided"
+    }
+  },
+  {
+    "id": "paired_means",
+    "planning_options": {
+      "design": "paired_means",
+      "population": "Synthetic planning fixture; not a clinical recommendation",
+      "endpoint": "Prespecified test outcome",
+      "time_horizon": "At 30 days",
+      "outcome_unit": "score points",
+      "contrast": "Group/measurement 1 minus group/measurement 2",
+      "group_labels": [
+        "Group 1",
+        "Group 2"
+      ],
+      "independent_units": true,
+      "normal_model": "normal_differences",
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "allocation": null,
+      "max_evaluable": 100000,
+      "sources": [
+        {
+          "id": "qa",
+          "kind": "engineering_fixture",
+          "citation": "Explicit synthetic QA specification",
+          "locator": "tests/test_sample_size_planning.py planning_spec",
+          "justification": "Chosen for computational verification only; not a clinically established important difference."
+        }
+      ],
+      "design_source_ids": [
+        "qa"
+      ],
+      "primary_scenario_id": "primary",
+      "scenarios": [
+        {
+          "id": "primary",
+          "label": "Primary",
+          "loss_rate": 0.1,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 5,
+          "sd": 10
+        },
+        {
+          "id": "sensitivity",
+          "label": "Smaller difference sensitivity",
+          "loss_rate": 0.2,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 4,
+          "sd": 10
+        }
+      ],
+      "family": "sample_size",
+      "purpose": "prospective_superiority",
+      "alternative": "two-sided"
+    }
+  },
+  {
+    "id": "independent_proportions",
+    "planning_options": {
+      "design": "independent_proportions",
+      "population": "Synthetic planning fixture; not a clinical recommendation",
+      "endpoint": "Prespecified test outcome",
+      "time_horizon": "At 30 days",
+      "outcome_unit": "probability",
+      "contrast": "Group/measurement 1 minus group/measurement 2",
+      "group_labels": [
+        "Group 1",
+        "Group 2"
+      ],
+      "independent_units": true,
+      "normal_model": "not_applicable",
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "allocation": [
+        2,
+        3
+      ],
+      "max_evaluable": 100000,
+      "sources": [
+        {
+          "id": "qa",
+          "kind": "engineering_fixture",
+          "citation": "Explicit synthetic QA specification",
+          "locator": "tests/test_sample_size_planning.py planning_spec",
+          "justification": "Chosen for computational verification only; not a clinically established important difference."
+        }
+      ],
+      "design_source_ids": [
+        "qa"
+      ],
+      "primary_scenario_id": "primary",
+      "scenarios": [
+        {
+          "id": "primary",
+          "label": "Primary",
+          "loss_rate": 0.1,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "probabilities": [
+            0.4,
+            0.55
+          ]
+        },
+        {
+          "id": "sensitivity",
+          "label": "Smaller difference sensitivity",
+          "loss_rate": 0.2,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "probabilities": [
+            0.45,
+            0.55
+          ]
+        }
+      ],
+      "family": "sample_size",
+      "purpose": "prospective_superiority",
+      "alternative": "two-sided"
+    }
+  },
+  {
+    "id": "five_long_scenarios",
+    "planning_options": {
+      "design": "independent_means",
+      "population": "Synthetic planning fixture; not a clinical recommendation",
+      "endpoint": "Prespecified test outcome",
+      "time_horizon": "At 30 days",
+      "outcome_unit": "score points",
+      "contrast": "Group/measurement 1 minus group/measurement 2",
+      "group_labels": [
+        "Group 1",
+        "Group 2"
+      ],
+      "independent_units": true,
+      "normal_model": "common_normal_sd",
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "allocation": [
+        1,
+        1
+      ],
+      "max_evaluable": 100000,
+      "sources": [
+        {
+          "id": "qa",
+          "kind": "engineering_fixture",
+          "citation": "Explicit synthetic QA specification",
+          "locator": "tests/test_sample_size_planning.py planning_spec",
+          "justification": "Chosen for computational verification only; not a clinically established important difference."
+        }
+      ],
+      "design_source_ids": [
+        "qa"
+      ],
+      "primary_scenario_id": "scenario_4",
+      "scenarios": [
+        {
+          "id": "scenario_1",
+          "label": "Scenario 1 with a prespecified smaller plausible difference",
+          "loss_rate": 0.0,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 4,
+          "sd": 10
+        },
+        {
+          "id": "scenario_2",
+          "label": "Scenario 2 with a prespecified smaller plausible difference",
+          "loss_rate": 0.1,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 5,
+          "sd": 10
+        },
+        {
+          "id": "scenario_3",
+          "label": "Scenario 3 with a prespecified smaller plausible difference",
+          "loss_rate": 0.2,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 6,
+          "sd": 10
+        },
+        {
+          "id": "scenario_4",
+          "label": "Scenario 4 with a prespecified smaller plausible difference",
+          "loss_rate": 0.3,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 7,
+          "sd": 10
+        },
+        {
+          "id": "scenario_5",
+          "label": "Scenario 5 with a prespecified smaller plausible difference",
+          "loss_rate": 0.4,
+          "effect_source_ids": [
+            "qa"
+          ],
+          "nuisance_source_ids": [
+            "qa"
+          ],
+          "loss_source_ids": [
+            "qa"
+          ],
+          "difference": 8,
+          "sd": 10
+        }
+      ],
+      "family": "sample_size",
+      "purpose": "prospective_superiority",
+      "alternative": "two-sided"
+    }
+  }
+]

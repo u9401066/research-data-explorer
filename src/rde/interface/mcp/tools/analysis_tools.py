@@ -1934,7 +1934,8 @@ def register_analysis_tools(server: Any) -> None:
         """執行進階統計分析，自動委派給 automl-stat-mcp（如可用）。
 
         支援: propensity_score, survival_analysis, roc_auc,
-        logistic_regression, multiple_regression, power_analysis_advanced。
+        logistic_regression, multiple_regression。
+        前瞻樣本數規劃另用 draft_sample_size_plan → 審閱核准 → run_sample_size_plan，不從當次觀察效應計算事後 power。
         臨床 local methods: risk_estimates, diagnostic_accuracy, mcnemar,
         bland_altman, cohens_kappa, gee, mixed_effects（不需 Docker）。
         automl 不可用時自動降級為 local-lite statsmodels/scipy fallback（支援時）。

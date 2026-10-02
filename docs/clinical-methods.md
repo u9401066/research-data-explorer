@@ -7,6 +7,19 @@ No AutoML service, Docker, or patient-data upload is needed.
 Agents remain free to propose methods outside this catalog and document additional
 analyses. The catalog reduces routine coding, not scientific discretion.
 
+## Prospective sample-size planning
+
+The separate [planning workflow](sample-size-planning.md) requires explicit
+assumptions, source references and human approval before integer sample-size
+calculation. It supports two independent means with a common SD, paired mean
+differences and two independent proportions using a normal approximation.
+It creates no patient dataset and does not advance or certify the EDA pipeline.
+Saved results provide Chinese reports and English publication figures; Nature
+and PLOS editions reuse the same numerical receipt. RDE MCP verification is
+complete for this development stage; Workbench and LAN acceptance are pending.
+Non-significant observed results are interpreted with estimates, intervals and
+clinically important differences, not observed-effect post-hoc power.
+
 ## Prediction designs and decision analysis
 
 `run_prediction_study` requires `study_design` (observational_cohort,

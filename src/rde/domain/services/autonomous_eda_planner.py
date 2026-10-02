@@ -2240,7 +2240,6 @@ class AutonomousEDAPlanner:
             "multiple_regression": (70, "run_advanced_analysis", "adjusted_model"),
             "roc_auc": (80, "run_advanced_analysis", "specialized_followup"),
             "learning_curve_cusum": (80, "run_advanced_analysis", "specialized_followup"),
-            "power_analysis_advanced": (90, "run_advanced_analysis", "sensitivity_followup"),
         }
         return mapping.get(family, (85, family, "specialized_followup"))
 
@@ -2261,11 +2260,6 @@ class AutonomousEDAPlanner:
             "multiple_regression": ("compare_groups", "correlation_matrix", "analyze_variable"),
             "roc_auc": ("logistic_regression", "compare_groups", "analyze_variable"),
             "learning_curve_cusum": ("analyze_variable",),
-            "power_analysis_advanced": (
-                "logistic_regression",
-                "multiple_regression",
-                "compare_groups",
-            ),
         }
         dependencies: list[str] = []
         for dependency_family in dependency_map.get(family, ()):

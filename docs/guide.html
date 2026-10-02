@@ -568,6 +568,28 @@
       border-bottom: 0;
     }
 
+    .inventory-table {
+      table-layout: fixed;
+    }
+
+    .inventory-table th:first-child {
+      width: 28%;
+    }
+
+    .inventory-table th:nth-child(2) {
+      width: 4rem;
+    }
+
+    .inventory-table code,
+    .inventory-table strong {
+      overflow-wrap: anywhere;
+    }
+
+    .text-card {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
     .flow {
       display: grid;
       gap: 12px;
@@ -744,6 +766,15 @@
       .tool-table {
         display: block;
         overflow-x: auto;
+      }
+
+      .inventory-table {
+        display: table;
+      }
+
+      .inventory-table th,
+      .inventory-table td {
+        padding: 10px 7px;
       }
     }
 
@@ -1006,7 +1037,7 @@
       <div class="content">
         <aside class="section" aria-label="Current capabilities">
           <h2>MCP 2.2+ · 開放研究 / Open research</h2>
-          <p>55 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
+          <p>60 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
           <p><a href="index.html#clinical">臨床方法 / Clinical methods</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/mcp-v2.md">SDK migration</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md">Autoresearch contracts</a></p>
           <p>研究證據以效應量、不確定性、實際個案與限制為核心；工具完成、稽核分數或 p 值都不等於臨床可信度。 / Estimates, uncertainty, actual cases, and limitations matter. Tool completion, audit scores, and p-values do not establish clinical credibility.</p>
         </aside>
@@ -1052,7 +1083,7 @@
 
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>受治理 Phase</span></div>
-            <div class="stat"><strong>55</strong><span>已註冊 MCP 工具</span></div>
+            <div class="stat"><strong>60</strong><span>已註冊 MCP 工具</span></div>
             <div class="stat"><strong>9</strong><span>工具群組</span></div>
             <div class="stat"><strong>3</strong><span>完成度等級</span></div>
           </div>
@@ -1218,8 +1249,8 @@
             </article>
             <article class="card">
               <h4>模型判斷能力如何？</h4>
-              <p>二元結果可以評估 ROC/AUC；非顯著結果或設計階段可用 power analysis 輔助判斷樣本數或檢定力是否不足。</p>
-              <div class="tag-row"><span class="tag">roc_auc</span><span class="tag">power_analysis_advanced</span></div>
+              <p>二元結果可以評估 ROC/AUC。前瞻樣本數規劃另走明訂假設、來源與人工核准的流程；未顯著結果需檢視估計值、信賴區間及臨床重要差異，不能由觀察效應的事後 power 判定沒有作用。</p>
+              <div class="tag-row"><span class="tag">roc_auc</span><span class="tag">draft_sample_size_plan</span></div>
             </article>
             <article class="card">
               <h4>時間到事件資料怎麼看？</h4>
@@ -1363,11 +1394,11 @@
             </article>
             <article class="text-card">
               <h4>MCP registration</h4>
-              <p><code>src/rde/interface/mcp/server.py</code> 實際載入 9 個 tool module；網站的 tool inventory 不是手寫估計，而是依每個 module 的 <code>@server.tool</code> 註冊數校準。</p>
+              <p><code>src/rde/interface/mcp/server.py</code> 實際載入 14 個 tool module；網站的 tool inventory 不是手寫估計，而是依每個 module 的 <code>@server.tool</code> 註冊數校準。</p>
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 55 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
+              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 60 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -1380,9 +1411,9 @@
             下表把工程實作轉成網站說明用語。它的目的不是讓非工程師背工具名稱，而是讓維護者知道每一塊介紹可以回到哪個 module 查證。
           </p>
           <div class="table-wrap">
-            <table>
+            <table class="tool-table inventory-table" aria-label="已註冊的 MCP 工具">
               <thead>
-                <tr><th>Module</th><th>Tools</th><th>工程責任</th><th>網站呈現重點</th></tr>
+                <tr><th>Module</th><th>Tools</th><th>工具名稱</th></tr>
               </thead>
               <tbody id="verifiedToolRows"></tbody>
             </table>
@@ -1628,7 +1659,7 @@
               </div>
               <div class="flow-meta">
                 <p><strong>適合：</strong>臨床資料、問卷資料、介入組與對照組比較。</p>
-                <p><strong>你會得到：</strong>基線特徵表、組間差異、效果量、多重比較與 power 提醒。</p>
+                <p><strong>你會得到：</strong>基線特徵表、組間差異、效果量、多重比較與未顯著結果的區間解釋提醒。</p>
                 <p><strong>注意：</strong>RDE 不只回 p 值，也會說明統計前提是否合理。</p>
               </div>
               <div class="artifact-strip"><span class="artifact-pill">table_one.md</span><span class="artifact-pill">table_one.json</span><span class="artifact-pill">compare_groups_*.json</span><span class="artifact-pill">results_summary.json</span></div>
@@ -1750,7 +1781,7 @@ python3 -m rde</pre>
               </article>
               <article class="card">
                 <h4>No-Docker local-lite</h4>
-                <p>支援描述統計、Table 1、組間比較、ROC/AUC、基本 power hint、Kaplan-Meier 與輕量 adjusted models。</p>
+                <p>支援描述統計、Table 1、組間比較、ROC/AUC、前瞻樣本數規劃、Kaplan-Meier 與輕量 adjusted models。</p>
               </article>
               <article class="card">
                 <h4>Optional automl</h4>
@@ -1808,7 +1839,7 @@ python3 -m rde</pre>
 
           <div class="stats" aria-label="RDE metrics">
             <div class="stat"><strong>13</strong><span>Governed phases</span></div>
-            <div class="stat"><strong>55</strong><span>Registered MCP tools</span></div>
+            <div class="stat"><strong>60</strong><span>Registered MCP tools</span></div>
             <div class="stat"><strong>9</strong><span>Tool groups</span></div>
             <div class="stat"><strong>3</strong><span>Completion tiers</span></div>
           </div>
@@ -1938,8 +1969,8 @@ python3 -m rde</pre>
             </article>
             <article class="card">
               <h4>How well does a model discriminate?</h4>
-              <p>Binary outcomes can be evaluated with ROC/AUC, and power analysis can help interpret non-significant findings or sample-size concerns.</p>
-              <div class="tag-row"><span class="tag">roc_auc</span><span class="tag">power_analysis_advanced</span></div>
+              <p>Binary outcomes can be evaluated with ROC/AUC. Prospective sample-size planning has a separate assumption, source, and human approval workflow. Interpret non-significant results using estimates, confidence intervals, and clinically important differences; observed-effect post-hoc power does not establish absence of an effect.</p>
+              <div class="tag-row"><span class="tag">roc_auc</span><span class="tag">draft_sample_size_plan</span></div>
             </article>
             <article class="card">
               <h4>What about time-to-event data?</h4>
@@ -2047,11 +2078,11 @@ python3 -m rde</pre>
             </article>
             <article class="text-card">
               <h4>MCP registration</h4>
-              <p><code>src/rde/interface/mcp/server.py</code> loads 9 tool modules. The site inventory is calibrated against actual <code>@server.tool</code> registrations rather than copied from stale README text.</p>
+              <p><code>src/rde/interface/mcp/server.py</code> loads 14 tool modules. The site inventory is calibrated against actual <code>@server.tool</code> registrations rather than copied from stale README text.</p>
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> lists 55 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
+              <p><code>vscode-extension/package.json</code> lists 60 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2064,9 +2095,9 @@ python3 -m rde</pre>
             This table turns implementation modules into documentation language. It is mainly for maintainers: every public explanation should be traceable back to a concrete module.
           </p>
           <div class="table-wrap">
-            <table>
+            <table class="tool-table inventory-table" aria-label="Registered MCP tools">
               <thead>
-                <tr><th>Module</th><th>Tools</th><th>Engineering responsibility</th><th>Site explanation</th></tr>
+                <tr><th>Module</th><th>Tools</th><th>Registered tools</th></tr>
               </thead>
               <tbody id="verifiedToolRowsEn"></tbody>
             </table>
@@ -2258,7 +2289,7 @@ python3 -m rde</pre>
               </div>
               <div class="flow-meta">
                 <p><strong>Best for:</strong> clinical datasets, surveys, intervention groups, or control comparisons.</p>
-                <p><strong>Output:</strong> baseline table, group differences, effect sizes, multiple-comparison and power reminders.</p>
+                <p><strong>Output:</strong> baseline table, group differences, effect sizes, multiple-comparison checks, and interval-based interpretation of non-significant results.</p>
                 <p><strong>Note:</strong> RDE does not only return p values; it explains whether the assumptions were appropriate.</p>
               </div>
               <div class="artifact-strip"><span class="artifact-pill">table_one.md</span><span class="artifact-pill">table_one.json</span><span class="artifact-pill">compare_groups_*.json</span><span class="artifact-pill">results_summary.json</span></div>
@@ -2373,7 +2404,7 @@ python3 -m rde</pre>
           <div class="section">
             <div class="grid">
               <article class="card"><h4>VS Code Extension</h4><p>Command Palette includes <code>RDE: Configure Codex MCP</code>, <code>RDE: Run Full Pipeline (13-Phase)</code>, and the UX Harness Dashboard.</p></article>
-              <article class="card"><h4>No-Docker local-lite</h4><p>Supports descriptive statistics, Table 1, group comparisons, ROC/AUC, basic power hints, Kaplan-Meier, and lightweight adjusted models.</p></article>
+              <article class="card"><h4>No-Docker local-lite</h4><p>Supports descriptive statistics, Table 1, group comparisons, ROC/AUC, prospective sample-size planning, Kaplan-Meier, and lightweight adjusted models.</p></article>
               <article class="card"><h4>Optional automl</h4><p>Use <code>vendor/automl-stat-mcp</code> for full propensity matching, deeper survival workflows, or AutoML training.</p></article>
             </div>
           </div>
@@ -2448,6 +2479,7 @@ python3 -m rde</pre>
       ["analysis_tools.py", 8, "suggest_cleaning, apply_cleaning, analyze_variable, compare_groups, correlation_matrix, generate_table_one, run_advanced_analysis, run_repeated_measures"],
       ["prediction_tools.py", 1, "run_prediction_study"],
       ["clinical_tools.py", 2, "inspect_clinical_study · run_clinical_study"],
+      ["sample_size_tools.py", 5, "draft_sample_size_plan · get_sample_size_plan · approve_sample_size_plan · run_sample_size_plan · render_sample_size_publication"],
       ["publication_tools.py", 2, "get_publication_presets · render_publication_figures"],
       ["branch_tools.py", 13, "open_exploration_branch, suggest_branch_experiments, run_branch_experiment, evaluate_branch, promote_branch_to_plan_amendment, discard_branch, get_exploration_board, start_autoresearch_run, get_autoresearch_status, stop_autoresearch_run, resume_autoresearch_run, run_autoresearch_next_task, run_autoresearch_queue"],
       ["ux_tools.py", 4, "get_approval_card, get_harness_dashboard, build_artifact_index, get_blocker_playbook"],

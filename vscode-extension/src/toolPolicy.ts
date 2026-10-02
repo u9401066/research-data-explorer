@@ -1,3 +1,11 @@
+const PROSPECTIVE_DESIGN_TOOL_NAMES = [
+    'draft_sample_size_plan',
+    'get_sample_size_plan',
+    'approve_sample_size_plan',
+    'run_sample_size_plan',
+    'render_sample_size_publication',
+] as const;
+
 const PHASE_08_AUTONOMOUS_BRANCH_TOOL_NAMES = [
     'open_exploration_branch',
     'suggest_branch_experiments',
@@ -18,6 +26,7 @@ const PHASE_08_BRANCH_PROMOTION_TOOL_NAMES = [
 ] as const;
 
 export const RDE_MCP_TOOL_NAMES = [
+    ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
     'init_project',
     'get_pipeline_status',
@@ -118,6 +127,7 @@ export const TOOL_GROUPS = {
         ...PHASE_08_AUTONOMOUS_BRANCH_TOOL_NAMES,
     ],
     advanced: [
+        ...PROSPECTIVE_DESIGN_TOOL_NAMES,
         ...WORKFLOW_PREREQUISITE_TOOLS,
         'run_advanced_analysis',
         'run_repeated_measures',
@@ -128,6 +138,8 @@ export const TOOL_GROUPS = {
         'log_deviation',
     ],
     report: [
+        'get_sample_size_plan',
+        'render_sample_size_publication',
         ...WORKFLOW_PREREQUISITE_TOOLS,
         'get_publication_presets',
         'render_publication_figures',

@@ -19,6 +19,32 @@ class ToolContract:
 
 CONTRACTS = {
     "init_project": ToolContract("0", "name + mode validation", "project and UX artifacts"),
+    "draft_sample_size_plan": ToolContract(
+        "prospective-design",
+        "project exists + strict source-supported assumptions + new plan ID",
+        "immutable prospective draft and review; no patient data or EDA advancement",
+    ),
+    "get_sample_size_plan": ToolContract(
+        "prospective-design",
+        "project ownership + full evidence integrity",
+        "planning review, approval and saved results",
+        read_only=True,
+    ),
+    "approve_sample_size_plan": ToolContract(
+        "prospective-design",
+        "exact draft SHA256 + complete explicit human review",
+        "immutable planning approval and decision log",
+    ),
+    "run_sample_size_plan": ToolContract(
+        "prospective-design",
+        "exact plan/approval hashes + matching implementation + readiness",
+        "integer design calculation, full report/figures and durable attempt; no EDA advancement",
+    ),
+    "render_sample_size_publication": ToolContract(
+        "prospective-design",
+        "completed planning run hash + artifact integrity + immutable edition ID",
+        "new journal figure edition from saved design numbers; no recalculation",
+    ),
     "get_pipeline_status": ToolContract("all", "project exists", "status", True),
     "get_decision_log": ToolContract("all", "project exists", "decision log read", True),
     "get_deviation_log": ToolContract("all", "project exists", "deviation log read", True),
