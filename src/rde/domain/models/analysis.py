@@ -28,7 +28,7 @@ class StatisticalTest:
 
     test_name: str  # e.g., "Mann-Whitney U", "Shapiro-Wilk"
     category: TestCategory
-    statistic: float
+    statistic: float | None
     p_value: float
     effect_size: float | None = None
     effect_size_name: str | None = None  # e.g., "Cohen's d", "r"
@@ -43,6 +43,10 @@ class StatisticalTest:
     alpha: float = 0.05
     adjusted_p_value: float | None = None
     correction_method: str | None = None
+    statistic_status: str = "finite"
+    effect_size_status: str = "not_estimated"
+    effect_direction: str | None = None
+    group_labels: tuple[str, ...] = ()
 
     @property
     def is_significant(self) -> bool:

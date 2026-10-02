@@ -1,5 +1,9 @@
 # 可核對的分析政策（0.5.0）
 
+2026-10-02：獨立組比較的實際檢定、效果量方向與稀疏交叉表選擇已修正，
+新收據標示 `comparison-inference-v2`。完整 [數值契約與歷史限制](comparison-inference.md)
+列出 R 獨立對照、零儲存格處理、實際方法及尚未估計的信賴區間；舊收據不覆寫。
+
 `register_analysis_plan` 驗證 alpha、listwise/pairwise 與 bonferroni/holm/fdr。
 `compare_groups` 未提供政策參數時讀取鎖定計畫；顯式參數與執行政策一起保存。
 不把計畫中的字串視為已完成補值，沒有隐含 imputation。

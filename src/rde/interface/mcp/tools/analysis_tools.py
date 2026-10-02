@@ -1468,16 +1468,34 @@ def register_analysis_tools(server: Any) -> None:
                 sig_icon = "🟢" if t.is_significant else "⚪"
                 lines.append(f"## {sig_icon} {', '.join(t.variables_involved)}")
                 lines.append(f"- **檢定:** {t.test_name}")
-                lines.append(f"- **統計量:** {t.statistic:.4f}")
+                statistic_text = (
+                    f"{t.statistic:.4f}" if t.statistic is not None else "+∞（樣本勝算比分母為零）"
+                )
+                lines.append(f"- **統計量:** {statistic_text}")
                 lines.append(f"- **原始 p 值:** {t.p_value:.6g}")
                 lines.append(
                     f"- **校正 p 值 ({t.correction_method}):** {t.adjusted_p_value:.6g}；α={t.alpha:g}"
                 )
                 lines.append(f"- **各組實際納入數:** {list(t.sample_sizes)}")
+                lines.append(f"- **組別順序:** {list(t.group_labels)}")
+                if t.effect_direction:
+                    lines.append(f"- **效果量方向:** {t.effect_direction}")
+                details = result.tables.get("test_details", {}).get(t.variables_involved[0], {})
+                if details.get("p_value_method"):
+                    engine_note = (
+                        f" ({details['engine']} {details['engine_version']})"
+                        if details.get("engine") and details.get("engine_version")
+                        else ""
+                    )
+                    lines.append(f"- **p 值方法:** {details['p_value_method']}{engine_note}")
 
                 # S-009: Effect size
                 if t.effect_size is not None:
                     lines.append(f"- **效果量 ({t.effect_size_name}):** {t.effect_size:.3f}")
+                elif t.effect_size_status == "positive_infinity":
+                    lines.append(
+                        "- **樣本勝算比 (OR):** +∞；零儲存格造成無有限估計值，不能解讀成母體效果無限大。未估計信賴區間。"
+                    )
                 else:
                     lines.append("- ⚠️ [S-009] 未計算效果量")
 
@@ -1535,6 +1553,7 @@ def register_analysis_tools(server: Any) -> None:
                     "test_name": t.test_name,
                     "variables": list(t.variables_involved),
                     "statistic": t.statistic,
+                    "statistic_status": t.statistic_status,
                     "p_value": t.p_value,
                     "adjusted_p_value": t.adjusted_p_value,
                     "alpha": t.alpha,
@@ -1543,6 +1562,9 @@ def register_analysis_tools(server: Any) -> None:
                     "sample_sizes": list(t.sample_sizes),
                     "effect_size": t.effect_size,
                     "effect_size_name": t.effect_size_name,
+                    "effect_size_status": t.effect_size_status,
+                    "effect_direction": t.effect_direction,
+                    "group_labels": list(t.group_labels),
                     "interpretation": t.interpretation,
                 }
                 for t in result.tests
@@ -1551,12 +1573,14 @@ def register_analysis_tools(server: Any) -> None:
                 PipelinePhase.EXECUTE_EXPLORATION,
                 json_filename,
                 {
+                    "method_contract": "comparison-inference-v2",
                     "dataset_id": dataset_id,
                     "group_variable": group_variable,
                     "outcome_variables": outcome_variables,
                     "is_paired": is_paired,
                     "subject_variable": subject_variable,
                     "case_sets": result.tables.get("case_sets", {}),
+                    "test_details": result.tables.get("test_details", {}),
                     "policy": policy,
                     "multiplicity": family,
                     "summary": result.summary,

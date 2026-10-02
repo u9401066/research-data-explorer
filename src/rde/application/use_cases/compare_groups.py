@@ -83,6 +83,7 @@ class CompareGroupsUseCase:
         tests: list[StatisticalTest] = []
         warnings: list[str] = []
         case_sets: dict[str, Any] = {}
+        test_details: dict[str, Any] = {}
 
         for var_name in outcome_variables:
             # Find variable type
@@ -168,13 +169,37 @@ class CompareGroupsUseCase:
                 case_sets[var_name]["group_order"] = [str(value) for value in group_order]
                 case_sets[var_name]["group_counts"] = group_sizes
 
-            # Get test recommendation from domain service
+            selection: dict[str, Any] = {}
+            if not is_paired and var.variable_type in (
+                VariableType.CATEGORICAL,
+                VariableType.BINARY,
+            ):
+                counts = pd.crosstab(engine_data[var_name], engine_data[group_variable])
+                if min(counts.shape) < 2:
+                    raise ValueError(
+                        f"{var_name}: categorical comparison requires two or more observed outcome levels and groups."
+                    )
+                expected = np.outer(counts.sum(axis=1), counts.sum(axis=0)) / counts.values.sum()
+                minimum_expected = float(expected.min())
+                sparse = minimum_expected < 5
+                if sparse and counts.shape != (2, 2):
+                    raise ValueError(
+                        f"{var_name}: sparse categorical table {counts.shape}; automatic Fisher exact supports only 2 by 2 tables. "
+                        "Specify an appropriate exact/permutation model or review the study plan; categories are not collapsed automatically."
+                    )
+                selection["minimum_expected_count"] = minimum_expected
+                selection["table_shape"] = list(counts.shape)
             recommendation = self._advisor.recommend_comparison_test(
                 outcome_type=var.variable_type,
                 group_count=actual_groups,
                 is_paired=is_paired,
-                is_normal=None,  # Will be checked by engine
+                is_normal=None,  # No distribution check is claimed for rank tests.
                 sample_sizes=group_sizes,
+                minimum_expected_count=selection.get("minimum_expected_count"),
+                contingency_shape=tuple(selection["table_shape"]) if selection else None,
+            )
+            selection.update(
+                {"rationale": recommendation.rationale, "assumptions": recommendation.assumptions}
             )
 
             # Execute via port
@@ -183,14 +208,38 @@ class CompareGroupsUseCase:
                 test_name=recommendation.test_name,
                 variables=engine_variables,
                 alpha=alpha,
+                **({"group_order": group_order} if not is_paired else {}),
             )
             if result.get("error"):
                 raise ValueError(f"{var_name}: {result['error']}")
-            if not all(
-                isinstance(result.get(key), (int, float)) and math.isfinite(result[key])
-                for key in ("p_value", "statistic")
+            if is_paired:
+                result["group_labels"] = [str(value) for value in group_order]
+                result["engine_variable_labels"] = dict(
+                    zip(engine_variables, result["group_labels"], strict=True)
+                )
+                if recommendation.test_name == "Wilcoxon signed-rank test":
+                    result["effect_direction"] = f"{group_order[1]} minus {group_order[0]}"
+            p = result.get("p_value")
+            statistic = result.get("statistic")
+            boundary_or = (
+                recommendation.test_name == "Fisher's exact test"
+                and statistic is None
+                and result.get("statistic_status") == "positive_infinity"
+                and result.get("effect_size") is None
+                and result.get("effect_size_status") == "positive_infinity"
+            )
+            if not (
+                isinstance(p, (int, float))
+                and math.isfinite(p)
+                and 0 <= p <= 1
+                and (
+                    boundary_or or isinstance(statistic, (int, float)) and math.isfinite(statistic)
+                )
             ):
                 raise ValueError(f"{var_name}: statistical engine returned no finite test result.")
+
+            test_details[var_name] = {**result, "selection": selection}
+            warnings.extend(f"{var_name}: {message}" for message in result.get("warnings", []))
 
             test = StatisticalTest(
                 test_name=recommendation.test_name,
@@ -203,12 +252,21 @@ class CompareGroupsUseCase:
                 variables_involved=(var_name, group_variable),
                 interpretation="Raw result; inference below uses the specified family correction and alpha.",
                 alpha=alpha,
+                statistic_status=result.get("statistic_status", "finite"),
+                effect_size_status=result.get(
+                    "effect_size_status",
+                    "finite" if result.get("effect_size") is not None else "not_estimated",
+                ),
+                effect_direction=result.get("effect_direction"),
+                group_labels=tuple(
+                    result.get("group_labels", [str(value) for value in group_order])
+                ),
             )
             tests.append(test)
 
             # Soft Constraint S-009: effect size reminder
             es_check = SoftConstraints.s009_effect_size_reminder(test.p_value, test.effect_size)
-            if not es_check.passed:
+            if not es_check.passed and not boundary_or:
                 warnings.append(f"[S-009] {var_name}: {es_check.suggestion}")
 
         from statsmodels.stats.multitest import multipletests
@@ -250,6 +308,7 @@ class CompareGroupsUseCase:
             summary=self._build_summary(tests),
             tables={
                 "case_sets": case_sets,
+                "test_details": test_details,
                 "multiplicity": family,
                 "missing_strategy": missing_strategy,
             },

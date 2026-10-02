@@ -276,67 +276,62 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
     def _use_scipy_backend(self) -> bool:
         return os.environ.get("RDE_STATS_BACKEND", "local-lite").lower() == "scipy"
 
-    def _normal_two_sided_p(self, z_value: float) -> float:
-        return max(0.0, min(1.0, math.erfc(abs(z_value) / math.sqrt(2.0))))
-
     def _normal_cdf(self, z_value: float) -> float:
         return max(0.0, min(1.0, 0.5 * (1.0 + math.erf(z_value / math.sqrt(2.0)))))
 
-    def _chi_square_sf_approx(self, statistic: float, dof: int) -> float:
-        if dof <= 0 or statistic <= 0:
-            return 1.0
-        z_value = ((statistic / dof) ** (1.0 / 3.0) - (1.0 - (2.0 / (9.0 * dof)))) / math.sqrt(
-            2.0 / (9.0 * dof)
-        )
-        return max(0.0, min(1.0, 0.5 * math.erfc(z_value / math.sqrt(2.0))))
-
-    def _rankdata_average(self, values: np.ndarray) -> np.ndarray:
-        order = np.argsort(values, kind="mergesort")
-        ranks = np.empty(len(values), dtype=float)
-        sorted_values = values[order]
-        i = 0
-        while i < len(values):
-            j = i + 1
-            while j < len(values) and sorted_values[j] == sorted_values[i]:
-                j += 1
-            ranks[order[i:j]] = (i + 1 + j) / 2.0
-            i = j
-        return ranks
-
-    def _mann_whitney_lite(self, a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
-        a = pd.to_numeric(pd.Series(a), errors="coerce").dropna().to_numpy(dtype=float)
-        b = pd.to_numeric(pd.Series(b), errors="coerce").dropna().to_numpy(dtype=float)
-        n1, n2 = len(a), len(b)
-        if n1 == 0 or n2 == 0:
-            return 0.0, 1.0
-        values = np.concatenate([a, b])
-        ranks = self._rankdata_average(values)
-        rank_sum_a = float(ranks[:n1].sum())
-        u1 = rank_sum_a - n1 * (n1 + 1) / 2.0
-        u2 = n1 * n2 - u1
-        u = min(u1, u2)
-        _, tie_counts = np.unique(values, return_counts=True)
-        tie_term = float(np.sum(tie_counts**3 - tie_counts))
-        n = n1 + n2
-        mean_u = n1 * n2 / 2.0
-        variance = n1 * n2 / 12.0 * ((n + 1) - tie_term / (n * (n - 1))) if n > 1 else 0
-        if variance <= 0:
-            return float(u), 1.0
-        z_value = (u - mean_u) / math.sqrt(variance)
-        return float(u), self._normal_two_sided_p(z_value)
-
     # ── individual test implementations ──────────────────────────────
+
+    @staticmethod
+    def _group_order(df: pd.DataFrame, group: str, requested=None) -> list:
+        observed = df[group].dropna().unique().tolist()
+        order = observed if requested is None else list(requested)
+        if (
+            len(order) != len(observed)
+            or not pd.Index(order).is_unique
+            or any(value not in observed for value in order)
+        ):
+            raise ValueError("group_order must contain every observed group exactly once.")
+        return order
+
+    def _comparison_groups(self, df: pd.DataFrame, variables: list[str], order=None):
+        outcome, group = variables[:2]
+        keys = self._group_order(df, group, order)
+        arrays = [
+            pd.to_numeric(df.loc[df[group] == key, outcome].dropna(), errors="raise").to_numpy(
+                dtype=float
+            )
+            for key in keys
+        ]
+        if any(not len(values) or not np.isfinite(values).all() for values in arrays):
+            raise ValueError(
+                "Each analyzed group requires finite observations; resolve exclusions first."
+            )
+        return keys, arrays
+
+    def _contingency_table(self, df: pd.DataFrame, variables: list[str], order=None):
+        outcome, group = variables[:2]
+        frame = df[[outcome, group]].dropna()
+        groups = self._group_order(frame, group, order)
+        levels = frame[outcome].unique().tolist()
+        if len(groups) < 2 or len(levels) < 2:
+            raise ValueError(
+                "A contingency comparison needs at least two observed groups and outcome levels."
+            )
+        # Preserve observed/explicit identity order, including zero cells, rather
+        # than silently sorting category codes or retaining unused factor levels.
+        return pd.crosstab(frame[outcome], frame[group]).reindex(
+            index=levels, columns=groups, fill_value=0
+        )
 
     def _ttest_ind(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
-        outcome, group = variables[0], variables[1]
-        groups = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
-        group_keys = list(groups.index)
-        if len(group_keys) < 2:
-            return {"error": f"Need ≥2 groups, found {len(group_keys)}."}
-
-        a, b = groups.iloc[0], groups.iloc[1]
+        group_keys, arrays = self._comparison_groups(df, variables, kw.get("group_order"))
+        if len(arrays) != 2:
+            return {
+                "error": f"Independent t-test requires exactly two groups; found {len(arrays)}."
+            }
+        a, b = arrays
         stat, p = stats.ttest_ind(a, b, equal_var=kw.get("equal_var", True))
         d = self._cohens_d(a, b)
 
@@ -348,6 +343,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size_name": "Cohen's d",
             "sample_sizes": [len(a), len(b)],
             "group_labels": [str(g) for g in group_keys[:2]],
+            "effect_direction": f"{group_keys[0]} minus {group_keys[1]}",
             "interpretation": self._interpret_comparison(p, d, "Cohen's d"),
         }
 
@@ -387,21 +383,21 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         }
 
     def _mann_whitney(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        outcome, group = variables[0], variables[1]
-        groups = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
-        group_keys = list(groups.index)
-        if len(group_keys) < 2:
-            return {"error": f"Need ≥2 groups, found {len(group_keys)}."}
+        import scipy
+        from scipy import stats
 
-        a, b = groups.iloc[0], groups.iloc[1]
-        if self._use_scipy_backend():
-            from scipy import stats
-
-            stat, p = stats.mannwhitneyu(a, b, alternative="two-sided")
-        else:
-            stat, p = self._mann_whitney_lite(a, b)
-        n = len(a) + len(b)
-        r = abs(stat - (len(a) * len(b) / 2)) / (len(a) * len(b)) if n > 0 else 0
+        group_keys, arrays = self._comparison_groups(df, variables, kw.get("group_order"))
+        if len(arrays) != 2:
+            return {"error": f"Mann–Whitney requires exactly two groups; found {len(arrays)}."}
+        a, b = arrays
+        has_ties = len(np.unique(np.concatenate([a, b]))) < len(a) + len(b)
+        method = "exact" if min(len(a), len(b)) <= 8 and not has_ties else "asymptotic"
+        stat, p = stats.mannwhitneyu(
+            a, b, alternative="two-sided", method=method, use_continuity=True
+        )
+        # SciPy U belongs to the FIRST sample. Ties contribute half a favorable
+        # pair. The signed dominance measure ranges from -1 through +1.
+        r = 2 * float(stat) / (len(a) * len(b)) - 1
 
         return {
             "test_name": "Mann-Whitney U",
@@ -411,6 +407,17 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size_name": "rank-biserial r",
             "sample_sizes": [len(a), len(b)],
             "group_labels": [str(g) for g in group_keys[:2]],
+            "effect_direction": f"{group_keys[0]} minus {group_keys[1]}",
+            "effect_definition": "P(first > second) - P(first < second); 2*U_first/(n_first*n_second)-1",
+            "engine": "scipy",
+            "engine_version": scipy.__version__,
+            "p_value_method": f"two-sided Mann–Whitney {method}"
+            + ("; tie and continuity correction" if method == "asymptotic" else ""),
+            "warnings": [
+                "Small samples with ties use an asymptotic p-value; an explicitly specified permutation analysis may be needed."
+            ]
+            if has_ties and min(len(a), len(b)) < 10
+            else [],
             "interpretation": self._interpret_comparison(p, r, "r"),
         }
 
@@ -486,9 +493,7 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
     def _anova(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
         from scipy import stats
 
-        outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
-        group_arrays = [g for g in groups_series]
+        group_keys, group_arrays = self._comparison_groups(df, variables, kw.get("group_order"))
         if len(group_arrays) < 2:
             return {"error": "ANOVA requires ≥2 groups."}
 
@@ -506,37 +511,19 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size": float(eta_sq),
             "effect_size_name": "eta-squared",
             "sample_sizes": [len(g) for g in group_arrays],
-            "group_labels": [str(k) for k in groups_series.index],
+            "group_labels": [str(k) for k in group_keys],
             "interpretation": self._interpret_comparison(p, eta_sq, "η²"),
         }
 
     def _kruskal(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        outcome, group = variables[0], variables[1]
-        groups_series = df.groupby(group)[outcome].apply(lambda x: x.dropna().values)
-        group_arrays = [g for g in groups_series]
+        import scipy
+        from scipy import stats
+
+        group_keys, group_arrays = self._comparison_groups(df, variables, kw.get("group_order"))
         if len(group_arrays) < 2:
             return {"error": "Kruskal-Wallis requires ≥2 groups."}
 
-        if self._use_scipy_backend():
-            from scipy import stats
-
-            stat, p = stats.kruskal(*group_arrays)
-        else:
-            values = np.concatenate(group_arrays)
-            ranks = self._rankdata_average(values)
-            start = 0
-            rank_sums = []
-            for group_values in group_arrays:
-                stop = start + len(group_values)
-                rank_sums.append(float(ranks[start:stop].sum()))
-                start = stop
-            n_total = len(values)
-            stat = (12.0 / (n_total * (n_total + 1.0))) * sum(
-                rank_sum**2 / len(group_values)
-                for rank_sum, group_values in zip(rank_sums, group_arrays, strict=False)
-                if len(group_values) > 0
-            ) - 3.0 * (n_total + 1.0)
-            p = self._chi_square_sf_approx(float(stat), len(group_arrays) - 1)
+        stat, p = stats.kruskal(*group_arrays)
         n = sum(len(g) for g in group_arrays)
         k = len(group_arrays)
         eta_h = (stat - k + 1) / (n - k) if (n - k) > 0 else 0
@@ -548,7 +535,15 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size": float(eta_h),
             "effect_size_name": "eta-squared (H)",
             "sample_sizes": [len(g) for g in group_arrays],
-            "group_labels": [str(k) for k in groups_series.index],
+            "group_labels": [str(k) for k in group_keys],
+            "engine": "scipy",
+            "engine_version": scipy.__version__,
+            "p_value_method": "Kruskal–Wallis tie-corrected H; chi-square asymptotic reference",
+            "warnings": [
+                "Some groups have fewer than five observations; the chi-square approximation may be inaccurate."
+            ]
+            if min(map(len, group_arrays)) < 5
+            else [],
             "interpretation": self._interpret_comparison(p, eta_h, "η²"),
         }
 
@@ -719,23 +714,11 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
         return result
 
     def _chi_squared(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        var1, var2 = variables[0], variables[1]
-        ct = pd.crosstab(df[var1], df[var2])
-        observed = ct.to_numpy(dtype=float)
-        dof = (observed.shape[0] - 1) * (observed.shape[1] - 1)
-        if self._use_scipy_backend():
-            from scipy import stats
+        import scipy
+        from scipy import stats
 
-            stat, p, dof, expected = stats.chi2_contingency(ct)
-        else:
-            row_totals = observed.sum(axis=1, keepdims=True)
-            col_totals = observed.sum(axis=0, keepdims=True)
-            total = observed.sum()
-            expected = row_totals @ col_totals / total if total else np.zeros_like(observed)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                components = np.where(expected > 0, (observed - expected) ** 2 / expected, 0.0)
-            stat = float(components.sum())
-            p = self._chi_square_sf_approx(stat, int(dof))
+        ct = self._contingency_table(df, variables, kw.get("group_order"))
+        stat, p, dof, expected = stats.chi2_contingency(ct, correction=False)
         n = ct.sum().sum()
         cramers_v = np.sqrt(stat / (n * (min(ct.shape) - 1))) if n > 0 and min(ct.shape) > 1 else 0
 
@@ -747,32 +730,65 @@ class ScipyStatisticalEngine(StatisticalEnginePort):
             "effect_size": float(cramers_v),
             "effect_size_name": "Cramér's V",
             "contingency_table": ct.to_dict(),
+            "contingency_matrix": ct.values.tolist(),
+            "outcome_labels": [str(value) for value in ct.index],
+            "group_labels": [str(value) for value in ct.columns],
+            "sample_sizes": ct.sum(axis=0).tolist(),
+            "expected_counts": expected.tolist(),
+            "engine": "scipy",
+            "engine_version": scipy.__version__,
+            "p_value_method": "Pearson chi-square asymptotic reference; no continuity correction",
+            "warnings": ["Expected cell counts below 5; asymptotic inference needs review."]
+            if np.any(expected < 5)
+            else [],
             "interpretation": self._interpret_comparison(p, cramers_v, "V"),
         }
 
     def _fisher_exact(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:
-        var1, var2 = variables[0], variables[1]
-        ct = pd.crosstab(df[var1], df[var2])
+        import scipy
+        from scipy import stats
+
+        ct = self._contingency_table(df, variables, kw.get("group_order"))
         if ct.shape != (2, 2):
             return {"error": "Fisher's exact test requires a 2×2 table."}
-        a, b, c, d = (float(value) for value in ct.to_numpy().ravel())
-        odds_ratio = (a * d) / (b * c) if b * c else float("inf")
-        if self._use_scipy_backend():
-            from scipy import stats
-
-            odds_ratio, p = stats.fisher_exact(ct)
-        else:
-            chi_result = self._chi_squared(df, variables)
-            p = float(chi_result.get("p_value", 1.0))
+        odds_ratio, p = stats.fisher_exact(ct, alternative="two-sided")
+        finite = np.isfinite(odds_ratio)
+        # A zero denominator is a valid boundary estimate, not missing analysis.
+        # Keep strict JSON and record the unbounded estimate explicitly.
+        estimate = float(odds_ratio) if finite else None
+        status = "finite" if finite else "positive_infinity"
+        labels = [str(value) for value in ct.index]
+        groups = [str(value) for value in ct.columns]
 
         return {
             "test_name": "Fisher's exact",
-            "statistic": float(odds_ratio),
+            "statistic": estimate,
+            "statistic_status": status,
             "p_value": float(p),
-            "effect_size": float(odds_ratio),
+            "effect_size": estimate,
+            "effect_size_status": status,
             "effect_size_name": "Odds Ratio",
             "contingency_table": ct.to_dict(),
-            "interpretation": self._interpret_comparison(p, odds_ratio, "OR"),
+            "contingency_matrix": ct.values.tolist(),
+            "outcome_labels": labels,
+            "group_labels": groups,
+            "sample_sizes": ct.sum(axis=0).tolist(),
+            "effect_direction": f"Odds of {labels[0]} versus {labels[1]}: {groups[0]} / {groups[1]}",
+            "effect_definition": "Sample odds ratio a*d/(b*c); rows=outcomes, columns=groups",
+            "engine": "scipy",
+            "engine_version": scipy.__version__,
+            "p_value_method": "two-sided Fisher exact (fixed margins)",
+            "interpretation": f"Raw two-sided exact p={p:.6g}; sample odds ratio="
+            + (
+                f"{estimate:.6g}."
+                if finite
+                else "+infinity (zero denominator; not a finite population effect estimate)."
+            ),
+            "warnings": []
+            if finite
+            else [
+                "Sample odds ratio is unbounded because of zero cells; no finite effect estimate or confidence interval is reported."
+            ],
         }
 
     def _shapiro(self, df: pd.DataFrame, variables: list[str], **kw: Any) -> dict[str, Any]:

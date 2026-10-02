@@ -42,6 +42,8 @@ class StatisticalAdvisor:
         is_normal: bool | None,
         sample_sizes: list[int],
         is_repeated_measures: bool = False,
+        minimum_expected_count: float | None = None,
+        contingency_shape: tuple[int, int] | None = None,
     ) -> TestRecommendation:
         """Choose the right comparison test."""
         min_n = min(sample_sizes) if sample_sizes else 0
@@ -105,25 +107,30 @@ class StatisticalAdvisor:
                     assumptions=["Independent observations"],
                 )
 
-        elif outcome_type == VariableType.CATEGORICAL:
-            if all(n >= 5 for n in sample_sizes):
+        elif outcome_type in (VariableType.CATEGORICAL, VariableType.BINARY):
+            if minimum_expected_count is None or contingency_shape is None:
+                return TestRecommendation(
+                    test_name="Manual review needed",
+                    rationale="Categorical selection requires actual expected cell counts; group sizes alone are insufficient.",
+                    assumptions=["Independent observations"],
+                )
+            if minimum_expected_count >= 5:
                 return TestRecommendation(
                     test_name="Chi-squared test",
-                    rationale="Categorical outcome, adequate cell counts.",
-                    assumptions=["Expected cell count >= 5"],
+                    rationale="All expected cell counts are at least 5; Pearson test without continuity correction.",
+                    assumptions=["Independent observations", "Expected cell count >= 5"],
                     alternative="Fisher's exact test",
+                )
+            if contingency_shape != (2, 2):
+                return TestRecommendation(
+                    test_name="Manual review needed",
+                    rationale="Sparse tables beyond 2 by 2 require a specified exact or permutation model.",
+                    assumptions=["Independent observations"],
                 )
             return TestRecommendation(
                 test_name="Fisher's exact test",
-                rationale="Categorical outcome, small expected cell counts.",
-                assumptions=[],
-            )
-
-        elif outcome_type == VariableType.BINARY:
-            return TestRecommendation(
-                test_name="Chi-squared test" if min_n >= 5 else "Fisher's exact test",
-                rationale="Binary outcome.",
-                assumptions=["Expected cell count >= 5"] if min_n >= 5 else [],
+                rationale="At least one expected cell count below 5 in a 2 by 2 table.",
+                assumptions=["Independent observations"],
             )
 
         return TestRecommendation(

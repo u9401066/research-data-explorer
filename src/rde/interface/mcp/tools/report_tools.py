@@ -2046,6 +2046,35 @@ def _comparison_results_markdown(results: dict | None) -> str:
                 ["終點", "檢定", "實際 n / pairs", "排除", "原始 p", "校正 p", "α", "結果"], rows
             )
         )
+        for test in record["tests"]:
+            outcome = (test.get("variables") or ["?"])[0]
+            details = record.get("test_details", {}).get(outcome, {})
+            if not details:
+                continue
+            effect = (
+                "+∞（零儲存格造成樣本勝算比分母為零；不代表母體效果無限大）"
+                if test.get("effect_size_status") == "positive_infinity"
+                else number(test.get("effect_size"))
+            )
+            lines.append(f"**{outcome} — 效果量與方法**")
+            labels = test.get("group_labels", [])
+            sizes = test.get("sample_sizes", [])
+            if len(labels) == len(sizes):
+                lines.append(
+                    "組別與實際納入數："
+                    + "；".join(f"{label}: n={n}" for label, n in zip(labels, sizes))
+                )
+            lines.append(
+                f"{test.get('effect_size_name') or '效果量'} = {effect}；此比較未估計效果量信賴區間。"
+            )
+            if test.get("effect_direction"):
+                lines.append(f"方向／參照：{test['effect_direction']}")
+            if details.get("p_value_method"):
+                lines.append(f"p 值計算：{details['p_value_method']}")
+            if details.get("effect_definition"):
+                lines.append(f"定義：{details['effect_definition']}")
+            for warning in details.get("warnings", []):
+                lines.append(f"方法限制：{warning}")
         lines.append(f"來源：`{record['artifact']}`；校正範圍僅此呼叫，其他模型／探索另列。")
     return "\n\n".join(lines)
 
