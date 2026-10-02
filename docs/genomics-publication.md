@@ -2,9 +2,9 @@
 
 Development checkpoint, 2026-10-02. RDE remains 0.5.0. The rendering core and
 governed multi-source MCP handoff are implemented and tested through real
-Workbench CSV/Excel intake and pinned R execution. The Workbench workflow still
-needs automatic publication, checkpoint reuse, journal UI and public airway
-analysis. This development branch is not deployed and does not establish a
+Workbench CSV/Excel intake and pinned R execution. Workbench automatic publication,
+checkpoint reuse and journal UI now pass synthetic browser/restart tests; public
+airway analysis still follows. This development branch is not deployed and does not establish a
 completed patient-level RDE analysis.
 
 `rde.infrastructure.genomics.contract.publication_result` checks complete saved
@@ -118,3 +118,24 @@ restart without redraw and a sealed JSON receipt above 16 MiB. The pinned
 Workbench's external stdio integration additionally kills an actual renderer
 and restores a new process; it covers three-source CSV/Excel and two-source paired
 counts without gene sets. No public biological dataset has been analyzed here.
+
+## Workbench numerical checkpoints
+
+When supplied, `execution-origin.json` and `execution-checkpoint.json` must both
+be present and match their file hashes. The importer verifies the original and
+current execution IDs, approved-plan hash, fixed R image/input/script and complete
+output inventory. Every role pins dataset ID, raw bytes, schema, filename and
+selected worksheet, including the primary counts workbook. Reused results retain
+the original R execution bytes; their current render has a new job/node identity.
+External saved sources without Workbench checkpoint lineage remain supported;
+the optional lineage is never an unchecked display-only flag.
+
+`workbench-checkpoint.zip` is a genuine synthetic Workbench run with deliberately
+failed rendering, service restart and numerical reuse, SHA256
+`046452fb160babe1fd237c195e20c35572fac6eb0b874d4202c00de4138c2960`.
+It preserves all original R/source bytes. Fifteen additional checks accept genuine
+reuse and reject self-rehashed false identities, missing lineage, changed counts,
+metadata, sets, worksheets, role swaps and member locations. Full suite: 946 passed,
+62 skipped, 3,550 existing dependency warnings. Workbench additionally verifies
+that corrupt vault data blocks reuse without another R execution. This is provenance
+consistency, not a cryptographic approval signature or biological validation.

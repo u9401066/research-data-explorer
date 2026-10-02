@@ -24,7 +24,11 @@ def tool(name, args, *, error=False):
     return text if error or name == "init_project" else json.loads(text)
 
 
-def prepare():
+CHECKPOINT_FIXTURE = FIXTURE.with_name("workbench-checkpoint.zip")
+CHECKPOINT_SHA = "046452fb160babe1fd237c195e20c35572fac6eb0b874d4202c00de4138c2960"
+
+
+def prepare(fixture=FIXTURE, expected_sha=FIXTURE_SHA):
     tool(
         "init_project",
         {
@@ -33,11 +37,11 @@ def prepare():
         },
     )
     project = get_session().get_project()
-    assert w.file_hash(FIXTURE) == FIXTURE_SHA
+    assert w.file_hash(fixture) == expected_sha
     source_id = str(uuid.uuid4())
     directory = project.output_dir / "incoming/genomics" / source_id
     directory.mkdir(parents=True)
-    with zipfile.ZipFile(FIXTURE) as archive:
+    with zipfile.ZipFile(fixture) as archive:
         archive.extractall(directory)
     path = directory / "bundle.json"
     bundle = json.loads(path.read_text())
@@ -72,6 +76,94 @@ def reseal(directory, args, changed=()):
         bundle["files"][name] = {"sha256": w.file_hash(path), "bytes": path.stat().st_size}
     write(directory / "bundle.json", bundle)
     args["expected_bundle_sha256"] = w.file_hash(directory / "bundle.json")
+
+
+def test_restarted_workbench_reuses_exact_r_bytes_with_all_source_lineage():
+    project, directory, args = prepare(CHECKPOINT_FIXTURE, CHECKPOINT_SHA)
+    origin = w.load_json(directory / "execution-origin.json")
+    assert origin["kind"] == "reused"
+    assert origin["identity"]["job_id"] != origin["origin"]["job_id"]
+    before = (directory / "engine/numeric-result.json").read_bytes()
+    imported = tool("import_genomics_source", args)
+    saved, result = w.read_source(project, args["source_id"])
+    assert saved == imported
+    assert result["source"]["execution_origin"] == origin
+    assert (
+        w.source_directory(project, args["source_id"]) / "engine/numeric-result.json"
+    ).read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "problem",
+    [
+        "new_execution",
+        "original_project",
+        "current_job",
+        "plan",
+        "inventory",
+        "member",
+        "location",
+        "missing_origin",
+        "missing_checkpoint",
+        "counts_hash",
+        "metadata_hash",
+        "sets_hash",
+        "sheet",
+        "role_swap",
+    ],
+)
+def test_mcp_rejects_rehashed_checkpoint_with_false_lineage_or_any_source_binding(problem):
+    project, directory, args = prepare(CHECKPOINT_FIXTURE, CHECKPOINT_SHA)
+    origin_path, checkpoint_path = (
+        directory / "execution-origin.json",
+        directory / "execution-checkpoint.json",
+    )
+    origin, checkpoint = w.load_json(origin_path), w.load_json(checkpoint_path)
+    if problem == "new_execution":
+        origin["kind"] = "executed"
+    elif problem == "original_project":
+        checkpoint["identity"]["project_id"] = str(uuid.uuid4())
+        origin["origin"] = checkpoint["identity"]
+    elif problem == "current_job":
+        origin["identity"]["job_id"] = str(uuid.uuid4())
+    elif problem == "plan":
+        checkpoint["binding"]["planSha256"] = "0" * 64
+    elif problem == "inventory":
+        checkpoint["files"].pop("session.txt")
+    elif problem == "member":
+        checkpoint["files"]["numeric-result.json"]["sha256"] = "0" * 64
+    elif problem == "location":
+        checkpoint["files"]["numeric-result.json"]["sourcePath"] = (
+            "datasets/other/numeric-result.json"
+        )
+    elif problem.endswith("_hash"):
+        role = {
+            "counts_hash": "counts",
+            "metadata_hash": "sample_metadata",
+            "sets_hash": "gene_sets",
+        }[problem]
+        checkpoint["binding"]["sources"][role]["sha256"] = "0" * 64
+    elif problem == "sheet":
+        checkpoint["binding"]["sources"]["sample_metadata"]["sheet"] = "Unreviewed sheet"
+    elif problem == "role_swap":
+        sources = checkpoint["binding"]["sources"]
+        sources["sample_metadata"], sources["gene_sets"] = (
+            sources["gene_sets"],
+            sources["sample_metadata"],
+        )
+    write(checkpoint_path, checkpoint)
+    origin["checkpointSha256"] = w.file_hash(checkpoint_path)
+    write(origin_path, origin)
+    reseal(directory, args, ["execution-checkpoint.json", "execution-origin.json"])
+    if problem.startswith("missing_"):
+        bundle = w.load_json(directory / "bundle.json")
+        bundle["files"].pop(
+            "execution-origin.json" if problem == "missing_origin" else "execution-checkpoint.json"
+        )
+        write(directory / "bundle.json", bundle)
+        reseal(directory, args)
+    tool("import_genomics_source", args, error=True)
+    assert not w.source_directory(project, args["source_id"]).exists()
 
 
 @pytest.mark.parametrize(

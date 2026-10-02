@@ -1,0 +1,61 @@
+{
+  "schema": "genomics-checkpoint-fixture-v1",
+  "scope": "Synthetic software verification only; no biological findings",
+  "producer": "Workbench genomics-retry.test.ts: real R, injected render failure, service restart and numerical reuse",
+  "sha256": "046452fb160babe1fd237c195e20c35572fac6eb0b874d4202c00de4138c2960",
+  "bytes": 1111621,
+  "bundle_sha256": "abc095e6ba967e09424fc37f0ff4406cac44e29f23877959b6167c0e6c7293a5",
+  "source_roles": {
+    "counts": {
+      "dataset_id": "e7b5035b-8089-4ac6-9a23-f18926ee79b2",
+      "file": "sources/counts/data.csv",
+      "schema_file": "sources/counts/source-schema.json",
+      "table_file": "sources/counts/source-table.json",
+      "filename": "counts.csv",
+      "sheet": null,
+      "sha256": "64461cd3a90a2f2368a7e97d99d23d7cd47a996abd3a41137dcb8b04ced2a0ba",
+      "schema_sha256": "71ace49449bcbfb64d59c74b0acb892db62befbebdac1c82c667e39839621c63"
+    },
+    "sample_metadata": {
+      "dataset_id": "3ead9de8-f058-4bfb-a18b-0af830684161",
+      "file": "sources/sample_metadata/data.csv",
+      "schema_file": "sources/sample_metadata/source-schema.json",
+      "table_file": "sources/sample_metadata/source-table.json",
+      "filename": "samples.csv",
+      "sheet": null,
+      "sha256": "3bcb1f669d0f014924787165ebc21dc6b4a01f89ec06e67e9869bc24c689b7cd",
+      "schema_sha256": "e3a4a97df57a3c941219c994ffb68368d0c4920ce7f35292d634e5c0f97a3abc"
+    },
+    "gene_sets": {
+      "dataset_id": "cb24901e-9aa0-41c0-be77-1962a0cf7b6f",
+      "file": "sources/gene_sets/data.csv",
+      "schema_file": "sources/gene_sets/source-schema.json",
+      "table_file": "sources/gene_sets/source-table.json",
+      "filename": "sets.csv",
+      "sheet": null,
+      "sha256": "724b987dbf1b39a0b27f060a30e29cb532c91e09f384f5dcb61c8f483a0ed2de",
+      "schema_sha256": "62e9b07eb40ff8123ee8eda5aa4cf9cc951b58b70c1ff506ad667d07f829bf58"
+    }
+  },
+  "execution_origin": {
+    "schema": "workbench-genomics-execution-origin-v1",
+    "kind": "reused",
+    "identity": {
+      "project_id": "a2287ca4-efd3-428d-83c0-5cb79136ce72",
+      "dataset_id": "e7b5035b-8089-4ac6-9a23-f18926ee79b2",
+      "plan_id": "851199cf-6ce7-48a6-9ded-e5cf4cf54c65",
+      "job_id": "c7a2ae84-cc8c-4f9b-8c30-e5ddb60eacca",
+      "node_id": "a07b4719-b853-4656-89ee-554ba5cbe042"
+    },
+    "origin": {
+      "project_id": "a2287ca4-efd3-428d-83c0-5cb79136ce72",
+      "dataset_id": "e7b5035b-8089-4ac6-9a23-f18926ee79b2",
+      "plan_id": "851199cf-6ce7-48a6-9ded-e5cf4cf54c65",
+      "job_id": "2620e082-1086-4f30-905c-1d47da3eaac2",
+      "node_id": "13bde25f-deef-4531-b54a-4d2b7e50eaf3"
+    },
+    "checkpointFile": "genomics-origin-checkpoint.json",
+    "checkpointArtifactId": "e33f2aaf-a507-4ccc-8aa0-1382fdde8e68",
+    "checkpointSha256": "319f2ca8f5ffb21547884ffdf60c48e4d3b74b47e7b5a2365707c3b85d7d74ba"
+  }
+}

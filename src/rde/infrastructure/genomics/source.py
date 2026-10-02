@@ -279,6 +279,88 @@ def verify_membership(directory, files, audit, options, drawing):
         verify_csv(w.safe_path(directory, "engine/" + filename), rows)
 
 
+def verify_execution_origin(bundle, read, engine_hashes, approved, execution):
+    """Validate explicit Workbench checkpoint/reuse lineage when supplied.
+
+    External R sources need not use Workbench's retry store. A supplied lineage
+    is nevertheless genomics, never an unchecked advisory 'reused' flag.
+    """
+    files, identity = bundle["files"], bundle["identity"]
+    names = {"execution-origin.json", "execution-checkpoint.json"}
+    present = names & files.keys()
+    if not present:
+        return None
+    require(present == names, "incomplete execution origin")
+    origin, checkpoint = read("execution-origin.json"), read("execution-checkpoint.json")
+    require(
+        origin.get("schema") == "workbench-genomics-execution-origin-v1"
+        and checkpoint.get("schema") == "workbench-genomics-checkpoint-v1",
+        "unsupported execution checkpoint",
+    )
+    require(origin.get("identity") == identity, "retry belongs to another execution")
+    old = checkpoint.get("identity", {})
+    require(set(old) == set(identity) and origin.get("origin") == old, "invalid original execution")
+    for value in old.values():
+        w.canonical_id(value)
+    for key in ("project_id", "dataset_id", "plan_id"):
+        require(old[key] == identity[key], "checkpoint belongs to another approved source")
+    kind = origin.get("kind")
+    require(kind in {"executed", "reused"}, "unknown execution origin kind")
+    require(
+        (
+            kind == "executed"
+            and old == identity
+            and origin.get("checkpointFile") == "genomics-checkpoint.json"
+        )
+        or (
+            kind == "reused"
+            and old["job_id"] != identity["job_id"]
+            and old["node_id"] != identity["node_id"]
+            and origin.get("checkpointFile") == "genomics-origin-checkpoint.json"
+        ),
+        "execution/reuse identity differs",
+    )
+    w.canonical_id(origin.get("checkpointArtifactId"))
+    require(
+        origin.get("checkpointSha256") == files["execution-checkpoint.json"]["sha256"],
+        "checkpoint bytes differ from execution origin",
+    )
+    binding = checkpoint.get("binding", {})
+    require(
+        binding
+        == {
+            "planSha256": files["approved-plan.json"]["sha256"],
+            "sources": {
+                role: {
+                    key: source.get(key)
+                    for key in ("dataset_id", "sha256", "schema_sha256", "filename", "sheet")
+                }
+                for role, source in bundle["source"].items()
+            },
+            "image": execution["image"],
+            "inputSha256": execution["inputSha256"],
+            "scriptSha256": execution["scriptSha256"],
+        },
+        "checkpoint numerical binding differs",
+    )
+    inventory = checkpoint.get("files", {})
+    require(
+        set(inventory) == set(engine_hashes) | {"output-hashes.json"},
+        "checkpoint inventory differs",
+    )
+    prefix = f"datasets/{old['dataset_id']}/runs/{old['job_id']}/{old['node_id']}/output/"
+    for name, expected in inventory.items():
+        w.canonical_id(expected.get("artifactId"))
+        require(
+            expected.get("sha256") == files[f"engine/{name}"]["sha256"]
+            and expected.get("bytes") == files[f"engine/{name}"]["bytes"]
+            and isinstance(expected.get("sourcePath"), str)
+            and expected["sourcePath"].replace("\\", "/") == prefix + name,
+            "checkpoint member or original location differs",
+        )
+    return origin
+
+
 def verify(project, source_id, directory, expected):
     w.canonical_id(source_id)
     require(isinstance(expected, str) and w.HEX.fullmatch(expected), "bundle SHA256 required")
@@ -509,9 +591,14 @@ def verify(project, source_id, directory, expected):
             "R output binding differs",
         )
     require(
-        set(files) == set(declared_paths) | required | {"engine/" + n for n in engine_hashes},
+        set(files)
+        == set(declared_paths)
+        | required
+        | {"engine/" + n for n in engine_hashes}
+        | ({"execution-origin.json", "execution-checkpoint.json"} & files.keys()),
         "unexpected or missing source files",
     )
+    execution_origin = verify_execution_origin(bundle, read, engine_hashes, approved, execution)
     verify_tables(tables, audit, options)
     require(result.get("contract") == "genomics-deseq2-v1", "unsupported numerical contract")
     for key, value in numeric_result.items():
@@ -596,6 +683,7 @@ def verify(project, source_id, directory, expected):
             "numeric_file_sha256": files["engine/publication-data.json"]["sha256"],
             "image": execution["image"],
             "script_sha256": execution["scriptSha256"],
+            **({"execution_origin": execution_origin} if execution_origin else {}),
             "verification_scope": "saved source bytes, trusted adapter parsed tables, approved roles/options, complete R input and outputs; not biological truth, independent extraction or patient EDA audit",
         },
     )
