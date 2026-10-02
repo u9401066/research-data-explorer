@@ -40,8 +40,8 @@ execution; those actions remain separately gated in the application.
    and are **neither included nor excluded**. Invalid counts, duplicated arm IDs,
    unknown flags, body formulas/merges, inconsistent metadata, disconnected
    networks and unsupported limits also block. No effect or SE is calculated
-   in a draft. Identity labels with surrounding whitespace are currently rejected;
-   reconciliation requires a new explicit source mapping, not silent trimming.
+   in a draft. Long or whitespace-bearing study identities require an explicit
+   `study_records` correspondence; they are never trimmed or shortened silently.
 6. `approve` pins the plan receipt SHA256 and records reviewer, note and all five
    explicit confirmations. This records an assertion of review, not a verified
    human identity/signature or proof that the assumptions are clinically valid.
@@ -56,6 +56,32 @@ approvals, results, CSVs and attempt records are immutable under
 `artifacts/evidence_arm_preparation/<preparation_uuid>/`. The workflow shares
 the external-evidence lock and appends events to
 `artifacts/evidence_publication/decision_log.jsonl`; it never advances EDA phases.
+
+## Per-study identity and background review
+
+`specification.study_records` associates exact `source_study` text (including
+whitespace and line breaks, up to 8000 characters) with an explicitly reviewed
+`study_id` of 1–80 characters and a correspondence `reason`. Missing source codes,
+absent raw identities and collisions with another reviewed or unmapped study
+block approval. Excluded studies also participate in collision detection. Source
+groups never merge merely because a new ID collides; source order stays stable.
+
+Each record's `fields` can replace a study's report ID, source, population, effect
+modifiers, risk category, bias reason or design. Every field needs `value`,
+`reason` and `evidence` containing a DOI/PMID/HTTP/synthetic `source`, exact textual
+`locator` and nullable `sha256`. Duplicate fields and duplicate identity mappings
+are rejected. The original metadata and coordinates remain alongside effective
+values and their explicit per-study sources. Other studies retain their original
+column/constant mapping.
+
+`endpoint_timepoint`, `trial_duration`, `dose_context` and `risk_domains` preserve
+source context only. They do not change the shared endpoint/time window, decide
+eligibility, add model covariates or convert an original bias instrument. Context
+survives in the frozen plan, review and numerical derivations. External citations
+and supplied hashes are reviewer-provided assertions, **not** externally verified
+documents; the executor performs no retrieval. The original uploaded source still
+has its independent exact-byte integrity checks. Adding these fields does not
+rewrite historical plans, approval receipts or completed results.
 
 ## Arithmetic and provenance
 
@@ -141,3 +167,13 @@ calculation, restarts the service and MCP, recovers the same receipt and dataset
 then completes synthesis and publication with all original lineage. Desktop and
 mobile browser QA approves only synthetic engineering data; the real Cipriani
 workbook retains all 1199 unresolved arms and cannot be approved.
+
+Per-study review adds regression coverage for exact long/newline identities,
+collisions with included and excluded trials, missing/absent identities,
+duplicate fields and malformed citations. Synthetic MCP approval, execution and
+replay preserve raw metadata, context, source coordinates and reviewed IDs without
+changing the shared endpoint or numerical policies. The full suite on 2026-10-02
+passes 884 tests with 66 optional skips; 54 are focused arm-preparation tests.
+Workbench additionally passes four real MCP/R integration cases, including
+long-field pagination, unchanged completed receipts after service restart and
+publication with the complete nine-file preparation closure.

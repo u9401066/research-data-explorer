@@ -41,12 +41,14 @@ METHOD = {
     "merge": "If explicitly selected: sum disjoint raw arms of the same treatment before correction; preserve every raw row.",
     "multiarm": "All unordered treatment pairs, with consistent study-level arm contributions; downstream engine must account for shared-arm covariance.",
     "direction": "Treatment minus comparator on the natural log scale. Clinical benefit direction is not inferred.",
+    "study_records": "Exact raw study text maps one-to-one to an explicit short ID. Never trims, merges or truncates source identities automatically. Each background replacement retains the original value, reason and reviewer-provided citation. Endpoint time, trial duration, dose context and original bias domains are review context, not automatic selection or model covariates.",
     "limits": "5000 source rows; 500 included studies; 40 treatments; 2000 comparisons; counts <= 2^53-1, at most 24 significant digits and 20 decimal places.",
     "limitations": [
         "Wald inverse-variance contrasts, including corrected sparse cells, differ from a binomial likelihood model.",
         "Author-imputed fractional events are estimates, not observed integer responders; their extra uncertainty is not modeled.",
         "Multiple source reports must be reconciled upstream; source identity and arithmetic do not prove study independence.",
         "Approval records the reviewer's assertions; dose eligibility, denominators, follow-up, bias and original source truth require substantive review.",
+        "External study citations and optional SHA256 values are reviewer-provided assertions; this preparation tool does not retrieve or verify those external documents.",
     ],
 }
 
@@ -110,6 +112,37 @@ def _review(grid, spec):
     missing = {m.value: m.meaning for m in spec.missing_codes}
     vocabulary = {t.raw: t for t in spec.treatments}
     overrides = {r.row: r for r in spec.row_decisions}
+    records = {r.source_study: r for r in spec.study_records}
+    raw_studies = list(
+        dict.fromkeys(
+            values[spec.columns.study - 1] if spec.columns.study <= len(values) else ""
+            for values in grid["rows"][spec.first_data_row - 1 : spec.last_data_row]
+        )
+    )
+    for raw_id in records:
+        if raw_id not in raw_studies:
+            issue(
+                "unknown_study_record",
+                "A study review refers to no exact raw study in the selected range.",
+                source_study_id=raw_id,
+            )
+        if raw_id in missing:
+            issue(
+                "missing_study_record",
+                "A missing-value code cannot identify a study review.",
+                source_study_id=raw_id,
+            )
+    resolved = defaultdict(list)
+    for raw_id in raw_studies:
+        resolved[records[raw_id].study_id if raw_id in records else raw_id].append(raw_id)
+    for label, raw_ids in resolved.items():
+        if len(raw_ids) > 1:
+            issue(
+                "study_identity_collision",
+                "Reviewed IDs would merge distinct source studies; use separate IDs and reconcile reports explicitly.",
+                study_id=label,
+                source_study_ids=sorted(raw_ids),
+            )
     identities, groups = set(), defaultdict(list)
     for row in range(spec.first_data_row, spec.last_data_row + 1):
         values = grid["rows"][row - 1]
@@ -118,6 +151,22 @@ def _review(grid, spec):
             return values[column - 1] if column <= len(values) else ""
 
         raw = {name: cell(column) for name, column in columns.items() if column is not None}
+        record = records.get(raw["study"])
+        original_metadata = {
+            name: value["value"] if value["kind"] == "constant" else cell(value["column"])
+            for name, value in metadata.items()
+        }
+        effective_metadata = dict(original_metadata)
+        effective_sources = dict(metadata)
+        for field in record.fields if record else []:
+            if field.field in metadata:
+                effective_metadata[field.field] = field.value
+                effective_sources[field.field] = {
+                    "kind": "study_record",
+                    "source_study": raw["study"],
+                    **field.model_dump(),
+                    "external_source_verification": "reviewer_provided_not_verified_by_executor",
+                }
         treatment = vocabulary.get(raw["treatment"])
         override = overrides.get(row)
         choice = override or treatment
@@ -130,18 +179,17 @@ def _review(grid, spec):
                 for name, col in columns.items()
                 if col is not None
             },
-            "study_id": raw["study"],
+            "study_id": record.study_id if record else raw["study"],
+            "study_record": record.model_dump() if record else None,
             "arm_id": raw["arm"],
             "treatment": treatment.treatment if treatment else None,
             "decision": decision,
             "reason": choice.reason if choice else "No explicit treatment or row decision.",
             "decision_source": "row" if override else "treatment" if treatment else "unresolved",
             "missing": {name: missing[value] for name, value in raw.items() if value in missing},
-            "metadata": {
-                name: value["value"] if value["kind"] == "constant" else cell(value["column"])
-                for name, value in metadata.items()
-            },
-            "metadata_sources": metadata,
+            "original_metadata": original_metadata,
+            "metadata": effective_metadata,
+            "metadata_sources": effective_sources,
         }
         arms.append(arm)
         if decision == "exclude":
@@ -162,13 +210,14 @@ def _review(grid, spec):
                 row=row,
             )
         for key in ("study", "arm"):
-            if not _label(raw[key]) or raw[key] in missing:
+            value = arm["study_id"] if key == "study" else raw[key]
+            if not _label(value) or raw[key] in missing or value in missing:
                 issue(
                     "invalid_identity",
                     f"{key} must be an explicit, trimmed label (1-80 characters).",
                     row=row,
                 )
-        identity = (raw["study"], raw["arm"])
+        identity = (arm["study_id"], raw["arm"])
         if identity in identities:
             issue(
                 "duplicate_arm",
@@ -237,10 +286,15 @@ def _review(grid, spec):
         arm["valid"] = len(errors) == before
         groups[raw["study"]].append(arm)
 
-    for study_id, source_arms in groups.items():
+    for source_study_id, source_arms in groups.items():
+        study_id = source_arms[0]["study_id"]
         selected = [a for a in source_arms if a["decision"] == "include"]
         study = {
             "study_id": study_id,
+            "source_study_id": source_study_id,
+            "study_record": records[source_study_id].model_dump()
+            if source_study_id in records
+            else None,
             "source_rows": [a["row"] for a in source_arms],
             "excluded_rows": [a["row"] for a in source_arms if a["decision"] == "exclude"],
             "decision": "exclude",
@@ -415,6 +469,8 @@ def calculate(reviewed, spec: BinaryArmSpec):
                 )
             derivation = {
                 "study_id": study["study_id"],
+                "source_study_id": study["source_study_id"],
+                "study_record": study["study_record"],
                 "correction_per_cell": str(correction),
                 "arms": contributions,
             }

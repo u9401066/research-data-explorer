@@ -33,7 +33,7 @@ def call(arguments, error=False):
     return response.content[0].text if error else json.loads(response.content[0].text)
 
 
-def setup(options=None):
+def setup(options=None, source_bytes=None):
     asyncio.run(
         create_server().call_tool(
             "init_project",
@@ -45,7 +45,9 @@ def setup(options=None):
     prep = str(uuid.uuid4())
     incoming = project.output_dir / "incoming/evidence-arms" / prep / "source.csv"
     incoming.parent.mkdir(parents=True)
-    incoming.write_bytes((FIXTURES / "source.csv").read_bytes())
+    incoming.write_bytes(
+        source_bytes if source_bytes is not None else (FIXTURES / "source.csv").read_bytes()
+    )
     request = {
         "op": "draft",
         "preparation_id": prep,
@@ -498,3 +500,146 @@ def test_portable_arm_source_rejects_broken_or_relabelled_lineage(tmp_path, prob
         (directory / "source-schema.json").write_text(json.dumps({"armOrigin": origin}))
     with pytest.raises((ValueError, OSError)):
         verify(bundle, directory, options)
+
+
+def study_field(name="population", value="Synthetic reviewed population"):
+    return {
+        "field": name,
+        "value": value,
+        "reason": "Explicit synthetic source review, not a clinical determination.",
+        "evidence": {
+            "source": "synthetic://study-record-qa",
+            "locator": "Appendix page 8, trial table row 2",
+            "sha256": "a" * 64,
+        },
+    }
+
+
+def study_record(raw="s1", identity="Reviewed-1"):
+    return {
+        "source_study": raw,
+        "study_id": identity,
+        "reason": "Explicit correspondence; preserve original name and coordinates.",
+        "fields": [study_field()],
+    }
+
+
+def test_per_study_source_review_retains_raw_identity_and_context_through_mcp(monkeypatch):
+    raw_id = "  Long source trial " + "x" * 100 + "\nsecond line  "
+    rows = list(csv.reader(StringIO((FIXTURES / "source.csv").read_text())))
+    for row in rows[2:7]:
+        row[0] = raw_id
+        row[6] = raw_id
+    serialized = StringIO(newline="")
+    csv.writer(serialized).writerows(rows)
+    source_bytes = serialized.getvalue().encode()
+    options = spec()
+    record = study_record(raw_id)
+    record["fields"].extend(
+        [
+            study_field("report_id", "Reviewed report 1"),
+            study_field("endpoint_timepoint", "8 weeks, source endpoint"),
+            study_field("trial_duration", "10 weeks, includes a run-in period"),
+            study_field("risk_domains", "Stated but not tested; retained original wording"),
+        ]
+    )
+    options["study_records"] = [record]
+    project, identity, request, plan = setup(options, source_bytes)
+    assert plan["ready_for_approval"]
+    root = workflow.directory(project, request["preparation_id"])
+    grid = workflow.w.load_json(root / "grid.json")
+    review = workflow.w.load_json(root / "review.json")
+    saved_plan = workflow.w.load_json(root / "plan.json")
+    assert saved_plan["specification"]["study_records"] == [record]
+    assert grid["rows"][2][0] == raw_id
+    arm = review["arms"][0]
+    assert arm["raw"]["study"] == raw_id
+    assert arm["coordinates"]["study"] == {"row": 3, "column": 1}
+    assert arm["study_id"] == "Reviewed-1"
+    assert arm["original_metadata"]["report_id"] == raw_id
+    assert arm["metadata"]["report_id"] == "Reviewed report 1"
+    assert (
+        arm["metadata_sources"]["population"]["external_source_verification"]
+        == "reviewer_provided_not_verified_by_executor"
+    )
+    assert review["arms"][5]["metadata"]["population"] == options["metadata"]["population"]["value"]
+    assert "trial_duration" not in arm["metadata"]
+    assert arm["study_record"]["fields"] == record["fields"]
+    approval = approve(identity, request, plan)
+    run_request = execute_request(request, plan, approval)
+    run = call({**identity, "request": run_request})
+    result = workflow.w.load_json(root / "runs" / run["run_id"] / "result.json")
+    assert result["derivations"][0]["source_study_id"] == raw_id
+    assert result["derivations"][0]["study_record"] == record
+    assert result["contrasts"][0]["study_id"] == "Reviewed-1"
+    assert result["contrasts"][0]["population"] == record["fields"][0]["value"]
+    assert result["contrasts"][0]["timepoint"] == options["timepoint"]
+    assert result["summary"]["planned_contrasts"] == 4
+    snapshot = {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    monkeypatch.setattr(
+        engine, "calculate", lambda *_: pytest.fail("Do not recalculate saved review")
+    )
+    assert call({**identity, "request": run_request}) == run
+    assert snapshot == {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+@pytest.mark.parametrize("target", ["s2", "s4"])
+def test_study_identity_collision_never_merges_included_or_excluded_trials(target):
+    options = spec()
+    options["study_records"] = [study_record(identity=target)]
+    project, identity, request, plan = setup(options)
+    review = workflow.w.load_json(
+        workflow.directory(project, request["preparation_id"]) / "review.json"
+    )
+    assert "study_identity_collision" in {e["code"] for e in review["errors"]}
+    assert [s["source_study_id"] for s in review["studies"]] == ["s1", "s2", "s3", "s4"]
+    assert review["studies"][0]["source_rows"] == [3, 4, 5, 6, 7]
+    assert not plan["ready_for_approval"]
+    assert "resolve source review errors" in approve(identity, request, plan, error=True)
+
+
+@pytest.mark.parametrize(
+    "case,code",
+    [
+        ("whitespace", "unknown_study_record"),
+        ("missing_raw", "missing_study_record"),
+        ("missing_reviewed", "invalid_identity"),
+    ],
+)
+def test_study_identity_requires_exact_present_nonmissing_source(case, code):
+    options = spec()
+    options["study_records"] = [study_record()]
+    if case == "whitespace":
+        options["study_records"][0]["source_study"] = " s1 "
+    elif case == "missing_raw":
+        options["missing_codes"].append({"value": "s1", "meaning": "Missing trial identity"})
+    else:
+        options["study_records"][0]["study_id"] = "*"
+    parsed = BinaryArmSpec.model_validate(options)
+    grid = arm_source.source_grid((FIXTURES / "source.csv").read_bytes(), "source.csv", parsed)
+    review = engine.review(grid, parsed)
+    assert code in {e["code"] for e in review["errors"]}
+    assert not review["ready_for_approval"]
+
+
+@pytest.mark.parametrize("case", ["source", "id", "field", "url", "hash", "locator", "trim"])
+def test_study_record_schema_rejects_ambiguous_or_incomplete_citations(case):
+    options = spec()
+    record = study_record()
+    options["study_records"] = [record]
+    if case == "source":
+        options["study_records"].append(study_record(identity="Another-ID"))
+    elif case == "id":
+        options["study_records"].append(study_record(raw="s2"))
+    elif case == "field":
+        record["fields"].append(study_field())
+    elif case == "url":
+        record["fields"][0]["evidence"]["source"] = "javascript:alert(1)"
+    elif case == "hash":
+        record["fields"][0]["evidence"]["sha256"] = "not a digest"
+    elif case == "locator":
+        record["fields"][0]["evidence"]["locator"] = "  "
+    else:
+        record["study_id"] = " Reviewed-1 "
+    with pytest.raises(ValueError):
+        BinaryArmSpec.model_validate(options)

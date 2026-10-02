@@ -93,6 +93,57 @@ class StudyMetadata(StrictModel):
     design: ValueSource
 
 
+StudyField = Literal[
+    "report_id",
+    "source",
+    "population",
+    "effect_modifiers",
+    "risk_of_bias",
+    "bias_reason",
+    "design",
+    "endpoint_timepoint",
+    "trial_duration",
+    "dose_context",
+    "risk_domains",
+]
+
+
+class StudyEvidence(StrictModel):
+    source: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=2000,
+            pattern=r"^(?:https?://\S+|doi:10\.\d{4,9}/\S+|pmid:\d+|synthetic://\S+)$",
+        ),
+    ]
+    locator: Text
+    sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None
+
+
+class StudyFieldReview(StrictModel):
+    field: StudyField
+    value: Text
+    reason: Text
+    evidence: StudyEvidence
+
+
+class StudyRecord(StrictModel):
+    source_study: Annotated[str, Field(min_length=1, max_length=8000), AfterValidator(nonblank)]
+    study_id: Label
+    reason: Text
+    fields: Annotated[list[StudyFieldReview], Field(max_length=11)]
+
+    @model_validator(mode="after")
+    def explicit(self):
+        if self.study_id != self.study_id.strip():
+            raise ValueError("The reviewed study ID must be explicitly trimmed.")
+        fields = [f.field for f in self.fields]
+        if len(fields) != len(set(fields)):
+            raise ValueError("A study background field may be reviewed only once.")
+        return self
+
+
 class BinaryArmSpec(StrictModel):
     schema_version: Literal["binary-arm-spec-v1"]
     sheet: Annotated[str, Field(min_length=1, max_length=31)] | None
@@ -105,6 +156,9 @@ class BinaryArmSpec(StrictModel):
     imputation_codes: ImputationCodes | None
     treatments: Annotated[list[TreatmentDecision], Field(min_length=2, max_length=500)]
     row_decisions: Annotated[list[RowDecision], Field(max_length=5000)]
+    study_records: Annotated[list[StudyRecord], Field(max_length=5000)] = Field(
+        default_factory=list
+    )
     measure: Literal["OR", "RR"]
     outcome: Annotated[str, Field(min_length=1, max_length=200), AfterValidator(nonblank)]
     timepoint: Annotated[str, Field(min_length=1, max_length=200), AfterValidator(nonblank)]
@@ -137,6 +191,8 @@ class BinaryArmSpec(StrictModel):
             ("missing", [m.value for m in self.missing_codes]),
             ("treatment", [t.raw for t in self.treatments]),
             ("row", [r.row for r in self.row_decisions]),
+            ("source study", [r.source_study for r in self.study_records]),
+            ("reviewed study ID", [r.study_id for r in self.study_records]),
         ):
             if len(values) != len(set(values)):
                 raise ValueError(f"Duplicate {name} mapping.")
