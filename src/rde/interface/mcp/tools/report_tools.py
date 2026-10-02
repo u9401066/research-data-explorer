@@ -2083,6 +2083,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
+            return "本次按鎖定的受試者與量測欄位估計配對差異。共同時點摘要、每對比較與可選 Friedman 各自保留明確分母；全部計畫比較均呈現，不依整體 p 篩選。請同時檢視效果量、逐項區間、完整家族校正 p 與缺失情形。"
         if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
             return "本次依核准的組別順序、事件定義與主要效果量執行獨立組比較。報告保留全部計畫對比與可選整體檢定，逐項區間未校正，p 值按明列的完整家族校正；無法估計的檢定仍保留家族位置。"
         if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
@@ -2160,6 +2162,8 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
+            return "配對變化不直接代表治療因果效果。配對秩效果量不是中位數差，Kendall W 不是結果變異的解釋比例；逐項區間與校正 p 是不同的推論，未達門檻不代表等效。"
         if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
             return "獨立組比較限於指定抽樣、共同完整個案與結果觀察窗口。未調整關聯不直接代表因果療效；信賴區間與雙尾檢定可能採不同程序，不能以區間是否包含無效值取代家族校正 p。病例對照只提供勝算比。"
         if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
@@ -2246,6 +2250,8 @@ def _build_interpretation_discussion(
     """Build narrative interpretation, recommendations, and literature context."""
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
+            return "## 配對與重複量測結果解讀\n\n先核對受試者身份、同一結果／單位、每項第一時點減第二時點的方向，再讀共同描述與每對分析的實際 n。每項對比均在計畫中固定，不依整體 p 決定是否呈現。BCa 重抽樣保持完整受試者向量；零差、退化與無法估計區間都明示，不能把缺失或無法估計換成零寬區間。配對秩效果量不是獨立組優勢機率或中位數差；人內變化不證明療效。"
         if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
             return "## 獨立組比較結果解讀\n\n先核對事件代碼、組別方向、原始單位、納排與主要效果量，再讀逐項區間及完整家族校正 p。秩效果量不是中位數差；勝算比不是比例比。零、無法定義、無限大與無法估計區間分開呈現；未達門檻不表示等效。未調整的組間關聯、完整個案或宣告的隨機設計均不證明因果療效。"
         if any(r.get("family") == "weighting" for r in results["clinical_studies"]):

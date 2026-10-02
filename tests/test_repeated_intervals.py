@@ -2,6 +2,8 @@
 
 import itertools
 import json
+import hashlib
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -202,3 +204,29 @@ def test_friedman_all_tied_subject_vectors_have_no_inference():
     assert result["effect"]["status"] == "unavailable"
     assert result["effect"]["estimate"]["status"] == "undefined"
     json.dumps(result, allow_nan=False)
+
+
+def test_independent_base_r_reference_script_and_paired_statistics():
+    folder = Path(__file__).parent / "fixtures/paired-intervals"
+    reference = json.loads((folder / "reference.json").read_text())
+    assert (
+        hashlib.sha256((folder / "reference.R").read_bytes()).hexdigest()
+        == reference["provenance"]["script_sha256"]
+    )
+    actual = paired_mean([3, 5, 7, 9, 11, 14, 15], [2, 4, 9, 7, 12, 10, 11], 0.99)
+    expected = reference["paired"]
+    assert actual["p_value"] == pytest.approx(expected["p"], abs=1e-14)
+    assert actual["effect"]["estimate"]["value"] == pytest.approx(expected["mean"], abs=1e-14)
+    assert [actual["effect"][k]["value"] for k in ("lower", "upper")] == pytest.approx(
+        expected["ci"], abs=1e-12
+    )
+    for delta, expected in zip(
+        [[0, 2, -2, 3, -4], [1, 1, -1, 2, -2, 3, 0, 0], [1, 2, 3, 4, 5]],
+        reference["signs"],
+        strict=True,
+    ):
+        actual = signed_rank(delta, np.zeros(len(delta)), resamples=999)
+        assert actual["p_value"] == pytest.approx(expected["p"], abs=1e-15)
+        assert actual["effect"]["estimate"]["value"] == pytest.approx(
+            expected["rank_biserial"], abs=1e-15
+        )

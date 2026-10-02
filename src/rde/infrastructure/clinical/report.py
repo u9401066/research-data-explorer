@@ -16,6 +16,10 @@ def number(value):
 
 
 def markdown(result: dict) -> str:
+    if result["spec"]["family"] == "repeated":
+        from .repeated_report import markdown as repeated_markdown
+
+        return repeated_markdown(result)
     if result["spec"]["family"] == "comparison":
         from .comparison_report import markdown as comparison_markdown
 
@@ -199,7 +203,9 @@ def markdown(result: dict) -> str:
 
 
 def figures(result: dict, directory: Path, prefix: str):
-    if result["spec"]["family"] == "comparison":
+    if result["spec"]["family"] == "repeated":
+        from .repeated_publication import figures as publication_figures
+    elif result["spec"]["family"] == "comparison":
         from .comparison_publication import figures as publication_figures
     elif result["spec"]["family"] == "survival":
         from .survival_publication import figures as publication_figures
@@ -215,6 +221,10 @@ def figures(result: dict, directory: Path, prefix: str):
 
 
 def tables(result: dict, directory: Path, prefix: str):
+    if result["spec"]["family"] == "repeated":
+        from .repeated_report import tables as repeated_tables
+
+        return repeated_tables(result, directory, prefix)
     if result["spec"]["family"] == "comparison":
         from .comparison_report import tables as comparison_tables
 

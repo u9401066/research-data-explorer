@@ -140,6 +140,11 @@ figure editions with Chinese explanations, journal presets and editable captions
 See [publication figures](docs/publication-figures.md) for Nature/PLOS specifications,
 local font configuration and the source-preserving MCP contract.
 
+[Paired and repeated studies](docs/paired-repeated-study.md) now retain explicit
+within-person contrasts, paired effect intervals and subject resampling receipts.
+Real MCP, public Orthodont data, independent R references and journal editions have
+been verified; the corresponding Workbench form and production rollout are pending.
+
 | Phase | Purpose | Representative tool/artifact |
 | --- | --- | --- |
 | 00 Project setup | Create project, artifact root, no-code harness bootstrap | `init_project`, `project.yaml` |

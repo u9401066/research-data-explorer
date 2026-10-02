@@ -175,6 +175,8 @@ def _create_verified_edition(
             from rde.infrastructure.clinical.longitudinal_publication import figures
         elif result["spec"]["family"] == "regression":
             from rde.infrastructure.clinical.regression_publication import figures
+        elif result["spec"]["family"] == "repeated":
+            from rde.infrastructure.clinical.repeated_publication import figures
         elif result["spec"]["family"] == "comparison":
             from rde.infrastructure.clinical.comparison_publication import figures
         elif result["spec"]["family"] == "weighting":
@@ -281,6 +283,7 @@ def register_publication_tools(server):
                     "regression",
                     "weighting",
                     "comparison",
+                    "repeated",
                     "sample_size",
                 ],
             },

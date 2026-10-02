@@ -1,5 +1,11 @@
 # Wide repeated-measures contract
 
+This page describes the earlier `repeated-wide-v1` workflow and its historical receipts.
+New publication studies use the explicit [paired/repeated study contract](paired-repeated-study.md)
+through `inspect_clinical_study` / `run_clinical_study`, with prespecified directions,
+paired effect intervals and all planned tests retained. Workbench integration of that
+new contract is in progress; historical results are not relabelled as new estimates.
+
 `run_repeated_measures` accepts ordered comma-separated measurement columns and an optional `subject_variable`. A supplied subject column must be present, separate, nonempty and unique across all rows. Each row represents one independent subject; this is a within-subject time comparison, not a treatment-by-time model. Workbench requires the subject column and limits the prespecified study to 2–8 occasions.
 
 Two occasions use two-sided SciPy Wilcoxon (`method=auto`, `zero_method=wilcox`, no continuity correction or implicit rounding); three or more use tie-corrected Friedman with a chi-square approximate p-value. Friedman uses the shared complete cohort. Only a significant omnibus test opens all k(k−1)/2 pairwise Wilcoxon tests with Bonferroni; `posthoc_case_strategy` explicitly chooses shared-complete or pairwise-complete cases. Signed change and rank-biserial r both use the later-listed occasion minus the earlier-listed occasion. All-zero paired differences have an explicit W=0, p=1, r=0 convention. Friedman with no within-subject variation fails as non-estimable.

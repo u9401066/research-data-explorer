@@ -37,6 +37,11 @@ from rde.infrastructure.clinical.comparison_contract import (
     comparison_preflight,
     prepare_comparison,
 )
+from rde.infrastructure.clinical.repeated_contract import (
+    RepeatedSpec,
+    repeated_preflight,
+    prepare_repeated,
+)
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
@@ -46,6 +51,8 @@ def planned_clinical_spec(entry):
 
 
 def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family") == "repeated":
+        return RepeatedSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "comparison":
         return ComparisonSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "weighting":
@@ -104,7 +111,7 @@ def verify_clinical_artifacts(record, root: Path):
 def register_clinical_tools(server: Any):
     @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對獨立比較／生存／診斷／一致性／縱向／迴歸／加權角色、受試者與共同個案；不估計模型或 p 值。"""
+        """計畫審閱前核對配對／獨立比較／生存／診斷／一致性／縱向／迴歸／加權角色、受試者與個案分母；不估計模型或 p 值。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -119,10 +126,19 @@ def register_clinical_tools(server: Any):
                 raise ValueError("The clinical source file is required.")
             if isinstance(
                 spec,
-                (ComparisonSpec, MeasurementSpec, LongitudinalSpec, RegressionSpec, WeightingSpec),
+                (
+                    RepeatedSpec,
+                    ComparisonSpec,
+                    MeasurementSpec,
+                    LongitudinalSpec,
+                    RegressionSpec,
+                    WeightingSpec,
+                ),
             ):
                 preflight = (
-                    comparison_preflight
+                    repeated_preflight
+                    if isinstance(spec, RepeatedSpec)
+                    else comparison_preflight
                     if isinstance(spec, ComparisonSpec)
                     else weighting_preflight
                     if isinstance(spec, WeightingSpec)
@@ -175,7 +191,14 @@ def register_clinical_tools(server: Any):
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting、comparison。
+        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting、comparison、repeated。
+
+        repeated 必須 subject、measurements=[{column,label}]（2..8 時點）、contrasts=[[first,second]]（1..28 明確方向），
+        outcome_name、outcome_unit、outcome_definition、context、independent_subjects=true、same_outcome=true。
+        method=paired_mean（primary_effect=mean_difference）或 signed_rank（primary_effect=rank_biserial）。
+        case_strategy=complete/pairwise（兩時點只能 complete）；signed_rank 固定 bootstrap={resamples,seed}，可 omnibus=true（Friedman，至少三時點）。
+        confidence_level、multiplicity=holm/bonferroni/fdr 及可選 cohort_filter 事先指定；全部比較執行，不依整體 p 篩選。
+        區間逐項未校正，重抽樣保留整個受試者配對。共同描述與每對比較的分母分開保存；無法估計不代換成零寬區間。
 
         comparison 必須 outcome、group、group_levels（2..8 明確順序）、contrasts（1..12 事先指定兩組順序），
         method=welch_mean/rank/binary、primary_effect、outcome_unit、outcome_definition、outcome_window、
@@ -219,6 +242,7 @@ def register_clinical_tools(server: Any):
         from rde.infrastructure.clinical.regression import run_regression
         from rde.infrastructure.clinical.weighting import run_weighting
         from rde.infrastructure.clinical.comparison import run_comparison
+        from rde.infrastructure.clinical.repeated import run_repeated
         from rde.infrastructure.clinical.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
@@ -238,7 +262,9 @@ def register_clinical_tools(server: Any):
                 )
             parameters["variables"] = spec.variables()
             frame_hash = (
-                prepare_comparison(entry.dataframe, spec)
+                prepare_repeated(entry.dataframe, spec)
+                if isinstance(spec, RepeatedSpec)
+                else prepare_comparison(entry.dataframe, spec)
                 if isinstance(spec, ComparisonSpec)
                 else prepare_weighting(entry.dataframe, spec)
                 if isinstance(spec, WeightingSpec)
@@ -295,7 +321,9 @@ def register_clinical_tools(server: Any):
                 previous["result"]
                 if previous
                 else (
-                    run_comparison(entry.dataframe, spec)
+                    run_repeated(entry.dataframe, spec)
+                    if isinstance(spec, RepeatedSpec)
+                    else run_comparison(entry.dataframe, spec)
                     if isinstance(spec, ComparisonSpec)
                     else run_weighting(entry.dataframe, spec)
                     if isinstance(spec, WeightingSpec)
@@ -348,7 +376,7 @@ def register_clinical_tools(server: Any):
             _auto_log_decision(
                 "run_clinical_study",
                 parameters,
-                "Prespecified clinical study with exact source coding and shared complete cases.",
+                "Prespecified clinical study with exact source coding and declared complete-case populations.",
                 f"family={spec.family}; n={result['n']}; no automatic clinical validity or causal promotion.",
                 artifacts=[filename, *[a["path"] for a in record["artifacts"]]],
             )

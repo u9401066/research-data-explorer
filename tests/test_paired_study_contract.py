@@ -180,3 +180,22 @@ def test_complete_case_mean_contract_has_no_friedman_or_resampling():
     assert result["multiplicity"]["size"] == 2
     assert all(c["n"] == result["n"] for c in result["contrasts"])
     assert all("resampling" not in c for c in result["contrasts"])
+
+
+def test_readiness_checks_each_case_set_and_measurement_identity_without_refitting():
+    from rde.infrastructure.clinical.repeated_readiness import check_cases
+
+    result = run_repeated(fixture(), specification())
+    assert check_cases(result)
+    mutations = [
+        lambda r: r["contrasts"][0].update(n=r["n"]),
+        lambda r: r["contrasts"][0]["observations"][0].update(first=123),
+        lambda r: r["contrasts"][0]["observations"][0].update(difference=123),
+        lambda r: r["case_ledger"]["observed_bitmask_by_cohort_row"].__setitem__(0, 7),
+        lambda r: r["omnibus"].update(data_rows=r["contrasts"][0]["data_rows"]),
+        lambda r: r["contrasts"][0].update(columns=list(reversed(r["contrasts"][0]["columns"]))),
+    ]
+    for mutate in mutations:
+        changed = deepcopy(result)
+        mutate(changed)
+        assert not check_cases(changed)

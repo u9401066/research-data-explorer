@@ -10,6 +10,10 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "repeated":
+        from rde.infrastructure.clinical.repeated_report import required_figures as repeated_figures
+
+        return repeated_figures(result)
     if result["spec"]["family"] == "comparison":
         from rde.infrastructure.clinical.comparison_report import (
             required_figures as comparison_figures,
@@ -105,6 +109,10 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         shared_cases = [p["data_row"] for p in result.get("points", [])] == included and bool(
             included
         )
+    elif spec["family"] == "repeated":
+        from rde.infrastructure.clinical.repeated_readiness import check_cases
+
+        shared_cases = check_cases(result)
     elif spec["family"] == "comparison":
         points = result.get("observations", [])
         shared_cases = (
@@ -206,20 +214,23 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             and sum(group["n"] for group in groups) == result.get("n"),
             ["model", "joint_estimation", "effect", "diagnostics"],
         )
-    if spec["family"] == "comparison":
+    if spec["family"] in {"comparison", "repeated"}:
         contrasts = result.get("contrasts", [])
         planned = (["omnibus"] if spec["omnibus"] else []) + [
             f"contrast_{i+1}" for i in range(len(spec["contrasts"]))
         ]
         check(
-            "comparison_fixed_contrasts_and_full_family",
-            [c["groups"] for c in contrasts] == spec["contrasts"]
+            f"{spec['family']}_fixed_contrasts_and_full_family",
+            [c["columns" if spec["family"] == "repeated" else "groups"] for c in contrasts]
+            == spec["contrasts"]
             and [r["id"] for r in result.get("hypotheses", [])] == planned
             and result.get("multiplicity", {}).get("members") == planned
             and result.get("multiplicity", {}).get("size") == len(planned)
             and result.get("multiplicity", {}).get("method") == spec["multiplicity"]
             and all(
-                c.get("primary_effect") == spec["primary_effect"]
+                (c.get("effect_kind") == spec["primary_effect"] and bool(c.get("effect")))
+                if spec["family"] == "repeated"
+                else c.get("primary_effect") == spec["primary_effect"]
                 and spec["primary_effect"] in c["effects"]
                 for c in contrasts
             ),
@@ -252,7 +263,9 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         from rde.infrastructure.clinical.measurement_report import TITLES
 
         heading = (
-            "獨立組比較"
+            "配對與重複量測"
+            if spec["family"] == "repeated"
+            else "獨立組比較"
             if spec["family"] == "comparison"
             else "生存與事件分析"
             if spec["family"] == "survival"

@@ -89,6 +89,19 @@ def completed(tmp_path, family):
             json_result=False,
         )
         record = clinical_records(store)[0]
+    elif family.startswith("paired"):
+        from test_paired_workflow import paired_project
+        from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+        project, store, dataset, spec = paired_project(
+            tmp_path, "paired_mean" if family == "paired_mean" else "signed_rank"
+        )
+        call(
+            "run_clinical_study",
+            {"dataset_id": dataset.id, "clinical_options": spec.to_dict()},
+            json_result=False,
+        )
+        record = clinical_records(store)[0]
     elif family.startswith("longitudinal"):
         from test_longitudinal_workflow import longitudinal_project
         from rde.interface.mcp.tools.clinical_tools import clinical_records
@@ -134,6 +147,8 @@ def completed(tmp_path, family):
         "survival_competing",
         "longitudinal_gaussian",
         "longitudinal_binomial",
+        "paired_mean",
+        "paired_signed",
     ],
 )
 def test_mcp_creates_immutable_edition_without_refitting_or_changing_originals(
@@ -153,6 +168,11 @@ def test_mcp_creates_immutable_edition_without_refitting_or_changing_originals(
     from rde.infrastructure.clinical import survival
 
     monkeypatch.setattr(survival, "run_survival", lambda *a, **kw: pytest.fail("Refitted survival"))
+    from rde.infrastructure.clinical import repeated
+
+    monkeypatch.setattr(
+        repeated, "run_repeated", lambda *a, **kw: pytest.fail("Repeated paired bootstrap")
+    )
 
     monkeypatch.setattr(
         clinical_tools, "run_measurement", lambda *a, **kw: pytest.fail("Re-estimated measurements")
@@ -286,6 +306,8 @@ def test_plos_title_length_rejects_oversized_title_without_partial_edition(tmp_p
         "survival_competing",
         "longitudinal_gaussian",
         "longitudinal_binomial",
+        "paired_mean",
+        "paired_signed",
     ],
 )
 def test_actual_journal_exports_keep_exact_data_and_meet_format_dimensions(

@@ -1,0 +1,100 @@
+{
+  "r_version": "R version 4.5.3 (2026-03-11)",
+  "paired": {
+    "mean": 1.2857142857142858,
+    "statistic": 1.486301082920587,
+    "df": 6,
+    "p": 0.18775080913735567,
+    "ci": [
+      -1.9213702175871223,
+      4.492798789015694
+    ]
+  },
+  "signs": [
+    {
+      "p": 1,
+      "rank_biserial": -0.1
+    },
+    {
+      "p": 0.53125,
+      "rank_biserial": 0.38095238095238093
+    },
+    {
+      "p": 0.0625,
+      "rank_biserial": 1
+    }
+  ],
+  "orthodont": {
+    "n": 27,
+    "contrasts": [
+      {
+        "first": "distance_age10",
+        "second": "distance_age8",
+        "paired": {
+          "mean": 0.9814814814814815,
+          "statistic": 2.5470174560607277,
+          "df": 26,
+          "p": 0.01712666128273766,
+          "ci": [
+            0.18939265073265021,
+            1.773570312230313
+          ]
+        },
+        "signed": {
+          "p": 0.010676980018615723,
+          "rank_biserial": 0.58
+        }
+      },
+      {
+        "first": "distance_age12",
+        "second": "distance_age8",
+        "paired": {
+          "mean": 2.462962962962963,
+          "statistic": 6.309714732061981,
+          "df": 26,
+          "p": 1.1128430113877958e-06,
+          "ci": [
+            1.6605981823601188,
+            3.265327743565807
+          ]
+        },
+        "signed": {
+          "p": 1.4901161193847656e-08,
+          "rank_biserial": 1
+        }
+      },
+      {
+        "first": "distance_age14",
+        "second": "distance_age8",
+        "paired": {
+          "mean": 3.9074074074074074,
+          "statistic": 8.656874350517779,
+          "df": 26,
+          "p": 3.903597622166162e-09,
+          "ci": [
+            2.9796139995919457,
+            4.835200815222869
+          ]
+        },
+        "signed": {
+          "p": 1.4901161193847656e-08,
+          "rank_biserial": 1
+        }
+      }
+    ],
+    "friedman": {
+      "statistic": 64.57414448669202,
+      "p": 6.186541187915868e-14,
+      "kendall_w": 0.7972116603295312
+    }
+  },
+  "provenance": {
+    "script_sha256": "8132c5c97fda874b59c865340978e08b72fa3a32a1cb73cbadb79635c008cf12",
+    "wide_source_sha256": "c21ed3ed349f13e0d8da670121981b874662c0fcf9fe73d1a1c7f924d55a0ceb",
+    "image": "research-workbench/evidence:netmeta-3.7.0",
+    "actual_mcp_verified": [
+      "public signed",
+      "public mean"
+    ]
+  }
+}

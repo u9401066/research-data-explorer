@@ -28,7 +28,13 @@ async def run(args):
     workspace = args.workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=False)
     spec = json.loads(args.spec.read_text())
-    if spec.get("family") not in {"longitudinal", "regression", "weighting", "comparison"}:
+    if spec.get("family") not in {
+        "longitudinal",
+        "regression",
+        "weighting",
+        "comparison",
+        "repeated",
+    }:
         raise ValueError("An explicit supported clinical engineering specification is required")
     if sha(args.source) != args.source_sha256:
         raise ValueError("Source bytes differ from the pinned acquisition")
@@ -46,10 +52,15 @@ async def run(args):
         else spec.get("covariates", [])
     )
     predictors = [p["column"] for p in spec.get("predictors", [])]
+    outcomes = (
+        [m["column"] for m in spec["measurements"]]
+        if spec["family"] == "repeated"
+        else [spec["outcome"]]
+    )
     variables = list(
         dict.fromkeys(
             [
-                spec["outcome"],
+                *outcomes,
                 *([spec["time"]] if spec["family"] == "longitudinal" else predictors),
                 *covariates,
                 *[
@@ -141,7 +152,7 @@ async def run(args):
                 research_question=spec["context"],
                 confirm=True,
                 variable_roles={
-                    "outcome": spec["outcome"],
+                    "outcome": outcomes,
                     **({"id": spec["subject"]} if spec.get("subject") else {}),
                     "covariates": [spec["time"], *covariates]
                     if spec["family"] == "longitudinal"

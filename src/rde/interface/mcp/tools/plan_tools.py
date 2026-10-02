@@ -1424,7 +1424,7 @@ def register_plan_tools(server: Any) -> None:
                         )
                     clinical_multiplicity = (
                         clinical_spec.multiplicity
-                        if clinical_spec.family == "comparison"
+                        if clinical_spec.family in {"comparison", "repeated"}
                         else "none"
                         if clinical_spec.family == "weighting"
                         else "holm"
