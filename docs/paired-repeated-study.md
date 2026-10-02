@@ -54,6 +54,9 @@ delete-one BCa、配對 t 與 Friedman 計算比對；涵蓋 ties／zeros／全�
 成對／共同來源列、結果遭改動的拒絕及來源欄名碰撞（`data_row`／`record`／
 `values`）不覆蓋匯出身份。針對性 45 項通過。
 
+最終本機全套：788 passed、57 optional/environment skipped、5 vendor deselected；
+Ruff 與全套 pre-commit 通過。沒有把未執行的可選外部引擎列為通過。
+
 ## 投稿圖與真實 MCP 驗收（2026-10-02）
 
 圖組包含共同個案納排、所有共同完整受試者軌跡、每對原始量測／個人差值、
@@ -115,3 +118,16 @@ Friedman Q=64.574144、Kendall W=0.797212。這是工程驗證用的
 [paired t](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ttest_rel.html)、
 [Friedman](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.friedmanchisquare.html)。
 數值驗證環境為 SciPy 1.16.3；線上文件版本可能較新。
+
+## 遠端 CI 與封存
+
+手動 CI `36951770928` 暴露舊 vendor job 未 checkout submodule，Compose 檔不存在。
+另發現 pytest 沒有設 `RDE_RUN_VENDOR_INTEGRATION=1`，即使啟動服務也會跳過測試。
+工作流程已分開核心檢查及明確選用的 `run_vendor_integration`；選用時取出 submodule，
+由測試 fixture 控制 Docker 啟停並真正啟用測試。私有 submodule 若跨 repo 存取不足，
+可配置 `VENDOR_READ_TOKEN`；沒有替使用者建立或暴露憑證。本批沒有執行可選 vendor
+的 Docker 實機驗證，也不將原失敗改記為成功。
+
+QA 私有封存：`~/.local/share/research-workbench-qa/paired-rde-20261002T094545Z/`。
+`qa-evidence.tar.gz` 共 22,362,658 bytes，843 個檔案逐一核對 hash；SHA256：
+`04f86cdb913cecf471cc8d8904d7b0ed8c9ca8ac7047258d4a87e0af13272d8a`。
