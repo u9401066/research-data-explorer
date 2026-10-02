@@ -140,6 +140,8 @@ def create_edition(
             from rde.infrastructure.clinical.longitudinal_publication import figures
         elif result["spec"]["family"] == "regression":
             from rde.infrastructure.clinical.regression_publication import figures
+        elif result["spec"]["family"] == "weighting":
+            from rde.infrastructure.clinical.weighting_publication import figures
         else:
             from rde.infrastructure.clinical.measurement_publication import figures
         rendered = figures(result, staging, "unused", preset_id=preset_id, edition=options)
@@ -235,6 +237,7 @@ def register_publication_tools(server):
                     "cohens_kappa",
                     "longitudinal",
                     "regression",
+                    "weighting",
                 ],
             },
             ensure_ascii=False,

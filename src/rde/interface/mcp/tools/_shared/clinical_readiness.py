@@ -10,6 +10,12 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "weighting":
+        from rde.infrastructure.clinical.weighting_report import (
+            required_figures as weighting_figures,
+        )
+
+        return weighting_figures(result)
     if result["spec"]["family"] == "regression":
         from rde.infrastructure.clinical.regression_report import (
             required_figures as regression_figures,
@@ -93,6 +99,17 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         shared_cases = [p["data_row"] for p in result.get("points", [])] == included and bool(
             included
         )
+    elif spec["family"] == "weighting":
+        points = result.get("points", [])
+        shared_cases = (
+            bool(included)
+            and [p["data_row"] for p in points] == list(range(1, ledger.get("input_rows", 0) + 1))
+            and [p["data_row"] for p in points if p["status"] == "included"] == included
+            and [p["data_row"] for p in points if p["status"] == "outside_cohort"]
+            == ledger.get("filter_excluded_data_rows", [])
+            and [p["data_row"] for p in points if p["status"] == "missing_required"]
+            == ledger.get("missing_excluded_data_rows", [])
+        )
     elif spec["family"] == "longitudinal":
         points = result.get("points", [])
         shared_cases = (
@@ -151,6 +168,25 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
                 "multiplicity",
             ],
         )
+    if spec["family"] == "weighting":
+        joint = result.get("joint_estimation", {})
+        count = len(result.get("propensity_terms", [])) + 2
+        groups = result.get("diagnostics", {}).get("groups", [])
+        check(
+            "weighting_model_and_joint_uncertainty",
+            result.get("model", {}).get("converged") is True
+            and len(joint.get("parameters", [])) == count
+            and len(joint.get("parameter_order", [])) == count
+            and all(
+                len(joint.get(key, [])) == count and all(len(row) == count for row in joint[key])
+                for key in ["bread", "meat", "covariance"]
+            )
+            and result.get("effect", {}).get("estimand") == spec["estimand"]
+            and result.get("effect", {}).get("standard_error", 0) > 0
+            and len(groups) == 2
+            and sum(group["n"] for group in groups) == result.get("n"),
+            ["model", "joint_estimation", "effect", "diagnostics"],
+        )
     expected = required_figures(result) if result else set()
     actual = {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
     check("clinical_figures", bool(expected) and expected == actual, sorted(expected))
@@ -184,6 +220,8 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             if spec["family"] == "longitudinal"
             else "多因素關聯、計數與序位迴歸"
             if spec["family"] == "regression"
+            else "觀察性研究的傾向加權"
+            if spec["family"] == "weighting"
             else TITLES[spec["family"]]
         )
         check(

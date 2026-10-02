@@ -2054,6 +2054,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
+            return "本次按鎖定的目標族群與處置前共變項估計 propensity 加權結果。單一對比為處置組減參照組的 Hájek 平均差／機率差，共同估計方程納入 propensity 估計的不確定性。請一併檢視完整納排、原始共變項與模型基底平衡、分數重疊及權重集中程度；平衡不證明未測量混雜已消除。"
         if any(r.get("family") == "regression" for r in results["clinical_studies"]):
             return "本次按鎖定的獨立個案迴歸規格估計；所有係數、條件曲線與聯合檢定採同一完整個案集合。需核對原始單位、參照值、序位順序及效果尺度。樣條基底不是固定每單位效果，勝算比不是風險比；未指定觀察時長的計數模型比較次數，不能稱為率比。"
         if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
@@ -2127,6 +2129,8 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
+            return "加權結果適用於宣告的觀察性世代、共同完整個案及事先指定目標。ATE、ATT、ATO 的目標族群不同，不能按顯著性互換。二元效果是絕對機率差，連續結果保留原單位；漸近區間不保證小樣本精度。ESS 不是增加病人人數；時序、結果確認、未測量混雜、positivity 與抽樣限制仍需研究者審閱，不能把加權關聯直接當作因果療效。"
         if any(r.get("family") == "regression" for r in results["clinical_studies"]):
             return "迴歸結果限於指定研究設計、共同完整個案與條件參照組合。係數及聯合檢定各有獨立 Holm 家族，逐點區間未校正；條件曲線不是平均因果效果或外部驗證。病例對照配適機率不代表族群風險，序位模型未執行比例勝算假設檢定。迴歸不驗證隨機化或 ITT，也不改變原研究設計。"
         if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):
@@ -2209,6 +2213,8 @@ def _build_interpretation_discussion(
     """Build narrative interpretation, recommendations, and literature context."""
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
+            return "## 傾向加權結果解讀\n\n先核對處置方向、time zero、每個共變項的處置前依據、結果窗口與確認方式，再解讀目標族群和單一加權差異。加權前後 SMD 採固定未加權分母，基底平衡不取代原始變項檢視，也不證明未測量變項平衡。共同 sandwich 已納入 propensity 估計；未做跨其他目標／分支的多重校正、小樣本修正或 bootstrap。未確認的追蹤不能當作沒有事件，二元 Wald 區間超出可行範圍時保留並揭示。沒有按結果自動裁切、配對或挑選模型。"
         if any(r.get("family") == "regression" for r in results["clinical_studies"]):
             return "## 迴歸結果解讀\n\n先核對獨立個案、原始單位、類別順序、參照與納排，再檢视係數、聯合檢定及條件曲線。主效果在其餘因素參照下解讀；交互作用比較條件效果，樣條基底不能當成固定每單位的臨床效果。係數與聯合檢定分成兩個 Holm 家族，圖中區間為逐點未校正；未宣稱跨模型整體錯誤率控制。收斂不證明模型假設、缺失可忽略或因果效果。保留指定研究設計，病例對照機率不外推為族群風險；序位比例勝算假設仍需另行審閱。"
         if any(r.get("family") == "longitudinal" for r in results["clinical_studies"]):

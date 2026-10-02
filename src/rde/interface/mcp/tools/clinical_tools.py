@@ -27,6 +27,11 @@ from rde.infrastructure.clinical.regression_contract import (
     regression_preflight,
     prepare_regression,
 )
+from rde.infrastructure.clinical.weighting_contract import (
+    WeightingSpec,
+    weighting_preflight,
+    prepare_weighting,
+)
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
@@ -36,6 +41,8 @@ def planned_clinical_spec(entry):
 
 
 def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family") == "weighting":
+        return WeightingSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "regression":
         return RegressionSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "longitudinal":
@@ -90,7 +97,7 @@ def verify_clinical_artifacts(record, root: Path):
 def register_clinical_tools(server: Any):
     @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對生存／診斷／一致性／縱向／迴歸角色、受試者與共同個案；不估計模型或 p 值。"""
+        """計畫審閱前核對生存／診斷／一致性／縱向／迴歸／加權角色、受試者與共同個案；不估計模型或 p 值。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -103,9 +110,11 @@ def register_clinical_tools(server: Any):
             source = entry.dataset.metadata
             if not source or not source.file_path.is_file():
                 raise ValueError("The clinical source file is required.")
-            if isinstance(spec, (MeasurementSpec, LongitudinalSpec, RegressionSpec)):
+            if isinstance(spec, (MeasurementSpec, LongitudinalSpec, RegressionSpec, WeightingSpec)):
                 preflight = (
-                    regression_preflight
+                    weighting_preflight
+                    if isinstance(spec, WeightingSpec)
+                    else regression_preflight
                     if isinstance(spec, RegressionSpec)
                     else longitudinal_preflight
                     if isinstance(spec, LongitudinalSpec)
@@ -154,7 +163,7 @@ def register_clinical_tools(server: Any):
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression。
+        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting。
 
         clinical_options 必须逐項符合唯一計畫的 execution_arguments.clinical_options。
         必填 time、event、event_value、censor_value、time_origin、time_unit、independent_rows=true。
@@ -175,6 +184,12 @@ def register_clinical_tools(server: Any):
         類別定義 column/kind=categorical/label/reference/levels（完整原始類別）。interactions 為兩個主因素欄名的配對。
         binomial outcome_levels=[negative,positive]；ordinal 為3..8由低至高類別。計數可 exposure/exposure_unit。
         NB2 聯合估計 dispersion；序位採比例勝算，無截距；基底係數與臨床對比不得混稱。來源單位與參照固定。
+        weighting 必須 treatment、treatment_levels=[control,treated]、treatment_definition、outcome、
+        outcome_type=continuous/binary、outcome_unit、outcome_definition、time_origin、outcome_window、
+        study_design=observational_cohort、context、estimand=ATE/ATT/ATO、independent_rows=true、pretreatment_covariates=true。
+        covariates 沿用 regression predictor 完整型別，每項另需 pre_exposure_basis；可 interactions、subject、cohort_filter。
+        binary outcome_levels=[negative,positive]；continuous 無 levels。單一 Hájek 平均差／機率差，聯合估計方程含 propensity 不確定性。
+        不自動裁切／截斷、挑目標、配對、補值或把未確認追蹤者當作沒有事件；群集／時變處置／加權生存不屬此契約。
         """
         from rde.application.session import get_session
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error, log_tool_error
@@ -183,6 +198,7 @@ def register_clinical_tools(server: Any):
         from rde.infrastructure.clinical.survival import run_survival
         from rde.infrastructure.clinical.longitudinal import run_longitudinal
         from rde.infrastructure.clinical.regression import run_regression
+        from rde.infrastructure.clinical.weighting import run_weighting
         from rde.infrastructure.clinical.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
@@ -202,7 +218,9 @@ def register_clinical_tools(server: Any):
                 )
             parameters["variables"] = spec.variables()
             frame_hash = (
-                prepare_measurement(entry.dataframe, spec)
+                prepare_weighting(entry.dataframe, spec)
+                if isinstance(spec, WeightingSpec)
+                else prepare_measurement(entry.dataframe, spec)
                 if isinstance(spec, MeasurementSpec)
                 else prepare_longitudinal(entry.dataframe, spec)
                 if isinstance(spec, LongitudinalSpec)
@@ -255,7 +273,9 @@ def register_clinical_tools(server: Any):
                 previous["result"]
                 if previous
                 else (
-                    run_measurement(entry.dataframe, spec)
+                    run_weighting(entry.dataframe, spec)
+                    if isinstance(spec, WeightingSpec)
+                    else run_measurement(entry.dataframe, spec)
                     if isinstance(spec, MeasurementSpec)
                     else run_longitudinal(entry.dataframe, spec)
                     if isinstance(spec, LongitudinalSpec)

@@ -1154,7 +1154,7 @@ def register_plan_tools(server: Any) -> None:
             analyses: 計畫分析項目清單，每項必須含 type 和 variables，如 [{"type": "compare_groups", "variables": ["sofa_score"], "rationale": "比較兩組 SOFA"}]
             alpha: 顯著水準 α，如 0.05、0.01（預設 0.05）
             missing_strategy: 缺失值處理策略: listwise（預設）、pairwise；不隱含補值
-            multiple_comparison_method: 同次結果比較家族校正: bonferroni（預設）、holm、fdr (BH)
+            multiple_comparison_method: 同次結果比較家族校正: bonferroni（預設）、holm、fdr (BH)；單一 weighting 契約必須 none
             allow_methodology_override: 若 plan 明顯低於方法學最低覆蓋要求，是否仍強制允許鎖定（預設 false）
             confirm: 是否確認並鎖定計畫，必須設為 true 才會鎖定（預設 false）
         """
@@ -1199,7 +1199,22 @@ def register_plan_tools(server: Any) -> None:
 
             from rde.domain.services.analysis_policy import validate_policy
 
-            validate_policy(alpha, missing_strategy, multiple_comparison_method)
+            single_weighting = (
+                isinstance(analyses, list)
+                and len(analyses) == 1
+                and isinstance(analyses[0], dict)
+                and analyses[0].get("type") == "run_clinical_study"
+                and isinstance(analyses[0].get("execution_arguments"), dict)
+                and isinstance(analyses[0]["execution_arguments"].get("clinical_options"), dict)
+                and analyses[0]["execution_arguments"]["clinical_options"].get("family")
+                == "weighting"
+            )
+            validate_policy(
+                alpha,
+                missing_strategy,
+                multiple_comparison_method,
+                single_contrast=single_weighting,
+            )
 
             session = get_session()
             pipeline = session.get_pipeline(project.id)
@@ -1408,13 +1423,16 @@ def register_plan_tools(server: Any) -> None:
                         raise ValueError(
                             "Clinical plan variables must exactly enumerate all analysis roles."
                         )
+                    clinical_multiplicity = (
+                        "none" if clinical_spec.family == "weighting" else "holm"
+                    )
                     if (
                         abs(alpha - (1 - clinical_spec.confidence_level)) > 1e-12
                         or missing_strategy != "listwise"
-                        or multiple_comparison_method != "holm"
+                        or multiple_comparison_method != clinical_multiplicity
                     ):
                         raise ValueError(
-                            "Clinical studies require matching alpha, listwise cases and the Holm plan setting; individual measurement intervals remain pointwise and unadjusted."
+                            f"Clinical studies require matching alpha, listwise cases and the {clinical_multiplicity} plan setting; weighting has one unadjusted contrast and other individual measurement intervals remain pointwise and unadjusted."
                         )
                 except (ValueError, TypeError, KeyError) as error:
                     return fmt_error(f"Invalid clinical specification: {error}")

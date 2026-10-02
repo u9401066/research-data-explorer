@@ -8,12 +8,17 @@ import numpy as np
 import pandas as pd
 
 
-def validate_policy(alpha: float, missing_strategy: str, multiplicity: str) -> None:
+def validate_policy(
+    alpha: float, missing_strategy: str, multiplicity: str, *, single_contrast: bool = False
+) -> None:
     if not math.isfinite(alpha) or not 0 < alpha < 1:
         raise ValueError("alpha must be finite and strictly between 0 and 1.")
     if missing_strategy not in {"listwise", "pairwise"}:
         raise ValueError("missing_strategy must be listwise or pairwise; no implicit imputation.")
-    if multiplicity not in {"bonferroni", "holm", "fdr"}:
+    if single_contrast:
+        if multiplicity != "none":
+            raise ValueError("A single prespecified weighting contrast requires multiplicity=none.")
+    elif multiplicity not in {"bonferroni", "holm", "fdr"}:
         raise ValueError("multiple_comparison_method must be bonferroni, holm or fdr (BH).")
 
 

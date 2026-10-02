@@ -1,7 +1,7 @@
 # 傾向加權：實作與驗證狀態
 
-2026-10-02：來源契約、preflight 與數值核心已實作，尚未接入 MCP、報告或平台。
-RDE 維持 0.5.0；這不是已可執行完整加權研究的宣告。
+2026-10-02：來源契約、數值核心、MCP、完整報告與投稿圖已實作並以合成資料驗證。
+RDE 維持 0.5.0；公開臨床資料與 Workbench 操作／部署尚待後續驗收。
 
 `WeightingSpec` 要求二元處置、連續或二元結果、原始代碼、來源單位、time zero、
 結果確認方式與窗口，以及每個共變項的處置前量測依據。限定獨立個案的觀察性世代，
@@ -36,8 +36,26 @@ method 核對全部參數／共變異數。另驗證單位變更、處置／結�
 滿秩。二元差的 Wald 區間超出 [−1,1] 時保留原值並揭示，對比變異數為零則拒絕推論。
 數值核心加入後完整非 vendor 測試為 645 passed、41 字型條件 skipped、5 vendor
 deselected；同一環境另啟用授權 Arial，40 項各期刊匯出與 1 項過長圖標題拒絕均通過。
-這些檢查涵蓋既有圖表流程；加權圖表仍待實作。
+上述核心階段的字型檢查涵蓋既有圖表流程，加權圖表於下段加入。
 
-下一步接 MCP、中文完整報告、英文投稿圖與真實資料驗收。
+MCP 現可 preflight、鎖定及執行 weighting，完整保存中文報告、逐列 CSV、J／S／
+共變異數表與六格式英文圖。原始共變項及全部模型基底的平衡每圖最多十列，避免
+截斷樣條或交互作用。分數重疊圖以實／虛線辨識重合分布，權重 IQR 用色塊，
+不把診斷分位數當信賴區間。單一加權計畫要求 multiplicity=none、listwise 與匹配
+信賴水準；其他流程保留原校正設定。重繪只讀凍結數值，損壞成果不可靜默重算。
+
+最終完整測試 **655 passed、50 skipped**（45 字型條件、5 vendor；142.98 秒）。
+另外開啟授權 Arial 的 weighting workflow 為 **11 passed**，含四種 Nature／PLOS
+匯出；最後三項計畫拒絕案例另為 **3 passed**，且已包含於上述完整測試。
+
+獨立 MCP subprocess 的 650 筆合成資料含預先指定樣條與交互作用，固定保留 648
+完整個案，產生 8 張原始圖與中性／Nature 單欄／PLOS 單欄各 8 圖，共 207 個受檢
+成果；實際重啟後重用成功，檔案 SHA 不變。數值收據為
+`e726455290c008b072a0c6780a2b2fdbad3207eb93aa317f585019c3c3b03ed1`。
+人工檢視全部原始、Nature 及 PLOS PNG、兩張實際 PDF 頁面；全部 32 PDF 字型嵌入。
+另檢視簡單二元案例的四種版型共 24 PNG。這是合成工程驗證，不能當作公開研究的
+因果結果或 Workbench 端已完成。原失敗／圖面修正紀錄與最後成功紀錄分別保留。
+
+下一步接平台、來源審閱與真實資料驗收。
 方法範圍參考 [WeightIt 共同估計說明](https://ngreifer.github.io/WeightIt/articles/estimating-effects.html)
 與 [Li、Morgan、Zaslavsky 的 balancing weights](https://www2.stat.duke.edu/~fl35/papers/psweight_final.pdf)。

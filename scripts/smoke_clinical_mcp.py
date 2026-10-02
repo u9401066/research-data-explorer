@@ -28,9 +28,9 @@ async def run(args):
     workspace = args.workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=False)
     spec = json.loads(args.spec.read_text())
-    if spec.get("family") not in {"longitudinal", "regression"}:
+    if spec.get("family") not in {"longitudinal", "regression", "weighting"}:
         raise ValueError(
-            "An explicit longitudinal or regression engineering specification is required"
+            "An explicit longitudinal, regression or weighting engineering specification is required"
         )
     if sha(args.source) != args.source_sha256:
         raise ValueError("Source bytes differ from the pinned acquisition")
@@ -42,20 +42,23 @@ async def run(args):
     )
     calls = workspace / "calls"
     calls.mkdir()
+    covariates = (
+        [p["column"] for p in spec["covariates"]]
+        if spec["family"] == "weighting"
+        else spec.get("covariates", [])
+    )
+    predictors = [p["column"] for p in spec.get("predictors", [])]
     variables = list(
         dict.fromkeys(
             [
                 spec["outcome"],
-                *(
-                    [spec["time"]]
-                    if spec["family"] == "longitudinal"
-                    else [p["column"] for p in spec["predictors"]]
-                ),
-                *spec.get("covariates", []),
+                *([spec["time"]] if spec["family"] == "longitudinal" else predictors),
+                *covariates,
                 *[
                     name
                     for name in [
                         spec.get("group"),
+                        spec.get("treatment"),
                         spec.get("subject"),
                         spec.get("exposure"),
                         (spec.get("cohort_filter") or {}).get("column"),
@@ -142,10 +145,13 @@ async def run(args):
                 variable_roles={
                     "outcome": spec["outcome"],
                     **({"id": spec["subject"]} if spec.get("subject") else {}),
-                    "covariates": [spec["time"], *spec.get("covariates", [])]
+                    "covariates": [spec["time"], *covariates]
                     if spec["family"] == "longitudinal"
-                    else [p["column"] for p in spec["predictors"]],
+                    else covariates
+                    if spec["family"] == "weighting"
+                    else predictors,
                     **({"group": spec["group"]} if spec.get("group") else {}),
+                    **({"group": spec["treatment"]} if spec.get("treatment") else {}),
                 },
             ),
         )
@@ -173,7 +179,7 @@ async def run(args):
                 ],
                 alpha=1 - spec.get("confidence_level", 0.95),
                 missing_strategy="listwise",
-                multiple_comparison_method="holm",
+                multiple_comparison_method="none" if spec["family"] == "weighting" else "holm",
                 allow_methodology_override=False,
                 confirm=True,
             ),
@@ -242,7 +248,8 @@ async def run(args):
         n=result["n"],
         n_subjects=result.get("n_subjects"),
         model=result["model"],
-        coefficients=result["coefficients"],
+        coefficients=result.get("coefficients"),
+        effect=result.get("effect"),
         warnings=result["warnings"],
         figures=receipt["figures"],
         editions=editions,
