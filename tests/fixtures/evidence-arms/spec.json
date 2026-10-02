@@ -1,0 +1,37 @@
+{
+  "schema_version": "binary-arm-spec-v1",
+  "sheet": null,
+  "first_data_row": 3,
+  "last_data_row": 13,
+  "outside_data_reason": "Two source header records; this is synthetic software verification only.",
+  "columns": {"study": 1, "arm": 2, "treatment": 3, "events": 4, "total": 5, "author_imputed": 6},
+  "metadata": {
+    "report_id": {"kind": "column", "column": 7},
+    "source": {"kind": "constant", "value": "synthetic://binary-arm-edge-qa"},
+    "population": {"kind": "constant", "value": "Synthetic independent participants; no actual clinical population."},
+    "effect_modifiers": {"kind": "constant", "value": "Synthetic arms differ only in the explicitly supplied counts; not a clinical transitivity assessment."},
+    "risk_of_bias": {"kind": "constant", "value": "unclear"},
+    "bias_reason": {"kind": "constant", "value": "Synthetic fixture, no clinical bias assessment."},
+    "design": {"kind": "constant", "value": "parallel_rct"}
+  },
+  "missing_codes": [{"value": "", "meaning": "Not extracted."}, {"value": "*", "meaning": "Not available in source."}],
+  "imputation_codes": {"reported": ["0"], "imputed": ["1"]},
+  "treatments": [
+    {"raw": "A", "treatment": "A", "decision": "include", "reason": "Synthetic eligible treatment."},
+    {"raw": "B", "treatment": "B", "decision": "include", "reason": "Synthetic eligible treatment."},
+    {"raw": "C", "treatment": "C", "decision": "include", "reason": "Synthetic eligible treatment."},
+    {"raw": "X", "treatment": "X", "decision": "exclude", "reason": "Synthetic excluded treatment; preserve source row and missingness."}
+  ],
+  "row_decisions": [],
+  "measure": "OR",
+  "outcome": "Synthetic binary response",
+  "timepoint": "Synthetic week 8",
+  "reference": "B",
+  "independent_parallel_arms": true,
+  "merge_policy": "sum_disjoint_arms",
+  "fractional_events": "author_imputed",
+  "zero_cells": "add_half_all_arms_in_affected_study",
+  "uninformative_studies": "exclude",
+  "insufficient_treatments": "exclude",
+  "method_justification": "User-authorized engineering QA: preserve author-imputed precision, merge disjoint A arms, and apply one study-wide 0.5 correction before complete multiarm contrasts. Exclude uniform-outcome and single-treatment studies explicitly. This is not a clinical recommendation."
+}

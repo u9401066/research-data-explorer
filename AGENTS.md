@@ -338,6 +338,12 @@ init_project(mode="quick_explore") → run_intake → build_schema → profile_d
 
 ## Artifact Awareness
 
+Aggregate binary trial arms use the separate governed
+[`evidence_arm_preparation` workflow](docs/evidence-arm-preparation.md):
+contract → draft → complete hash-pinned plan/grid/review → explicit approval → execute.
+Unresolved source eligibility blocks approval; this workflow neither advances
+patient-level EDA nor establishes a completed meta-analysis.
+
 Agent 應該在回覆時引用具體的 artifact：
 
 ```text

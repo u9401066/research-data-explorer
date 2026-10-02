@@ -25,6 +25,18 @@ prospective_sample_size:
   immutable: [draft, review, approval, successful_run, failed_attempt]
   does_not_establish: [assumption_truth, clinical_appropriateness, completed_patient_eda_audit]
 
+binary_arm_preparation:
+  scope: aggregate_parallel_trial_arms_no_eda_advancement_no_meta_analysis
+  tools: [evidence_arm_preparation]
+  operations: [contract, draft, read, approve, execute]
+  sequence: source_snapshot_then_complete_paged_review_then_explicit_approval_then_calculation
+  approval_requires: [exact_plan_sha256, source_mapping_and_missingness, eligibility_and_treatment_merging, endpoint_denominator_and_imputation, zero_cells_and_method, independence_and_bias]
+  execution_requires: [exact_approval_sha256, unchanged_source_closure, unchanged_implementation, no_review_errors]
+  immutable: [source, grid, review, plan, approval, successful_run, failed_attempt, interrupted_attempt]
+  artifacts: artifacts/evidence_arm_preparation/{preparation_uuid}/
+  decision_log: artifacts/evidence_publication/decision_log.jsonl
+  does_not_establish: [clinical_eligibility, source_truth, study_independence, cryptographic_human_signature, completed_meta_analysis]
+
 external_evidence_publication:
   scope: separate_external_r_receipt_workflow_no_patient_dataset_no_eda_phase_advancement
   tools: [import_evidence_source, get_evidence_source, render_evidence_study, render_evidence_publication]

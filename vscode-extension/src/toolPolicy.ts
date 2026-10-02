@@ -1,4 +1,5 @@
 const EXTERNAL_EVIDENCE_TOOL_NAMES = [
+    'evidence_arm_preparation',
     'import_evidence_source',
     'get_evidence_source',
     'render_evidence_study',

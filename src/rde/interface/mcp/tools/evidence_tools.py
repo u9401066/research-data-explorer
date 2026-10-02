@@ -60,6 +60,24 @@ def register_evidence_tools(server):
             )
 
     @server.tool()
+    def evidence_arm_preparation(project_id: str, request: dict) -> str:
+        """固定原始 binary trial arms、審閱納排／分母／補值與零事件策略，核准後換算。
+
+        request={"op":"contract"} 取得嚴格 JSON schema 與方法；其餘操作依序
+        draft → read 完整 plan/review → approve → execute → read result。
+        受信任 adapter 將原檔放在 project.output_dir 下的
+        incoming/evidence-arms/<preparation_id>/<filename>，不接受任意絕對路徑。
+        草案不計算效應；來源、欄位、納排、方法改動必須另建新草案。
+        read 為固定 SHA256 的文字分頁，續頁須 expected_text_sha256；完整讀完才審核。
+        本流程不擬合統合分析、不推進個案資料 EDA 階段、不證明臨床來源正確。
+        """
+        from rde.infrastructure.evidence import arm_workflow
+
+        if request == {"op": "contract"}:
+            return json.dumps(arm_workflow.dispatch(None, request), ensure_ascii=False)
+        return call(project_id, arm_workflow.dispatch, raw_request=request)
+
+    @server.tool()
     def import_evidence_source(project_id: str, source_id: str, expected_bundle_sha256: str) -> str:
         """驗證並凍結已核准的外部 R 文獻整合結果，不执行統計或推進 EDA 階段。
 

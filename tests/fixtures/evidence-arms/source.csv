@@ -1,0 +1,13 @@
+Synthetic software verification only,,,,,,
+study,arm,drug,events,total,imputed,report
+s1,A.low,A,2.5,10,1,r1
+s1,A.high,A,3,20,0,r1
+s1,B,B,0,15,0,r1
+s1,C,C,5,20,0,r1
+s1,X,X,*,*,*,r1
+s2,A,A,1,10,0,r2
+s2,B,B,4,10,0,r2
+s3,A,A,0,10,0,r3
+s3,B,B,0,10,0,r3
+s4,A,A,2,10,0,r4
+s4,X,X,*,*,*,r4

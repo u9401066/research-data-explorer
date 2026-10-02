@@ -18,6 +18,11 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "evidence_arm_preparation": ToolContract(
+        "evidence-arm-preparation",
+        "strict operation schema + source snapshot + exact reviewed plan/approval + unchanged implementation",
+        "immutable binary arm draft, review, approval and contrasts; no model fitting or EDA advancement",
+    ),
     "init_project": ToolContract("0", "name + mode validation", "project and UX artifacts"),
     "draft_sample_size_plan": ToolContract(
         "prospective-design",
