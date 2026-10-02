@@ -21,6 +21,7 @@ def publication_style(preset_id=DEFAULT_PRESET):
         "axes.labelsize": 10,
         "axes.titlesize": 11,
         "axes.linewidth": 0.7,
+        "axes.unicode_minus": True,
         "axes.spines.top": False,
         "axes.spines.right": False,
         "xtick.labelsize": 9,

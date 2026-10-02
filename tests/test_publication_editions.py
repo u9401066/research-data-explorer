@@ -15,6 +15,42 @@ from rde.infrastructure.visualization.presets import DEFAULT_PRESET, list_preset
 from rde.interface.mcp.server import create_server
 
 
+def test_negative_ticks_are_identical_after_cjk_font_initialization(tmp_path):
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    from rde.infrastructure.visualization.publication import (
+        publication_style,
+        save_publication_figure,
+    )
+
+    rendered = []
+    for ambient in [True, False]:
+        # The platform's CJK font initialization disables the global Unicode minus.
+        # A publication preset must not inherit that process-specific difference.
+        with mpl.rc_context({"axes.unicode_minus": ambient}):
+            with publication_style() as profile:
+                fig, ax = plt.subplots(figsize=(7.1, 2.4))
+                ax.plot([-2, -1, 0], [0, 1, 0])
+                ax.set_xticks([-2, -1, 0])
+                pub = save_publication_figure(
+                    fig,
+                    tmp_path / str(ambient),
+                    "negative_ticks",
+                    number=1,
+                    title="Negative contrast ticks.",
+                    caption="Synthetic rendering regression; no statistical analysis.",
+                    explanation="負值刻度的環境隔離測試。",
+                    data=[{"x": -2, "y": 0}, {"x": -1, "y": 1}, {"x": 0, "y": 0}],
+                    profile=profile,
+                    receipt_sha256="a" * 64,
+                )
+                assert "−1" in Path(pub["files"]["svg"]).read_text()
+                rendered.append(Path(pub["files"]["png"]).read_bytes())
+            assert mpl.rcParams["axes.unicode_minus"] is ambient
+    assert rendered[0] == rendered[1]
+
+
 def call(name, args, *, json_result=True):
     response = asyncio.run(create_server().call_tool(name, args))
     assert not response.is_error, response.content
