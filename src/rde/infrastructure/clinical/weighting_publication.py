@@ -218,8 +218,10 @@ def _figures(result, directory, prefix, profile):
         ax.set_ylim(0, max(0.05, largest * 1.15))
         ax.yaxis.set_major_locator(MaxNLocator(4))
         ax.set_ylabel("Within-group fraction")
-        ax.set_title(title)
-        ax.legend(frameon=False, ncol=2, loc="upper right")
+        ax.set_title(title, loc="left")
+        ax.legend(
+            frameon=False, ncol=2, loc="lower right", bbox_to_anchor=(1, 1.01), borderaxespad=0
+        )
     axes[1, 0].set_xlabel("Propensity score e(X)")
     save(
         fig,

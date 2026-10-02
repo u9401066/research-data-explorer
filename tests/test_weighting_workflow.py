@@ -249,6 +249,32 @@ def test_weighting_plan_rejects_misleading_multiplicity_or_population_policy(
 def test_weighting_journal_editions_preserve_numbers_and_source(tmp_path, monkeypatch, preset):
     from PIL import Image
     from rde.infrastructure.visualization.publication import resolve_preset
+    from rde.infrastructure.clinical import weighting_publication
+
+    original_save = weighting_publication.save_publication_figure
+    inspected = []
+
+    def reviewed_save(fig, directory, stem, **kwargs):
+        saved = original_save(fig, directory, stem, **kwargs)
+        if stem.endswith("_weighting_overlap"):
+            renderer = fig.canvas.get_renderer()
+            for ax in fig.axes:
+                legend = ax.get_legend().get_window_extent(renderer)
+                # A narrow-column peak previously touched G0's legend text.
+                assert not legend.overlaps(ax.get_window_extent(renderer))
+                titles = [
+                    text
+                    for text in fig.findobj()
+                    if hasattr(text, "get_text")
+                    and text.get_text() in ["Before weighting", "After weighting"]
+                ]
+                assert titles and all(
+                    not legend.overlaps(t.get_window_extent(renderer)) for t in titles
+                )
+                inspected.append(saved["profile"])
+        return saved
+
+    monkeypatch.setattr(weighting_publication, "save_publication_figure", reviewed_save)
 
     monkeypatch.setenv("RDE_PUBLICATION_FONT_DIR", os.environ["RDE_JOURNAL_TEST_FONT_DIR"])
     project, store, dataset, spec = project_fixture(tmp_path, "ATO")
@@ -269,6 +295,7 @@ def test_weighting_journal_editions_preserve_numbers_and_source(tmp_path, monkey
         )
     )
     profile = resolve_preset(preset)
+    assert inspected.count(preset) == 2
     assert source.read_bytes() == original
     for first, rendered in zip(record["figures"], edition["figures"], strict=True):
         pub = rendered["publication"]
