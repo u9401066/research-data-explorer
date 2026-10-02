@@ -10,7 +10,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
-from rde.domain.models.evidence_arms import BinaryArmSpec
+from rde.domain.models.evidence_arms import BinaryArmSpec, SourceSelection
 
 MAX_BYTES = 20 * 1024 * 1024
 MAX_CELLS = 1_000_000
@@ -62,7 +62,7 @@ def _numeric_tokens(archive, sheet_name):
     return part, numbers
 
 
-def source_grid(data: bytes, filename: str, spec: BinaryArmSpec):
+def source_grid(data: bytes, filename: str, spec: BinaryArmSpec | SourceSelection):
     if not data or len(data) > MAX_BYTES:
         raise ValueError("Source must be nonempty and no larger than 20 MiB.")
     if Path(filename).name != filename or "\\" in filename or len(filename) > 200:
@@ -149,7 +149,7 @@ def source_grid(data: bytes, filename: str, spec: BinaryArmSpec):
             workbook.close()
     else:
         raise ValueError("Arm preparation accepts UTF-8 CSV/TSV or XLSX only.")
-    if not grids or spec.last_data_row > len(grids):
+    if not grids or (isinstance(spec, BinaryArmSpec) and spec.last_data_row > len(grids)):
         raise ValueError("Selected data rows are not all present in the source.")
     if sum(map(len, grids)) > MAX_CELLS or any(len(v) > 8000 for row in grids for v in row):
         raise ValueError("Source text exceeds the bounded review budget.")

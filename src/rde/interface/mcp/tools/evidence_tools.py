@@ -64,11 +64,11 @@ def register_evidence_tools(server):
         """固定原始 binary trial arms、審閱納排／分母／補值與零事件策略，核准後換算。
 
         request={"op":"contract"} 取得嚴格 JSON schema 與方法；其餘操作依序
-        draft → read 完整 plan/review → approve → execute → read result。
+        inspect 原始格線 → draft → read 完整 plan/grid/review → approve → execute → read result。
         受信任 adapter 將原檔放在 project.output_dir 下的
         incoming/evidence-arms/<preparation_id>/<filename>，不接受任意絕對路徑。
         草案不計算效應；來源、欄位、納排、方法改動必須另建新草案。
-        read 為固定 SHA256 的文字分頁，續頁須 expected_text_sha256；完整讀完才審核。
+        inspect/read 為固定 SHA256 的文字分頁，續頁須 expected_text_sha256；完整讀完才審核。
         本流程不擬合統合分析、不推進個案資料 EDA 階段、不證明臨床來源正確。
         """
         from rde.infrastructure.evidence import arm_workflow

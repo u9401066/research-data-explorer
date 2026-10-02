@@ -197,6 +197,27 @@ class ContractRequest(StrictModel):
     op: Literal["contract"]
 
 
+class SourceSelection(StrictModel):
+    sheet: Annotated[str, Field(min_length=1, max_length=31)] | None
+
+
+class InspectRequest(StrictModel):
+    op: Literal["inspect"]
+    preparation_id: UUIDText
+    filename: Annotated[str, Field(min_length=1, max_length=200)]
+    source_sha256: Hash
+    selection: SourceSelection
+    text_offset: Annotated[int, Field(ge=0)] = 0
+    text_limit: Annotated[int, Field(ge=1, le=64000)] = 16000
+    expected_text_sha256: Hash | None = None
+
+    @model_validator(mode="after")
+    def pinned(self):
+        if self.text_offset and self.expected_text_sha256 is None:
+            raise ValueError("Continuation requires expected_text_sha256.")
+        return self
+
+
 class DraftRequest(StrictModel):
     op: Literal["draft"]
     preparation_id: UUIDText
@@ -239,6 +260,6 @@ class ExecuteRequest(StrictModel):
 
 
 ArmRequest = Annotated[
-    ContractRequest | DraftRequest | ReadRequest | ApproveRequest | ExecuteRequest,
+    ContractRequest | InspectRequest | DraftRequest | ReadRequest | ApproveRequest | ExecuteRequest,
     Field(discriminator="op"),
 ]

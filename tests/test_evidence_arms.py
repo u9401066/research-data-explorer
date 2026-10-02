@@ -322,3 +322,39 @@ def test_contract_and_request_reject_path_and_unknown_parameters():
     call({**identity, "request": changed}, error=True)
     request["unexpected"] = True
     call({**identity, "request": request}, error=True)
+
+
+def test_inspection_requires_no_clinical_decisions_and_pins_every_source_page():
+    project, identity, request, _ = setup()
+    root = workflow.directory(project, request["preparation_id"])
+    original = {p.name: p.read_bytes() for p in root.iterdir() if p.is_file()}
+    inspection = {
+        "op": "inspect",
+        "preparation_id": request["preparation_id"],
+        "filename": request["filename"],
+        "source_sha256": request["source_sha256"],
+        "selection": {"sheet": None},
+        "text_limit": 257,
+    }
+    whole = ""
+    while True:
+        page = call({**identity, "request": inspection})
+        whole += page["text_excerpt"]
+        if page["next_text_offset"] is None:
+            break
+        inspection.update(
+            text_offset=page["next_text_offset"], expected_text_sha256=page["text_sha256"]
+        )
+    assert workflow.w.sha(whole.encode()) == page["text_sha256"]
+    assert json.loads(whole)["rows"][2][3] == "2.5"
+    assert {p.name: p.read_bytes() for p in root.iterdir() if p.is_file()} == original
+    unpinned = {k: v for k, v in inspection.items() if k != "expected_text_sha256"}
+    assert "Continuation requires" in call({**identity, "request": unpinned}, error=True)
+    incoming = (
+        project.output_dir
+        / "incoming/evidence-arms"
+        / request["preparation_id"]
+        / request["filename"]
+    )
+    incoming.write_text("different source")
+    assert "source differs" in call({**identity, "request": inspection}, error=True)

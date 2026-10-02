@@ -28,7 +28,7 @@ prospective_sample_size:
 binary_arm_preparation:
   scope: aggregate_parallel_trial_arms_no_eda_advancement_no_meta_analysis
   tools: [evidence_arm_preparation]
-  operations: [contract, draft, read, approve, execute]
+  operations: [contract, inspect, draft, read, approve, execute]
   sequence: source_snapshot_then_complete_paged_review_then_explicit_approval_then_calculation
   approval_requires: [exact_plan_sha256, source_mapping_and_missingness, eligibility_and_treatment_merging, endpoint_denominator_and_imputation, zero_cells_and_method, independence_and_bias]
   execution_requires: [exact_approval_sha256, unchanged_source_closure, unchanged_implementation, no_review_errors]

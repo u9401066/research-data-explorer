@@ -111,6 +111,42 @@ def read_plan(project, preparation_id, expected=None):
     return plan
 
 
+def inspect(project, request):
+    """Read exact source coordinates before asking the reviewer to map columns."""
+    w.require(Path(request.filename).name == request.filename, "plain source filename required")
+    path = w.safe_path(
+        project.output_dir.resolve(),
+        f"incoming/evidence-arms/{request.preparation_id}/{request.filename}",
+    )
+    w.require(
+        path.is_file() and path.stat().st_size <= arm_source.MAX_BYTES,
+        "missing or oversized incoming arm source",
+    )
+    data = path.read_bytes()
+    w.require(
+        w.sha(data) == request.source_sha256, "incoming arm source differs from requested SHA256"
+    )
+    grid = arm_source.source_grid(data, request.filename, request.selection)
+    text = json.dumps(grid, ensure_ascii=False, allow_nan=False, indent=2) + "\n"
+    w.require(len(text.encode("utf-8")) <= MAX_JSON, "source grid exceeds the 16 MiB review budget")
+    hashed = w.sha(text.encode("utf-8"))
+    w.require(
+        request.expected_text_sha256 is None or request.expected_text_sha256 == hashed,
+        "arm inspection differs from pinned text SHA256",
+    )
+    w.require(request.text_offset <= len(text), "text offset exceeds the source grid")
+    end = min(len(text), request.text_offset + request.text_limit)
+    return {
+        "source_sha256": request.source_sha256,
+        "text_sha256": hashed,
+        "text_offset": request.text_offset,
+        "text_total_chars": len(text),
+        "text_excerpt": text[request.text_offset : end],
+        "next_text_offset": end if end < len(text) else None,
+        "scope": "Source inspection only; no draft, eligibility decision, approval or calculation.",
+    }
+
+
 def draft(project, request):
     root = directory(project, request.preparation_id)
     spec = request.specification
@@ -448,11 +484,15 @@ def dispatch(project, raw_request):
             "request_schema": ADAPTER.json_schema(),
             "method": engine.METHOD,
             "source_location": "<project.output_dir>/incoming/evidence-arms/<preparation_id>/<filename>",
-            "workflow": "draft -> read complete plan and review -> approve -> execute -> read complete result; changed sources/decisions require a new preparation ID",
+            "workflow": "inspect source grid -> draft -> read complete plan/grid/review -> approve -> execute -> read complete result; changed sources/decisions require a new preparation ID",
             "paging": "Exact UTF-8 file SHA256; offsets count Unicode characters; pin expected_text_sha256 on every continuation.",
             "scope": "This workflow neither fits a meta-analysis nor advances patient-level EDA phases.",
         }
     with w.locked(project):
-        return {"draft": draft, "read": read, "approve": approve, "execute": execute}[request.op](
-            project, request
-        )
+        return {
+            "inspect": inspect,
+            "draft": draft,
+            "read": read,
+            "approve": approve,
+            "execute": execute,
+        }[request.op](project, request)
