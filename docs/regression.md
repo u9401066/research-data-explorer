@@ -4,8 +4,10 @@
 `clinical_options.family="regression"`. The full intake, schema, concept review,
 proposal, plan lock, readiness, execution, report and audit sequence runs through
 MCP. Source SHA-256, selected worksheet, dataframe and exact specification are
-checked before execution. Workbench integration is undergoing browser validation;
-this development milestone is not yet deployed to the production service.
+checked before execution. As of 2026-10-02, RDE `ed35602` and Workbench runtime
+`07cb993` are deployed; all five public CSV/Excel models have completed production
+browser validation, publication export and restart retrieval. Versions remain
+0.5.0 and 0.1.0.
 
 `clinical/regression_contract.py` declares one source outcome, independent rows,
 an explicit study design (including cross-sectional or unspecified), source units,
@@ -119,14 +121,36 @@ Embedded PDF fonts and identical figure data were checked for every export.
 MCP restart reused all 25 new layout editions without refitting; 1859 original
 and new immutable files were verified unchanged. Earlier overlapping single-column
 labels remain in their historical editions; new editions increase physical row
-spacing. Local evidence is under `/tmp/rde-regression-layout-review/` and
-`/tmp/rde-regression-layout-visual-review/` pending the milestone QA archive.
+spacing. Local evidence from `/tmp/rde-regression-layout-review/` and
+`/tmp/rde-regression-layout-visual-review/`, including earlier failures, is retained
+in the verified milestone archive described below.
 
 Use `scripts/smoke_clinical_mcp.py --help` for the source-pinned workflow,
 optional journal editions, process restart and artifact verification. These runs
 validate software behavior and interpretation boundaries, not new clinical findings.
 The local non-vendor release suite passed 664 checks with the configured CJK and
 authorized local Arial fixtures; five optional vendor checks were deselected.
+
+Production verification matched all 29 original figure PNGs/data tables to the
+reviewed MCP output, then exported five new journal editions with 29 figures and
+174 format downloads. All 29 PDFs embed their fonts; five actual PDF pages and
+desktop/mobile editors and reports were inspected. Journal editions were retrieved
+after a service restart without changing their source analyses. The full Workbench
+audit checked 45 projects and 6390 artifacts, with zero download/hash/index/ownership
+errors. All 39 pre-existing projects remained unchanged.
+
+Actual LLM tests retained failures and targeted corrections, including omitted case
+IDs, repeated report pages, unavailable approved alpha in scoped discussion, Holm
+family interpretation and misuse of the necessarily positive NB2 log-scale interval.
+The Workbench fixes do not change numerical results or guarantee every model answer.
+Complete QA, including the stopped development workspace, is archived at
+`/home/eric/.local/share/research-workbench-qa/regression-20261002T004443Z/qa-evidence.tar.gz`:
+7893 files, 479887430 bytes, SHA-256
+`0977aae5246985f8613967c8b960e0c04cc72ed61bbe088179ebb2651d88f689`.
+Every archive payload was read and matched to its recorded hash.
+[RDE CI](https://github.com/u9401066/research-data-explorer/actions/runs/36885761255)
+passed 623 checks with 41 optional font-fixture skips and five vendor deselections,
+plus pre-commit, extension checks and four-platform smoke.
 
 References: [Patsy natural cubic splines](https://patsy.readthedocs.io/en/latest/spline-regression.html),
 [Harrell restricted-cubic normalization](https://github.com/harrelfe/Hmisc/blob/master/R/rcspline.eval.s),
