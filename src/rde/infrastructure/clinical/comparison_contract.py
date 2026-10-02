@@ -256,6 +256,7 @@ def comparison_preflight(df, spec):
     frame, ledger, source_hash = prepare_comparison(df, spec)
     return {
         "schema": "comparison-preflight-v1",
+        "spec": spec.to_dict(),
         "case_ledger": ledger,
         "spec_sha256": digest(spec.to_dict()),
         "dataframe_sha256": source_hash,

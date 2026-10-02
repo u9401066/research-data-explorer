@@ -51,6 +51,7 @@ def test_fixed_labels_shared_cases_and_planned_family_survive_missing_first_row(
     frame, spec = fixture()
     original = frame.copy(deep=True)
     preflight = comparison_preflight(frame, spec)
+    assert preflight["spec"] == spec.to_dict()
     assert (
         preflight["n"] == 28 and preflight["outside_cohort"] == preflight["missing_required"] == 1
     )
