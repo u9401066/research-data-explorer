@@ -68,9 +68,20 @@ create patient datasets, approve research or advance EDA phases.
 A trusted Workbench adapter writes the bundle under the initialized native
 project's `incoming/evidence/<source_uuid>/`. The server accepts only this fixed
 location, an exact bundle-file SHA256, normalized confined paths and no symlinks.
-Limits are 128 inventoried files, 100 MiB per file, 512 MiB total and 16 MiB per
-JSON record. Import copies and re-verifies every byte before committing an
+Limits are 128 inventoried files, 100 MiB per ordinary file, 512 MiB total and
+16 MiB per JSON record. The exact `engine/network-model.rds` member may use the
+512 MiB shared total budget: complete fits at 2,000 contrasts retain large
+covariance and weight matrices. Other files do not inherit that exception.
+Import copies and re-verifies every byte before committing an
 immutable source. Subsequent reads use that copy, independent of incoming files.
+
+The 2026-10-02 dense Workbench capacity run imported a complete approximately
+280 MB RDS and rendered 856 RR figures for 40 treatments, 500 trials and 2,000
+contrasts (618 direct pairs). All source/figure bytes and restart state were
+verified. This is synthetic software validation, not public clinical evidence.
+The resource-boundary regression uses the actual immutable R fixture and checks
+the separate model limit, unchanged ordinary-file limit and shared total limit.
+Focused workflow checks: 24 passed; full suite: 829 passed, 66 optional skipped.
 
 The `evidence-source-bundle-v1` contains:
 

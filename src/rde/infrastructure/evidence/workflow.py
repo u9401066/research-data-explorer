@@ -21,6 +21,7 @@ from rde.infrastructure.prediction.splits import digest
 
 MAX_FILE = 100 * 1024 * 1024
 MAX_TOTAL = 512 * 1024 * 1024
+MAX_R_MODEL = MAX_TOTAL
 HEX = re.compile(r"[a-f0-9]{64}")
 COLUMNS = {
     "study_id",
@@ -205,8 +206,12 @@ def verify_bundle(project, source_id, directory, expected):
         path = safe_path(directory, name)
         require(name != "bundle.json" and path.is_file(), "missing inventory file")
         size = path.stat().st_size
+        # A complete netmeta fit includes study covariance/weight matrices.
+        # Retain it whole; numerical JSON keeps its separate 16 MiB guard and
+        # the entire source bundle still shares the existing 512 MiB budget.
+        limit = MAX_R_MODEL if name == "engine/network-model.rds" else MAX_FILE
         require(
-            type(metadata.get("bytes")) is int and size == metadata["bytes"] and size <= MAX_FILE,
+            type(metadata.get("bytes")) is int and size == metadata["bytes"] and size <= limit,
             "file size differs or exceeds limit",
         )
         total += size

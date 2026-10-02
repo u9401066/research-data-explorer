@@ -67,6 +67,34 @@ def reseal_bundle(directory, args, changed=None):
     args["expected_bundle_sha256"] = w.file_hash(path)
 
 
+def test_full_r_model_has_separate_limit_without_relaxing_total_or_json_limits(monkeypatch):
+    project, directory, args = prepare(CHECKPOINT_FIXTURE, CHECKPOINT_SHA)
+    bundle = w.load_json(directory / "bundle.json")
+    sizes = {name: item["bytes"] for name, item in bundle["files"].items()}
+    model_size = sizes["engine/network-model.rds"]
+    ordinary_size = max(size for name, size in sizes.items() if name != "engine/network-model.rds")
+    total = sum(sizes.values())
+    # Scale limits to the genuine immutable R fixture. The live Workbench
+    # capacity check separately imports the complete 280 MB model through MCP.
+    assert model_size > ordinary_size
+    monkeypatch.setattr(w, "MAX_FILE", ordinary_size)
+    monkeypatch.setattr(w, "MAX_R_MODEL", model_size)
+    monkeypatch.setattr(w, "MAX_TOTAL", total)
+    source_id, expected = args["source_id"], args["expected_bundle_sha256"]
+    w.verify_bundle(project, source_id, directory, expected)
+    monkeypatch.setattr(w, "MAX_R_MODEL", model_size - 1)
+    with pytest.raises(ValueError, match="file size"):
+        w.verify_bundle(project, source_id, directory, expected)
+    monkeypatch.setattr(w, "MAX_R_MODEL", model_size)
+    monkeypatch.setattr(w, "MAX_FILE", ordinary_size - 1)
+    with pytest.raises(ValueError, match="file size"):
+        w.verify_bundle(project, source_id, directory, expected)
+    monkeypatch.setattr(w, "MAX_FILE", ordinary_size)
+    monkeypatch.setattr(w, "MAX_TOTAL", total - 1)
+    with pytest.raises(ValueError, match="bundle exceeds limit"):
+        w.verify_bundle(project, source_id, directory, expected)
+
+
 def test_real_workbench_reused_execution_retains_original_checkpoint():
     project, directory, args = prepare(CHECKPOINT_FIXTURE, CHECKPOINT_SHA)
     origin = w.load_json(directory / "execution-origin.json")
