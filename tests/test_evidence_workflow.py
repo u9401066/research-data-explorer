@@ -17,6 +17,8 @@ from rde.interface.mcp.server import create_server
 
 FIXTURE = Path(__file__).parent / "fixtures/evidence-publication/workbench-handoff.zip"
 FIXTURE_SHA = "3cedb20b499dfe23fc203ba55c22620327b67ab5be63be8bd8044ba1436492ae"
+CHECKPOINT_FIXTURE = FIXTURE.with_name("workbench-checkpoint.zip")
+CHECKPOINT_SHA = "e2b5ffc2f3c63134c8bcb21c9e8872efed0ec67977e50396e945f9ab4f6290b4"
 
 
 def tool(name, arguments, *, error=False):
@@ -26,7 +28,7 @@ def tool(name, arguments, *, error=False):
     return text if error or name == "init_project" else json.loads(text)
 
 
-def prepare():
+def prepare(fixture=FIXTURE, expected_sha=FIXTURE_SHA):
     tool(
         "init_project",
         {
@@ -35,11 +37,11 @@ def prepare():
         },
     )
     project = get_session().get_project()
-    assert hashlib.sha256(FIXTURE.read_bytes()).hexdigest() == FIXTURE_SHA
+    assert hashlib.sha256(fixture.read_bytes()).hexdigest() == expected_sha
     source_id = str(uuid.uuid4())
     directory = project.output_dir / "incoming/evidence" / source_id
     directory.mkdir(parents=True)
-    with zipfile.ZipFile(FIXTURE) as archive:
+    with zipfile.ZipFile(fixture) as archive:
         archive.extractall(directory)
     # Only transport identity changes for this isolated project. All original R,
     # source, schema, review and approved-plan bytes remain exactly as executed.
@@ -63,6 +65,73 @@ def reseal_bundle(directory, args, changed=None):
         bundle["files"][changed] = {"sha256": w.file_hash(p), "bytes": p.stat().st_size}
     path.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n")
     args["expected_bundle_sha256"] = w.file_hash(path)
+
+
+def test_real_workbench_reused_execution_retains_original_checkpoint():
+    project, directory, args = prepare(CHECKPOINT_FIXTURE, CHECKPOINT_SHA)
+    origin = w.load_json(directory / "execution-origin.json")
+    assert origin["kind"] == "reused"
+    assert origin["identity"]["job_id"] != origin["origin"]["job_id"]
+    original_numeric = (directory / "engine/numeric-result.json").read_bytes()
+    imported = tool("import_evidence_source", args)
+    saved, result = w.read_source(project, args["source_id"])
+    assert saved == imported
+    assert result["source"]["execution_origin"] == origin
+    assert (
+        w.source_directory(project, args["source_id"]) / "engine/numeric-result.json"
+    ).read_bytes() == original_numeric
+
+
+@pytest.mark.parametrize(
+    "problem",
+    [
+        "new_execution",
+        "original_project",
+        "plan",
+        "inventory",
+        "member",
+        "location",
+        "current_job",
+        "missing_origin",
+    ],
+)
+def test_mcp_rejects_self_consistent_hashes_with_false_checkpoint_lineage(problem):
+    project, directory, args = prepare(CHECKPOINT_FIXTURE, CHECKPOINT_SHA)
+    origin_path, checkpoint_path = (
+        directory / "execution-origin.json",
+        directory / "execution-checkpoint.json",
+    )
+    origin, checkpoint = w.load_json(origin_path), w.load_json(checkpoint_path)
+    if problem == "new_execution":
+        origin["kind"] = "executed"
+    elif problem == "original_project":
+        checkpoint["identity"]["project_id"] = str(uuid.uuid4())
+        origin["origin"] = checkpoint["identity"]
+    elif problem == "plan":
+        checkpoint["binding"]["planSha256"] = "0" * 64
+    elif problem == "inventory":
+        checkpoint["files"].pop("session.txt")
+    elif problem == "member":
+        checkpoint["files"]["numeric-result.json"]["sha256"] = "0" * 64
+    elif problem == "location":
+        checkpoint["files"]["numeric-result.json"]["sourcePath"] = (
+            "datasets/other/numeric-result.json"
+        )
+    elif problem == "current_job":
+        origin["identity"]["job_id"] = str(uuid.uuid4())
+    checkpoint_path.write_text(json.dumps(checkpoint, ensure_ascii=False))
+    origin["checkpointSha256"] = w.file_hash(checkpoint_path)
+    origin_path.write_text(json.dumps(origin, ensure_ascii=False))
+    reseal_bundle(directory, args, "execution-checkpoint.json")
+    reseal_bundle(directory, args, "execution-origin.json")
+    if problem == "missing_origin":
+        bundle_path = directory / "bundle.json"
+        bundle = w.load_json(bundle_path)
+        bundle["files"].pop("execution-origin.json")
+        bundle_path.write_text(json.dumps(bundle))
+        reseal_bundle(directory, args)
+    tool("import_evidence_source", args, error=True)
+    assert not w.source_directory(project, args["source_id"]).exists()
 
 
 @pytest.mark.parametrize(

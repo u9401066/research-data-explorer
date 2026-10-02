@@ -113,6 +113,38 @@ The Workbench production pipeline and publication UI are not yet wired to this
 new workflow. The existing R PNGs remain in use there. Adapter/MCP integration
 checks are separate from browser or public-clinical-data validation.
 
+## Workbench numerical checkpoints and retry lineage
+
+The development Workbench now snapshots a completed R execution before attempting
+publication rendering. A later attempt with the same approved plan, source/schema,
+sheet, input, script and immutable image can recover these saved bytes instead of
+starting R again. The new graph node uses the original checkpoint artifact; old
+failed render attempts remain unchanged. Corrupt snapshots stop recovery without
+silently rerunning the analysis. Mutable working copies are not recovery sources.
+
+Bundles using this facility include `execution-checkpoint.json` and
+`execution-origin.json`. They bind the original and current Workbench identities,
+the exact checkpoint bytes, plan/source/input/script/image, each saved artifact's
+identity/hash/size and its original location. RDE validates all of these against
+the actual bundle and complete engine inventory before importing or reading it.
+An executed origin must be the current execution; a reused origin must name a
+different job/node under the same project/dataset/approved plan. This preserves
+provenance without claiming that R ran again for the new rendering. External
+fixed R sources may omit Workbench-specific checkpoints; incomplete or false
+lineage supplied by a caller is rejected. These are byte/identity consistency
+checks, not independent cryptographic proof of an external execution.
+
+`tests/fixtures/evidence-publication/workbench-checkpoint.zip` freezes 28 exact
+files from an actual synthetic OR retry on 2026-10-02: completed Docker/R → actual
+RDE font failure → Workbench service reconstruction → successful RDE figures,
+with one R execution in total. Numeric/execution bytes were unchanged; a damaged
+working copy was recovered from the vault, while a corrupt vault checkpoint was
+rejected without reanalysis. ZIP SHA256:
+`e2b5ffc2f3c63134c8bcb21c9e8872efed0ec67977e50396e945f9ab4f6290b4`
+(347,248 bytes). Tests preserve those bytes and change only transport IDs or
+explicit adversarial lineage fields. This is software verification, not a real
+clinical dataset. No tool inventory or package version changes were required.
+
 Handoff verification on 2026-10-02: 14 MCP edge tests passed with the actual saved
 Workbench fixture. Two live Workbench/R/Docker/external-stdio flows passed for
 CSV OR and explicitly selected Excel MD. Each created nine baseline figures and

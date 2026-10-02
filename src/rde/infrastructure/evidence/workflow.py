@@ -312,6 +312,7 @@ def verify_bundle(project, source_id, directory, expected):
     )
     for name, expected_hash in engine_hashes.items():
         require(files[f"engine/{name}"]["sha256"] == expected_hash, "R output binding differs")
+    execution_origin = verify_execution_origin(bundle, read, engine_hashes, approved, execution)
     for key, value in analysis["review"].items():
         require(key in review and review[key] == value, "numerical review differs from input")
     observations = analysis["observations"]
@@ -334,10 +335,89 @@ def verify_bundle(project, source_id, directory, expected):
             "numeric_file_sha256": files["engine/numeric-result.json"]["sha256"],
             "image": execution["image"],
             "script_sha256": execution["scriptSha256"],
+            **({"execution_origin": execution_origin} if execution_origin else {}),
             "verification_scope": "saved bytes, approved plan, parsed table, review and R receipt; not source truth or patient EDA audit",
         },
     )
     return bundle, result
+
+
+def verify_execution_origin(bundle, read, engine_hashes, approved, execution):
+    """Validate explicit Workbench checkpoint/reuse lineage when supplied.
+
+    External R sources need not use Workbench's retry store. A supplied lineage
+    is nevertheless evidence, never an unchecked advisory 'reused' flag.
+    """
+    files, identity = bundle["files"], bundle["identity"]
+    names = {"execution-origin.json", "execution-checkpoint.json"}
+    present = names & files.keys()
+    if not present:
+        return None
+    require(present == names, "incomplete execution origin")
+    origin, checkpoint = read("execution-origin.json"), read("execution-checkpoint.json")
+    require(
+        origin.get("schema") == "workbench-evidence-execution-origin-v1"
+        and checkpoint.get("schema") == "workbench-evidence-checkpoint-v1",
+        "unsupported execution checkpoint",
+    )
+    require(origin.get("identity") == identity, "retry belongs to another execution")
+    old = checkpoint.get("identity", {})
+    require(set(old) == set(identity) and origin.get("origin") == old, "invalid original execution")
+    for value in old.values():
+        canonical_id(value)
+    for key in ("project_id", "dataset_id", "plan_id"):
+        require(old[key] == identity[key], "checkpoint belongs to another approved source")
+    kind = origin.get("kind")
+    require(kind in {"executed", "reused"}, "unknown execution origin kind")
+    require(
+        (
+            kind == "executed"
+            and old == identity
+            and origin.get("checkpointFile") == "evidence-checkpoint.json"
+        )
+        or (
+            kind == "reused"
+            and old["job_id"] != identity["job_id"]
+            and old["node_id"] != identity["node_id"]
+            and origin.get("checkpointFile") == "evidence-origin-checkpoint.json"
+        ),
+        "execution/reuse identity differs",
+    )
+    canonical_id(origin.get("checkpointArtifactId"))
+    require(
+        origin.get("checkpointSha256") == files["execution-checkpoint.json"]["sha256"],
+        "checkpoint bytes differ from execution origin",
+    )
+    binding = checkpoint.get("binding", {})
+    require(
+        binding
+        == {
+            "planSha256": files["approved-plan.json"]["sha256"],
+            "sourceSha256": bundle["source"]["sha256"],
+            "schemaSha256": bundle["source"]["schema_sha256"],
+            "sheet": bundle["source"].get("sheet"),
+            "image": execution["image"],
+            "inputSha256": execution["inputSha256"],
+            "scriptSha256": execution["scriptSha256"],
+        },
+        "checkpoint numerical binding differs",
+    )
+    inventory = checkpoint.get("files", {})
+    require(
+        set(inventory) == set(engine_hashes) | {"output-hashes.json"},
+        "checkpoint inventory differs",
+    )
+    prefix = f"datasets/{old['dataset_id']}/runs/{old['job_id']}/{old['node_id']}/output/"
+    for name, expected in inventory.items():
+        canonical_id(expected.get("artifactId"))
+        require(
+            expected.get("sha256") == files[f"engine/{name}"]["sha256"]
+            and expected.get("bytes") == files[f"engine/{name}"]["bytes"]
+            and isinstance(expected.get("sourcePath"), str)
+            and expected["sourcePath"].replace("\\", "/") == prefix + name,
+            "checkpoint member or original location differs",
+        )
+    return origin
 
 
 def verify_table(table, review):
