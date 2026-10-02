@@ -296,7 +296,7 @@ def run_weighting(df, spec: WeightingSpec):
             "scale": "probability difference"
             if spec.outcome_type == "binary"
             else "mean difference",
-            "unit": "probability (0..1)" if spec.outcome_type == "binary" else spec.outcome_unit,
+            "unit": "proportion" if spec.outcome_type == "binary" else spec.outcome_unit,
             "treated_mean": means[0],
             "control_mean": means[1],
             "estimate": estimate,

@@ -68,3 +68,9 @@ MCP 現可 preflight、鎖定及執行 weighting，完整保存中文報告、�
 659 passed、45 字型條件 skipped、5 vendor deselected（146.27 秒）。
 工作台 CSV 二元 ATE 與 Excel 連續 ATO 的真實 MCP 整合修正後 2 passed，
 210 來源列／208 完整個案、6 張圖、完整報告及重啟重用均驗證。這仍為合成測試。
+
+公開資料實際圖面審閱後，二元對比軸改為 `Probability difference`，數值收據的
+單位為 `proportion`；差值可為負，不能用機率本身的 0–1 範圍標示差值軸。圖說
+保留研究者的完整 study context，將 independent-case 明列為工作模型，避免略去
+群聚未建模、收案選擇或工程用途的限制；已含句點的來源敘述不再多加句點。
+負向二元 ATT 亦經 MCP／六格式圖驗證，改樣式仍只使用保存的估計值。

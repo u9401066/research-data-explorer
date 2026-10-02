@@ -29,6 +29,9 @@ def project_fixture(tmp_path, estimand="ATE", outcome_type="binary"):
     from test_weighting_models import cell_fixture
 
     frame, spec, _, _ = cell_fixture(outcome_type)
+    if outcome_type == "binary" and estimand == "ATT":
+        # A real negative contrast must retain a difference scale in figures.
+        spec = replace(spec, outcome_levels=list(reversed(spec.outcome_levels)))
     frame["eligible"] = "yes"
     frame.loc[0, "eligible"] = "no"
     frame.loc[1, "outcome"] = None
@@ -77,6 +80,19 @@ def test_mcp_weighting_keeps_full_reports_case_ledger_and_frozen_evidence(
         assert set(pub["files"]) == {"png", "pdf", "svg", "tiff", "caption", "data"}
         assert "中文解釋" in Path(pub["files"]["caption"]).read_text()
         if figure["plot_type"] == "clinical_weighting_effect":
+            caption = Path(pub["files"]["caption"]).read_text()
+            assert f"Study context: {spec.context}" in caption
+            assert "independent-case working model" in caption
+            if spec.time_origin.endswith("."):
+                assert f"{spec.time_origin}." not in caption
+            if outcome_type == "binary":
+                assert result["effect"]["unit"] == "proportion"
+                assert "negative difference is possible" in caption
+                assert "0–1 scale" not in caption
+                svg = Path(pub["files"]["svg"]).read_text()
+                assert "Probability difference" in svg and "difference (0–1)" not in svg
+                if estimand == "ATT":
+                    assert result["effect"]["estimate"] < 0
             with open(pub["files"]["data"], newline="") as stream:
                 effect = list(csv.DictReader(stream))[0]
             for key in ["estimate", "standard_error", "lower", "upper", "p_value"]:

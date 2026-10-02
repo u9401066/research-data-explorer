@@ -26,11 +26,18 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator, NullLocator
 
     spec, diagnostics, records = result["spec"], result["diagnostics"], []
+
+    def sentence(text):
+        text = text.strip()
+        return text if text.endswith((".", "!", "?", "。", "！", "？")) else text + "."
+
     source = (
-        f"Prespecified {spec['estimand']} weighting in an observational cohort; one common complete-case sample of {result['n']} independent cases. "
+        f"Prespecified {spec['estimand']} weighting in an observational cohort; one common complete-case sample of {result['n']} cases under an independent-case working model. "
         f"G0 (A=0)={spec['treatment_levels'][0]!r}; G1 (A=1)={spec['treatment_levels'][1]!r}. "
-        f"Exposure: {spec['treatment_definition']}. Time zero: {spec['time_origin']}. "
-        f"Outcome {spec['outcome']!r}, source unit/definition {spec['outcome_unit']!r}; ascertainment: {spec['outcome_definition']}; window: {spec['outcome_window']}. "
+        f"Exposure: {sentence(spec['treatment_definition'])} Time zero: {sentence(spec['time_origin'])} "
+        f"Outcome {spec['outcome']!r}, source unit/definition {spec['outcome_unit']!r}. "
+        f"Ascertainment: {sentence(spec['outcome_definition'])} Outcome window: {sentence(spec['outcome_window'])} "
+        f"Study context: {sentence(spec['context'])} "
     )
     method = (
         "Unpenalized logistic propensity e=P(A=1|X), with all prespecified covariate bases and interactions retained. "
@@ -274,7 +281,7 @@ def _figures(result, directory, prefix, profile):
     unit = short_label(spec["outcome_unit"], "source units", 24)
     ax.set_xlabel(
         (
-            "Probability difference (0–1)"
+            "Probability difference"
             if spec["outcome_type"] == "binary"
             else f"Mean difference ({unit})"
         )
@@ -288,7 +295,7 @@ def _figures(result, directory, prefix, profile):
         + f"The estimate is the difference of separately normalized Hájek means, G1 minus G0: {effect['estimate']:.8g} (SE {effect['standard_error']:.8g}; {spec['confidence_level']:.1%} CI {effect['lower']:.8g} to {effect['upper']:.8g}; two-sided {p_label}). "
         + "The joint independent-case estimating-equation sandwich includes propensity parameters, both outcome means, their covariance and weight derivatives. Limits use the asymptotic normal approximation without a finite-sample correction or bootstrap. There is one prespecified contrast, without multiplicity control across other estimands or branches. The null difference is zero. "
         + (
-            f"Outcome coding: {spec['outcome_levels'][0]!r}=0, {spec['outcome_levels'][1]!r}=1. Probability differences are on the 0–1 scale, not percentage points, odds ratios or risk ratios. Wald limits are not clipped to [-1,1]. "
+            f"Outcome coding: {spec['outcome_levels'][0]!r}=0, {spec['outcome_levels'][1]!r}=1. The difference is expressed in proportion units; multiply by 100 to obtain percentage points. A negative difference is possible. This is not an odds ratio or risk ratio. Wald limits are not clipped to [-1,1]. "
             if spec["outcome_type"] == "binary"
             else f"The difference retains the original outcome unit {spec['outcome_unit']!r}. "
         )
