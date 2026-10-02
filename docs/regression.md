@@ -144,8 +144,9 @@ IDs, repeated report pages, unavailable approved alpha in scoped discussion, Hol
 family interpretation and misuse of the necessarily positive NB2 log-scale interval.
 The Workbench fixes do not change numerical results or guarantee every model answer.
 Complete QA, including the stopped development workspace, is archived at
-`/home/eric/.local/share/research-workbench-qa/regression-20261002T004443Z/qa-evidence.tar.gz`:
-7893 files, 479887430 bytes, SHA-256
+`$XDG_DATA_HOME/research-workbench-qa/regression-20261002T004443Z/qa-evidence.tar.gz`
+(the default data home is `~/.local/share`):
+7,893 files, 479,887,430 bytes, SHA-256
 `0977aae5246985f8613967c8b960e0c04cc72ed61bbe088179ebb2651d88f689`.
 Every archive payload was read and matched to its recorded hash.
 [RDE CI](https://github.com/u9401066/research-data-explorer/actions/runs/36885761255)
