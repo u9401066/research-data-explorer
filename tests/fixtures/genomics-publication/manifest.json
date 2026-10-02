@@ -1,0 +1,19 @@
+{
+  "scope": "Synthetic engineering fixture; not biological observations. Actual pinned DESeq2 output, not hand-authored estimates.",
+  "image": "sha256:4275f54e30423c53d01be2e0ab9be2e7ed677a0b431f7be521ea02500cc15e7d",
+  "producer_repository": "https://github.com/u9401066/research-workbench",
+  "producer_paths_sha256": {
+    "executors/genomics/analyze.R": "205d2f33b7cfcf2bc6173cb5c43e6ebb8ebf038ace5fb7ffbae4b8d0493c560e",
+    "tests/fixtures/genomics-counts.csv": "64461cd3a90a2f2368a7e97d99d23d7cd47a996abd3a41137dcb8b04ced2a0ba",
+    "tests/fixtures/genomics-samples.csv": "3bcb1f669d0f014924787165ebc21dc6b4a01f89ec06e67e9869bc24c689b7cd",
+    "tests/fixtures/genomics-sets.csv": "724b987dbf1b39a0b27f060a30e29cb532c91e09f384f5dcb61c8f483a0ed2de",
+    "tests/fixtures/generate-genomics.R": "9a9fd51105611f5cb1a061eacbd21c43a8c3181decc9c0b0447d7cc33c1db4b9"
+  },
+  "file_sha256": "d2a3aa702cadf2b95c0c24bd7aa3dc3c34e47e940cfa0b94dce25ea060bcd914",
+  "engine_input_sha256": "15e5fd8420fb2903bb2a21d0fe053346212fc8fa9a3c7481c441ecf9f253fe5d",
+  "engine_result_sha256": "076b64d844bf80049d6ab6b47dc5481f4784d44efb86aba19719e77e2df0c35f",
+  "source_checked": "2026-10-02",
+  "methods": [
+    "https://bioconductor.org/packages/3.23/bioc/vignettes/DESeq2/inst/doc/DESeq2.html"
+  ]
+}
