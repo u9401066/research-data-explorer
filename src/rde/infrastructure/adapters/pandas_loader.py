@@ -279,6 +279,14 @@ class PandasLoader(DataLoaderPort):
             start + 1,
             min(start + 1 + DEFAULT_HEURISTIC_POLICY.intake.max_header_prefix_rows, limit),
         ):
+            previous = [self._normalize_text(value) for value in raw.iloc[header_rows[-1]]]
+            # A complete row of distinct labels is already a usable leaf header.
+            # Categorical observations are text too: extending solely because
+            # they are not mostly numeric silently consumes real source cases.
+            # A grouping prefix must have structural evidence (blank or repeated
+            # labels), as in merged-cell exports, before considering another row.
+            if all(previous) and len(set(previous)) == len(previous):
+                break
             values = self._row_values(raw.iloc[idx])
             if self._row_looks_like_data(values):
                 break

@@ -8,6 +8,37 @@ from rde.infrastructure.adapters.pandas_loader import PandasLoader
 
 
 @pytest.mark.parametrize("extension", ["csv", "xlsx"])
+@pytest.mark.parametrize("with_identity", [False, True])
+def test_categorical_cases_are_not_consumed_as_additional_header_rows(
+    tmp_path, extension, with_identity
+):
+    original = pd.DataFrame(
+        {
+            "treatment": ["Control", "Control", "Treated", "Treated"] * 4,
+            "outcome": ["No", None, "Yes", "No"] * 4,
+            "stratum": ["Low", "Low", "High", "High"] * 4,
+            "eligible": ["no", "yes", "yes", "yes"] * 4,
+        }
+    )
+    if with_identity:
+        original.insert(0, "case", range(1, len(original) + 1))
+    path = tmp_path / f"categorical.{extension}"
+    if extension == "csv":
+        original.to_csv(path, index=False)
+    else:
+        original.to_excel(path, index=False)
+    frame, _, count, report = PandasLoader().load(
+        DatasetMetadata(path, extension, path.stat().st_size)
+    )
+    assert count == len(original)
+    assert frame.columns.tolist() == original.columns.tolist()
+    assert report.header_row_index == 0 and report.header_row_span == 1
+    assert frame.treatment.tolist() == original.treatment.tolist()
+    assert frame.outcome.isna().tolist() == original.outcome.isna().tolist()
+    assert frame.eligible.tolist() == original.eligible.tolist()
+
+
+@pytest.mark.parametrize("extension", ["csv", "xlsx"])
 def test_literal_none_outcomes_survive_ingestion_including_mostly_numeric_columns(
     tmp_path, extension
 ):

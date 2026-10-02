@@ -59,3 +59,12 @@ MCP 現可 preflight、鎖定及執行 weighting，完整保存中文報告、�
 下一步接平台、來源審閱與真實資料驗收。
 方法範圍參考 [WeightIt 共同估計說明](https://ngreifer.github.io/WeightIt/articles/estimating-effects.html)
 與 [Li、Morgan、Zaslavsky 的 balancing weights](https://www2.stat.duke.edu/~fl35/papers/psweight_final.pdf)。
+
+平台合成 CSV 實跑發現 intake 把文字類別個案誤吞為多層表頭：五欄中只有識別欄是
+數值，原本 210 列變成 208 列，欄名還接上首筆類別。來源 bytes 沒有修改，計畫的
+欄位檢查阻擋後續分析。現在完整且不重複的欄名列即視為最末層表頭；只有含空白或
+重複群組標籤的前綴才考慮續接，既有合併表頭回歸仍通過。新增 CSV／XLSX、含／
+不含識別欄四項案例保存全部分類資料與缺值位置。Focused 10 passed；完整非 vendor
+659 passed、45 字型條件 skipped、5 vendor deselected（146.27 秒）。
+工作台 CSV 二元 ATE 與 Excel 連續 ATO 的真實 MCP 整合修正後 2 passed，
+210 來源列／208 完整個案、6 張圖、完整報告及重啟重用均驗證。這仍為合成測試。
