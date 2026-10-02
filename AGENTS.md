@@ -244,7 +244,7 @@ Phase 8: Execute Exploration
   └─ analyze_variable() × N
   └─ correlation_matrix()
   └─ automl-stat-mcp.run_analysis()    # 按 Phase 6 預排指令
-  └─ [S-002] 多重比較  [S-009] Effect size  [S-010] Power
+  └─ [S-002] 多重比較  [S-009] Effect size  [S-010] 不確定性解讀
   └─ 每步自動寫入 → decision_log.jsonl
   └─ → execution artifacts + figures/
 
@@ -313,7 +313,7 @@ init_project(mode="quick_explore") → run_intake → build_schema → profile_d
 | S-007 | Collinearity | 5, 6 | VIF > 10 → 警告 |
 | S-008 | Sample Balance | 5, 6 | 組間 N 差距大 → 修正 |
 | S-009 | Effect Size | 6 | 統計顯著 ≠ 臨床意義 |
-| S-010 | Power Analysis | 6 | 非顯著 → 檢定力分析 |
+| S-010 | 不確定性解讀 | 6 | 依校正 p 與明訂 alpha，檢視估計／區間與臨床重要差異；不可用觀察效應的事後 power 解釋未顯著 |
 | S-011 | Plan Deviation | 6 | 操作偏離計畫 → 提醒記錄 |
 | S-012 | Sensitivity Hint | 7 | 主要結果 → 建議敏感度分析 |
 

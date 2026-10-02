@@ -52,6 +52,9 @@ def test_paired_comparison_joins_subject_not_row_order():
     )
     assert result.tests[0].p_value == pytest.approx(expected["p_value"])
     assert result.tests[0].sample_sizes == (4, 4)
+    reminder = next(w for w in result.warnings if w.startswith("[S-010]"))
+    assert "4 analyzed independent units" in reminder
+    assert "absence of an effect or inadequate power" in reminder
 
 
 def test_pairing_without_key_or_duplicate_occasion_fails():

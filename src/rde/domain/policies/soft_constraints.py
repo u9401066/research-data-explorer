@@ -237,21 +237,27 @@ class SoftConstraints:
         )
 
     @staticmethod
-    def s010_power_analysis_hint(p_value: float, n: int) -> PolicyResult:
-        """S-010: Suggest power analysis for non-significant results."""
-        if p_value >= 0.05 and n < 100:
+    def s010_inconclusive_result_hint(p_value: float, n: int, alpha: float) -> PolicyResult:
+        """S-010: Use the declared inference, not observed-effect post-hoc power."""
+        if p_value >= alpha:
             return PolicyResult(
                 passed=False,
                 constraint_id="S-010",
                 level=ConstraintLevel.SOFT,
-                message=f"Non-significant result (p={p_value:.4f}) with small sample (n={n}).",
-                suggestion="Consider post-hoc power analysis — may be underpowered.",
+                message=f"The adjusted result does not reject the null at alpha={alpha:g}.",
+                suggestion=(
+                    f"With {n} analyzed independent units, non-significance does not establish "
+                    "absence of an effect or inadequate power. Review effect estimates and "
+                    "confidence intervals against clinically important differences. Plan a future "
+                    "study using separately justified assumptions; do not interpret this result "
+                    "using post-hoc power calculated from its observed effect."
+                ),
             )
         return PolicyResult(
             passed=True,
             constraint_id="S-010",
             level=ConstraintLevel.SOFT,
-            message="Power consideration noted.",
+            message="No non-significance interpretation reminder needed.",
         )
 
     # ── Audit Trail Advisories (13-Phase Pipeline) ───────────────────

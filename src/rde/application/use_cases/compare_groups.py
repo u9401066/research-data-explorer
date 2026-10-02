@@ -211,11 +211,6 @@ class CompareGroupsUseCase:
             if not es_check.passed:
                 warnings.append(f"[S-009] {var_name}: {es_check.suggestion}")
 
-            # Soft Constraint S-010: power analysis
-            pw_check = SoftConstraints.s010_power_analysis_hint(test.p_value, dataset.row_count)
-            if not pw_check.passed:
-                warnings.append(f"[S-010] {var_name}: {pw_check.suggestion}")
-
         from statsmodels.stats.multitest import multipletests
 
         adjusted = multipletests(
@@ -227,6 +222,15 @@ class CompareGroupsUseCase:
             replace(test, adjusted_p_value=float(p), correction_method=multiple_comparison_method)
             for test, p in zip(tests, adjusted, strict=True)
         ]
+        # Interpret the actual multiplicity-adjusted result and analyzed unit,
+        # including complete pairs, rather than raw p and original row count.
+        for var_name, test in zip(outcome_variables, tests, strict=True):
+            units = test.sample_sizes[0] if is_paired else sum(test.sample_sizes)
+            check = SoftConstraints.s010_inconclusive_result_hint(
+                test.adjusted_p_value, units, alpha
+            )
+            if not check.passed:
+                warnings.append(f"[S-010] {var_name}: {check.suggestion}")
         family = {
             "method": multiple_comparison_method,
             "alpha": alpha,

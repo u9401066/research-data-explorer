@@ -54,6 +54,10 @@ def test_family_retains_raw_p_and_uses_adjusted_p_at_requested_alpha(method, exp
     assert [t.is_significant for t in result.tests] == [p < 0.07 for p in expected]
     assert result.tables["multiplicity"]["members"] == ["a", "b", "c"]
     assert all(call.kwargs["alpha"] == 0.07 for call in engine.run_test.call_args_list)
+    reminders = [w for w in result.warnings if w.startswith("[S-010]")]
+    assert len(reminders) == sum(p >= 0.07 for p in expected)
+    assert all("19 analyzed independent units" in w for w in reminders)
+    assert all("confidence intervals" in w and "do not interpret" in w for w in reminders)
 
 
 def test_different_missing_locations_use_actual_source_positions_and_keep_source():
