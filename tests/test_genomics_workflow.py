@@ -3,6 +3,7 @@
 import asyncio
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import uuid
 import zipfile
@@ -298,11 +299,27 @@ def test_real_source_import_is_idempotent_and_does_not_advance_eda():
     )
 
 
+@pytest.mark.parametrize("preset", ["journal-neutral-english-v1", "nature-single-v1"])
 def test_failed_attempt_keeps_files_then_recovers_and_editions_restore_without_rerender(
     monkeypatch,
+    preset,
 ):
     from rde.infrastructure.genomics import publication
     import rde.application.session as session_module
+
+    if preset == "nature-single-v1":
+        font_dir = os.environ.get("RDE_JOURNAL_TEST_FONT_DIR") or os.environ.get(
+            "RDE_PUBLICATION_FONT_DIR"
+        )
+        if not font_dir:
+            pytest.skip(
+                "Nature lifecycle requires an explicitly configured authorized Arial directory"
+            )
+        monkeypatch.setenv("RDE_PUBLICATION_FONT_DIR", font_dir)
+    else:
+        # Interrupted attempts, immutable editions and restart must also be
+        # exercised on a clean installation without optional journal fonts.
+        monkeypatch.delenv("RDE_PUBLICATION_FONT_DIR", raising=False)
 
     project, _, args = prepare()
     source = tool("import_genomics_source", args)
@@ -333,7 +350,7 @@ def test_failed_attempt_keeps_files_then_recovers_and_editions_restore_without_r
         "render_id": render["render_id"],
         "expected_study_sha256": study["receipt_sha256"],
         "edition_id": str(uuid.uuid4()),
-        "preset_id": "nature-single-v1",
+        "preset_id": preset,
         "start_number": 4,
         "captions": {"1": {"title": "Synthetic filtering", "explanation_zh": "合成測試圖。"}},
     }
