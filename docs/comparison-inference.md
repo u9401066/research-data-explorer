@@ -88,3 +88,8 @@ actual installed engine version:
 - [R Fisher exact and conditional estimation](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/fisher.test.html)
 - [SciPy Pearson chi-square](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2_contingency.html)
 - [SciPy Kruskal–Wallis](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kruskal.html)
+
+
+## 明確指定效果量的新研究契約
+
+開發版 `family="comparison"` 的固定對比、信賴區間、完整校正家族與投稿圖另見 [獨立組比較研究](independent-comparison-study.md)。此新增功能不改寫本頁的 `compare_groups` 既有收據；Workbench 操作流程與正式部署需另行整合驗證。

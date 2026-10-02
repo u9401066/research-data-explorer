@@ -2083,6 +2083,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
+            return "本次依核准的組別順序、事件定義與主要效果量執行獨立組比較。報告保留全部計畫對比與可選整體檢定，逐項區間未校正，p 值按明列的完整家族校正；無法估計的檢定仍保留家族位置。"
         if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
             return "本次按鎖定的目標族群與處置前共變項估計 propensity 加權結果。單一對比為處置組減參照組的 Hájek 平均差／機率差，共同估計方程納入 propensity 估計的不確定性。請一併檢視完整納排、原始共變項與模型基底平衡、分數重疊及權重集中程度；平衡不證明未測量混雜已消除。"
         if any(r.get("family") == "regression" for r in results["clinical_studies"]):
@@ -2158,6 +2160,8 @@ def _formal_conclusions(
     variable_roles: dict | None = None,
 ) -> str:
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
+            return "獨立組比較限於指定抽樣、共同完整個案與結果觀察窗口。未調整關聯不直接代表因果療效；信賴區間與雙尾檢定可能採不同程序，不能以區間是否包含無效值取代家族校正 p。病例對照只提供勝算比。"
         if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
             return "加權結果適用於宣告的觀察性世代、共同完整個案及事先指定目標。ATE、ATT、ATO 的目標族群不同，不能按顯著性互換。二元效果是絕對機率差，連續結果保留原單位；漸近區間不保證小樣本精度。ESS 不是增加病人人數；時序、結果確認、未測量混雜、positivity 與抽樣限制仍需研究者審閱，不能把加權關聯直接當作因果療效。"
         if any(r.get("family") == "regression" for r in results["clinical_studies"]):
@@ -2242,6 +2246,8 @@ def _build_interpretation_discussion(
     """Build narrative interpretation, recommendations, and literature context."""
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
+            return "## 獨立組比較結果解讀\n\n先核對事件代碼、組別方向、原始單位、納排與主要效果量，再讀逐項區間及完整家族校正 p。秩效果量不是中位數差；勝算比不是比例比。零、無法定義、無限大與無法估計區間分開呈現；未達門檻不表示等效。未調整的組間關聯、完整個案或宣告的隨機設計均不證明因果療效。"
         if any(r.get("family") == "weighting" for r in results["clinical_studies"]):
             return "## 傾向加權結果解讀\n\n先核對處置方向、time zero、每個共變項的處置前依據、結果窗口與確認方式，再解讀目標族群和單一加權差異。加權前後 SMD 採固定未加權分母，基底平衡不取代原始變項檢視，也不證明未測量變項平衡。共同 sandwich 已納入 propensity 估計；未做跨其他目標／分支的多重校正、小樣本修正或 bootstrap。未確認的追蹤不能當作沒有事件，二元 Wald 區間超出可行範圍時保留並揭示。沒有按結果自動裁切、配對或挑選模型。"
         if any(r.get("family") == "regression" for r in results["clinical_studies"]):

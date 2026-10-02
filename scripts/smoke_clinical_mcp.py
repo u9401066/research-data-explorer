@@ -28,10 +28,8 @@ async def run(args):
     workspace = args.workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=False)
     spec = json.loads(args.spec.read_text())
-    if spec.get("family") not in {"longitudinal", "regression", "weighting"}:
-        raise ValueError(
-            "An explicit longitudinal, regression or weighting engineering specification is required"
-        )
+    if spec.get("family") not in {"longitudinal", "regression", "weighting", "comparison"}:
+        raise ValueError("An explicit supported clinical engineering specification is required")
     if sha(args.source) != args.source_sha256:
         raise ValueError("Source bytes differ from the pinned acquisition")
     raw = workspace / "rawdata"
@@ -179,7 +177,9 @@ async def run(args):
                 ],
                 alpha=1 - spec.get("confidence_level", 0.95),
                 missing_strategy="listwise",
-                multiple_comparison_method="none" if spec["family"] == "weighting" else "holm",
+                multiple_comparison_method=spec.get(
+                    "multiplicity", "none" if spec["family"] == "weighting" else "holm"
+                ),
                 allow_methodology_override=False,
                 confirm=True,
             ),
@@ -247,7 +247,8 @@ async def run(args):
         receipt_sha256=result["receipt_sha256"],
         n=result["n"],
         n_subjects=result.get("n_subjects"),
-        model=result["model"],
+        model=result.get("model"),
+        contrasts=result.get("contrasts"),
         coefficients=result.get("coefficients"),
         effect=result.get("effect"),
         warnings=result["warnings"],

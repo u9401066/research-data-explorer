@@ -1,0 +1,315 @@
+{
+  "r_version": "R version 4.5.3 (2026-03-11)",
+  "confidence": 0.95,
+  "cases": [
+    {
+      "counts": [
+        8,
+        10,
+        1,
+        6
+      ],
+      "proportion_difference": [
+        0.12986711959896569,
+        0.831331309602412
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 1.2330917971488131,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 28.34240609792919,
+          "status": "finite"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": 15.465819716920999,
+          "status": "finite"
+        },
+        "lower": {
+          "value": 1.0088492079476907,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 1059.6394950865063,
+          "status": "finite"
+        }
+      },
+      "fisher_p": 0.03496503496503497
+    },
+    {
+      "counts": [
+        0,
+        10,
+        2,
+        10
+      ],
+      "proportion_difference": [
+        -0.5098375284633582,
+        0.1123531026122217
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 0,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 1.7730109043366507,
+          "status": "finite"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": 0,
+          "status": "finite"
+        },
+        "lower": {
+          "value": 0,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 5.231961322752033,
+          "status": "finite"
+        }
+      },
+      "fisher_p": 0.4736842105263158
+    },
+    {
+      "counts": [
+        2,
+        10,
+        0,
+        10
+      ],
+      "proportion_difference": [
+        -0.1123531026122217,
+        0.5098375284633582
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 0.5640123333114534,
+          "status": "finite"
+        },
+        "upper": {
+          "value": {},
+          "status": "positive_infinity"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": {},
+          "status": "positive_infinity"
+        },
+        "lower": {
+          "value": 0.19113291140959654,
+          "status": "finite"
+        },
+        "upper": {
+          "value": {},
+          "status": "positive_infinity"
+        }
+      },
+      "fisher_p": 0.4736842105263158
+    },
+    {
+      "counts": [
+        0,
+        10,
+        0,
+        10
+      ],
+      "proportion_difference": [
+        -0.27753279986288915,
+        0.27753279986288915
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 0,
+          "status": "finite"
+        },
+        "upper": {
+          "value": {},
+          "status": "positive_infinity"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": {},
+          "status": "undefined"
+        },
+        "lower": {
+          "value": 0,
+          "status": "finite"
+        },
+        "upper": {
+          "value": {},
+          "status": "positive_infinity"
+        }
+      },
+      "fisher_p": 1
+    },
+    {
+      "counts": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "proportion_difference": [
+        -0.27753279986288915,
+        0.27753279986288915
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 0.7120660587179862,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 1.4043640863888585,
+          "status": "finite"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": {},
+          "status": "undefined"
+        },
+        "lower": {
+          "value": 0,
+          "status": "finite"
+        },
+        "upper": {
+          "value": {},
+          "status": "positive_infinity"
+        }
+      },
+      "fisher_p": 1
+    },
+    {
+      "counts": [
+        10,
+        10,
+        2,
+        10
+      ],
+      "proportion_difference": [
+        0.3840387649744069,
+        0.9433178485456248
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 1.9314423610392932,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 18.177659798682935,
+          "status": "finite"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": {},
+          "status": "positive_infinity"
+        },
+        "lower": {
+          "value": 3.8170034854034016,
+          "status": "finite"
+        },
+        "upper": {
+          "value": {},
+          "status": "positive_infinity"
+        }
+      },
+      "fisher_p": 0.0007144558228149554
+    },
+    {
+      "counts": [
+        1,
+        100,
+        4,
+        13
+      ],
+      "proportion_difference": [
+        -0.5664326956505812,
+        -0.11141696588855204
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 0.00512454213866085,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 0.20835901919389935,
+          "status": "finite"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": 0.02456824368254498,
+          "status": "finite"
+        },
+        "lower": {
+          "value": 0.00045737947159653477,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 0.28002720280338167,
+          "status": "finite"
+        }
+      },
+      "fisher_p": 0.0005185569243375511
+    },
+    {
+      "counts": [
+        9,
+        13,
+        2,
+        100
+      ],
+      "proportion_difference": [
+        0.39907738623418876,
+        0.8537730450849437
+      ],
+      "proportion_ratio": {
+        "lower": {
+          "value": 9.226720122296172,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 130.91256292592615,
+          "status": "finite"
+        }
+      },
+      "odds_ratio": {
+        "estimate": {
+          "value": 95.70919192641759,
+          "status": "finite"
+        },
+        "lower": {
+          "value": 14.312043013179471,
+          "status": "finite"
+        },
+        "upper": {
+          "value": 1192.4929592945598,
+          "status": "finite"
+        }
+      },
+      "fisher_p": 6.137053514575786e-09
+    }
+  ],
+  "welch": {
+    "p": 0.8059331287931057,
+    "df": 11.56314525030842,
+    "ci": [
+      -8.82347463419335,
+      7.4901413008600155
+    ]
+  },
+  "provenance": {
+    "script_sha256": "adf87e343a6d5b4be62e7466e7f9fb246d0f14f879c7ea14731243791fc5b3cb",
+    "image_id": "sha256:d417eab09c6bcdc37dc5142f73a5c4fed5ef6ca52fb4ff8bb79cd65789cf9f76",
+    "scope": "Synthetic engineering references, independent R likelihood/conditional enumeration; not patient data analysis."
+  }
+}

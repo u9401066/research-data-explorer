@@ -32,6 +32,11 @@ from rde.infrastructure.clinical.weighting_contract import (
     weighting_preflight,
     prepare_weighting,
 )
+from rde.infrastructure.clinical.comparison_contract import (
+    ComparisonSpec,
+    comparison_preflight,
+    prepare_comparison,
+)
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
@@ -41,6 +46,8 @@ def planned_clinical_spec(entry):
 
 
 def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family") == "comparison":
+        return ComparisonSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "weighting":
         return WeightingSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "regression":
@@ -97,7 +104,7 @@ def verify_clinical_artifacts(record, root: Path):
 def register_clinical_tools(server: Any):
     @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對生存／診斷／一致性／縱向／迴歸／加權角色、受試者與共同個案；不估計模型或 p 值。"""
+        """計畫審閱前核對獨立比較／生存／診斷／一致性／縱向／迴歸／加權角色、受試者與共同個案；不估計模型或 p 值。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -110,9 +117,14 @@ def register_clinical_tools(server: Any):
             source = entry.dataset.metadata
             if not source or not source.file_path.is_file():
                 raise ValueError("The clinical source file is required.")
-            if isinstance(spec, (MeasurementSpec, LongitudinalSpec, RegressionSpec, WeightingSpec)):
+            if isinstance(
+                spec,
+                (ComparisonSpec, MeasurementSpec, LongitudinalSpec, RegressionSpec, WeightingSpec),
+            ):
                 preflight = (
-                    weighting_preflight
+                    comparison_preflight
+                    if isinstance(spec, ComparisonSpec)
+                    else weighting_preflight
                     if isinstance(spec, WeightingSpec)
                     else regression_preflight
                     if isinstance(spec, RegressionSpec)
@@ -163,9 +175,16 @@ def register_clinical_tools(server: Any):
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting。
+        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting、comparison。
 
-        clinical_options 必须逐項符合唯一計畫的 execution_arguments.clinical_options。
+        comparison 必須 outcome、group、group_levels（2..8 明確順序）、contrasts（1..12 事先指定兩組順序），
+        method=welch_mean/rank/binary、primary_effect、outcome_unit、outcome_definition、outcome_window、
+        context、study_design、independent_rows=true；可 subject、cohort_filter、confidence_level、omnibus。
+        welch_mean 的主要效果 mean_difference；rank 為 rank_biserial，另指定 bootstrap={resamples,seed}。
+        binary 指定 outcome_levels=[non-event,event]，primary_effect=proportion_difference/proportion_ratio/odds_ratio；
+        病例對照或未指定抽樣只允許 odds_ratio。multiplicity=holm/bonferroni/fdr 涵蓋所有計畫對比與可選整體檢定。
+        信賴區間逐項未校正，保存零／未定義／無限大／未能估計，不自動挑檢定、比較對象或效果尺度。
+        clinical_options 必須逐項符合唯一計畫的 execution_arguments.clinical_options。
         必填 time、event、event_value、censor_value、time_origin、time_unit、independent_rows=true。
         可明列 group、subject、covariates、categorical_covariates、references、competing_values、risk_times、cohort_filter。
         同一完整個案集合提供 KM/競爭事件曲線、在險人數、Cox HR/CI/比例風險檢查、圖表與中文報告。
@@ -199,6 +218,7 @@ def register_clinical_tools(server: Any):
         from rde.infrastructure.clinical.longitudinal import run_longitudinal
         from rde.infrastructure.clinical.regression import run_regression
         from rde.infrastructure.clinical.weighting import run_weighting
+        from rde.infrastructure.clinical.comparison import run_comparison
         from rde.infrastructure.clinical.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
@@ -218,7 +238,9 @@ def register_clinical_tools(server: Any):
                 )
             parameters["variables"] = spec.variables()
             frame_hash = (
-                prepare_weighting(entry.dataframe, spec)
+                prepare_comparison(entry.dataframe, spec)
+                if isinstance(spec, ComparisonSpec)
+                else prepare_weighting(entry.dataframe, spec)
                 if isinstance(spec, WeightingSpec)
                 else prepare_measurement(entry.dataframe, spec)
                 if isinstance(spec, MeasurementSpec)
@@ -273,7 +295,9 @@ def register_clinical_tools(server: Any):
                 previous["result"]
                 if previous
                 else (
-                    run_weighting(entry.dataframe, spec)
+                    run_comparison(entry.dataframe, spec)
+                    if isinstance(spec, ComparisonSpec)
+                    else run_weighting(entry.dataframe, spec)
                     if isinstance(spec, WeightingSpec)
                     else run_measurement(entry.dataframe, spec)
                     if isinstance(spec, MeasurementSpec)

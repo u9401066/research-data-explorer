@@ -10,6 +10,12 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "comparison":
+        from rde.infrastructure.clinical.comparison_report import (
+            required_figures as comparison_figures,
+        )
+
+        return comparison_figures(result)
     if result["spec"]["family"] == "weighting":
         from rde.infrastructure.clinical.weighting_report import (
             required_figures as weighting_figures,
@@ -99,6 +105,19 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         shared_cases = [p["data_row"] for p in result.get("points", [])] == included and bool(
             included
         )
+    elif spec["family"] == "comparison":
+        points = result.get("observations", [])
+        shared_cases = (
+            bool(included)
+            and [p["data_row"] for p in points] == included
+            and sum(g["n"] for g in result.get("groups", [])) == result.get("n")
+            and all(
+                c["data_rows"]
+                == [[p["data_row"] for p in points if p["group"] == label] for label in c["groups"]]
+                and c["sample_sizes"] == list(map(len, c["data_rows"]))
+                for c in result.get("contrasts", [])
+            )
+        )
     elif spec["family"] == "weighting":
         points = result.get("points", [])
         shared_cases = (
@@ -187,6 +206,25 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             and sum(group["n"] for group in groups) == result.get("n"),
             ["model", "joint_estimation", "effect", "diagnostics"],
         )
+    if spec["family"] == "comparison":
+        contrasts = result.get("contrasts", [])
+        planned = (["omnibus"] if spec["omnibus"] else []) + [
+            f"contrast_{i+1}" for i in range(len(spec["contrasts"]))
+        ]
+        check(
+            "comparison_fixed_contrasts_and_full_family",
+            [c["groups"] for c in contrasts] == spec["contrasts"]
+            and [r["id"] for r in result.get("hypotheses", [])] == planned
+            and result.get("multiplicity", {}).get("members") == planned
+            and result.get("multiplicity", {}).get("size") == len(planned)
+            and result.get("multiplicity", {}).get("method") == spec["multiplicity"]
+            and all(
+                c.get("primary_effect") == spec["primary_effect"]
+                and spec["primary_effect"] in c["effects"]
+                for c in contrasts
+            ),
+            ["contrasts", "hypotheses", "multiplicity"],
+        )
     expected = required_figures(result) if result else set()
     actual = {f["plot_type"] for f in records[0].get("figures", [])} if len(records) == 1 else set()
     check("clinical_figures", bool(expected) and expected == actual, sorted(expected))
@@ -214,7 +252,9 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         from rde.infrastructure.clinical.measurement_report import TITLES
 
         heading = (
-            "生存與事件分析"
+            "獨立組比較"
+            if spec["family"] == "comparison"
+            else "生存與事件分析"
             if spec["family"] == "survival"
             else "縱向追蹤與重複觀察"
             if spec["family"] == "longitudinal"

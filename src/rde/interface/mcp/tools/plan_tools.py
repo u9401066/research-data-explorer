@@ -1423,7 +1423,11 @@ def register_plan_tools(server: Any) -> None:
                             "Clinical plan variables must exactly enumerate all analysis roles."
                         )
                     clinical_multiplicity = (
-                        "none" if clinical_spec.family == "weighting" else "holm"
+                        clinical_spec.multiplicity
+                        if clinical_spec.family == "comparison"
+                        else "none"
+                        if clinical_spec.family == "weighting"
+                        else "holm"
                     )
                     if (
                         abs(alpha - (1 - clinical_spec.confidence_level)) > 1e-12
@@ -1431,7 +1435,7 @@ def register_plan_tools(server: Any) -> None:
                         or multiple_comparison_method != clinical_multiplicity
                     ):
                         raise ValueError(
-                            f"Clinical studies require matching alpha, listwise cases and the {clinical_multiplicity} plan setting; weighting has one unadjusted contrast and other individual measurement intervals remain pointwise and unadjusted."
+                            f"Clinical studies require matching alpha, listwise cases and the {clinical_multiplicity} plan setting; weighting has one unadjusted contrast and comparison/measurement intervals remain pointwise and unadjusted."
                         )
                 except (ValueError, TypeError, KeyError) as error:
                     return fmt_error(f"Invalid clinical specification: {error}")

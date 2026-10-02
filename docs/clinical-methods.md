@@ -7,6 +7,10 @@ No AutoML service, Docker, or patient-data upload is needed.
 Agents remain free to propose methods outside this catalog and document additional
 analyses. The catalog reduces routine coding, not scientific discretion.
 
+## Prespecified independent comparisons
+
+The new `family="comparison"` study fixes the group order, planned contrasts, outcome definition and primary effect before estimation. It supplies Welch mean-difference, BCa rank-biserial and binary proportion/conditional-odds intervals with complete planned-family p-value adjustment and immutable publication editions. See the [comparison contract and verification](independent-comparison-study.md). RDE MCP development validation is complete; Workbench integration and deployment remain pending. Existing `compare_groups` receipts are unchanged.
+
 ## Prospective sample-size planning
 
 The separate [planning workflow](sample-size-planning.md) requires explicit
