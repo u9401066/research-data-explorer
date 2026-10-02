@@ -1,3 +1,10 @@
+const EXTERNAL_EVIDENCE_TOOL_NAMES = [
+    'import_evidence_source',
+    'get_evidence_source',
+    'render_evidence_study',
+    'render_evidence_publication',
+] as const;
+
 const PROSPECTIVE_DESIGN_TOOL_NAMES = [
     'draft_sample_size_plan',
     'get_sample_size_plan',
@@ -26,6 +33,7 @@ const PHASE_08_BRANCH_PROMOTION_TOOL_NAMES = [
 ] as const;
 
 export const RDE_MCP_TOOL_NAMES = [
+    ...EXTERNAL_EVIDENCE_TOOL_NAMES,
     ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
     'init_project',
@@ -127,6 +135,7 @@ export const TOOL_GROUPS = {
         ...PHASE_08_AUTONOMOUS_BRANCH_TOOL_NAMES,
     ],
     advanced: [
+        ...EXTERNAL_EVIDENCE_TOOL_NAMES,
         ...PROSPECTIVE_DESIGN_TOOL_NAMES,
         ...WORKFLOW_PREREQUISITE_TOOLS,
         'run_advanced_analysis',
@@ -138,6 +147,9 @@ export const TOOL_GROUPS = {
         'log_deviation',
     ],
     report: [
+        'get_evidence_source',
+        'render_evidence_study',
+        'render_evidence_publication',
         'get_sample_size_plan',
         'render_sample_size_publication',
         ...WORKFLOW_PREREQUISITE_TOOLS,

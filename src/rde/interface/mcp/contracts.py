@@ -45,6 +45,27 @@ CONTRACTS = {
         "completed planning run hash + artifact integrity + immutable edition ID",
         "new journal figure edition from saved design numbers; no recalculation",
     ),
+    "import_evidence_source": ToolContract(
+        "external-evidence",
+        "project ownership + exact bundle hash + approved plan + complete source/R closure",
+        "immutable external evidence snapshot and decision log; no analysis or EDA advancement",
+    ),
+    "get_evidence_source": ToolContract(
+        "external-evidence",
+        "project ownership + complete saved source and artifact integrity",
+        "fixed evidence and completed/failed/unfinished render attempts",
+        read_only=True,
+    ),
+    "render_evidence_study": ToolContract(
+        "external-evidence",
+        "exact imported source hash + full closure verification + immutable render ID",
+        "six-format figures and report from saved R numbers; no fitting",
+    ),
+    "render_evidence_publication": ToolContract(
+        "external-evidence",
+        "completed study hash + source/artifact integrity + immutable edition ID",
+        "new journal edition from saved R numbers; no fitting",
+    ),
     "get_pipeline_status": ToolContract("all", "project exists", "status", True),
     "get_decision_log": ToolContract("all", "project exists", "decision log read", True),
     "get_deviation_log": ToolContract("all", "project exists", "deviation log read", True),

@@ -167,6 +167,8 @@ def _create_verified_edition(
     try:
         if result.get("spec", {}).get("family") == "sample_size":
             from rde.infrastructure.clinical.sample_size_report import figures
+        elif result.get("spec", {}).get("family") == "evidence_synthesis":
+            from rde.infrastructure.evidence.publication import figures
         elif prediction:
             from rde.infrastructure.prediction.publication import figures
         elif result["spec"]["family"] == "survival":
@@ -251,6 +253,11 @@ def _create_verified_edition(
                 if "plan_id" in record
                 else {}
             ),
+            **(
+                {"source_evidence_id": record["source_id"], "source_render_id": record["render_id"]}
+                if "source_id" in record
+                else {}
+            ),
             "numerical_analysis": "unchanged; no fitting or resampling",
             "preset": preset,
             "figures": rendered,
@@ -285,6 +292,7 @@ def register_publication_tools(server):
                     "comparison",
                     "repeated",
                     "sample_size",
+                    "evidence_synthesis",
                 ],
             },
             ensure_ascii=False,

@@ -34,6 +34,10 @@
   "main": "./out/extension.js",
   "rde": {
     "expectedMcpTools": [
+      "import_evidence_source",
+      "get_evidence_source",
+      "render_evidence_study",
+      "render_evidence_publication",
       "draft_sample_size_plan",
       "get_sample_size_plan",
       "approve_sample_size_plan",

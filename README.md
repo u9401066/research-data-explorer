@@ -35,7 +35,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 Version 0.5.0, local verification on 2026-10-01: **595 Python tests passed**,
 including real Arial exports for four journal presets across eight study variants;
 five optional tests were explicitly skipped. Ruff and pre-commit passed.
-The survival publication commit also passed 40 extension tests and VSIX packaging. The live inventory now contains 60 tools across 14 modules.
+The survival publication commit also passed 40 extension tests and VSIX packaging. The live inventory now contains 64 tools across 15 modules.
 Publication editions preserve the original study and plotting data, support edited
 English captions with Chinese explanations, and retain source, font and output
 hashes. See [publication figures and configured fonts](docs/publication-figures.md).
@@ -68,8 +68,8 @@ This README is aligned with the current implementation, not only the older prose
 | Contract area | Current implementation source | What it says |
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
-| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 13 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
-| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 60 tools, explicit effect/gate metadata, structured output and live inventory tests |
+| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 15 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 64 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
@@ -114,7 +114,7 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 60 MCP tools across 14 modules:
+The current implementation exposes 64 MCP tools across 15 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
@@ -127,6 +127,7 @@ The current implementation exposes 60 MCP tools across 14 modules:
 | `prediction_tools.py` | 1 | `run_prediction_study` |
 | `clinical_tools.py` | 2 | `inspect_clinical_study`, `run_clinical_study` |
 | `sample_size_tools.py` | 5 | `draft_sample_size_plan`, `get_sample_size_plan`, `approve_sample_size_plan`, `run_sample_size_plan`, `render_sample_size_publication` |
+| `evidence_tools.py` | 4 | `import_evidence_source`, `get_evidence_source`, `render_evidence_study`, `render_evidence_publication` |
 | `publication_tools.py` | 2 | `get_publication_presets`, `render_publication_figures` |
 | `branch_tools.py` | 13 | `open_exploration_branch`, `suggest_branch_experiments`, `run_branch_experiment`, `evaluate_branch`, `promote_branch_to_plan_amendment`, `discard_branch`, `get_exploration_board`, `start_autoresearch_run`, `get_autoresearch_status`, `stop_autoresearch_run`, `resume_autoresearch_run`, `run_autoresearch_next_task`, `run_autoresearch_queue` |
 | `ux_tools.py` | 4 | `get_approval_card`, `get_harness_dashboard`, `build_artifact_index`, `get_blocker_playbook` |
