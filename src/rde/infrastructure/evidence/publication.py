@@ -1,14 +1,16 @@
 """English publication figures drawn exclusively from verified, frozen R estimates."""
 
 import math
+import textwrap
 from pathlib import Path
 
 import numpy as np
 
 from rde.infrastructure.prediction.splits import digest
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
-from .contract import validate_result
 
+from .contract import validate_result
+from .dictionary import EvidenceDisplayDictionary
 
 COLORS = ["#236b8e", "#a15b20", "#397757", "#797979"]
 PAGE = 15  # Same membership and figure count for every preset and edition.
@@ -45,10 +47,21 @@ def _figures(result, directory, prefix, profile):
 
     r, records = result["analysis"], []
     o = r["options"]
+    dictionary = EvidenceDisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+    )
     treatment_map = {v["code"]: v["label"] for v in r["treatment_map"]}
     source_rows = {v["row"]: v for v in r["observations"]}
     confidence = f"{100 * o['confidence']:g}%"
     scale = "MD (U1)" if o["measure"] == "MD" else o["measure"]
+    if dictionary.value and o["measure"] == "MD":
+        unit = next(
+            (dictionary.unit(c) for c in ("effect", "se", "outcome") if dictionary.unit(c)), None
+        )
+        if unit:
+            scale = textwrap.fill(f"MD ({dictionary.compact(unit, 'U1', 18)})", 22)
     identities = "; ".join(f"{k}={v!r}" for k, v in treatment_map.items())
     source = (
         f"Outcome={o['outcome']!r}; timepoint={o['timepoint']!r}. "
@@ -59,7 +72,11 @@ def _figures(result, directory, prefix, profile):
             if o["measure"] == "MD"
             else "OR denotes odds ratio; RR denotes risk ratio. Input effects and standard errors use the log-ratio scale. "
         )
-        + "Codes preserve source identities without translating treatment names. "
+        + (
+            "Treatment codes retain their original identities; reviewed names are display annotations only. "
+            if dictionary.value
+            else "Codes preserve source identities without translating treatment names. "
+        )
     )
     inference = (
         f"{o['model'].capitalize()}-effect model; saved {confidence} Wald confidence intervals. "
@@ -69,6 +86,21 @@ def _figures(result, directory, prefix, profile):
     )
     if any(v["source"].startswith("synthetic://") for v in r["observations"]):
         source += "Synthetic software-validation data; no clinical interpretation. "
+    dictionary_scope = (
+        "The dictionary annotates the saved comparison table only. Source extraction, eligibility, "
+        "outcome/timepoint, risk-of-bias assessments, treatment identities and reference direction remain fixed. "
+        "The executor's original whitespace trimming is unchanged; exact source spellings remain in the dictionary receipt. "
+        "Reviewed treatment names do not merge treatments, establish equivalent doses, or verify transitivity. "
+        "Input effect and SE retain their saved scale; OR/RR forest estimates use the ratio scale, "
+        "and direct-minus-indirect differences use the log-ratio scale; MD retains its declared common unit. "
+        "Comparison-row counts are not counts of publications or participants; this is not a PRISMA flow diagram. "
+    )
+
+    def treatment_label(code, limit=22):
+        if not dictionary.value:
+            return code
+        label = dictionary.treatment(treatment_map[code])
+        return dictionary.compact(f"{code}: {label}", code, limit)
 
     def new(height=90, forest=False):
         return plt.subplots(
@@ -91,7 +123,12 @@ def _figures(result, directory, prefix, profile):
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(dictionary.note(), mappings, source, inference, dictionary_scope)
+            if dictionary.value
+            else (),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             {
                 "path": publication["files"]["png"],
@@ -232,7 +269,11 @@ def _figures(result, directory, prefix, profile):
             x, y = positions[node["code"]]
             ax.plot(x, y, "o", color=COLORS[0], markersize=6)
             ax.text(
-                x * 1.2, y * 1.2, f"{node['code']}\nk={node['studies']}", ha="center", va="center"
+                x * 1.2,
+                y * 1.2,
+                f"{textwrap.fill(treatment_label(node['code'], 18), 13)}\nk={node['studies']}",
+                ha="center",
+                va="center",
             )
         ax.set(xlim=(-1.5, 1.5), ylim=(-1.5, 1.5), aspect="equal")
         ax.axis("off")
@@ -314,9 +355,9 @@ def _figures(result, directory, prefix, profile):
                 ax.set_yticks(range(len(a_page)), a_page)
                 save(
                     fig,
-                    f"network_{ai+1}_{bi+1}",
+                    f"network_{ai + 1}_{bi + 1}",
                     "Direct evidence network as independent-study counts.",
-                    f"Matrix block {ai+1}, {bi+1}; all treatment-pair cells are retained across blocks. Zero means no included direct comparison; a dash is the self-comparison diagonal. Symmetric cells show the same pair twice and must not be summed. Counts are independent studies per pair, not patients or weights. Multi-arm studies can contribute to multiple pairs.",
+                    f"Matrix block {ai + 1}, {bi + 1}; all treatment-pair cells are retained across blocks. Zero means no included direct comparison; a dash is the self-comparison diagonal. Symmetric cells show the same pair twice and must not be summed. Counts are independent studies per pair, not patients or weights. Multi-arm studies can contribute to multiple pairs.",
                     "密集網絡以分頁矩陣保留全部治療對，避免線標籤重疊。0 表示沒有直接比較，自我比較為短線；對稱格重複表示同一治療對，不能相加。",
                     data,
                 )
@@ -349,10 +390,10 @@ def _figures(result, directory, prefix, profile):
             )
             save(
                 fig,
-                f"direct_{pair['pair'].replace(':', '_')}_{page_i+1}",
+                f"direct_{pair['pair'].replace(':', '_')}_{page_i + 1}",
                 "Study effects and their direct-comparison synthesis.",
                 inference
-                + f"Direction is {pair['treatment_code']} relative to {pair['comparator_code']}; MD is first minus second. Page {page_i+1} of {len(pages)}. R denotes the original table row including the header. Study identifiers in this panel: {study_identity}. All source identities and direction reversals are in the drawing data. The diamond uses every study in this pair and is repeated on each page, not fitted to the displayed page. Marker areas are constant. Weights are percentages within this pair, using inverse variances"
+                + f"Direction is {pair['treatment_code']} relative to {pair['comparator_code']}; MD is first minus second. Page {page_i + 1} of {len(pages)}. R denotes the original table row including the header. Study identifiers in this panel: {study_identity}. All source identities and direction reversals are in the drawing data. The diamond uses every study in this pair and is repeated on each page, not fitted to the displayed page. Marker areas are constant. Weights are percentages within this pair, using inverse variances"
                 + (
                     " plus this pair's independently estimated REML tau-squared"
                     if o["model"] == "random"
@@ -366,16 +407,16 @@ def _figures(result, directory, prefix, profile):
     reference = r["network"]["reference"] if r["network"] else r["reference"]
     for page_i, page in enumerate(_pages(reference)):
         fig = forest(
-            [{**v, "label": v["treatment_code"]} for v in page],
+            [{**v, "label": textwrap.fill(treatment_label(v["treatment_code"]), 18)} for v in page],
             ratio=o["measure"] != "MD",
             x_label=scale,
         )
         save(
             fig,
-            f"reference_{page_i+1}",
+            f"reference_{page_i + 1}",
             "Treatment effects relative to the selected reference.",
             inference
-            + f"Each treatment is relative to {o['reference']!r}. Page {page_i+1} of {len(_pages(reference))}. "
+            + f"Each treatment is relative to {o['reference']!r}. Page {page_i + 1} of {len(_pages(reference))}. "
             + (
                 "Network estimates account for multi-arm correlation and combine direct and indirect evidence under the stated assumptions. "
                 if r["network"]
@@ -414,11 +455,11 @@ def _figures(result, directory, prefix, profile):
             )
             save(
                 fig,
-                f"split_{page_i+1}",
+                f"split_{page_i + 1}",
                 "Direct and indirect evidence for each treatment comparison.",
                 inference
                 + "D denotes direct and I indirect evidence under netmeta Back-calculation (SIDE). "
-                + f"Page {page_i+1} of {len(_pages(comparisons, 7))}. Direction is the first treatment relative to the second. For random effects, both components use the network's common between-study variance, not each pairwise model's independently estimated variance. Not estimable is retained when a component cannot be estimated; it is not a null effect or proof of consistency.",
+                + f"Page {page_i + 1} of {len(_pages(comparisons, 7))}. Direction is the first treatment relative to the second. For random effects, both components use the network's common between-study variance, not each pairwise model's independently estimated variance. Not estimable is retained when a component cannot be estimated; it is not a null effect or proof of consistency.",
                 "D／I 分別是直接與間接證據。隨機效應拆分使用網絡共用異質性，不能與獨立 pairwise 合併混讀。沒有間接路徑等情形保留為無法估計，不畫成零。",
                 components,
             )
@@ -426,11 +467,11 @@ def _figures(result, directory, prefix, profile):
                 [{**v, "label": f"{v['treatment_code']}/{v['comparator_code']}"} for v in page],
                 ratio=False,
                 x_label="Direct minus indirect\n"
-                + ("MD (U1)" if o["measure"] == "MD" else f"log {o['measure']} difference"),
+                + (scale if o["measure"] == "MD" else f"log {o['measure']} difference"),
             )
             save(
                 fig,
-                f"inconsistency_{page_i+1}",
+                f"inconsistency_{page_i + 1}",
                 "Local differences between direct and indirect evidence.",
                 inference
                 + "This is direct minus indirect on the analysis scale: "

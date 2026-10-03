@@ -74,6 +74,7 @@ def validate_dictionary(value, record, result, *, prediction=False):
         "bland_altman",
         "cohens_kappa",
         "prediction",
+        "evidence_synthesis",
     }:
         raise ValueError("Reviewed display dictionaries are not supported for this study family.")
     source = record.get("source", {})
@@ -110,7 +111,12 @@ def validate_dictionary(value, record, result, *, prediction=False):
     entries = value["entries"]
     if not isinstance(entries, list) or not 1 <= len(entries) <= 500:
         raise ValueError("Display dictionary requires 1..500 column entries.")
-    if prediction:
+    if family == "evidence_synthesis":
+        from rde.infrastructure.evidence.dictionary import DISPLAY_COLUMNS, source_units
+
+        variables = DISPLAY_COLUMNS
+        units = source_units(result)
+    elif prediction:
         spec = PredictionSpec.parse(result["spec"])
         variables = {spec.target, *spec.predictors}
         variables.update(v for v in [spec.subject_variable, spec.time_variable] if v)
@@ -212,6 +218,10 @@ def validate_dictionary(value, record, result, *, prediction=False):
                     "Dictionary code labels require reviewed English text or scientific symbols."
                 )
             seen.add(code)
+    if family == "evidence_synthesis":
+        from rde.infrastructure.evidence.dictionary import validate_bindings
+
+        validate_bindings(value, record, result)
     if family == "cohens_kappa":
         meanings = {
             entry["column"]: {level["value"]: level["label_en"] for level in entry["levels"]}

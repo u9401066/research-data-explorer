@@ -420,6 +420,7 @@ def register_publication_tools(server):
                     "genomics",
                 ],
                 "display_dictionary_families": [
+                    "evidence_synthesis",
                     "prediction",
                     "survival",
                     "regression",

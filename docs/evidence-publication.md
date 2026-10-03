@@ -175,3 +175,38 @@ at the MCP interface boundary, the final focused MCP/source/inventory suite pass
 **39 tests**. Extension compilation and all **40 extension tests**, asset sync,
 local VSIX packaging and repository pre-commit checks passed. Versions remain
 RDE 0.5.0 and Workbench 0.1.0; no release or production deployment was performed.
+
+## Reviewed comparison dictionaries (2026-10-03)
+
+`render_evidence_publication` accepts a reviewed `display_dictionary` under the
+shared publication-dictionary-v1 contract. The complete saved R source closure
+is verified before resolving annotations against its immutable comparison table.
+The source SHA256, selected sheet, approved plan identity (when selected), review
+revision and original codes remain bound to the edition. The allowed columns are
+study_id, report_id, treatment, comparator, effect, se, outcome, timepoint,
+population and effect_modifiers; decision and risk-of-bias controls are excluded.
+
+One treatment identity must have the same reviewed meaning in treatment and
+comparator. Exact original spelling is retained, including the executor's existing
+JavaScript whitespace normalization. Effect and SE labels must retain log OR,
+log RR or the declared MD unit. Annotations cannot convert values, merge
+treatments, equate doses, change eligibility or establish transitivity. Compact
+treatment codes remain on dense figures; full reviewed mappings and limitations
+are mandatory in every caption, including author-overridden captions.
+
+Actual MCP regression checks cover approved/current dictionaries, long names,
+immutable source bytes, byte-identical plot CSVs, idempotent reads and rejection of
+wrong source/sheet/plan, changed units, absent codes, control columns and conflicting
+treatment meanings. Edition rendering is tested with external process launch
+forbidden. Three new tests passed; together with existing evidence workflow checks,
+27 passed. The complete suite passed 1044 tests, with five optional vendor skips
+(506.51 s). A subsequent caption clarification passed the three focused tests.
+
+Real Workbench/R/MCP/browser verification used explicitly synthetic OR and RR CSVs
+and a two-sheet MD workbook (only Comparisons selected). Each saved analysis has
+five independent synthetic studies and seven included comparison rows, not five
+clinical trials. Four Nature/PLOS editions contain 36 figures and 216 downloads;
+all data CSVs remain byte-identical. Every PNG and rendered PDF page was visually
+reviewed. This validates software behavior, not clinical source adjudication or
+the suitability of a real meta-analysis. Workbench retains the private deployment
+and browser evidence; versions remain unchanged.
