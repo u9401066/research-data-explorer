@@ -2536,6 +2536,7 @@ def _execute_autoresearch_analysis_contract(
         )
         figures: list[dict[str, str]] = []
         figure_warnings: list[str] = []
+        publication = None
         if bool(contract.get("create_figures")):
             from dataclasses import replace
             from rde.interface.mcp.tools.analysis_tools import (
@@ -2549,17 +2550,33 @@ def _execute_autoresearch_analysis_contract(
                 f"branch_results/{branch_id}/experiments/{experiment_id}",
             )
             figure_project = replace(project, output_dir=figure_root)
-            figures, figure_warnings = _auto_create_advanced_analysis_figures(
-                project=figure_project,
-                dataset=entry.dataset,
-                dataframe=analysis_df,
-                analysis_type=analysis_type,
-                source=source,
-                analysis_result=analysis_result,
-                config=config,
+            from rde.infrastructure.visualization.advanced_publication import (
+                METHODS,
+                figures as publication_figures,
+                publication_result,
             )
-            for figure in figures:
-                figure["path"] = str((figure_root / figure["path"]).relative_to(project.output_dir))
+
+            if analysis_type in METHODS and source_binding["status"] == "verified":
+                publication = publication_result(artifact_payload)
+                figures = publication_figures(publication, figure_root / "figures", experiment_id)
+                for figure in figures:
+                    figure["path"] = str(Path(figure["path"]).relative_to(project.output_dir))
+                artifact_payload["publication_result"] = publication
+                artifact_payload["figures"] = figures
+            else:
+                figures, figure_warnings = _auto_create_advanced_analysis_figures(
+                    project=figure_project,
+                    dataset=entry.dataset,
+                    dataframe=analysis_df,
+                    analysis_type=analysis_type,
+                    source=source,
+                    analysis_result=analysis_result,
+                    config=config,
+                )
+                for figure in figures:
+                    figure["path"] = str(
+                        (figure_root / figure["path"]).relative_to(project.output_dir)
+                    )
         else:
             figure_warnings.append(
                 "Autoresearch branch runner skipped automatic figure generation; "
@@ -2567,8 +2584,11 @@ def _execute_autoresearch_analysis_contract(
                 "when branch-specific figures are required."
             )
         if figures:
-            rendered += "\n\n## Figures\n" + "\n".join(
-                f"- `{figure['path']}` ({figure['plot_type']})" for figure in figures
+            rendered += "\n\n## Figures\n" + "\n\n".join(
+                f"![{figure['plot_type']}]({figure['path']})\n\n{figure['caption']}"
+                if publication
+                else f"- `{figure['path']}` ({figure['plot_type']})"
+                for figure in figures
             )
         if figure_warnings:
             rendered += "\n\n## Figure fallback warnings\n" + "\n".join(
@@ -2590,12 +2610,40 @@ def _execute_autoresearch_analysis_contract(
             )
         md_name = artifact_name.replace(".json", ".md")
         md_path = store.save(PipelinePhase.EXECUTE_EXPLORATION, md_name, rendered)
+        if publication:
+            from rde.infrastructure.prediction.splits import digest
+            from rde.infrastructure.adapters.dataframe_lineage import verify_source_binding
+
+            verify_source_binding(source_binding, project.output_dir)
+            paths = [
+                md_path,
+                *[Path(p) for f in figures for p in f["publication"]["files"].values()],
+            ]
+            artifact_payload["artifacts"] = [
+                {
+                    "path": str(p.relative_to(project.output_dir)),
+                    "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+                    "bytes": p.stat().st_size,
+                }
+                for p in paths
+            ]
+            artifact_payload["sha256"] = digest(
+                {k: v for k, v in artifact_payload.items() if k != "sha256"}
+            )
+            artifact_path = store.save(
+                PipelinePhase.EXECUTE_EXPLORATION, artifact_name, artifact_payload
+            )
         artifact_refs = [
             f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{artifact_name}",
             f"{PipelinePhase.EXECUTE_EXPLORATION.value}/{md_name}",
             *([derived_registry_ref] if derived_registry_ref else []),
-            *[figure["path"] for figure in figures],
+            *(
+                [a["path"] for a in artifact_payload["artifacts"]]
+                if publication
+                else [figure["path"] for figure in figures]
+            ),
         ]
+        artifact_refs = list(dict.fromkeys(artifact_refs))
         summary = _summarize_advanced_analysis_result(analysis_result)
         if plausibility_summary:
             summary = f"{summary}; {plausibility_summary}"

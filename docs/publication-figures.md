@@ -134,6 +134,12 @@ caption text is edited. Rendering neither changes the primary plan nor adopts/pr
 branch. Workbench displays the current keep/discard/pending decision independently and
 connects the edition to that exact branch in the research graph.
 
-Legacy general exploration still needs typed saved numerical/plot-data bundles before
-it can use this flow; this addition does not claim all generic branches are publication-ready.
-Historical PNG-only studies and reports remain unchanged.
+New source-bound general branches support logistic and linear regression, unadjusted binary
+event comparisons, and propensity diagnostics through the same MCP edition workflow.
+The runner captures a complete immutable numerical/plot input and original PNG, PDF, SVG,
+TIFF, CSV and caption bundle. Publication verifies both native ledgers, the complete
+source/cleaning chain, all retained cases, model/risk receipts, figures and report hashes;
+historical rendering does not reload the upload, repeat cleaning or fit a model.
+See [cleaning lineage](data-cleaning-lineage.md) and [general exploration figures](advanced-publication.md).
+These branches use method-specific cases, not survival's fixed primary population.
+Historical PNG-only studies and reports remain unchanged and are not promoted into this contract.

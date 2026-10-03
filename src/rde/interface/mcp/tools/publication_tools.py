@@ -179,6 +179,8 @@ def _create_verified_edition(
             from rde.infrastructure.evidence.publication import figures
         elif result.get("spec", {}).get("family") == "genomics":
             from rde.infrastructure.genomics.publication import figures
+        elif result.get("spec", {}).get("family") == "advanced_exploration":
+            from rde.infrastructure.visualization.advanced_publication import figures
         elif prediction:
             from rde.infrastructure.prediction.publication import figures
         elif result["spec"]["family"] == "survival":
@@ -213,11 +215,20 @@ def _create_verified_edition(
         if record.get("publication_scope") == "exploratory_branch":
             lines[0] = "# 探索分支投稿圖版"
             lines += [
-                "本圖版來自探索性調整因素分支，沿用主要分析的固定完整個案。"
-                "模型間未校正多重探索；不檢定兩個模型 HR 的差異，也不取代主要分析。",
+                (
+                    "本圖版來自探索性調整因素分支，沿用主要分析的固定完整個案。"
+                    "模型間未校正多重探索；不檢定兩個模型 HR 的差異，也不取代主要分析。"
+                    if record.get("primary_binding")
+                    else "本圖版來自通用探索，各方法依實際使用欄位決定完整個案。"
+                    "不宣稱與主要分析使用相同個案；未校正跨模型的多重探索，也不取代主要分析。"
+                ),
                 "",
                 f"來源分支：`{record['branch_id']}`；實驗：`{record['experiment_id']}`。",
-                f"主要數值收據 SHA256：`{record['primary_binding']['primary_receipt_sha256']}`。",
+                (
+                    f"主要數值收據 SHA256：`{record['primary_binding']['primary_receipt_sha256']}`。"
+                    if record.get("primary_binding")
+                    else f"原始資料 SHA256：`{result['source_binding']['source']['sha256']}`。"
+                ),
                 "",
             ]
         if display_dictionary is not None:
@@ -325,7 +336,11 @@ def _create_verified_edition(
                     "source_branch_id": record["branch_id"],
                     "source_experiment_id": record["experiment_id"],
                     "source_autoresearch_run_id": record["run_id"],
-                    "primary_binding": record["primary_binding"],
+                    **(
+                        {"primary_binding": record["primary_binding"]}
+                        if record.get("primary_binding")
+                        else {"source_binding": result["source_binding"]}
+                    ),
                 }
                 if record.get("publication_scope") == "exploratory_branch"
                 else {}
@@ -375,11 +390,12 @@ def register_publication_tools(server):
         captions: dict[str, dict[str, str]] | None = None,
         display_dictionary: dict | None = None,
     ) -> str:
-        """從已執行的生存調整分支另存期刊圖稿；核對完整原始／主要證據，絕不重估。
+        """從已執行的生存或通用探索分支另存期刊圖稿；核對完整來源，絕不重估。
 
-        使用 br_*／exp_* 原始識別與 *_survival_sensitivity.json 檔案 SHA256。
+        使用 br_*／exp_* 原始識別與該實驗分析 JSON 檔案 SHA256。
         同 UUID 同請求可取回；保留探索性限制，不改分支採用決定或主要計畫。
-        舊式通用探索缺少完整固定數值時不適用，不能用圖檔冒充可重現圖稿。
+        通用探索需完整數值、來源清理鏈與六格式原圖；生存分支另核對主要固定個案。
+        舊式 PNG 圖檔或未綁定來源的數值不能冒充可重現圖稿。
         """
         from rde.application.session import get_session
         from rde.interface.mcp.tools._shared import ensure_project_context, fmt_error
@@ -433,9 +449,10 @@ def register_publication_tools(server):
                     "sample_size",
                     "evidence_synthesis",
                     "genomics",
-                    "genomics",
+                    "advanced_exploration",
                 ],
                 "display_dictionary_families": [
+                    "advanced_exploration",
                     "evidence_synthesis",
                     "genomics",
                     "prediction",

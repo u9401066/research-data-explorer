@@ -30,12 +30,20 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
     folder = store.get_path(
         PipelinePhase.EXECUTE_EXPLORATION, f"branch_results/{branch_id}/experiments"
     )
-    source = confined(folder / f"{experiment_id}_survival_sensitivity.json")
+    wrapper_path = confined(folder / f"{experiment_id}.json")
+    wrapper = json.loads(wrapper_path.read_text(encoding="utf-8"))
+    requested = wrapper.get("task", {}).get("analysis_contract", {})
+    from rde.infrastructure.visualization.advanced_publication import METHODS, publication_result
+
+    generic = (
+        requested.get("tool") == "run_advanced_analysis"
+        and requested.get("analysis_type") in METHODS
+    )
+    method = requested["analysis_type"] if generic else "survival_sensitivity"
+    source = confined(folder / f"{experiment_id}_{method}.json")
     if file_hash(source) != expected_record_sha256:
         raise ValueError("Saved branch record differs from the requested SHA256.")
     record = json.loads(source.read_text(encoding="utf-8"))
-    wrapper_path = confined(folder / f"{experiment_id}.json")
-    wrapper = json.loads(wrapper_path.read_text(encoding="utf-8"))
     events = store.load(PipelinePhase.EXECUTE_EXPLORATION, "branch_experiment_results.jsonl") or []
     matches = [
         e
@@ -75,15 +83,43 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
         or execution.get("artifact_sha256") != expected_record_sha256
         or confined(execution["artifact_path"]) != source
         or record.get("status") != "completed"
-        or record.get("source") != "local-clinical-survival"
+        or (not generic and record.get("source") != "local-clinical-survival")
         or record.get("branch_id") != branch_id
         or record.get("experiment_id") != experiment_id
         or record.get("dataset_id") not in project.dataset_ids
         or contract != wrapper.get("task", {}).get("analysis_contract")
-        or contract.get("tool") != "run_clinical_study"
-        or contract.get("analysis_type") != "survival_sensitivity"
+        or (
+            not generic
+            and (
+                contract.get("tool") != "run_clinical_study"
+                or contract.get("analysis_type") != "survival_sensitivity"
+            )
+        )
     ):
         raise ValueError("The completed native branch, execution and source identities differ.")
+    if generic:
+        from rde.infrastructure.adapters.dataframe_lineage import verify_source_binding
+
+        result = record.get("publication_result")
+        binding = record["input_evidence"]["source_binding"]
+        if (
+            record.get("schema") != "advanced-branch-evidence-v1"
+            or binding.get("dataset_id") != record["dataset_id"]
+            or result != publication_result(record)
+            or not verify_clinical_artifacts({**record, "result": result}, root)
+        ):
+            raise ValueError(
+                "Generic branch publication does not match its complete numerical evidence."
+            )
+        verify_source_binding(binding, root)
+        _verify_figures(record, result, confined)
+        return source, {
+            **record,
+            "result": result,
+            "run_id": wrapper["run_id"],
+            "source": binding["source"],
+            "publication_scope": "exploratory_branch",
+        }
     result = record.get("analysis_result", {})
     binding = record.get("primary_binding", {})
     primary_path = confined(binding["primary_artifact"])
@@ -143,6 +179,17 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
         raise ValueError(
             "Branch numerical evidence or its fixed primary population failed verification."
         )
+    _verify_figures(record, result, confined)
+    return source, {
+        **record,
+        "result": result,
+        "run_id": wrapper["run_id"],
+        "source": record["source_file"],
+        "publication_scope": "exploratory_branch",
+    }
+
+
+def _verify_figures(record, result, confined):
     figures = record.get("figures", [])
     if not figures:
         raise ValueError("This branch has no complete publication figure bundle.")
@@ -157,13 +204,6 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
             or confined(figure["path"]) != confined(files["png"])
         ):
             raise ValueError("Branch figures do not belong to its complete numerical evidence.")
-    return source, {
-        **record,
-        "result": result,
-        "run_id": wrapper["run_id"],
-        "source": record["source_file"],
-        "publication_scope": "exploratory_branch",
-    }
 
 
 def create_branch_edition(project, *, branch_id, experiment_id, expected_record_sha256, **options):

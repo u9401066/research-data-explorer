@@ -65,15 +65,18 @@ source_frame_lineage:
   historical_verification: pinned_source_and_cleaning_receipts_without_reparsing_or_refitting
   immutable: [source_snapshot, cleaning_receipt, branch_input_binding]
   rejects: [untracked_frame_edits, source_drift, modified_receipts, invalid_replay]
-  does_not_establish: [clinical_appropriateness_of_cleaning, publication_ready_generic_figures, fixed_primary_case_set]
+  does_not_establish: [clinical_appropriateness_of_cleaning, fixed_primary_case_set]
 
 branch_publication:
   tools: [render_branch_publication]
-  scope: completed_survival_adjustment_branch_display_editions
-  requires: [exact_branch_record_sha256, unique_completed_native_ledger, complete_primary_and_branch_artifacts, fixed_primary_population]
+  scope: completed_survival_adjustment_and_source_bound_generic_branch_display_editions
+  requires: [exact_branch_record_sha256, unique_completed_native_ledger, complete_saved_numerical_receipts, complete_original_figure_bundle]
+  survival_requires: [complete_primary_and_branch_artifacts, fixed_primary_population]
+  generic_methods: [logistic_regression, multiple_regression, risk_estimates, propensity_score]
+  generic_requires: [verified_source_and_cleaning_chain, complete_method_specific_cases, full_model_or_risk_rows, untruncated_propensity_scores_and_pairs]
   rendering: saved_numerical_receipts_no_model_or_test_execution
   immutable: [primary_study, branch_execution, original_figures, journal_edition]
-  retains: [exploratory_caption_scope, primary_binding, branch_identity, experiment_identity]
+  retains: [exploratory_caption_scope, method_limitations, source_binding_or_survival_primary_binding, branch_identity, experiment_identity]
   does_not_change: [analysis_plan, branch_adoption, promotion_gate, case_set, numerical_estimates]
 
 phase_controls:

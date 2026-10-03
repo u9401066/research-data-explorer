@@ -174,6 +174,7 @@ def validate_dictionary(value, record, result, *, prediction=False):
         "prediction",
         "evidence_synthesis",
         "genomics",
+        "advanced_exploration",
     }:
         raise ValueError("Reviewed display dictionaries are not supported for this study family.")
     if family == "genomics":
@@ -181,7 +182,14 @@ def validate_dictionary(value, record, result, *, prediction=False):
 
         return validate_genomics_dictionary(value, record, result)
     entries = validate_dictionary_header(value, record.get("source", {}))
-    if family == "evidence_synthesis":
+    if family == "advanced_exploration":
+        contract = result["contract"]
+        variables = set(contract.get("covariates", []))
+        variables.update(
+            v for v in [contract.get("target_variable"), contract.get("group_variable")] if v
+        )
+        units = {}  # Display annotations on the saved source scale; never conversion.
+    elif family == "evidence_synthesis":
         from rde.infrastructure.evidence.dictionary import DISPLAY_COLUMNS, source_units
 
         variables = DISPLAY_COLUMNS
