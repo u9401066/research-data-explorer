@@ -57,6 +57,15 @@ external_genomics_publication:
   decision_log: artifacts/genomics_publication/decision_log.jsonl
   does_not_establish: [biological_source_truth, biological_replicate_independence, independent_extraction, cryptographic_human_signature, completed_patient_eda_audit]
 
+branch_publication:
+  tools: [render_branch_publication]
+  scope: completed_survival_adjustment_branch_display_editions
+  requires: [exact_branch_record_sha256, unique_completed_native_ledger, complete_primary_and_branch_artifacts, fixed_primary_population]
+  rendering: saved_numerical_receipts_no_model_or_test_execution
+  immutable: [primary_study, branch_execution, original_figures, journal_edition]
+  retains: [exploratory_caption_scope, primary_binding, branch_identity, experiment_identity]
+  does_not_change: [analysis_plan, branch_adoption, promotion_gate, case_set, numerical_estimates]
+
 phase_controls:
   concept_alignment:
     tool: align_concept

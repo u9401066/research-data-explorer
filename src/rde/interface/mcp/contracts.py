@@ -149,6 +149,11 @@ CONTRACTS = {
         "read-only journal specification and font metadata",
         read_only=True,
     ),
+    "render_branch_publication": ToolContract(
+        "10",
+        "completed native branch + exact source hash + primary population/artifact binding + immutable edition ID",
+        "new exploratory journal figure edition; no estimation, branch promotion or plan mutation",
+    ),
     "render_publication_figures": ToolContract(
         "10",
         "completed hash-pinned study + immutable edition ID + exact available font",

@@ -3,7 +3,9 @@
 import asyncio
 import hashlib
 import json
+import os
 from pathlib import Path
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -95,8 +97,21 @@ def primary(tmp_path):
     return project, store, dataset, record, path, contract
 
 
-def test_real_mcp_survival_branch_has_full_reports_and_cannot_overwrite_primary(primary):
+@pytest.mark.parametrize("preset", ["journal-neutral-english-v1", "nature-single-v1"])
+def test_real_mcp_survival_branch_has_full_reports_and_cannot_overwrite_primary(
+    primary, monkeypatch, preset
+):
+    if preset == "nature-single-v1":
+        font_dir = os.environ.get("RDE_JOURNAL_TEST_FONT_DIR") or os.environ.get(
+            "RDE_PUBLICATION_FONT_DIR"
+        )
+        if not font_dir:
+            pytest.skip(
+                "Nature branch edition requires an explicitly configured authorized Arial directory"
+            )
+        monkeypatch.setenv("RDE_PUBLICATION_FONT_DIR", font_dir)
     project, store, _, record, path, contract = primary
+    primary_path = path
     originals = {
         p: p.read_bytes()
         for p in [path, *[project.output_dir / a["path"] for a in record["artifacts"]]]
@@ -147,6 +162,106 @@ def test_real_mcp_survival_branch_has_full_reports_and_cannot_overwrite_primary(
     report_path = next(a["path"] for a in payload["artifacts"] if a["path"].endswith(".md"))
     assert "未恢復任何被排除個案" in (project.output_dir / report_path).read_text()
     assert all(p.read_bytes() == before for p, before in originals.items())
+
+    # Edition requests exercise the public MCP entry point with a real executed
+    # branch. Neither a successful render nor recovery may invoke an estimator.
+    from rde.infrastructure.clinical import survival, survival_publication
+    from rde.interface.mcp.tools._shared.branch_publication import branch_publication_source
+    from rde.interface.mcp.tools.publication_tools import file_hash
+
+    monkeypatch.setattr(survival, "run_survival", lambda *a, **kw: pytest.fail("Refitted primary"))
+    monkeypatch.setattr(
+        survival, "run_survival_sensitivity", lambda *a, **kw: pytest.fail("Refitted branch")
+    )
+    source = project.output_dir / artifact
+    branch_originals = {
+        p: p.read_bytes()
+        for p in [source, *[project.output_dir / a["path"] for a in payload["artifacts"]]]
+    }
+    ledger_path = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl")
+    ledger_before = ledger_path.read_bytes()
+    args = dict(
+        project_id=project.id,
+        branch_id=payload["branch_id"],
+        experiment_id=payload["experiment_id"],
+        expected_record_sha256=file_hash(source),
+        preset_id=preset,
+        edition_id=str(uuid.uuid4()),
+        start_number=7,
+        captions={
+            "1": {
+                "title": "Participant flow in the exploratory model",
+                "caption_en": "Fixed participants from the saved primary study.",
+                "explanation_zh": "沿用主要分析固定個案。",
+            }
+        },
+    )
+
+    def render(values):
+        response = asyncio.run(create_server().call_tool("render_branch_publication", values))
+        assert not response.is_error, response.content
+        text = "".join(c.text for c in response.content if hasattr(c, "text"))
+        assert not text.startswith("❌"), text
+        return json.loads(text)
+
+    edition = render(args)
+    assert edition["publication_scope"] == "exploratory_branch"
+    assert edition["source_branch_id"] == payload["branch_id"]
+    assert edition["source_experiment_id"] == payload["experiment_id"]
+    assert (
+        edition["source_numerical_receipt_sha256"] == payload["analysis_result"]["receipt_sha256"]
+    )
+    assert edition["primary_binding"] == payload["primary_binding"]
+    assert len(edition["artifacts"]) == len(payload["figures"]) * 6 + 1
+    for item in edition["artifacts"]:
+        output = project.output_dir / item["path"]
+        assert output.stat().st_size == item["bytes"] and file_hash(output) == item["sha256"]
+    assert (
+        "exploratory adjustment-sensitivity" in edition["figures"][0]["publication"]["caption_en"]
+    )
+    assert (
+        "不取代主要分析"
+        in (
+            project.output_dir
+            / "figures"
+            / "editions"
+            / args["edition_id"]
+            / "publication-edition.md"
+        ).read_text()
+    )
+    for old, new in zip(payload["figures"], edition["figures"], strict=True):
+        assert (
+            Path(old["publication"]["files"]["data"]).read_bytes()
+            == Path(new["publication"]["files"]["data"]).read_bytes()
+        )
+    monkeypatch.setattr(
+        survival_publication,
+        "figures",
+        lambda *a, **kw: pytest.fail("Rendered saved edition again"),
+    )
+    assert render(args) == edition
+    assert ledger_path.read_bytes() == ledger_before
+    assert all(p.read_bytes() == before for p, before in (originals | branch_originals).items())
+    # Corrupt files must also block a cached edition. Restore each exact source
+    # after checking rejection; no new analysis or overwrite may conceal damage.
+    for damaged in [
+        source,
+        primary_path,
+        project.output_dir / payload["artifacts"][-1]["path"],
+        ledger_path,
+    ]:
+        old = damaged.read_bytes()
+        damaged.write_bytes(b"corrupt QA evidence")
+        try:
+            with pytest.raises((ValueError, KeyError, TypeError)):
+                branch_publication_source(
+                    project,
+                    args["branch_id"],
+                    args["experiment_id"],
+                    args["expected_record_sha256"],
+                )
+        finally:
+            damaged.write_bytes(old)
 
 
 @pytest.mark.parametrize(

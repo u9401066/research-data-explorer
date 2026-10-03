@@ -202,6 +202,16 @@ def _create_verified_edition(
             "圖說與圖號供稿件使用，仍須核對目標期刊與最終稿件。",
             "",
         ]
+        if record.get("publication_scope") == "exploratory_branch":
+            lines[0] = "# 探索分支投稿圖版"
+            lines += [
+                "本圖版來自探索性調整因素分支，沿用主要分析的固定完整個案。"
+                "模型間未校正多重探索；不檢定兩個模型 HR 的差異，也不取代主要分析。",
+                "",
+                f"來源分支：`{record['branch_id']}`；實驗：`{record['experiment_id']}`。",
+                f"主要數值收據 SHA256：`{record['primary_binding']['primary_receipt_sha256']}`。",
+                "",
+            ]
         artifacts = []
         for figure in rendered:
             publication = figure["publication"]
@@ -244,12 +254,31 @@ def _create_verified_edition(
             != result["receipt_sha256"]
         ):
             raise ValueError("Source evidence changed during rendering.")
+        if record.get("publication_scope") == "exploratory_branch":
+            from rde.interface.mcp.tools._shared.branch_publication import branch_publication_source
+
+            _, refreshed = branch_publication_source(
+                project, record["branch_id"], record["experiment_id"], expected_record_sha256
+            )
+            if refreshed != record:
+                raise ValueError("Branch or primary evidence changed during rendering.")
         edition = {
             "schema": "publication-edition-v1",
             "edition_id": edition_id,
             "request": request,
             "source_numerical_receipt_sha256": result["receipt_sha256"],
             "source_dataset_id": record.get("dataset_id"),
+            **(
+                {
+                    "publication_scope": "exploratory_branch",
+                    "source_branch_id": record["branch_id"],
+                    "source_experiment_id": record["experiment_id"],
+                    "source_autoresearch_run_id": record["run_id"],
+                    "primary_binding": record["primary_binding"],
+                }
+                if record.get("publication_scope") == "exploratory_branch"
+                else {}
+            ),
             **(
                 {"source_plan_id": record["plan_id"], "source_run_id": record["run_id"]}
                 if "plan_id" in record
@@ -283,6 +312,54 @@ def _create_verified_edition(
 
 
 def register_publication_tools(server):
+    @server.tool()
+    def render_branch_publication(
+        project_id: str,
+        branch_id: str,
+        experiment_id: str,
+        expected_record_sha256: str,
+        preset_id: str,
+        edition_id: str,
+        start_number: int = 1,
+        captions: dict[str, dict[str, str]] | None = None,
+    ) -> str:
+        """從已執行的生存調整分支另存期刊圖稿；核對完整原始／主要證據，絕不重估。
+
+        使用 br_*／exp_* 原始識別與 *_survival_sensitivity.json 檔案 SHA256。
+        同 UUID 同請求可取回；保留探索性限制，不改分支採用決定或主要計畫。
+        舊式通用探索缺少完整固定數值時不適用，不能用圖檔冒充可重現圖稿。
+        """
+        from rde.application.session import get_session
+        from rde.interface.mcp.tools._shared import ensure_project_context, fmt_error
+        from rde.interface.mcp.tools._shared.branch_publication import create_branch_edition
+
+        ok, message, project = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(message)
+        try:
+            result = create_branch_edition(
+                project,
+                branch_id=branch_id,
+                experiment_id=experiment_id,
+                expected_record_sha256=expected_record_sha256,
+                preset_id=preset_id,
+                edition_id=edition_id,
+                start_number=start_number,
+                captions=captions,
+            )
+            get_session().get_logger(project.id).log_decision(
+                phase=PipelinePhase.REPORT_ASSEMBLY.value,
+                action="render_branch_publication",
+                tool_used="render_branch_publication",
+                parameters={"edition_id": edition_id, **result["request"]},
+                rationale="Render saved exploratory branch evidence; no fitting, resampling or promotion.",
+                result_summary=f"{len(result['figures'])} figures, {preset_id}",
+                artifacts=[result["receipt_path"]],
+            )
+            return json.dumps(result, ensure_ascii=False, allow_nan=False)
+        except Exception as error:
+            return fmt_error(str(error))
+
     @server.tool()
     def get_publication_presets() -> str:
         """列出有來源日期、字型可用性、尺寸與格式的期刊出圖樣式。"""

@@ -80,6 +80,20 @@ separate extension.
 New survival sensitivity branches export the same six formats, identify their exploratory
 scope, and keep the primary complete-case population. Their full reports show one image per
 figure and separate captions; the Workbench exploration summary embeds one browser-readable
-format per figure while retaining every original download. Journal editions currently select
-primary study bundles; branch-specific preset editions remain a further extension. Historical
-PNG-only studies and reports remain unchanged.
+format per figure while retaining every original download. `render_branch_publication` now
+accepts the exact native `br_*` / `exp_*` identity and the branch analysis record's SHA256.
+It checks the completed execution wrapper, both experiment ledgers, complete original
+primary/branch artifacts, numerical receipts and fixed-case binding before rendering.
+The full source closure is checked again before committing a new edition. Source changes
+also block same-ID recovery; incomplete, manual-only and unsupported generic branches
+cannot stand in for an executed survival study.
+
+Editions record the native run, branch, experiment and primary binding. The report and
+every caption retain the exploratory adjustment-sensitivity limitation, including when
+caption text is edited. Rendering neither changes the primary plan nor adopts/promotes a
+branch. Workbench displays the current keep/discard/pending decision independently and
+connects the edition to that exact branch in the research graph.
+
+Legacy general exploration still needs typed saved numerical/plot-data bundles before
+it can use this flow; this addition does not claim all generic branches are publication-ready.
+Historical PNG-only studies and reports remain unchanged.

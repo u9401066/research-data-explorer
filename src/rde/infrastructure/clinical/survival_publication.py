@@ -84,6 +84,7 @@ def _figures(result, directory, prefix, profile):
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=exploratory,
         )
         records.append(
             dict(

@@ -81,6 +81,7 @@
       "inspect_clinical_study",
       "get_publication_presets",
       "render_publication_figures",
+      "render_branch_publication",
       "open_exploration_branch",
       "suggest_branch_experiments",
       "start_autoresearch_run",

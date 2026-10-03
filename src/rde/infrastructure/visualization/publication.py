@@ -62,6 +62,7 @@ def save_publication_figure(
     data: list[dict],
     profile: dict,
     receipt_sha256: str,
+    required_caption: str = "",
 ) -> dict:
     """Save actual plotted geometry, never upsample an existing low-resolution image."""
     import matplotlib.pyplot as plt
@@ -114,6 +115,8 @@ def save_publication_figure(
     override = edition.get("captions", {}).get(str(number), {})
     title = override.get("title", title)
     caption = override.get("caption_en", caption)
+    if required_caption and required_caption.strip() not in caption:
+        caption = caption.rstrip() + " " + required_caption.strip()
     explanation = override.get("explanation_zh", explanation)
     if profile["profile"].startswith("plos-") and len(title.split()) > 15:
         plt.close(fig)
