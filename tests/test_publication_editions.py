@@ -89,6 +89,28 @@ def completed(tmp_path, family):
             json_result=False,
         )
         record = clinical_records(store)[0]
+    elif family.startswith("comparison_"):
+        from dataclasses import replace
+        from test_comparison_study_contract import fixture
+        from test_comparison_workflow import boundary_fixture
+        from test_clinical_survival import clinical_project
+        from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+        frame, spec = boundary_fixture() if family.endswith("binary") else fixture()
+        if family.endswith("rank"):
+            spec = replace(
+                spec,
+                method="rank",
+                primary_effect="rank_biserial",
+                bootstrap={"resamples": 999, "seed": 21},
+            )
+        project, store, dataset, spec = clinical_project(tmp_path, frame=frame, options=spec)
+        call(
+            "run_clinical_study",
+            {"dataset_id": dataset.id, "clinical_options": spec.to_dict()},
+            json_result=False,
+        )
+        record = clinical_records(store)[0]
     elif family.startswith("paired"):
         from test_paired_workflow import paired_project
         from rde.interface.mcp.tools.clinical_tools import clinical_records

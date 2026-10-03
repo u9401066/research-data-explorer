@@ -6,6 +6,7 @@ import textwrap
 import numpy as np
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 from .comparison_publication import _number
 from .regression_report import flow
 from .repeated_report import EFFECTS, blocks, effect_rows
@@ -28,7 +29,32 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator
 
     spec, records = result["spec"], []
-    labels = {m["column"]: f"T{i+1}" for i, m in enumerate(spec["measurements"])}
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+        if column != spec["subject"]
+    )
+    # Every occasion has already been checked against the same saved outcome unit.
+    reviewed_units = [
+        e["unit"]
+        for c, e in dictionary.entries.items()
+        if c in [m["column"] for m in spec["measurements"]] and "unit" in e
+    ]
+    unit = (
+        dictionary.compact(reviewed_units[0] if reviewed_units else spec["outcome_unit"], "U1", 18)
+        if dictionary.value
+        else "U1"
+    )
+    labels = {m["column"]: f"T{i + 1}" for i, m in enumerate(spec["measurements"])}
+
+    def occasion_label(column):
+        return (
+            dictionary.compact(f"{labels[column]}: {dictionary.label(column)}", labels[column], 22)
+            if dictionary.value
+            else labels[column]
+        )
+
     confidence = f"{spec['confidence_level']:.1%}"
     source = (
         "Prespecified within-person comparisons; "
@@ -59,12 +85,15 @@ def _figures(result, directory, prefix, profile):
             f"{prefix}_repeated_{key}",
             number=len(records) + 1,
             title=title,
-            caption=source + caption,
+            caption=source + caption + " " + dictionary.note() + mappings,
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(dictionary.note(), mappings, source) if dictionary.value else (),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             {
                 "path": publication["files"]["png"],
@@ -135,9 +164,16 @@ def _figures(result, directory, prefix, profile):
         linewidth=2,
     )
     ax.autoscale_view()
-    ax.set_xticks(x, [f"{labels[r['column']]}\nn={r['n']}" for r in occasions])
+    ax.set_xticks(
+        x, [f"{textwrap.fill(occasion_label(r['column']), 12)}\nn={r['n']}" for r in occasions]
+    )
     ax.set_xlabel("Prespecified occasion (categorical spacing)")
-    ax.set_ylabel("Observed outcome (U1)")
+    outcome_label = (
+        dictionary.compact(spec["outcome_name"], "Observed outcome", 30)
+        if dictionary.value
+        else "Observed outcome"
+    )
+    ax.set_ylabel(textwrap.fill(f"{outcome_label} ({unit})", 28))
     ax.legend(loc="best", frameon=False)
     save(
         fig,
@@ -162,6 +198,7 @@ def _figures(result, directory, prefix, profile):
         for i, contrast in enumerate(contrasts):
             ax, diff_ax = axes[i]
             a, b = [labels[c] for c in contrast["columns"]]
+            first_label, second_label = [occasion_label(c) for c in contrast["columns"]]
             observations = contrast["observations"]
             first, second = [p["first"] for p in observations], [p["second"] for p in observations]
             low, high = min(first + second), max(first + second)
@@ -180,8 +217,8 @@ def _figures(result, directory, prefix, profile):
             )
             ax.set_xlim(*limits)
             ax.set_ylim(*limits)
-            ax.set_xlabel(f"{b} (U1)")
-            ax.set_ylabel(f"{a} (U1)")
+            ax.set_xlabel(textwrap.fill(f"{second_label} ({unit})", 24))
+            ax.set_ylabel(textwrap.fill(f"{first_label} ({unit})", 24))
             ax.set_title(f"{a} vs {b}; n={contrast['n']}", fontsize=9)
             ax.xaxis.set_major_locator(MaxNLocator(4))
             ax.yaxis.set_major_locator(MaxNLocator(4))
@@ -198,7 +235,7 @@ def _figures(result, directory, prefix, profile):
             diff_ax.axvline(0, color="#777777", linewidth=0.7, linestyle="dashed")
             diff_ax.set_ylim(-0.6, 0.6)
             diff_ax.set_yticks([])
-            diff_ax.set_xlabel(f"{a} minus {b} (U1)")
+            diff_ax.set_xlabel(textwrap.fill(f"{a} minus {b} ({unit})", 24))
             diff_ax.set_title("Individual paired differences", fontsize=9)
             diff_ax.xaxis.set_major_locator(MaxNLocator(4))
             data.extend(
@@ -273,7 +310,9 @@ def _figures(result, directory, prefix, profile):
         ax.set_ylim(len(rows) - 0.5, -0.5)
         ax.xaxis.set_major_locator(MaxNLocator(4))
         ax.set_xlabel(
-            textwrap.fill(EFFECTS[kind][1] + (" (U1)" if kind == "mean_difference" else ""), 25)
+            textwrap.fill(
+                EFFECTS[kind][1] + (f" ({unit})" if kind == "mean_difference" else ""), 25
+            )
         )
         text_ax.set_ylim(ax.get_ylim())
         text_ax.set_xlim(0, 1)

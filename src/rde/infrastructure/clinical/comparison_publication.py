@@ -7,6 +7,7 @@ import textwrap
 import numpy as np
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 from .comparison_report import EFFECTS, figure_blocks
 from .regression_report import flow
 from .survival_publication import COLORS
@@ -37,20 +38,36 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator, LogLocator, NullLocator
 
     spec, records = result["spec"], []
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+        if column != spec["subject"]
+    )
+    unit = (
+        dictionary.compact(dictionary.unit(spec["outcome"], spec["outcome_unit"]), "U1", 18)
+        if dictionary.value
+        else "U1"
+    )
     labels = {name: f"G{i + 1}" for i, name in enumerate(spec["group_levels"])}
+    identity_note = (
+        "; ".join(f"{code}={name!r}" for name, code in labels.items())
+        + f". Outcome={spec['outcome']!r}; U1 denotes source unit {spec['outcome_unit']!r}. "
+    )
+    direction_note = "Differences are first group minus second; ratios are first / second. "
+    if spec["method"] == "binary":
+        identity_note += (
+            f"Source event={spec['outcome_levels'][1]!r}; non-event={spec['outcome_levels'][0]!r}. "
+        )
     confidence = f"{spec['confidence_level']:.1%}"
     source = (
         f"Prespecified independent groups; design={spec['study_design']}; {result['n']} common complete cases. "
-        + "; ".join(f"{code}={name!r}" for name, code in labels.items())
-        + f". Outcome={spec['outcome']!r}; U1 denotes source unit {spec['outcome_unit']!r}. "
-        f"Outcome definition={spec['outcome_definition']!r}; observation window={spec['outcome_window']!r}. "
-        f"Study context={spec['context']!r}. Differences are first group minus second; ratios are first / second. "
-        "No adjustment for covariates, clusters or repeated observations. Declared sampling does not verify randomization or causal identification. "
+        + identity_note
+        + f"Outcome definition={spec['outcome_definition']!r}; observation window={spec['outcome_window']!r}. "
+        f"Study context={spec['context']!r}. "
+        + direction_note
+        + "No adjustment for covariates, clusters or repeated observations. Declared sampling does not verify randomization or causal identification. "
     )
-    if spec["method"] == "binary":
-        source += (
-            f"Source event={spec['outcome_levels'][1]!r}; non-event={spec['outcome_levels'][0]!r}. "
-        )
 
     def new(height=80, columns=1):
         return plt.subplots(
@@ -68,12 +85,17 @@ def _figures(result, directory, prefix, profile):
             f"{prefix}_comparison_{kind}",
             number=len(records) + 1,
             title=title,
-            caption=source + caption,
+            caption=source + caption + " " + dictionary.note() + mappings,
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(dictionary.note(), mappings, identity_note, direction_note)
+            if dictionary.value
+            else (),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             {
                 "path": publication["files"]["png"],
@@ -150,7 +172,12 @@ def _figures(result, directory, prefix, profile):
                 whiskerprops={"color": "#222222"},
                 capprops={"color": "#222222"},
             )
-        ax.set_xlabel("Observed outcome (U1)")
+        outcome_label = (
+            dictionary.compact(dictionary.label(spec["outcome"]), "Observed outcome", 30)
+            if dictionary.value
+            else "Observed outcome"
+        )
+        ax.set_xlabel(textwrap.fill(f"{outcome_label} ({unit})", 28))
         caption = "Every retained outcome is shown, with deterministic vertical jitter for display only. Boxes show saved quartiles and medians; whiskers reach the outermost observed values within 1.5 IQR of the quartiles. Points beyond whiskers remain visible and included. These descriptive boxes are not confidence intervals or estimates of median differences. No refitting, resampling or statistical recalculation is performed during rendering."
         data = [{"record": "observation", **p} for p in result["observations"]] + [
             {"record": "summary", **g} for g in groups
@@ -178,7 +205,20 @@ def _figures(result, directory, prefix, profile):
         ax.set_xlabel("Observed event proportion")
         caption = f"Points are saved event proportions and lines are {confidence} Wilson intervals for each group, pointwise and unadjusted. Overlap of group intervals is not a between-group test. Event proportions depend on the prespecified ascertainment window and sampling assumptions."
         data = groups
-    ax.set_yticks(range(len(groups)), [f"{labels[g['label']]}\nn={g['n']}" for g in groups])
+
+    def group_label(value):
+        return (
+            dictionary.compact(
+                f"{labels[value]}: {dictionary.level(spec['group'], value)}", labels[value], 24
+            )
+            if dictionary.value
+            else labels[value]
+        )
+
+    ax.set_yticks(
+        range(len(groups)),
+        [f"{textwrap.fill(group_label(g['label']), 20)}\nn={g['n']}" for g in groups],
+    )
     ax.invert_yaxis()
     ax.set_ylabel("Prespecified group")
     save(
@@ -259,7 +299,7 @@ def _figures(result, directory, prefix, profile):
         text_ax.set_xlim(0, 1)
         text_ax.axis("off")
         text_ax.set_title(f"Estimate\n[{confidence} CI]", loc="left", fontsize=9)
-        axis_label = EFFECTS[kind][1] + (" (U1)" if kind == "mean_difference" else "")
+        axis_label = EFFECTS[kind][1] + (f" ({unit})" if kind == "mean_difference" else "")
         ax.set_xlabel(textwrap.fill(axis_label + (" (log scale)" if ratio else ""), 25))
         methods = "; ".join(dict.fromkeys(r["interval_method"] for r in rows))
         description = (

@@ -1,10 +1,12 @@
 """English publication graphics over a frozen diagnostic/agreement receipt."""
 
 from pathlib import Path
+import textwrap
 
 import numpy as np
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 
 BLUE, ORANGE, GRAY, PURPLE = "#0072B2", "#D55E00", "#656565", "#882255"
 NAMES = {
@@ -36,7 +38,38 @@ def _figures(result, directory, prefix, profile):
     from scipy.stats import probplot
 
     spec, records = result["spec"], []
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+        if column != spec["subject"]
+    )
     diagnostic, agreement = spec["diagnostic"], spec["agreement"]
+    if diagnostic:
+        rule = (
+            f"score {'>=' if diagnostic['positive_direction'] == 'greater_equal' else '<='} {diagnostic['threshold']}"
+            if diagnostic["test_kind"] == "score"
+            else f"positive code {diagnostic['test_positive']!r}; negative code {diagnostic['test_negative']!r}"
+        )
+        identity_note = f"Reference standard is source column {spec['first']!r}; positive={diagnostic['positive']!r}, negative={diagnostic['negative']!r}. Index test is source column {spec['second']!r}, with locked {rule} ({diagnostic['threshold_status']}). "
+        if diagnostic["test_kind"] == "score":
+            identity_note += "The saved diagnostic contract does not declare a score unit; any reviewed unit describes the original source scale, without changing the score or locked threshold. "
+    elif agreement:
+        identity_note = f"Measurement 1 is source column {spec['first']!r}; measurement 2 is {spec['second']!r}. Differences are measurement 1 minus measurement 2; both use saved source unit {agreement['unit']!r}, without conversion. U1 denotes this same source unit when a compact axis label is needed. "
+    else:
+        identity_note = (
+            f"First rater is source column {spec['first']!r}; second rater is {spec['second']!r}. "
+            + "; ".join(f"C{i + 1}={c!r}" for i, c in enumerate(result["categories"]))
+            + ". Shared raw categories and table direction are unchanged. "
+        )
+
+    def variable_label(column, fallback):
+        return (
+            textwrap.fill(dictionary.compact(dictionary.label(column), fallback, 32), 24)
+            if dictionary.value
+            else fallback
+        )
+
     n = result["n"]
     ci = f"{spec['confidence_level']:.1%}"
     pair_note = (
@@ -54,12 +87,21 @@ def _figures(result, directory, prefix, profile):
             f"{prefix}_{suffix or kind}",
             number=len(records) + 1,
             title=title,
-            caption=caption,
+            caption=caption
+            + " "
+            + dictionary.note()
+            + mappings
+            + (identity_note if dictionary.value else ""),
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(dictionary.note(), mappings, identity_note)
+            if dictionary.value
+            else (),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             dict(
                 path=publication["files"]["png"],
@@ -183,8 +225,14 @@ def _figures(result, directory, prefix, profile):
                     xlim=(-0.5, len(cols) - 0.5),
                     ylim=(len(rows) - 0.5, -0.5),
                     aspect="equal",
-                    xlabel="Reference standard" if diagnostic else "Second rater",
-                    ylabel="Index test" if diagnostic else "First rater",
+                    xlabel=variable_label(
+                        spec["first"] if diagnostic else spec["second"],
+                        "Reference standard" if diagnostic else "Second rater",
+                    ),
+                    ylabel=variable_label(
+                        spec["second"] if diagnostic else spec["first"],
+                        "Index test" if diagnostic else "First rater",
+                    ),
                 )
                 ax.tick_params(length=0)
                 for spine in ax.spines.values():
@@ -317,9 +365,17 @@ def _figures(result, directory, prefix, profile):
 
     if agreement:
         points, e = result["points"], result["estimates"]
-        unit = agreement["unit"]
+        unit = (
+            dictionary.compact(
+                dictionary.unit(spec["first"], dictionary.unit(spec["second"], agreement["unit"])),
+                "U1",
+                18,
+            )
+            if dictionary.value
+            else agreement["unit"]
+        )
         # Raw column names remain in captions/CSV; numbered methods keep plot labels English.
-        definitions = f"Measurement 1 is source column {spec['first']!r}; measurement 2 is {spec['second']!r}. Both use {unit}; no unit conversion was applied. "
+        definitions = f"Measurement 1 is source column {spec['first']!r}; measurement 2 is {spec['second']!r}. Both use {agreement['unit']}; no unit conversion was applied. "
         fig, ax = new(145)
         ax.scatter(
             [p["mean"] for p in points],
@@ -355,8 +411,8 @@ def _figures(result, directory, prefix, profile):
                     label=f"{label}: {number(agreement[key])}",
                 )
         ax.set(
-            xlabel=f"Mean of measurements 1 and 2 ({unit})",
-            ylabel=f"Difference: measurement 1 − measurement 2 ({unit})",
+            xlabel=textwrap.fill(f"Mean of measurements 1 and 2 ({unit})", 38),
+            ylabel=textwrap.fill(f"Difference: measurement 1 − measurement 2 ({unit})", 38),
         )
         ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), fontsize=8)
         estimates = "; ".join(
@@ -438,7 +494,11 @@ def _figures(result, directory, prefix, profile):
             max(max(p["first"], p["second"]) for p in points),
         )
         ax.plot([low, high], [low, high], "--", color=GRAY, label="Identity")
-        ax.set(xlabel=f"Measurement 2 ({unit})", ylabel=f"Measurement 1 ({unit})", aspect="equal")
+        ax.set(
+            xlabel=f"{variable_label(spec['second'], 'Measurement 2')}\n({unit})",
+            ylabel=f"{variable_label(spec['first'], 'Measurement 1')}\n({unit})",
+            aspect="equal",
+        )
         ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), fontsize=8)
         save(
             fig,

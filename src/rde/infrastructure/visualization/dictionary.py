@@ -8,6 +8,9 @@ from rde.infrastructure.clinical.survival import SurvivalSpec
 from rde.infrastructure.clinical.regression_contract import RegressionSpec
 from rde.infrastructure.clinical.longitudinal_contract import LongitudinalSpec
 from rde.infrastructure.clinical.weighting_contract import WeightingSpec
+from rde.infrastructure.clinical.comparison_contract import ComparisonSpec
+from rde.infrastructure.clinical.repeated_contract import RepeatedSpec
+from rde.infrastructure.clinical.measurement import MeasurementSpec
 
 
 def submission_text(value):
@@ -57,10 +60,18 @@ def validate_dictionary(value, record, result):
     ):
         raise ValueError("Explicit review of unchanged source units and codes is required.")
     family = result.get("spec", {}).get("family")
-    if family not in {"survival", "regression", "longitudinal", "weighting"}:
-        raise ValueError(
-            "Reviewed display dictionaries currently support survival, regression, longitudinal and weighting studies."
-        )
+    if family not in {
+        "survival",
+        "regression",
+        "longitudinal",
+        "weighting",
+        "comparison",
+        "repeated",
+        "diagnostic_accuracy",
+        "bland_altman",
+        "cohens_kappa",
+    }:
+        raise ValueError("Reviewed display dictionaries are not supported for this study family.")
     source = record.get("source", {})
     if value["source_sha256"] != source.get("sha256") or value["source_sheet"] != source.get(
         "sheet"
@@ -115,11 +126,27 @@ def validate_dictionary(value, record, result):
         units = {spec.time: spec.time_unit, spec.outcome: spec.outcome_unit}
         if spec.exposure:
             units[spec.exposure] = spec.exposure_unit
-    else:
+    elif family == "weighting":
         spec = WeightingSpec.parse(result["spec"])
         variables = set(spec.variables())
         units = {spec.outcome: spec.outcome_unit}
         units.update({p["column"]: p["unit"] for p in spec.covariates if p["kind"] == "continuous"})
+    elif family == "comparison":
+        spec = ComparisonSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.outcome: spec.outcome_unit}
+    elif family == "repeated":
+        spec = RepeatedSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {column: spec.outcome_unit for column in spec.columns()}
+    else:
+        spec = MeasurementSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = (
+            {column: spec.agreement["unit"] for column in [spec.first, spec.second]}
+            if spec.agreement
+            else {}
+        )
     columns = set()
     for entry in entries:
         if (
@@ -174,6 +201,17 @@ def validate_dictionary(value, record, result):
                     "Dictionary code labels require reviewed English text or scientific symbols."
                 )
             seen.add(code)
+    if family == "cohens_kappa":
+        meanings = {
+            entry["column"]: {level["value"]: level["label_en"] for level in entry["levels"]}
+            for entry in entries
+        }
+        first, second = meanings.get(spec.first, {}), meanings.get(spec.second, {})
+        for code in spec.categories:
+            if code in first and code in second and first[code] != second[code]:
+                raise ValueError(
+                    "Kappa requires shared category meanings: conflicting reviewed labels for the same source code cannot be displayed as agreement."
+                )
     return value
 
 
