@@ -2368,6 +2368,20 @@ def _execute_autoresearch_analysis_contract(
     config["variables"] = list(dict.fromkeys(config["variables"]))
 
     try:
+        import hashlib
+        import pandas as pd
+        from rde.infrastructure.adapters.advanced_evidence import finite_evidence
+
+        metadata = entry.dataset.metadata
+        source_file = (
+            {
+                "path": str(metadata.file_path),
+                "sheet": metadata.sheet_name,
+                "sha256": hashlib.sha256(metadata.file_path.read_bytes()).hexdigest(),
+            }
+            if metadata and metadata.file_path.is_file()
+            else None
+        )
         analysis_source_df, derived_notes, derived_metadata = _apply_autoresearch_derived_variables(
             entry.dataframe,
             contract,
@@ -2426,6 +2440,9 @@ def _execute_autoresearch_analysis_contract(
             f"{experiment_id}_{_normalize_token(analysis_type) or 'analysis'}.json"
         )
         artifact_payload = {
+            "schema": "advanced-branch-evidence-v1",
+            "status": metrics["execution_status"],
+            "dataset_id": entry.dataset.id,
             "branch_id": branch_id,
             "experiment_id": experiment_id,
             "analysis_contract": contract,
@@ -2438,7 +2455,27 @@ def _execute_autoresearch_analysis_contract(
             "derived_variable_notes": derived_notes,
             "derived_variable_registry_entries": derived_registry_entries,
             "derived_variable_registry_artifact": derived_registry_ref,
+            "input_evidence": {
+                "source_file_observed_at_execution": source_file,
+                "dataframe_hash_method": "pandas hash_pandas_object(index=False), SHA256; columns and dtypes recorded separately",
+                "input_dataframe_sha256": hashlib.sha256(
+                    pd.util.hash_pandas_object(entry.dataframe, index=False).values.tobytes()
+                ).hexdigest(),
+                "analysis_dataframe_sha256": hashlib.sha256(
+                    pd.util.hash_pandas_object(analysis_df, index=False).values.tobytes()
+                ).hexdigest(),
+                "columns": list(analysis_df.columns),
+                "dtypes": [str(dtype) for dtype in analysis_df.dtypes],
+                "input_rows": len(entry.dataframe),
+                "publication_status": "not_verified; complete publication rendering and source binding are separate checks",
+            },
         }
+        if (
+            source_file
+            and hashlib.sha256(metadata.file_path.read_bytes()).hexdigest() != source_file["sha256"]
+        ):
+            raise ValueError("The source file changed during branch execution.")
+        artifact_payload = finite_evidence(artifact_payload)
         store.get_path(PipelinePhase.EXECUTE_EXPLORATION, artifact_name).parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -2476,6 +2513,7 @@ def _execute_autoresearch_analysis_contract(
                 "result_summary": f"live {analysis_type} failed: {error}",
                 "error": error,
                 "artifact_path": str(artifact_path),
+                "artifact_sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
                 "markdown_path": str(md_path),
             }
 
@@ -2562,6 +2600,7 @@ def _execute_autoresearch_analysis_contract(
             "metrics": metrics,
             "result_summary": f"live {analysis_type}: source={source}; {summary}",
             "artifact_path": str(artifact_path),
+            "artifact_sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
             "markdown_path": str(md_path),
         }
     except Exception as exc:

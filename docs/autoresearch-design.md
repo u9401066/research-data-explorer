@@ -42,6 +42,51 @@ clinical options. It no longer silently forces ordinary regression into a
 regularized fast backend without inferential uncertainty. Explicit `backend` is
 still available for a justified screening analysis.
 
+## Complete local numerical records (development, 2026-10-03)
+
+Local logistic and linear models now save `advanced-model-evidence-v1`: every
+model row at its zero-based input position, the actual design matrix, outcome
+coding, dummy/reference coding (including dropped constants), fitted values and
+response residuals. Parameter order, covariance, coefficient intervals, case
+counts, rank, residual degrees of freedom and available optimizer diagnostics
+are retained with a canonical JSON SHA256. Fast ridge records retain their
+actual centering/scaling and algorithm; they do not claim conventional inference
+or convergence that was not tested. A regularized fit is identified explicitly.
+
+Propensity results save **all** scores, stabilized IPTW weights, matching weights
+and matched pairs; the former 500-row/500-pair truncation is removed. Matching
+remains greedy nearest neighbor without replacement or a caliper. Common
+support is described but not used to discard rows. Balance records retain means,
+variances and the pooled standard deviation: each stage uses its own denominator;
+unweighted variance uses ddof=1 and weighted variance divides by sum of weights.
+These are treatment-assignment diagnostics, not an estimated outcome effect.
+Binary risk records retain all included outcome/exposure rows, table orientation
+and zero-cell limitations without an invisible continuity correction.
+
+Logistic exponentiation no longer caps log intervals at +/-30. Finite large
+bounds remain large; floating-point overflow/underflow are identified explicitly.
+Nonfinite numerical evidence uses JSON null plus its original location and kind,
+not a substituted zero or a finite-looking bound. Invalid nonnumeric linear
+outcomes are rejected by the fast backend instead of being filled with zero.
+Colliding encoded column names are rejected before fitting.
+
+Native branch JSON uses `advanced-branch-evidence-v1` and its execution wrapper
+records the exact file SHA256. It records source bytes observed during execution,
+worksheet, input and sanitized-frame fingerprints, and existing derived-variable
+and plausibility decisions. A source-file change during execution fails the
+attempt. This observation is **not** proof that an in-memory frame was reconstructed
+from those exact bytes: source-binding and publication verification remain separate
+work. In-memory-only sources are explicitly recorded without a source file.
+External vendor results do not acquire local numerical evidence by implication.
+
+Readable reports summarize saved row counts and retain model results; full
+individual rows remain in the numerical artifact. Existing results are immutable
+and are not backfilled from old plots. General exploration journal editions,
+complete source verification and figure bundles rendered solely from these
+records are still pending. The existing survival branch publication contract is
+unchanged; these numerical additions alone do not make a generic branch a
+publication-ready study.
+
 ```mermaid
 flowchart LR
   A[Host agent and research team] --> B[Open-ended hypotheses]

@@ -363,6 +363,13 @@ class AnalysisDelegator:
             )
         y = working[target]
         x, encoded_covariates = self._encode_covariates(working, covariates)
+        if not x.columns.is_unique or target in x.columns or "const" in x.columns:
+            return (
+                None,
+                None,
+                None,
+                {"error": "Encoded predictor names collide with each other, the outcome or const."},
+            )
         if x.empty:
             return (
                 None,
@@ -394,6 +401,7 @@ class AnalysisDelegator:
         )
         encoded_x.attrs["source_covariates"] = covariates
         encoded_x.attrs["encoded_covariates"] = encoded_covariates
+        encoded_x.attrs["predictor_coding"] = x.attrs.get("predictor_coding", [])
         return model_frame, model_frame[target], encoded_x, None
 
     def _encode_covariates(
@@ -403,12 +411,22 @@ class AnalysisDelegator:
     ) -> tuple[pd.DataFrame, dict[str, list[str]]]:
         encoded_parts: list[pd.DataFrame] = []
         encoded_covariates: dict[str, list[str]] = {}
+        coding = []
 
         for covariate in covariates:
             if covariate not in working.columns:
                 continue
             series = working[covariate]
             columns_for_covariate: list[str] = []
+            description = {
+                "source_column": covariate,
+                "kind": "numeric",
+                "reference": None,
+                "levels": [],
+                "numeric_conversion": "original numeric or boolean values",
+                "encoded_columns": [],
+                "dropped_constant_columns": [],
+            }
 
             if pd.api.types.is_bool_dtype(series):
                 encoded = pd.DataFrame({covariate: series.astype(float)}, index=working.index)
@@ -422,18 +440,36 @@ class AnalysisDelegator:
                 non_missing = int(series.notna().sum())
                 if non_missing > 0 and int(numeric.notna().sum()) == non_missing:
                     encoded = pd.DataFrame({covariate: numeric}, index=working.index)
+                    description["numeric_conversion"] = "all nonmissing strings parsed as numeric"
                 else:
+                    categorical = series.astype("category")
+                    levels = categorical.cat.categories.tolist()
                     encoded = pd.get_dummies(
-                        series.astype("category"),
+                        categorical,
                         prefix=covariate,
                         drop_first=True,
                         dummy_na=False,
                         dtype=float,
                     )
+                    description.update(
+                        kind="treatment_dummy",
+                        reference=levels[0] if levels else None,
+                        levels=levels,
+                        numeric_conversion=None,
+                        encoded_columns=[
+                            {"name": str(name), "level": level}
+                            for name, level in zip(encoded.columns, levels[1:], strict=True)
+                        ],
+                    )
 
+            if not encoded.columns.is_unique:
+                raise ValueError(
+                    "Encoded predictor names collide; review source column names and codes."
+                )
             for column in list(encoded.columns):
                 column_data = pd.to_numeric(encoded[column], errors="coerce")
                 if column_data.nunique(dropna=True) <= 1:
+                    description["dropped_constant_columns"].append(str(column))
                     encoded = encoded.drop(columns=[column])
                     continue
                 encoded[column] = column_data
@@ -442,25 +478,48 @@ class AnalysisDelegator:
             if columns_for_covariate:
                 encoded_parts.append(encoded[columns_for_covariate])
                 encoded_covariates[covariate] = columns_for_covariate
+            description["retained_columns"] = columns_for_covariate
+            coding.append(description)
 
         if not encoded_parts:
             return pd.DataFrame(index=working.index), {}
-        return pd.concat(encoded_parts, axis=1), encoded_covariates
+        encoded_frame = pd.concat(encoded_parts, axis=1)
+        encoded_frame.attrs["predictor_coding"] = coding
+        return encoded_frame, encoded_covariates
 
     def _binary_target(self, y: pd.Series) -> pd.Series | None:
+        def record(result, normalization):
+            result.attrs["coding"] = {
+                "variable": str(y.name),
+                "normalization": normalization,
+                "mapping": [
+                    {"source_value": value, "model_value": float(result.loc[y == value].iloc[0])}
+                    for value in y.drop_duplicates().tolist()
+                ],
+                "event": 1,
+                "reference": 0,
+            }
+            return result
+
         if pd.api.types.is_numeric_dtype(y):
             numeric = pd.to_numeric(y, errors="coerce")
             values = sorted(v for v in numeric.dropna().unique().tolist())
             if len(values) == 2:
-                return numeric.map({values[0]: 0, values[1]: 1}).astype(float)
+                return record(
+                    numeric.map({values[0]: 0, values[1]: 1}).astype(float),
+                    "numeric ascending order mapped to 0 and 1",
+                )
             if set(values).issubset({0, 1}):
-                return numeric.astype(float)
+                return record(numeric.astype(float), "original 0/1")
             return None
         categories = y.astype(str).str.strip()
         values = sorted(v for v in categories.dropna().unique().tolist() if v)
         if len(values) != 2:
             return None
-        return categories.map({values[0]: 0, values[1]: 1}).astype(float)
+        return record(
+            categories.map({values[0]: 0, values[1]: 1}).astype(float),
+            "string conversion, strip surrounding whitespace, ascending lexical order to 0/1",
+        )
 
     def _fit_binary_logit(
         self,
@@ -478,7 +537,7 @@ class AnalysisDelegator:
         assert x_raw is not None
 
         y = self._binary_target(y_raw)
-        if y is None:
+        if y is None or y.isna().any():
             return {
                 "error": {
                     "error": "Logistic regression requires a binary target variable.",
@@ -499,8 +558,8 @@ class AnalysisDelegator:
 
         x = sm.add_constant(x_raw, has_constant="add")
         regularized = False
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             try:
                 fitted = sm.Logit(y, x).fit(disp=False, maxiter=200)
             except Exception as exc:
@@ -536,6 +595,16 @@ class AnalysisDelegator:
             "x_raw": x_raw,
             "predictions": predictions,
             "regularized": regularized,
+            "warnings": [str(item.message) for item in caught],
+            "algorithm": {
+                "method": "statsmodels.Logit.fit_regularized"
+                if regularized
+                else "statsmodels.Logit.fit",
+                "max_iterations": 200,
+                "penalty_alpha": float(config.get("regularization_alpha", 1.0))
+                if regularized
+                else None,
+            },
         }
 
     def _should_use_fast_logit(self, x_raw: pd.DataFrame, config: dict[str, Any]) -> bool:
@@ -612,6 +681,20 @@ class AnalysisDelegator:
             "pseudo_r2": float(max(0.0, min(1.0, pseudo_r2))) if not np.isnan(pseudo_r2) else None,
             "nobs": int(len(y_values)),
             "regularized": True,
+            "scaling": {
+                "means": means.to_numpy().tolist(),
+                "standard_deviations": stds.to_numpy().tolist(),
+                "ddof": 0,
+            },
+            "algorithm": {
+                "method": "fixed-iteration gradient descent with ridge penalty",
+                "penalty_alpha": alpha,
+                "intercept_penalized": False,
+                "learning_rate": learning_rate,
+                "iterations": max_iter,
+                "logit_clipping": [-30, 30],
+                "convergence_test": "not performed",
+            },
         }
 
     def _logistic_result_from_fit(
@@ -621,65 +704,57 @@ class AnalysisDelegator:
         analysis_type: str = "logistic_regression",
         confidence_level: float = 0.95,
     ) -> dict[str, Any]:
-        if fit.get("lite"):
-            params = {name: float(value) for name, value in fit["params"].items()}
-            odds_ratios = {
-                name: float(np.exp(np.clip(value, -30, 30)))
-                for name, value in fit["params"].items()
-            }
-            return {
-                "analysis_type": analysis_type,
-                "engine": "local-lite.LogisticRidge",
-                "target": fit["target"],
-                "covariates": fit["covariates"],
-                "source_covariates": fit.get("source_covariates", fit["covariates"]),
-                "encoded_covariates": fit.get("encoded_covariates", {}),
-                "nobs": int(fit["nobs"]),
-                "coefficients": params,
-                "odds_ratios": odds_ratios,
-                "odds_ratio_ci": {name: None for name in params},
-                "confidence_level": confidence_level,
-                "p_values": fit.get("p_values", {name: None for name in params}),
-                "pseudo_r2": fit.get("pseudo_r2"),
-                "regularized_fallback": bool(fit["regularized"]),
-            }
-        fitted = fit["fitted"]
-        params = {name: float(value) for name, value in fitted.params.items()}
-        raw_pvalues = getattr(fitted, "pvalues", None)
-        if raw_pvalues is not None:
-            p_values = {name: float(value) for name, value in raw_pvalues.items()}
-        else:
-            p_values = {name: None for name in params}
-        odds_ratios = {name: float(np.exp(value)) for name, value in fitted.params.items()}
-        odds_ratio_ci: dict[str, Any] = {}
-        try:
-            conf = fitted.conf_int(alpha=1 - confidence_level)
-            for name in params:
-                bounds = conf.loc[name]
-                lower = float(bounds.iloc[0])
-                upper = float(bounds.iloc[1])
-                odds_ratio_ci[name] = [
-                    float(np.exp(np.clip(lower, -30, 30))),
-                    float(np.exp(np.clip(upper, -30, 30))),
+        from rde.infrastructure.adapters.advanced_evidence import exp_with_status, model_evidence
+
+        evidence = model_evidence(fit, confidence_level=confidence_level)
+        params = dict(zip(evidence["design_columns"], evidence["parameters"], strict=True))
+        raw_params = fit["params"] if fit.get("lite") else fit["fitted"].params
+        exponentiated = {name: exp_with_status(value) for name, value in raw_params.items()}
+        odds_ratios = {name: value[0] for name, value in exponentiated.items()}
+        exponentiation_status = {
+            name: {"estimate": value[1]} for name, value in exponentiated.items()
+        }
+        raw_pvalues = None if fit.get("lite") else getattr(fit["fitted"], "pvalues", None)
+        p_values = {
+            name: float(raw_pvalues[name])
+            if raw_pvalues is not None and np.isfinite(raw_pvalues[name])
+            else None
+            for name in params
+        }
+        odds_ratio_ci = {name: None for name in params}
+        coefficient_ci = {name: None for name in params}
+        if evidence["coefficient_intervals"] is not None:
+            for name, bounds in zip(params, evidence["coefficient_intervals"], strict=True):
+                coefficient_ci[name] = bounds
+                converted = [
+                    exp_with_status(bound) if bound is not None else (None, "nonfinite_log_value")
+                    for bound in bounds
                 ]
-        except Exception:
-            odds_ratio_ci = {name: None for name in params}
-        pseudo_r2 = float(getattr(fitted, "prsquared", np.nan))
+                odds_ratio_ci[name] = [bound[0] for bound in converted]
+                exponentiation_status[name]["interval"] = [bound[1] for bound in converted]
+        pseudo_r2 = (
+            fit.get("pseudo_r2") if fit.get("lite") else getattr(fit["fitted"], "prsquared", None)
+        )
         return {
             "analysis_type": analysis_type,
-            "engine": "statsmodels.Logit",
+            "engine": "local-lite.LogisticRidge" if fit.get("lite") else "statsmodels.Logit",
             "target": fit["target"],
             "covariates": fit["covariates"],
             "source_covariates": fit.get("source_covariates", fit["covariates"]),
             "encoded_covariates": fit.get("encoded_covariates", {}),
-            "nobs": int(fitted.nobs),
+            "nobs": len(evidence["rows"]),
             "coefficients": params,
+            "coefficient_ci": coefficient_ci,
             "odds_ratios": odds_ratios,
             "odds_ratio_ci": odds_ratio_ci,
+            "exponentiation_status": exponentiation_status,
             "confidence_level": confidence_level,
             "p_values": p_values,
-            "pseudo_r2": pseudo_r2,
+            "pseudo_r2": float(pseudo_r2)
+            if pseudo_r2 is not None and np.isfinite(pseudo_r2)
+            else None,
             "regularized_fallback": bool(fit["regularized"]),
+            "model_evidence": evidence,
         }
 
     def _run_logistic_regression(self, df: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
@@ -716,6 +791,14 @@ class AnalysisDelegator:
             return error
         assert y_raw is not None
         assert x_raw is not None
+
+        if (
+            analysis_type == "multiple_regression"
+            and not np.isfinite(pd.to_numeric(y_raw, errors="coerce").to_numpy(dtype=float)).all()
+        ):
+            return {
+                "error": "Linear regression requires finite numeric outcomes; invalid values are not imputed."
+            }
 
         if self._should_use_fast_regression(x_raw, config):
             binary_y = self._binary_target(y_raw)
@@ -766,6 +849,18 @@ class AnalysisDelegator:
 
         confidence_level = float(config.get("confidence_level", 0.95))
         intervals = fitted.conf_int(alpha=1 - confidence_level)
+        from rde.infrastructure.adapters.advanced_evidence import model_evidence
+
+        evidence = model_evidence(
+            {
+                "x_raw": x_raw,
+                "y": y_model if analysis_type == "glm" else y,
+                "fitted": fitted,
+                "predictions": fitted.fittedvalues,
+                "algorithm": {"method": engine, "covariance_type": str(fitted.cov_type)},
+            },
+            confidence_level=confidence_level,
+        )
         return {
             "analysis_type": analysis_type,
             "engine": engine,
@@ -775,6 +870,7 @@ class AnalysisDelegator:
             "encoded_covariates": dict(x_raw.attrs.get("encoded_covariates", {})),
             "nobs": int(fitted.nobs),
             "case_set": x_raw.attrs.get("case_set", {}),
+            "model_evidence": evidence,
             "coefficients": {name: float(value) for name, value in fitted.params.items()},
             "coefficient_ci": {
                 str(name): [float(bounds.iloc[0]), float(bounds.iloc[1])]
@@ -832,6 +928,29 @@ class AnalysisDelegator:
         adj_r_squared = 1.0 - (1.0 - r_squared) * (nobs - 1) / max(1, nobs - n_predictors - 1)
         names = ["const", *list(x_raw.columns)]
         coefficients = {name: float(value) for name, value in zip(names, beta, strict=False)}
+        from rde.infrastructure.adapters.advanced_evidence import model_evidence
+
+        evidence = model_evidence(
+            {
+                "lite": True,
+                "x_raw": x_raw,
+                "y": pd.Series(y_values, index=x_raw.index),
+                "params": pd.Series(beta, index=names),
+                "predictions": pd.Series(fitted, index=x_raw.index),
+                "regularized": True,
+                "scaling": {
+                    "means": means.to_numpy().tolist(),
+                    "standard_deviations": stds.to_numpy().tolist(),
+                    "ddof": 0,
+                },
+                "algorithm": {
+                    "method": "ridge via pseudoinverse",
+                    "penalty_alpha": alpha,
+                    "intercept_penalized": False,
+                },
+            },
+            confidence_level=float(config.get("confidence_level", 0.95)),
+        )
         return {
             "analysis_type": analysis_type,
             "engine": "local-lite.LinearRidge",
@@ -846,6 +965,7 @@ class AnalysisDelegator:
             "r_squared": float(max(0.0, min(1.0, r_squared))),
             "adj_r_squared": float(max(-1.0, min(1.0, adj_r_squared))),
             "regularized_fallback": True,
+            "model_evidence": evidence,
             "interpretation": (
                 "Local-lite ridge linear model estimates adjusted associations quickly for high-dimensional data. "
                 "Coefficients are on standardized covariate scale; p-values are omitted."
@@ -1027,6 +1147,9 @@ class AnalysisDelegator:
                 diagnostics[covariate] = {
                     "treated_mean": treated_mean,
                     "control_mean": control_mean,
+                    "treated_variance": treated_var,
+                    "control_variance": control_var,
+                    "pooled_standard_deviation": pooled_sd,
                     "standardized_mean_difference": smd,
                 }
             return diagnostics
@@ -1065,6 +1188,8 @@ class AnalysisDelegator:
                 {
                     "treated_row_index": str(treated_index),
                     "control_row_index": str(control_index),
+                    "treated_row_position": int(treated_index),
+                    "control_row_position": int(control_index),
                     "treated_propensity_score": float(treated_row["propensity_score"]),
                     "control_propensity_score": float(
                         control_pool.loc[control_index, "propensity_score"]
@@ -1081,6 +1206,7 @@ class AnalysisDelegator:
         matched_existing_indices = [
             index for index in valid.index if str(index) in set(matched_indices)
         ]
+        valid.loc[matched_existing_indices, "matching_weight"] = 1.0
         matched = valid.loc[matched_existing_indices].copy()
         matched_balance_diagnostics = (
             _balance_for(matched, fit["covariates"]) if not matched.empty else {}
@@ -1111,7 +1237,25 @@ class AnalysisDelegator:
 
         return {
             "analysis_type": "propensity_score",
-            "engine": "statsmodels.Logit",
+            "engine": model_result["engine"],
+            "case_set": fit["x_raw"].attrs.get("case_set", {}),
+            "row_position_base": 0,
+            "treatment_coding": fit["y"].attrs.get("coding"),
+            "diagnostic_policy": {
+                "balance_denominator": "each stage's own pooled group standard deviation",
+                "unweighted_variance": "sample variance, ddof=1",
+                "weighted_variance": "sum(w*(x-weighted_mean)^2)/sum(w)",
+                "iptw": "stabilized ATE weights; treatment prevalence estimated from complete cases",
+                "treatment_prevalence": treatment_rate,
+                "score_clipping_for_weights": [1e-6, 1 - 1e-6],
+                "rows_with_clipped_scores": int(
+                    (valid["propensity_score"] != clipped_scores).sum()
+                ),
+                "matching": "greedy ascending treated score, nearest control, without replacement",
+                "caliper": None,
+                "common_support_restriction": False,
+                "outcome_effect_estimated": False,
+            },
             "treatment_variable": str(treatment),
             "covariates": fit.get("source_covariates", covariates),
             "encoded_covariates": fit["covariates"],
@@ -1135,20 +1279,22 @@ class AnalysisDelegator:
             "propensity_scores": [
                 {
                     "row_index": str(index),
+                    "row_position": int(index),
                     "treatment": int(row["treatment"]),
                     "propensity_score": float(row["propensity_score"]),
                     "iptw_weight": float(row["iptw_weight"]),
+                    "matching_weight": float(row["matching_weight"]),
                 }
-                for index, row in valid.head(500).iterrows()
+                for index, row in valid.iterrows()
             ],
-            "propensity_scores_truncated": int(len(valid)) > 500,
+            "propensity_scores_truncated": False,
             "common_support": common_support,
             "balance_diagnostics": balance_diagnostics,
             "weighted_balance_diagnostics": weighted_balance_diagnostics,
             "matched_balance_diagnostics": matched_balance_diagnostics,
             "iptw_weight_summary": iptw_weight_summary,
-            "matched_pairs": matched_pairs[:500],
-            "matched_pairs_truncated": int(len(matched_pairs)) > 500,
+            "matched_pairs": matched_pairs,
+            "matched_pairs_truncated": False,
             "matching_summary": matching_summary,
             "propensity_model": model_result,
             "interpretation": (

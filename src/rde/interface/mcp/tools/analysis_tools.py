@@ -975,6 +975,9 @@ def _format_advanced_analysis_output(
             "若要追蹤完成狀態，請用 job_id 查詢 /jobs/{job_id}。"
         )
     elif isinstance(analysis_result, dict):
+        from rde.infrastructure.adapters.advanced_evidence import display_evidence
+
+        analysis_result = display_evidence(analysis_result)
         if analysis_result.get("error"):
             lines.append(f"\n**error:** {analysis_result['error']}")
         if analysis_result.get("suggestion"):

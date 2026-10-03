@@ -120,6 +120,36 @@ def run_clinical_analysis(df: pd.DataFrame, method: str, config: dict) -> dict:
         }
         result = handlers[method](a, b, config, alpha)
         result["case_set"] = cases
+        if method == "risk_estimates":
+            from rde.infrastructure.adapters.advanced_evidence import finite_evidence
+
+            result["risk_evidence"] = finite_evidence(
+                {
+                    "schema": "advanced-risk-evidence-v1",
+                    "case_set": cases,
+                    "outcome_variable": target,
+                    "exposure_variable": second,
+                    "outcome_event": 1,
+                    "exposure_reference": 0,
+                    "exposure_comparison": 1,
+                    "row_position_base": 0,
+                    "rows": [
+                        {
+                            "row_position": position,
+                            "outcome": int(outcome),
+                            "exposure": int(exposure),
+                        }
+                        for position, outcome, exposure in zip(
+                            cases["included_row_positions"], a, b, strict=True
+                        )
+                    ],
+                    "confidence_level": confidence,
+                    "estimates": result["estimates"],
+                    "table": result["table"],
+                    "table_order": result["table_order"],
+                    "warnings": result["warnings"],
+                }
+            )
     result.update(
         {
             "analysis_type": method,

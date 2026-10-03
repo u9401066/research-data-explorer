@@ -92,6 +92,24 @@ def test_agent_clinical_contract_executes_and_preserves_denominators(tmp_path, m
     payload = store.load(PipelinePhase.EXECUTE_EXPLORATION, artifact.split("/", 1)[1])
     assert payload["analysis_result"]["confidence_level"] == 0.9
     assert "backend" not in payload["config"]
+    from rde.infrastructure.prediction.splits import digest
+    import hashlib
+    import json
+    from pathlib import Path
+
+    assert payload["schema"] == "advanced-branch-evidence-v1"
+    assert payload["sha256"] == digest({k: v for k, v in payload.items() if k != "sha256"})
+    assert len(payload["analysis_result"]["risk_evidence"]["rows"]) == 23
+    assert payload["input_evidence"]["source_file_observed_at_execution"] is None
+    wrapper_event = store.load(
+        PipelinePhase.EXECUTE_EXPLORATION, "branch_experiment_results.jsonl"
+    )[-1]
+    wrapper = json.loads(Path(wrapper_event["artifact"]).read_text())
+    execution = wrapper["contract_execution"]
+    assert (
+        execution["artifact_sha256"]
+        == hashlib.sha256(Path(execution["artifact_path"]).read_bytes()).hexdigest()
+    )
 
 
 def test_unimplemented_executor_is_recorded_not_completed(tmp_path):
