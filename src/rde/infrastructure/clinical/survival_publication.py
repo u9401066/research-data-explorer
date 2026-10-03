@@ -6,6 +6,7 @@ import textwrap
 import numpy as np
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary, submission_text
 
 COLORS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#555555"]
 STYLES = ["-", "--", "-.", ":", (0, (3, 1, 1, 1, 1, 1)), (0, (5, 2))]
@@ -32,10 +33,25 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator
 
     spec, strata, records = result["spec"], result["strata"], []
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    annotation_note = dictionary.note()
+
+    def legend_label(column, raw, code):
+        label = dictionary.level(column, raw)
+        return f"{code}: {label}" if label != raw and len(label) <= 38 else code
+
     ci = f"{spec['confidence_level']:.1%}"
     competing = bool(spec["competing_values"])
     groups = {g["label"]: f"G{i + 1}" for i, g in enumerate(strata)}
-    mapping = "; ".join(f"{groups[g['label']]}={g['label']!r}" for g in strata)
+    mapping = "; ".join(
+        f"{groups[g['label']]}={g['label']!r}"
+        + (
+            f" ({dictionary.level(spec['group'], g['label'])})"
+            if dictionary.level(spec["group"], g["label"]) != g["label"]
+            else ""
+        )
+        for g in strata
+    )
     unit = {
         "秒": "s",
         "分鐘": "min",
@@ -46,6 +62,11 @@ def _figures(result, directory, prefix, profile):
         "月": "months",
         "年": "years",
     }.get(spec["time_unit"], short_label(spec["time_unit"], "U1", 18))
+    unit = (
+        short_label(dictionary.unit(spec["time"]), "U1", 18)
+        if dictionary.unit(spec["time"])
+        else unit
+    )
     followup = f"Follow-up ({unit})"
     population = (
         f"All estimates use the same {result['n']} complete participants, with one independent "
@@ -61,6 +82,11 @@ def _figures(result, directory, prefix, profile):
         f"The target event is {spec['event_value']!r} in {spec['event']!r}; "
         f"right censoring is {spec['censor_value']!r}. "
     )
+    if dictionary.value:
+        for value in (spec["event_value"], spec["censor_value"]):
+            label = dictionary.level(spec["event"], value)
+            if label != value:
+                event_note += f"Code {value!r} denotes {label!r}. "
     exploratory = (
         "This is an exploratory adjustment-sensitivity branch on the primary complete-case "
         "population; omitted predictors do not restore excluded participants. Intervals are "
@@ -79,13 +105,16 @@ def _figures(result, directory, prefix, profile):
             f"{prefix}_{suffix or kind}",
             number=len(records) + 1,
             title=title,
-            caption=population + exploratory + caption,
+            caption=(population + exploratory + caption).rstrip()
+            + (" " + annotation_note if annotation_note else ""),
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
-            required_caption=exploratory,
+            required_caption=(exploratory, annotation_note),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             dict(
                 path=publication["files"]["png"],
@@ -153,7 +182,9 @@ def _figures(result, directory, prefix, profile):
                 where="post",
                 color=color,
                 linestyle=STYLES[index % len(STYLES)],
-                label=f"{code} (n={group['n']})",
+                label=textwrap.fill(
+                    f"{legend_label(spec['group'], group['label'], code)} (n={group['n']})", 28
+                ),
             )
             ax.fill_between(times, lower, upper, step="post", color=color, alpha=0.12)
             censored = [r for r in curve if r["censored"]]
@@ -173,7 +204,11 @@ def _figures(result, directory, prefix, profile):
         )
         ax.xaxis.set_major_locator(MaxNLocator(5))
         ax.legend(
-            loc="lower left", bbox_to_anchor=(0, 1.01), ncol=2 if profile["width_mm"] < 100 else 3
+            loc="lower left",
+            bbox_to_anchor=(0, 1.01),
+            ncol=(1 if profile["width_mm"] < 100 else 2)
+            if dictionary.value
+            else (2 if profile["width_mm"] < 100 else 3),
         )
         ax.grid(alpha=0.15)
         logrank = result["logrank"]
@@ -204,7 +239,13 @@ def _figures(result, directory, prefix, profile):
     else:
         causes = [spec["event_value"], *spec["competing_values"]]
         cause_mapping = "; ".join(
-            f"E{i + 1}={cause!r}" + (" (target)" if i == 0 else " (competing)")
+            f"E{i + 1}={cause!r}"
+            + (" (target)" if i == 0 else " (competing)")
+            + (
+                f" ({dictionary.level(spec['event'], cause)})"
+                if dictionary.level(spec["event"], cause) != cause
+                else ""
+            )
             for i, cause in enumerate(causes)
         )
         for group in strata:
@@ -267,7 +308,10 @@ def _figures(result, directory, prefix, profile):
                     where="post",
                     color=color,
                     linestyle=STYLES[index % len(STYLES)],
-                    label=f"E{index + 1} ({'target' if index == 0 else 'competing'})",
+                    label=textwrap.fill(
+                        f"{legend_label(spec['event'], cause, f'E{index + 1}')} ({'target' if index == 0 else 'competing'})",
+                        28,
+                    ),
                 )
                 ax.fill_between(times, lower, upper, step="post", color=color, alpha=0.12)
             ax.set(
@@ -290,7 +334,9 @@ def _figures(result, directory, prefix, profile):
                 ax.legend(
                     loc="lower left",
                     bbox_to_anchor=(0, 1.01),
-                    ncol=2 if profile["width_mm"] < 100 else 3,
+                    ncol=(1 if profile["width_mm"] < 100 else 2)
+                    if dictionary.value
+                    else (2 if profile["width_mm"] < 100 else 3),
                 )
             ax.grid(alpha=0.15)
             save(
@@ -367,7 +413,16 @@ def _figures(result, directory, prefix, profile):
             if "level" in row
             else f"{row['variable']} (+1 source unit)"
         )
-        label = short_label(description, f"V{index + 1}", 36)
+        if dictionary.value:
+            display = dictionary.label(row["variable"])
+            if "level" in row:
+                display += f": {dictionary.level(row['variable'], row['level'])} vs {dictionary.level(row['variable'], row['reference'])}"
+            else:
+                display += f" ({dictionary.unit(row['variable']) or '+1 source unit'})"
+            label = display if submission_text(display) and len(display) <= 84 else f"V{index + 1}"
+            description += f"; reviewed label {display!r}"
+        else:
+            label = short_label(description, f"V{index + 1}", 36)
         labels.append(label)
         term_notes.append(f"{label!r} denotes {description!r}")
     model_note = (

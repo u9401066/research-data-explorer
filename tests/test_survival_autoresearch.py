@@ -234,6 +234,18 @@ def test_real_mcp_survival_branch_has_full_reports_and_cannot_overwrite_primary(
             Path(old["publication"]["files"]["data"]).read_bytes()
             == Path(new["publication"]["files"]["data"]).read_bytes()
         )
+    from test_publication_dictionary import display_dictionary, numerical_rows
+
+    annotated = render(
+        {**args, "edition_id": str(uuid.uuid4()), "display_dictionary": display_dictionary(record)}
+    )
+    for old, new in zip(payload["figures"], annotated["figures"], strict=True):
+        caption = new["publication"]["caption_en"]
+        assert caption.count("exploratory adjustment-sensitivity") == 1
+        assert caption.count("Display labels follow") == 1
+        assert numerical_rows(old["publication"]["files"]["data"]) == numerical_rows(
+            new["publication"]["files"]["data"]
+        )
     monkeypatch.setattr(
         survival_publication,
         "figures",

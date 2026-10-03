@@ -14,6 +14,7 @@ from rde.infrastructure.prediction.splits import digest
 from rde.infrastructure.visualization.presets import list_presets, resolve_preset
 from rde.interface.mcp.tools.prediction_tools import atomic_json, verify_prediction_artifacts
 from rde.interface.mcp.tools.clinical_tools import verify_clinical_artifacts
+from rde.infrastructure.visualization.dictionary import validate_dictionary
 
 
 def file_hash(path):
@@ -81,6 +82,7 @@ def create_edition(
     edition_id,
     start_number,
     captions,
+    display_dictionary=None,
 ):
     if not re.fullmatch(r"(?:clinical|prediction)_study_[a-f0-9]{16}\.json", study_artifact):
         raise ValueError("Use the exact completed clinical/prediction study artifact filename.")
@@ -119,6 +121,7 @@ def create_edition(
         edition_id=edition_id,
         start_number=start_number,
         captions=captions,
+        display_dictionary=display_dictionary,
     )
 
 
@@ -135,12 +138,15 @@ def _create_verified_edition(
     edition_id,
     start_number,
     captions,
+    display_dictionary=None,
 ):
     """Shared renderer; callers must first verify their full, typed source workflow."""
     if str(uuid.UUID(edition_id)) != edition_id:
         raise ValueError("Edition ID must be a canonical UUID.")
     root = project.output_dir.resolve()
     options = render_options(start_number, captions, len(record.get("figures", [])))
+    if display_dictionary is not None:
+        options["display_dictionary"] = validate_dictionary(display_dictionary, record, result)
     request = {
         "source_artifact": study_artifact,
         "source_record_sha256": expected_record_sha256,
@@ -212,6 +218,34 @@ def _create_verified_edition(
                 f"主要數值收據 SHA256：`{record['primary_binding']['primary_receipt_sha256']}`。",
                 "",
             ]
+        if display_dictionary is not None:
+
+            def literal(value):
+                return re.sub(r"([\\`*_{}\[\]()#+.!|<>])", r"\\\1", str(value)).replace("\n", " ")
+
+            lines += [
+                "## 本圖稿使用的研究字典",
+                "",
+                f"版本：{display_dictionary['dictionary_revision']}；來源："
+                + (
+                    "計畫核准時的字典。"
+                    if display_dictionary["basis"]["kind"] == "approved_plan"
+                    else "後續人工審閱的修訂字典；未改寫原計畫。"
+                ),
+                f"字典 SHA256：`{display_dictionary['dictionary_sha256']}`。",
+                "標籤與定義由研究者依來源確認；未換算數值或重新估計模型。",
+                "",
+            ]
+            for entry in display_dictionary["entries"]:
+                lines += [
+                    f"- 原欄位：{literal(entry['column'])}；英文名稱：{literal(entry.get('label_en', '未提供'))}；原始單位：{literal(entry.get('unit', '未確認'))}。",
+                    f"  來源：{literal(entry['source'])}",
+                ]
+                lines.extend(
+                    f"  原碼 {literal(level['value'])}：{literal(level['label_en'])}。"
+                    for level in entry["levels"]
+                )
+            lines += [""]
         artifacts = []
         for figure in rendered:
             publication = figure["publication"]
@@ -322,6 +356,7 @@ def register_publication_tools(server):
         edition_id: str,
         start_number: int = 1,
         captions: dict[str, dict[str, str]] | None = None,
+        display_dictionary: dict | None = None,
     ) -> str:
         """從已執行的生存調整分支另存期刊圖稿；核對完整原始／主要證據，絕不重估。
 
@@ -346,6 +381,7 @@ def register_publication_tools(server):
                 edition_id=edition_id,
                 start_number=start_number,
                 captions=captions,
+                display_dictionary=display_dictionary,
             )
             get_session().get_logger(project.id).log_decision(
                 phase=PipelinePhase.REPORT_ASSEMBLY.value,
@@ -381,6 +417,7 @@ def register_publication_tools(server):
                     "evidence_synthesis",
                     "genomics",
                 ],
+                "display_dictionary_families": ["survival"],
             },
             ensure_ascii=False,
         )
@@ -394,6 +431,7 @@ def register_publication_tools(server):
         edition_id: str,
         start_number: int = 1,
         captions: dict[str, dict[str, str]] | None = None,
+        display_dictionary: dict | None = None,
     ) -> str:
         """從指定 SHA256 的已保存研究另建投稿圖版，不重估、不重抽樣、不改原圖。
 
@@ -417,6 +455,7 @@ def register_publication_tools(server):
                 edition_id=edition_id,
                 start_number=start_number,
                 captions=captions,
+                display_dictionary=display_dictionary,
             )
             get_session().get_logger(project.id).log_decision(
                 phase=PipelinePhase.REPORT_ASSEMBLY.value,
