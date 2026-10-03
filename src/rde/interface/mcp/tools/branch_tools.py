@@ -2371,6 +2371,7 @@ def _execute_autoresearch_analysis_contract(
         import hashlib
         import pandas as pd
         from rde.infrastructure.adapters.advanced_evidence import finite_evidence
+        from rde.infrastructure.adapters.dataframe_lineage import bind_source
 
         metadata = entry.dataset.metadata
         source_file = (
@@ -2382,6 +2383,12 @@ def _execute_autoresearch_analysis_contract(
             if metadata and metadata.file_path.is_file()
             else None
         )
+        source_binding = bind_source(project, entry)
+        if (
+            source_binding["status"] == "verified"
+            and source_binding["source"]["sha256"] != source_file["sha256"]
+        ):
+            raise ValueError("The source changed between execution and dataframe binding.")
         analysis_source_df, derived_notes, derived_metadata = _apply_autoresearch_derived_variables(
             entry.dataframe,
             contract,
@@ -2457,6 +2464,7 @@ def _execute_autoresearch_analysis_contract(
             "derived_variable_registry_artifact": derived_registry_ref,
             "input_evidence": {
                 "source_file_observed_at_execution": source_file,
+                "source_binding": source_binding,
                 "dataframe_hash_method": "pandas hash_pandas_object(index=False), SHA256; columns and dtypes recorded separately",
                 "input_dataframe_sha256": hashlib.sha256(
                     pd.util.hash_pandas_object(entry.dataframe, index=False).values.tobytes()

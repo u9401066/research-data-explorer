@@ -57,6 +57,16 @@ external_genomics_publication:
   decision_log: artifacts/genomics_publication/decision_log.jsonl
   does_not_establish: [biological_source_truth, biological_replicate_independence, independent_extraction, cryptographic_human_signature, completed_patient_eda_audit]
 
+source_frame_lineage:
+  tools: [apply_cleaning, run_branch_experiment, run_autoresearch_next_task]
+  scope: persisted_typed_cleaning_and_generic_branch_input_binding
+  requires: [retained_original_bytes, exact_parser_sheet_and_encoding, complete_frame_identity, ordered_cleaning_receipts]
+  restart: replay_recorded_operations_and_verify_every_frame_transition
+  historical_verification: pinned_source_and_cleaning_receipts_without_reparsing_or_refitting
+  immutable: [source_snapshot, cleaning_receipt, branch_input_binding]
+  rejects: [untracked_frame_edits, source_drift, modified_receipts, invalid_replay]
+  does_not_establish: [clinical_appropriateness_of_cleaning, publication_ready_generic_figures, fixed_primary_case_set]
+
 branch_publication:
   tools: [render_branch_publication]
   scope: completed_survival_adjustment_branch_display_editions

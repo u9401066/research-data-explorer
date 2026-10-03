@@ -1213,15 +1213,20 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error("請先執行 `suggest_cleaning()` 取得清理建議。")
 
         try:
-            from rde.infrastructure.adapters import CleaningExecutor
+            from copy import deepcopy
+            from rde.infrastructure.adapters.dataframe_lineage import (
+                apply_recorded_cleaning,
+                synchronize_variables,
+            )
 
-            entry.cleaning_plan.approve_by_index(approved_indices)
-
-            executor = CleaningExecutor()
-            cleaned_df, logs = executor.execute(entry.dataframe, entry.cleaning_plan)
+            approved_plan = deepcopy(entry.cleaning_plan)
+            approved_plan.approve_by_index(approved_indices)
+            cleaned_df, logs = apply_recorded_cleaning(project, entry, approved_plan)
 
             rows_before = logs[0]["rows_before"] if logs else len(entry.dataframe)
+            entry.dataset.variables = synchronize_variables(entry.dataset.variables, cleaned_df)
             entry.dataframe = cleaned_df
+            entry.cleaning_plan = approved_plan
             entry.dataset.mark_cleaned()
             entry.dataset.row_count = len(cleaned_df)
 

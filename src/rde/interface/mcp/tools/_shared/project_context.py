@@ -305,8 +305,19 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
         sheet_name=intake.get("sheet_name"),
     )
     dataframe, variables, row_count, report = PandasLoader().load(metadata)
+    from rde.infrastructure.adapters.dataframe_lineage import (
+        restore_cleaning,
+        synchronize_variables,
+    )
+
+    dataframe, cleaning = restore_cleaning(project, dataset_id, metadata, dataframe)
     dataset = Dataset(id=dataset_id, metadata=metadata)
-    dataset.mark_loaded(variables, row_count)
+    dataset.mark_loaded(
+        synchronize_variables(variables, dataframe) if cleaning else variables, len(dataframe)
+    )
+    if cleaning:
+        dataset.mark_cleaned()
+        dataset.tags["restored_cleaning"] = cleaning
     dataset.tags["normalization_report"] = report.as_dict()
 
     if isinstance(alignment, dict):
