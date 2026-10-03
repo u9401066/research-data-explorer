@@ -8,22 +8,30 @@ import numpy as np
 from scipy.stats import norm
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 from .regression_report import coefficient_blocks, flow, term_description
 from .survival_publication import COLORS, short_label
 
 
-def term_label(row, result):
+def term_label(row, result, dictionary=None):
+    dictionary = dictionary or DisplayDictionary()
     if row["role"] == "interaction":
         terms = {r["term"]: r for r in result["coefficients"]}
-        return " × ".join(term_label(terms[k], result) for k in row["components"])
+        return " × ".join(term_label(terms[k], result, dictionary) for k in row["components"])
     p = result["spec"]["predictors"][row["predictor"]]
     name = f"P{row['predictor'] + 1}"
     if row["role"] == "spline_basis":
         return f"{name}: spline basis {row['basis'] + 1}"
-    name = short_label(p["label"], name, 20)
+    compact = dictionary.compact if dictionary.value else short_label
+    name = compact(dictionary.label(p["column"], p["label"]), name, 20)
     if row["role"] == "categorical":
-        return f"{name}: {short_label(row['level'], 'level', 14)} vs {short_label(p['reference'], 'reference', 14)}"
-    return f"{name}: +{p['increment']:g} {short_label(p['unit'], 'source units', 14)}"
+
+        def label(code):
+            fallback = compact(code, f"L{p['levels'].index(code) + 1}", 14)
+            return compact(dictionary.level(p["column"], code), fallback, 14)
+
+        return f"{name}: {label(row['level'])} vs {label(p['reference'])}"
+    return f"{name}: +{p['increment']:g} {compact(dictionary.unit(p['column'], p['unit']), 'source units', 14)}"
 
 
 def ratio_axis(ax, values, *, orientation="x"):
@@ -56,8 +64,16 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator
 
     s, model, records = result["spec"], result["model"], []
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    compact = dictionary.compact if dictionary.value else short_label
+    annotation_note = dictionary.note()
+    outcome_mapping = dictionary.describe(s["outcome"], s["outcome_levels"])
+    exposure_mapping = dictionary.describe(s["exposure"]) if s["exposure"] else ""
+    predictor_mapping = "".join(
+        dictionary.describe(p["column"], p.get("levels", [])) for p in s["predictors"]
+    )
     ci = f"{s['confidence_level']:.1%}"
-    outcome_unit = short_label(s["outcome_unit"], "source units", 28)
+    outcome_unit = compact(dictionary.unit(s["outcome"], s["outcome_unit"]), "source units", 28)
     source_note = f"One common complete-case sample of {result['n']} independent cases; declared study design: {s['study_design']}. Outcome {s['outcome']!r}, original units/definition {s['outcome_unit']!r}. "
     model_note = f"Prespecified {s['distribution']} model, {model['link']} link; {model['covariance']} covariance; {model['inference']} inference. "
     predictor_note = (
@@ -91,18 +107,29 @@ def _figures(result, directory, prefix, profile):
         return plt.subplots(figsize=(180 / 25.4, height / 25.4))
 
     def save(fig, kind, title, caption, explanation, data):
+        # Preserve complete code meanings even when a narrow panel uses P#/L#,
+        # including when an author supplies an overriding caption.
+        mappings = "" if kind == "flow" else outcome_mapping + exposure_mapping
+        if kind.startswith(("effects_", "interactions_", "basis_", "curve_")):
+            mappings += predictor_mapping
+        required = (annotation_note, mappings)
         publication = save_publication_figure(
             fig,
             directory,
             f"{prefix}_regression_{kind}",
             number=len(records) + 1,
             title=title,
-            caption=source_note + caption,
+            caption=source_note
+            + caption
+            + (" " + annotation_note + mappings if dictionary.value else ""),
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=required,
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             dict(
                 path=publication["files"]["png"],
@@ -143,7 +170,7 @@ def _figures(result, directory, prefix, profile):
 
     for key, block in coefficient_blocks(result):
         ratio = block[0]["exponentiated"]
-        labels = [term_label(row, result) for row in block]
+        labels = [term_label(row, result, dictionary) for row in block]
         wrapped = [textwrap.fill(label, 23) for label in labels]
         # Keep physical space for multiline labels after a narrow journal preset
         # rescales the canvas but retains readable type. Uniform row spacing must
@@ -235,8 +262,10 @@ def _figures(result, directory, prefix, profile):
             if s["exposure"]
             else "Mean count ratio"
         )
+        curve_label = compact(dictionary.label(p["column"], p["label"]), code, 28)
+        curve_label = f"{code} {curve_label}" if curve_label != code else code
         ax.set(
-            xlabel=f"{code} {short_label(p['label'], code, 28)}\n({short_label(p['unit'], 'source unit', 22)})",
+            xlabel=f"{curve_label}\n({compact(dictionary.unit(p['column'], p['unit']), 'source unit', 22)})",
             ylabel=f"{scale}\nvs reference {curve['reference']:g}"
             + (" (log scale)" if ratio else ""),
         )
@@ -286,11 +315,17 @@ def _figures(result, directory, prefix, profile):
             label="Mean fitted",
             color=COLORS[1],
             hatch="//",
+            # An opaque edge keeps the PDF backend's stroking alpha visible;
+            # Agg can show hatching even when PDF silently makes it transparent.
+            edgecolor="#252525",
+            linewidth=0.5,
         )
         ax.set_xticks(
             x,
             [
-                textwrap.fill(short_label(r["label"], f"L{i + 1}", 22), 13)
+                textwrap.fill(
+                    compact(dictionary.level(s["outcome"], r["label"]), f"L{i + 1}", 22), 13
+                )
                 for i, r in enumerate(rows)
             ],
         )
@@ -328,9 +363,7 @@ def _figures(result, directory, prefix, profile):
             else "Fitted probability"
             if s["distribution"] == "binomial"
             else "Fitted count",
-            ylabel=f"Response residual\n({short_label(s['outcome_unit'], 'source units', 30)})"
-            if gaussian
-            else "Pearson residual",
+            ylabel=f"Response residual\n({outcome_unit})" if gaussian else "Pearson residual",
         )
         ax.xaxis.set_major_locator(MaxNLocator(5))
         save(
@@ -363,7 +396,7 @@ def _figures(result, directory, prefix, profile):
             ax.plot(endpoints, reference, "--", color="#656565")
             ax.set(
                 xlabel="Standard normal quantile",
-                ylabel=f"Response residual\n({short_label(s['outcome_unit'], 'source units', 30)})",
+                ylabel=f"Response residual\n({outcome_unit})",
             )
             data = [
                 dict(

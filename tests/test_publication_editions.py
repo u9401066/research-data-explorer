@@ -102,6 +102,19 @@ def completed(tmp_path, family):
             json_result=False,
         )
         record = clinical_records(store)[0]
+    elif family.startswith("regression_"):
+        from test_regression_workflow import project_fixture
+        from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+        project, store, dataset, spec = project_fixture(
+            tmp_path, family.removeprefix("regression_")
+        )
+        call(
+            "run_clinical_study",
+            {"dataset_id": dataset.id, "clinical_options": spec.to_dict()},
+            json_result=False,
+        )
+        record = clinical_records(store)[0]
     elif family.startswith("longitudinal"):
         from test_longitudinal_workflow import longitudinal_project
         from rde.interface.mcp.tools.clinical_tools import clinical_records

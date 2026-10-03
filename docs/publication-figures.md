@@ -77,7 +77,9 @@ unrecognized unit text uses U1 with its original value recorded. Covariate units
 from a column name or the follow-up unit.
 
 `render_publication_figures` and `render_branch_publication` accept an optional
-`display_dictionary` for survival studies. Discover `display_dictionary_families` in
+`display_dictionary` for survival studies; `render_publication_figures` also supports
+independent-case regression (Gaussian, binary/ordinal logistic, Poisson and NB2).
+Discover `display_dictionary_families` in
 `get_publication_presets`; unsupported families cannot silently drop annotations.
 The `publication-dictionary-v1` object binds the source SHA256/sheet, the original reviewed
 dictionary SHA256/revision, review timestamp, approval basis, and exact source columns/codes.
@@ -88,14 +90,21 @@ Its `basis` is either `{kind: "approved_plan", plan_id: "<UUID>"}` or
 not independent source adjudication. The caller verifies the original dictionary hash;
 RDE retains the complete submitted projection in the immutable rendering request.
 
-Only saved study roles are accepted, source units never change, and a time-unit mismatch
-fails before rendering. English labels and scientific unit symbols require explicit review.
+Only saved study roles are accepted. Survival time units and regression outcome,
+continuous predictor and exposure-offset units must match the saved specification;
+unambiguous time aliases are permitted, numerical conversion is not. A mismatch fails
+before rendering. This includes increments and spline knots in source units: age/100
+cannot simply be labeled years. English labels and scientific unit symbols require explicit review.
 Long labels use figure codes with full caption mappings; narrow figures stack legends.
 Every numerical plot-data field and original code remains fixed (`display_label` alone can
 change). No model, test or sampling runs. A short mandatory caption identifies reviewed
 labels; full hashes, definitions and source provenance stay in the edition report/receipt.
 User caption overrides retain this note and the separate exploratory-branch limitation.
 Changing the dictionary creates a distinct edition, never a new interpretation of old bytes.
+Regression coefficients, spline basis terms, interaction contrasts, offsets, outcome category
+order, reference values and all non-display CSV columns stay unchanged. Full reviewed names
+and code meanings survive compact figure labels and author caption overrides. Other clinical
+families do not yet accept display dictionaries.
 
 New survival sensitivity branches export the same six formats, identify their exploratory
 scope, and keep the primary complete-case population. Their full reports show one image per

@@ -5,6 +5,7 @@ import uuid
 import unicodedata
 
 from rde.infrastructure.clinical.survival import SurvivalSpec
+from rde.infrastructure.clinical.regression_contract import RegressionSpec
 
 
 def submission_text(value):
@@ -53,9 +54,10 @@ def validate_dictionary(value, record, result):
         or value["no_conversion_confirmed"] is not True
     ):
         raise ValueError("Explicit review of unchanged source units and codes is required.")
-    if result.get("spec", {}).get("family") != "survival":
+    family = result.get("spec", {}).get("family")
+    if family not in {"survival", "regression"}:
         raise ValueError(
-            "Reviewed display dictionaries currently support survival studies and their branches."
+            "Reviewed display dictionaries currently support survival and regression studies."
         )
     source = record.get("source", {})
     if value["source_sha256"] != source.get("sha256") or value["source_sheet"] != source.get(
@@ -91,9 +93,20 @@ def validate_dictionary(value, record, result):
     entries = value["entries"]
     if not isinstance(entries, list) or not 1 <= len(entries) <= 500:
         raise ValueError("Display dictionary requires 1..500 column entries.")
-    spec = SurvivalSpec.parse(result["spec"])
-    # Branches retain the primary dictionary even when they omit a predictor.
-    variables = set(SurvivalSpec.parse(result.get("population_spec", result["spec"])).variables())
+    if family == "survival":
+        spec = SurvivalSpec.parse(result["spec"])
+        # Branches retain the primary dictionary even when they omit a predictor.
+        variables = set(
+            SurvivalSpec.parse(result.get("population_spec", result["spec"])).variables()
+        )
+        units = {spec.time: spec.time_unit}
+    else:
+        spec = RegressionSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.outcome: spec.outcome_unit}
+        units.update({p["column"]: p["unit"] for p in spec.predictors if p["kind"] == "continuous"})
+        if spec.exposure:
+            units[spec.exposure] = spec.exposure_unit
     columns = set()
     for entry in entries:
         if (
@@ -122,9 +135,9 @@ def validate_dictionary(value, record, result):
                 raise ValueError(
                     f"Dictionary {key} requires reviewed English text or scientific unit symbols."
                 )
-        if column == spec.time and "unit" in entry and not same_unit(entry["unit"], spec.time_unit):
+        if column in units and "unit" in entry and not same_unit(entry["unit"], units[column]):
             raise ValueError(
-                "Dictionary time unit conflicts with the saved study; labeling cannot convert time values."
+                f"Dictionary unit for {column!r} conflicts with the saved study; labeling cannot convert source values or comparison increments."
             )
         levels = entry["levels"]
         if not isinstance(levels, list) or len(levels) > 100:
@@ -156,11 +169,36 @@ class DisplayDictionary:
         self.value = value
         self.entries = {e["column"]: e for e in (value or {}).get("entries", [])}
 
-    def label(self, column):
-        return self.entries.get(column, {}).get("label_en", column)
+    def label(self, column, fallback=None):
+        return self.entries.get(column, {}).get(
+            "label_en", column if fallback is None else fallback
+        )
 
-    def unit(self, column):
-        return self.entries.get(column, {}).get("unit")
+    def unit(self, column, fallback=None):
+        return self.entries.get(column, {}).get("unit", fallback)
+
+    def describe(self, column, levels=()):
+        """Keep full reviewed meanings when a figure uses a compact variable/code label."""
+        entry = self.entries.get(column)
+        if not entry:
+            return ""
+        parts = []
+        if "label_en" in entry:
+            parts.append(f"label {entry['label_en']!r}")
+        if "unit" in entry:
+            parts.append(f"unit {entry['unit']!r}")
+        parts.extend(
+            f"code {code!r} denotes {self.level(column, code)!r}"
+            for code in levels
+            if self.level(column, code) != code
+        )
+        return (
+            f"Reviewed display for source column {column!r}: {', '.join(parts)}. " if parts else ""
+        )
+
+    @staticmethod
+    def compact(value, fallback, limit):
+        return value if len(value) <= limit and submission_text(value) else fallback
 
     def level(self, column, value):
         return next(
