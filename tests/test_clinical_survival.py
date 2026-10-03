@@ -372,6 +372,14 @@ def test_real_mcp_clinical_receipt_report_integrity_and_no_refit(tmp_path, monke
     assert not assembled.is_error, assembled.content
     report = str(store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md"))
     assert "生存與事件分析" in report and "在險人數" in report
+    risk_set = "當時仍在追蹤且尚未發生" + ("目標或任何競爭事件" if competing else "目標事件")
+    assert risk_set + "者的瞬時目標事件率" in report
+    assert "每個 HR 都在其他已納入因素相同的條件下解讀" in report
+    assert "類別因素的參考組不是其他連續因素 HR 的比較對象" in report
+    if competing:
+        assert "Aalen–Johansen" in report and "cause-specific HR" in report
+    else:
+        assert "目標或任何競爭事件者" not in report
     assert len({f["plot_type"] for f in record["figures"]}) == len(record["figures"])
     for figure in record["figures"]:
         assert Path(figure["path"]).name in report
