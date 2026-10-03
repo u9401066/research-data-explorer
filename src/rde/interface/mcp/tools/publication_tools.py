@@ -225,29 +225,44 @@ def _create_verified_edition(
             def literal(value):
                 return re.sub(r"([\\`*_{}\[\]()#+.!|<>])", r"\\\1", str(value)).replace("\n", " ")
 
-            lines += [
-                "## 本圖稿使用的研究字典",
-                "",
-                f"版本：{display_dictionary['dictionary_revision']}；來源："
-                + (
-                    "計畫核准時的字典。"
-                    if display_dictionary["basis"]["kind"] == "approved_plan"
-                    else "後續人工審閱的修訂字典；未改寫原計畫。"
-                ),
-                f"字典 SHA256：`{display_dictionary['dictionary_sha256']}`。",
-                "標籤與定義由研究者依來源確認；未換算數值或重新估計模型。",
-                "",
-            ]
-            for entry in display_dictionary["entries"]:
+            lines += ["## 本圖稿使用的研究字典", ""]
+            dictionaries = (
+                display_dictionary["dictionaries"]
+                if display_dictionary.get("schema") == "publication-genomics-dictionary-v1"
+                else [{"dictionary": display_dictionary}]
+            )
+            for item in dictionaries:
+                dictionary = item["dictionary"]
+                if "role" in item:
+                    label = {
+                        "counts": "基因讀數",
+                        "sample_metadata": "樣本資料",
+                        "gene_sets": "基因集合",
+                    }[item["role"]]
+                    lines += [f"### {label}", ""]
                 lines += [
-                    f"- 原欄位：{literal(entry['column'])}；英文名稱：{literal(entry.get('label_en', '未提供'))}；原始單位：{literal(entry.get('unit', '未確認'))}。",
-                    f"  來源：{literal(entry['source'])}",
+                    f"版本：{dictionary['dictionary_revision']}；來源："
+                    + (
+                        "計畫核准時的字典。"
+                        if dictionary["basis"]["kind"] == "approved_plan"
+                        else "後續人工審閱的修訂字典；未改寫原計畫。"
+                    ),
+                    f"字典 SHA256：`{dictionary['dictionary_sha256']}`。",
+                    "標籤與定義由研究者依來源確認；未換算數值或重新估計模型。",
+                    "",
                 ]
-                lines.extend(
-                    f"  原碼 {literal(level['value'])}：{literal(level['label_en'])}。"
-                    for level in entry["levels"]
-                )
-            lines += [""]
+                if not dictionary["entries"]:
+                    lines += ["此來源沒有本分析可用的英文說明，沿用原始標籤。", ""]
+                for entry in dictionary["entries"]:
+                    lines += [
+                        f"- 原欄位：{literal(entry['column'])}；英文名稱：{literal(entry.get('label_en', '未提供'))}；原始單位：{literal(entry.get('unit', '未確認'))}。",
+                        f"  來源：{literal(entry['source'])}",
+                    ]
+                    lines.extend(
+                        f"  原碼 {literal(level['value'])}：{literal(level['label_en'])}。"
+                        for level in entry["levels"]
+                    )
+                lines += [""]
         artifacts = []
         for figure in rendered:
             publication = figure["publication"]
@@ -418,9 +433,11 @@ def register_publication_tools(server):
                     "sample_size",
                     "evidence_synthesis",
                     "genomics",
+                    "genomics",
                 ],
                 "display_dictionary_families": [
                     "evidence_synthesis",
+                    "genomics",
                     "prediction",
                     "survival",
                     "regression",

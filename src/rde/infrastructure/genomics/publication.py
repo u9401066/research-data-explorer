@@ -1,6 +1,7 @@
 """Publication figures from frozen DESeq2 values; no inference or model loading."""
 
 import math
+import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,8 @@ import numpy as np
 from rde.infrastructure.prediction.splits import digest
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
 from .contract import require, validate_result
+from .dictionary import GenomicsDisplayDictionary
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 
 PAGE = 20
 COLORS = {"Numerator": "#216f9b", "Reference": "#ab5926", "Other condition": "#727272"}
@@ -35,6 +38,7 @@ def _figures(result, directory, prefix, profile):
 
     a, records = result["analysis"], []
     o, summary = a["options"], a["summary"]
+    dictionary = GenomicsDisplayDictionary(profile.get("edition", {}).get("display_dictionary"), o)
     samples = a["samples"]
     codes = {s["sample_id"]: f"S{i + 1:03}" for i, s in enumerate(samples)}
     context = (
@@ -67,7 +71,12 @@ def _figures(result, directory, prefix, profile):
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(*dictionary.captions(), context, inference, saved)
+            if dictionary.value
+            else (),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             {
                 "path": publication["files"]["png"],
@@ -91,6 +100,20 @@ def _figures(result, directory, prefix, profile):
             if condition == o["reference"]
             else "Other condition"
         )
+
+    def sample_label(sample_id):
+        code = codes[sample_id]
+        label = dictionary.sample(sample_id)
+        if not dictionary.value or label == sample_id:
+            return code
+        return textwrap.fill(DisplayDictionary.compact(f"{code}: {label}", code, 22), 18)
+
+    def condition_label(category):
+        if not dictionary.value or category == "Other condition":
+            return category
+        raw = o["numerator" if category == "Numerator" else "reference"]
+        label = dictionary.condition(raw)
+        return textwrap.fill(DisplayDictionary.compact(f"{category}: {label}", category, 30), 20)
 
     flow = [
         ("All zero", "allZero"),
@@ -143,7 +166,7 @@ def _figures(result, directory, prefix, profile):
                 c=[COLORS[category(s["condition"])] for s in subset],
                 s=22,
             )
-            ax.set_yticks(range(len(subset)), [codes[s["sample_id"]] for s in subset])
+            ax.set_yticks(range(len(subset)), [sample_label(s["sample_id"]) for s in subset])
             ax.set_xlabel(label)
             upper = max(s[key] for s in samples) or 1
             ax.set_xlim(-upper * 0.04, upper * 1.12)
@@ -178,7 +201,7 @@ def _figures(result, directory, prefix, profile):
                     color=color,
                     marker={"Numerator": "o", "Reference": "s", "Other condition": "^"}[cat],
                     s=24,
-                    label=cat,
+                    label=condition_label(cat),
                     alpha=0.8,
                 )
         ax.legend(loc="best", markerscale=0.8)
@@ -213,8 +236,8 @@ def _figures(result, directory, prefix, profile):
         matrix, cmap="Blues", vmin=0, vmax=float(matrix.max()) or 1, interpolation="nearest"
     )
     ticks = np.unique(np.linspace(0, len(samples) - 1, min(len(samples), 8), dtype=int))
-    ax.set_xticks(ticks, [codes[samples[i]["sample_id"]] for i in ticks], rotation=90)
-    ax.set_yticks(ticks, [codes[samples[i]["sample_id"]] for i in ticks])
+    ax.set_xticks(ticks, [sample_label(samples[i]["sample_id"]) for i in ticks], rotation=90)
+    ax.set_yticks(ticks, [sample_label(samples[i]["sample_id"]) for i in ticks])
     ax.set_xlabel("Samples in original count-column order")
     ax.set_ylabel("Samples in original count-column order")
     fig.colorbar(im, ax=ax, label="Euclidean distance", shrink=0.8)
@@ -382,7 +405,22 @@ def _figures(result, directory, prefix, profile):
                     s=24,
                     color=["#a93d43" if s["padj"] < o["alpha"] else "#777777" for _, s in rows],
                 )
-                ax.set_yticks(range(len(rows)), [f"GS{i + 1:04}" for i, _ in rows])
+                ax.set_yticks(
+                    range(len(rows)),
+                    [
+                        textwrap.fill(
+                            DisplayDictionary.compact(
+                                f"GS{i + 1:04}: {dictionary.gene_set(s['set_id'])}",
+                                f"GS{i + 1:04}",
+                                25,
+                            ),
+                            20,
+                        )
+                        if dictionary.value
+                        else f"GS{i + 1:04}"
+                        for i, s in rows
+                    ],
+                )
                 ax.invert_yaxis()
                 ax.set_xlabel("-log10(BH adjusted p)")
                 ax.set_xlim(-ora_max * 0.04, ora_max * 1.08 or 1)

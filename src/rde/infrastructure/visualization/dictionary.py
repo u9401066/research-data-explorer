@@ -37,9 +37,7 @@ def same_unit(first, second):
     return aliases.get(first, first) == aliases.get(second, second)
 
 
-def validate_dictionary(value, record, result, *, prediction=False):
-    if value is None:
-        return None
+def validate_dictionary_header(value, source, *, allow_empty=False):
     required = {
         "schema",
         "source_sha256",
@@ -60,24 +58,6 @@ def validate_dictionary(value, record, result, *, prediction=False):
         or value["no_conversion_confirmed"] is not True
     ):
         raise ValueError("Explicit review of unchanged source units and codes is required.")
-    # The caller verifies the typed source workflow before selecting this branch.
-    # PredictionSpec has no clinical family field; do not infer it from missing fields.
-    family = "prediction" if prediction else result.get("spec", {}).get("family")
-    if family not in {
-        "survival",
-        "regression",
-        "longitudinal",
-        "weighting",
-        "comparison",
-        "repeated",
-        "diagnostic_accuracy",
-        "bland_altman",
-        "cohens_kappa",
-        "prediction",
-        "evidence_synthesis",
-    }:
-        raise ValueError("Reviewed display dictionaries are not supported for this study family.")
-    source = record.get("source", {})
     if value["source_sha256"] != source.get("sha256") or value["source_sheet"] != source.get(
         "sheet"
     ):
@@ -86,7 +66,10 @@ def validate_dictionary(value, record, result, *, prediction=False):
         r"[a-f0-9]{64}", value["dictionary_sha256"]
     ):
         raise ValueError("The original reviewed dictionary SHA256 is required.")
-    if type(value["dictionary_revision"]) is not int or value["dictionary_revision"] < 1:
+    empty = allow_empty and value["entries"] == [] and value["dictionary_revision"] == 0
+    if type(value["dictionary_revision"]) is not int or value["dictionary_revision"] < (
+        0 if empty else 1
+    ):
         raise ValueError("Display dictionary must reference a reviewed revision.")
     basis = value["basis"]
     if not isinstance(basis, dict) or basis.get("kind") not in {
@@ -104,66 +87,18 @@ def validate_dictionary(value, record, result, *, prediction=False):
             raise ValueError("Approved-plan dictionary needs its canonical plan UUID.")
     elif set(basis) != {"kind"}:
         raise ValueError("A later reviewed dictionary does not rewrite the approved plan.")
-    if not isinstance(value["reviewed_at"], str) or not re.fullmatch(
-        r"\d{4}-\d\d-\d\dT[0-9:.]+Z", value["reviewed_at"]
+    if not (empty and value["reviewed_at"] is None) and (
+        not isinstance(value["reviewed_at"], str)
+        or not re.fullmatch(r"\d{4}-\d\d-\d\dT[0-9:.]+Z", value["reviewed_at"])
     ):
         raise ValueError("Dictionary review timestamp is required.")
     entries = value["entries"]
-    if not isinstance(entries, list) or not 1 <= len(entries) <= 500:
+    if not isinstance(entries, list) or not (0 if allow_empty else 1) <= len(entries) <= 500:
         raise ValueError("Display dictionary requires 1..500 column entries.")
-    if family == "evidence_synthesis":
-        from rde.infrastructure.evidence.dictionary import DISPLAY_COLUMNS, source_units
+    return entries
 
-        variables = DISPLAY_COLUMNS
-        units = source_units(result)
-    elif prediction:
-        spec = PredictionSpec.parse(result["spec"])
-        variables = {spec.target, *spec.predictors}
-        variables.update(v for v in [spec.subject_variable, spec.time_variable] if v)
-        # This contract never declared physical units. Reviewed units annotate the
-        # source scale; the renderer must retain that limitation in every caption.
-        units = {}
-    elif family == "survival":
-        spec = SurvivalSpec.parse(result["spec"])
-        # Branches retain the primary dictionary even when they omit a predictor.
-        variables = set(
-            SurvivalSpec.parse(result.get("population_spec", result["spec"])).variables()
-        )
-        units = {spec.time: spec.time_unit}
-    elif family == "regression":
-        spec = RegressionSpec.parse(result["spec"])
-        variables = set(spec.variables())
-        units = {spec.outcome: spec.outcome_unit}
-        units.update({p["column"]: p["unit"] for p in spec.predictors if p["kind"] == "continuous"})
-        if spec.exposure:
-            units[spec.exposure] = spec.exposure_unit
-    elif family == "longitudinal":
-        spec = LongitudinalSpec.parse(result["spec"])
-        variables = set(spec.variables())
-        units = {spec.time: spec.time_unit, spec.outcome: spec.outcome_unit}
-        if spec.exposure:
-            units[spec.exposure] = spec.exposure_unit
-    elif family == "weighting":
-        spec = WeightingSpec.parse(result["spec"])
-        variables = set(spec.variables())
-        units = {spec.outcome: spec.outcome_unit}
-        units.update({p["column"]: p["unit"] for p in spec.covariates if p["kind"] == "continuous"})
-    elif family == "comparison":
-        spec = ComparisonSpec.parse(result["spec"])
-        variables = set(spec.variables())
-        units = {spec.outcome: spec.outcome_unit}
-    elif family == "repeated":
-        spec = RepeatedSpec.parse(result["spec"])
-        variables = set(spec.variables())
-        units = {column: spec.outcome_unit for column in spec.columns()}
-    else:
-        spec = MeasurementSpec.parse(result["spec"])
-        variables = set(spec.variables())
-        units = (
-            {column: spec.agreement["unit"] for column in [spec.first, spec.second]}
-            if spec.agreement
-            else {}
-        )
+
+def validate_dictionary_entries(entries, variables, units):
     columns = set()
     for entry in entries:
         if (
@@ -218,6 +153,88 @@ def validate_dictionary(value, record, result, *, prediction=False):
                     "Dictionary code labels require reviewed English text or scientific symbols."
                 )
             seen.add(code)
+
+
+def validate_dictionary(value, record, result, *, prediction=False):
+    if value is None:
+        return None
+    # The caller verifies the typed source workflow before selecting this branch.
+    # PredictionSpec has no clinical family field; do not infer it from missing fields.
+    family = "prediction" if prediction else result.get("spec", {}).get("family")
+    if family not in {
+        "survival",
+        "regression",
+        "longitudinal",
+        "weighting",
+        "comparison",
+        "repeated",
+        "diagnostic_accuracy",
+        "bland_altman",
+        "cohens_kappa",
+        "prediction",
+        "evidence_synthesis",
+        "genomics",
+    }:
+        raise ValueError("Reviewed display dictionaries are not supported for this study family.")
+    if family == "genomics":
+        from rde.infrastructure.genomics.dictionary import validate_genomics_dictionary
+
+        return validate_genomics_dictionary(value, record, result)
+    entries = validate_dictionary_header(value, record.get("source", {}))
+    if family == "evidence_synthesis":
+        from rde.infrastructure.evidence.dictionary import DISPLAY_COLUMNS, source_units
+
+        variables = DISPLAY_COLUMNS
+        units = source_units(result)
+    elif prediction:
+        spec = PredictionSpec.parse(result["spec"])
+        variables = {spec.target, *spec.predictors}
+        variables.update(v for v in [spec.subject_variable, spec.time_variable] if v)
+        # This contract never declared physical units. Reviewed units annotate the
+        # source scale; the renderer must retain that limitation in every caption.
+        units = {}
+    elif family == "survival":
+        spec = SurvivalSpec.parse(result["spec"])
+        # Branches retain the primary dictionary even when they omit a predictor.
+        variables = set(
+            SurvivalSpec.parse(result.get("population_spec", result["spec"])).variables()
+        )
+        units = {spec.time: spec.time_unit}
+    elif family == "regression":
+        spec = RegressionSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.outcome: spec.outcome_unit}
+        units.update({p["column"]: p["unit"] for p in spec.predictors if p["kind"] == "continuous"})
+        if spec.exposure:
+            units[spec.exposure] = spec.exposure_unit
+    elif family == "longitudinal":
+        spec = LongitudinalSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.time: spec.time_unit, spec.outcome: spec.outcome_unit}
+        if spec.exposure:
+            units[spec.exposure] = spec.exposure_unit
+    elif family == "weighting":
+        spec = WeightingSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.outcome: spec.outcome_unit}
+        units.update({p["column"]: p["unit"] for p in spec.covariates if p["kind"] == "continuous"})
+    elif family == "comparison":
+        spec = ComparisonSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.outcome: spec.outcome_unit}
+    elif family == "repeated":
+        spec = RepeatedSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {column: spec.outcome_unit for column in spec.columns()}
+    else:
+        spec = MeasurementSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = (
+            {column: spec.agreement["unit"] for column in [spec.first, spec.second]}
+            if spec.agreement
+            else {}
+        )
+    validate_dictionary_entries(entries, variables, units)
     if family == "evidence_synthesis":
         from rde.infrastructure.evidence.dictionary import validate_bindings
 

@@ -1,5 +1,40 @@
 # Saved DESeq2 publication figures
 
+## Reviewed multi-source display dictionaries (2026-10-03)
+
+`render_genomics_publication` accepts `display_dictionary` using
+`publication-genomics-dictionary-v1`. Its ordered `dictionaries` bind every saved
+role (`counts`, `sample_metadata`, optional `gene_sets`) separately to dataset ID,
+original file SHA256, exact selected worksheet, dictionary hash/revision and review
+basis. Empty roles remain explicit; at least one eligible English annotation is
+required. The aggregate hash is the canonical digest of the ordered
+`[role, dataset_id, dictionary_sha256]` arrays. Workbench verifies original complete
+dictionary hashes; RDE verifies source closure, projected entries and the aggregate.
+
+Only original count columns, approved sample-design columns and `set_id`/`gene_id`
+can be projected. Codes must occur in the complete pinned role-specific source
+table. Raw count units cannot be changed to TPM or normalized units, numeric counts
+cannot be recoded as categories, and identifiers have no physical units. Conflicting
+sample names across count columns/metadata and conflicting gene meanings across
+counts/set membership are rejected. Unspecified numeric-covariate units remain
+researcher annotations, not independently verified measurements.
+
+Sample QC/distance, PCA conditions and ORA set labels use compact reviewed names
+with stable S/GS codes. Each caption retains the full source-specific mapping,
+original comparison, inference limits and numerical receipt, even with author
+caption overrides. Long labels fall back to codes. Partial gene mappings do not
+constitute a complete annotation or establish gene function. Joins, namespaces,
+sets, filtering, BH families, background, every saved estimate and every plot CSV
+remain unchanged. New editions never refit R models or alter original studies.
+
+`tests/test_genomics_dictionary.py` exercises the real MCP handoff fixture,
+approved/current/partially empty dictionaries, conflicting meanings, wrong source
+or worksheet, stale hashes, inappropriate units/categories and complete raw-code
+membership. It forbids subprocess model execution during rendering and compares
+every original plot CSV byte for byte. Full suite: 1048 passed, 5 optional vendor
+skipped. Workbench browser/visual/deployment evidence is maintained separately in
+`docs/GENOMICS_DICTIONARY_QA.md` in the Workbench repository.
+
 Development checkpoint, 2026-10-02. RDE remains 0.5.0. The rendering core and
 governed multi-source MCP handoff are implemented and tested through real
 Workbench CSV/Excel intake and pinned R execution. Workbench automatic publication,

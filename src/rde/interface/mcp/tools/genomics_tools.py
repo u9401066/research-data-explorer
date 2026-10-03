@@ -15,6 +15,7 @@ def render_edition(
     edition_id,
     start_number,
     captions,
+    display_dictionary=None,
 ):
     from rde.interface.mcp.tools.publication_tools import _create_verified_edition
 
@@ -26,12 +27,27 @@ def render_edition(
             source=source,
             study_artifact=record["receipt_path"],
             expected_record_sha256=workflow.file_hash(source),
-            record={"source_id": source_id, "render_id": render_id, "figures": record["figures"]},
+            record={
+                "source_id": source_id,
+                "render_id": render_id,
+                "figures": record["figures"],
+                "dictionary_source_tables": {
+                    role: workflow.load_json(
+                        workflow.safe_path(
+                            workflow.source_directory(project, source_id), source["table_file"]
+                        )
+                    )
+                    for role, source in result["source"]["source"].items()
+                }
+                if display_dictionary is not None
+                else {},
+            },
             result=result,
             preset_id=preset_id,
             edition_id=edition_id,
             start_number=start_number,
             captions=captions,
+            display_dictionary=display_dictionary,
         )
         # Check the complete source closure again, not only the top-level study record.
         workflow.read_study(project, source_id, render_id, expected_study_sha256)
@@ -110,12 +126,14 @@ def register_genomics_tools(server):
         edition_id: str,
         start_number: int = 1,
         captions: dict[str, dict[str, str]] | None = None,
+        display_dictionary: dict | None = None,
     ) -> str:
         """另建不可變基因投稿圖版，改期刊樣式、圖號與圖說但固定所有研究數值。
 
         expected_study_sha256 是 render_genomics_study 的 receipt_sha256。
         新 edition_id 為 UUID；preset 由 get_publication_presets 取得。
         captions 以原圖序號為 key，接受 title/caption_en/explanation_zh；須研究者審閱。
+        display_dictionary 分別固定 counts、sample_metadata、gene_sets 的來源與字典版本；只改顯示。
         同 ID 同請求讀回已存版次，不覆寫原圖、不重新分析。
         """
         return call(
@@ -128,4 +146,5 @@ def register_genomics_tools(server):
             edition_id=edition_id,
             start_number=start_number,
             captions=captions,
+            display_dictionary=display_dictionary,
         )
