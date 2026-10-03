@@ -1,12 +1,16 @@
 """Publication figures from complete, saved general-analysis receipts; never refit."""
 
 from copy import deepcopy
-import json
 import math
 from pathlib import Path
 import textwrap
 
 from rde.infrastructure.prediction.splits import digest
+from rde.infrastructure.clinical.advanced_report import (
+    binary_coding,
+    predictor_coding,
+    propensity_policy,
+)
 from .dictionary import DisplayDictionary
 from .publication import publication_style, save_publication_figure
 
@@ -156,7 +160,7 @@ def _figures(result, directory, prefix, profile):
         for column, entry in dictionary.entries.items()
     )
     context = (
-        f"Input after {len(binding['cleaning'])} recorded cleaning step(s): {case['n_input']} rows; "
+        f"Input after {len(binding['cleaning'])} recorded cleaning batch(es): {case['n_input']} rows; "
         f"analyzed: {case['n_analyzed']}; excluded for this analysis: {case['n_excluded']}. "
         "Any preceding cleaning or imputation is recorded in the source lineage; "
         "complete-case handling here concerns the resulting analysis input. "
@@ -289,23 +293,17 @@ def _figures(result, directory, prefix, profile):
             + (
                 "Regularized fit; conventional unpenalized inference is not established. "
                 if evidence["regularized"]
-                else "Unadjusted model-based intervals; no external validation. "
+                else "Pointwise model-based intervals without multiplicity adjustment; no external validation. "
             )
             + (
                 "Predictors use saved centering and scaling; see the complete scaling receipt. "
                 if evidence["scaling"]
                 else "Numeric predictors retain their source scale. "
             )
-            + "Predictor coding: "
-            + json.dumps(coding, ensure_ascii=False)
-            + ". "
+            + predictor_coding(coding)
         )
         if binary:
-            model_note += (
-                "Outcome coding: "
-                + json.dumps(evidence["outcome_coding"], ensure_ascii=False)
-                + ". "
-            )
+            model_note += binary_coding(evidence["outcome_coding"])
         # An intercept on the same axis can hide all clinically relevant intervals.
         indices = [i for i, name in enumerate(names) if name != "const"]
         blocks = [[names.index("const")]] if "const" in names else []
@@ -549,10 +547,8 @@ def _figures(result, directory, prefix, profile):
         policy, rows = analysis["diagnostic_policy"], analysis["propensity_scores"]
         note = (
             "The model outcome is group assignment, not a clinical outcome. No outcome effect was estimated. "
-            "Treatment coding: "
-            + json.dumps(analysis["treatment_coding"], ensure_ascii=False)
-            + ". "
-            "Saved diagnostic policy: " + json.dumps(policy, ensure_ascii=False) + ". "
+            + binary_coding(analysis["treatment_coding"])
+            + propensity_policy(policy)
         )
         fig, ax = new()
         data = []
@@ -630,9 +626,9 @@ def _figures(result, directory, prefix, profile):
                 + "Each stage uses its own pooled group standard deviation; unweighted variances use ddof=1 and weighted variances use the saved population-weighted formula. "
                 "Thus these are stage-specific standardized contrasts, not changes on one fixed denominator. Missing values are undefined, not zero imbalance. "
                 "Signed contrasts, group means, variances and denominators remain in CSV. No significance test or balance pass threshold is applied. "
-                + "Encoded terms: "
-                + json.dumps(analysis["encoded_covariate_map"], ensure_ascii=False)
-                + ".",
+                + predictor_coding(
+                    analysis["propensity_model"]["model_evidence"]["predictor_coding"]
+                ),
                 "圖顯示絕對 SMD，資料表保留正負方向、平均數與分母。每個階段使用自己的標準差，不能當成固定分母下的改善幅度；平衡也不代表因果關係成立。",
                 data,
             )

@@ -2533,6 +2533,8 @@ def _execute_autoresearch_analysis_contract(
             automl_available=False
             if source.startswith("local-clinical")
             else delegator.automl_available,
+            exploratory=True,
+            source_binding=source_binding,
         )
         figures: list[dict[str, str]] = []
         figure_warnings: list[str] = []
@@ -2584,7 +2586,7 @@ def _execute_autoresearch_analysis_contract(
                 "when branch-specific figures are required."
             )
         if figures:
-            rendered += "\n\n## Figures\n" + "\n\n".join(
+            rendered += "\n\n## 分析圖、英文圖說與中文解釋\n" + "\n\n".join(
                 f"![{figure['plot_type']}]({figure['path']})\n\n{figure['caption']}"
                 if publication
                 else f"- `{figure['path']}` ({figure['plot_type']})"

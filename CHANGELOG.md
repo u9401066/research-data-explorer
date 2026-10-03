@@ -8,6 +8,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Added
 
+- Complete Chinese reading reports for saved Logistic, linear, binary-event and propensity-score analyses: all model terms, coding, case counts, intervals, fit diagnostics and signed balance statistics remain traceable to the original numerical receipt. English figure captions explain coding and weighting/matching methods without raw policy JSON.
 - English publication exports for prediction figures: vector PDF/SVG, 300 dpi PNG/TIFF, full captions, plot data, font/renderer provenance and format-integrity checks. Chinese report explanations remain available.
 - Explicit prediction study design, sampling and outcome definitions; sample-scoped calibration and predictive values, prespecified decision curves with paired pointwise bootstrap, complete Chinese prediction reports and CSV/figure deliverables. Training/holdout isolation and immutable-result recovery remain enforced.
 - Prespecified survival studies through `inspect_clinical_study` and `run_clinical_study`: full-source eligibility review, KM/log-rank, tied competing-event cumulative incidence, adjusted Cox estimates, PH diagnostics, participant ledgers and complete Chinese reports.

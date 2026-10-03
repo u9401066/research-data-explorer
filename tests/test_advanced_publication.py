@@ -144,7 +144,7 @@ def test_regularized_no_interval_caption_override_retains_scope(tmp_path):
     )
     assert bundle[0]["publication"]["figure_number"] == 7
     assert SCOPE in bundle[0]["publication"]["caption_en"]
-    assert "recorded cleaning step" in bundle[0]["publication"]["caption_en"]
+    assert "recorded cleaning batch" in bundle[0]["publication"]["caption_en"]
     coefficient = next(f for f in bundle if f["plot_type"].startswith("advanced_coefficients"))
     assert "Regularized fit" in coefficient["publication"]["caption_en"]
     assert "CI unavailable" in Path(coefficient["publication"]["files"]["svg"]).read_text()
@@ -367,3 +367,91 @@ def test_native_mcp_execution_editions_and_corrupt_source_recovery(tmp_path, mon
             project, args["branch_id"], args["experiment_id"], args["expected_record_sha256"]
         )
     ledger.write_bytes(original)
+
+
+@pytest.mark.parametrize(
+    "method", ["logistic_regression", "multiple_regression", "risk_estimates", "propensity_score"]
+)
+def test_readable_full_report_preserves_saved_terms_and_undefined_values(
+    tmp_path, monkeypatch, method
+):
+    from rde.infrastructure.clinical.advanced_report import markdown, cell, number
+    from rde.interface.mcp.tools.analysis_tools import _format_advanced_analysis_output
+
+    project, record = saved(tmp_path, method, zero_cell=method == "risk_estimates")
+    original = deepcopy(record)
+    monkeypatch.setattr(AnalysisDelegator, "run_analysis", lambda *a, **kw: pytest.fail("Refit"))
+    monkeypatch.setattr(PandasLoader, "load", lambda *a, **kw: pytest.fail("Reload"))
+    result = record["analysis_result"]
+    text = _format_advanced_analysis_output(
+        analysis_type=method,
+        source=result["engine"],
+        analysis_result=result,
+        artifact_path=Path("/private/path/numerical.json"),
+        automl_available=False,
+        exploratory=True,
+        source_binding=record["input_evidence"]["source_binding"],
+    )
+    assert record == original
+    assert "個案納入與排除" in text and "未校正跨模型的多重探索" in text
+    assert "numerical" in text and "/private/path" not in text
+    assert "included_row_positions" not in text and "saved_count" not in text
+    assert "predictor_coding" not in text and "diagnostic_policy" not in text
+    assert "| 階段 | 資料列數 |\n|---|---|" in text
+    if method == "risk_estimates":
+        for item in result["estimates"].values():
+            assert cell(number(item["estimate"])) in text
+        assert "無可用區間" in text and "病例對照" in text
+    else:
+        model = result["propensity_model"] if method == "propensity_score" else result
+        for term in model["model_evidence"]["design_columns"]:
+            assert ("截距（Intercept）" if term == "const" else cell(term)) in text
+        assert "參照 alpha" in text and "beta 對 alpha" in text
+        if method == "propensity_score":
+            assert "沒有另外估計臨床結果效果" in text and "不是零差異" in text
+            for key in [
+                "balance_diagnostics",
+                "weighted_balance_diagnostics",
+                "matched_balance_diagnostics",
+            ]:
+                for item in result[key].values():
+                    assert cell(number(item["standardized_mean_difference"])) in text
+    assert markdown(result, exploratory=False) is not None
+
+
+def test_readable_regularized_model_and_hostile_names_do_not_invent_intervals(tmp_path):
+    from rde.infrastructure.clinical.advanced_report import markdown, cell, p_text
+
+    _, record = saved(tmp_path, "logistic_regression", fast=True)
+    result = record["analysis_result"]
+    text = markdown(result)
+    assert "正則化" in text and "中心化及標準化" in text
+    assert "無法估計／未提供" in text and "一般未懲罰模型" in text
+    hostile = "x|<img src=x>\n# heading [link](javascript:x)"
+    result["model_evidence"]["predictor_coding"][0]["source_column"] = hostile
+    text = markdown(result)
+    assert cell(hostile) in text and "<img" not in text and "\n# heading" not in text
+    assert p_text(False) == "無法估計／未提供"
+    assert p_text(None) == "無法估計／未提供"
+    assert "不代表真實機率等於零" in p_text(0.0)
+
+
+def test_publication_coding_is_readable_without_raw_policy_json(tmp_path):
+    from rde.infrastructure.clinical.advanced_report import (
+        binary_coding,
+        predictor_coding,
+        propensity_policy,
+    )
+
+    _, record = saved(tmp_path, "propensity_score")
+    result = record["analysis_result"]
+    coding = result["propensity_model"]["model_evidence"]["predictor_coding"]
+    text = (
+        predictor_coding(coding)
+        + binary_coding(result["treatment_coding"])
+        + propensity_policy(result["diagnostic_policy"])
+    )
+    assert "'beta' versus 'alpha'" in text and "'gamma' versus 'alpha'" in text
+    assert "without replacement" in text and "No caliper" in text
+    assert "p/e" in text and "No clinical outcome effect" in text
+    assert '{"' not in text and "predictor_coding" not in text

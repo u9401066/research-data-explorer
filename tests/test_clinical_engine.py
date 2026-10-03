@@ -200,7 +200,8 @@ def test_clinical_mcp_persists_evidence_and_failed_fit_does_not_count(tmp_path, 
             },
         )
         assert not success.is_error
-        assert "24 / 24" in success.content[0].text
+        assert "| 本次分析輸入 | 24 |" in success.content[0].text
+        assert "| 實際納入 | 24 |" in success.content[0].text
 
     asyncio.run(run())
     logs = get_session().get_logger(project.id).read_decisions()

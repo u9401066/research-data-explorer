@@ -873,6 +873,8 @@ def _format_advanced_analysis_output(
     analysis_result: Any,
     artifact_path: Path | None,
     automl_available: bool,
+    exploratory: bool = False,
+    source_binding: dict | None = None,
 ) -> str:
     """Build user-facing markdown for advanced analysis execution."""
     normalized_analysis_type = _normalize_analysis_type(analysis_type)
@@ -882,6 +884,16 @@ def _format_advanced_analysis_output(
         return fmt_error(
             str(analysis_result["error"]), suggestion=str(analysis_result.get("suggestion", ""))
         )
+    from rde.infrastructure.clinical.advanced_report import markdown as advanced_markdown
+
+    readable = advanced_markdown(
+        analysis_result,
+        exploratory=exploratory,
+        source_binding=source_binding,
+        artifact_path=artifact_path,
+    )
+    if readable is not None:
+        return readable
     if str(source).startswith("local-clinical"):
         from rde.infrastructure.adapters.clinical_engine import render_clinical_result
 
@@ -2157,10 +2169,15 @@ def register_analysis_tools(server: Any) -> None:
                 ),
             )
             if isinstance(analysis_result, dict):
-                rendered_output += "\n\n## Inference policy\n" + str(
-                    analysis_result["inference_policy"]
+                from rde.infrastructure.clinical.advanced_report import (
+                    supported as readable_advanced,
                 )
-                if analysis_result.get("case_set"):
+
+                if not readable_advanced(analysis_result):
+                    rendered_output += "\n\n## Inference policy\n" + str(
+                        analysis_result["inference_policy"]
+                    )
+                if analysis_result.get("case_set") and not readable_advanced(analysis_result):
                     cases = analysis_result["case_set"]
                     rendered_output += f"\n\n**Case set:** {cases.get('n_analyzed')} / {cases.get('n_input')}; excluded: {cases.get('n_excluded')}. {cases.get('strategy')}"
             if figures:
