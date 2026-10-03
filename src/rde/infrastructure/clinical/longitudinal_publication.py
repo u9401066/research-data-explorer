@@ -7,26 +7,49 @@ import numpy as np
 from scipy.stats import norm
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 from .longitudinal_report import flow, term_description
 from .survival_publication import COLORS, short_label
 
 
-def term_label(row, result, codes):
+def term_label(row, result, codes, dictionary=None):
     """Compact contrasts; full original names and reference conditions stay in captions."""
+    dictionary = dictionary or DisplayDictionary()
+    compact = dictionary.compact if dictionary.value else short_label
     if row["role"] == "interaction":
         terms = {r["term"]: r for r in result["coefficients"]}
         time, group = [terms[key] for key in row["components"]]
-        return f"{term_label(time, result, codes)} × {codes[group['level']]} vs {codes[group['reference']]}"
-    name = short_label(row["variable"], row["term"], 16)
+        return f"{term_label(time, result, codes, dictionary)} × {codes[group['level']]} vs {codes[group['reference']]}"
+    column = row["variable"]
+    code = (
+        "T"
+        if row["role"] == "time"
+        else "G"
+        if row["role"] == "group"
+        else f"C{result['spec']['covariates'].index(column) + 1}"
+    )
+    name = compact(dictionary.label(column), compact(column, code, 16), 16)
     if "level" in row:
-        if row["role"] == "group":
-            level = short_label(row["level"], codes[row["level"]], 14)
-            reference = short_label(row["reference"], codes[row["reference"]], 14)
-        else:
-            level = short_label(row["level"], "level", 14)
-            reference = short_label(row["reference"], "reference", 14)
+
+        def label(value):
+            # Time stays on its exact numerical scale. Source spellings such as
+            # "01" and "1.0" must not be silently merged into one dictionary code.
+            if row["role"] == "time":
+                return f"{value:g}"
+            fallback = (
+                codes[value]
+                if row["role"] == "group"
+                else row["term"] + ":" + ("ref" if value == row["reference"] else "level")
+            )
+            return compact(dictionary.level(column, value), compact(value, fallback, 14), 14)
+
+        level, reference = label(row["level"]), label(row["reference"])
         return f"{name}: {level} vs {reference}"
-    unit = short_label(row["unit"], "source unit", 16) if row["role"] == "time" else "source unit"
+    unit = compact(
+        dictionary.unit(column, row["unit"] if row["role"] == "time" else "source unit"),
+        "source unit",
+        16,
+    )
     return f"{name} (+1 {unit})"
 
 
@@ -45,12 +68,24 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator
 
     spec, model, records = result["spec"], result["model"], []
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    compact = dictionary.compact if dictionary.value else short_label
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+        if column != spec["subject"]
+    )
     ci = f"{spec['confidence_level']:.1%}"
     labels = sorted({p["group"] for p in result["points"]})
     codes = {label: f"G{i + 1}" for i, label in enumerate(labels)}
     group_note = (
         "Group codes: " + "; ".join(f"{code}={label!r}" for label, code in codes.items()) + ". "
     )
+
+    def group_label(label):
+        meaning = dictionary.level(spec["group"], label) if spec["group"] else label
+        return compact(f"{codes[label]}: {meaning}", codes[label], 24)
+
     units = {
         "秒": "s",
         "分鐘": "min",
@@ -61,9 +96,15 @@ def _figures(result, directory, prefix, profile):
         "月": "months",
         "年": "years",
     }
-    time_unit = units.get(spec["time_unit"], short_label(spec["time_unit"], "U1", 16))
-    outcome_unit = short_label(spec["outcome_unit"], "U2", 32)
-    exposure_unit = short_label(spec["exposure_unit"], "U3", 16) if spec["exposure"] else None
+    time_unit = compact(
+        dictionary.unit(spec["time"], units.get(spec["time_unit"], spec["time_unit"])), "U1", 16
+    )
+    outcome_unit = compact(dictionary.unit(spec["outcome"], spec["outcome_unit"]), "U2", 32)
+    exposure_unit = (
+        compact(dictionary.unit(spec["exposure"], spec["exposure_unit"]), "U3", 16)
+        if spec["exposure"]
+        else None
+    )
     scale_note = (
         f"Time is source column {spec['time']!r}, in {spec['time_unit']!r} (axis label {time_unit!r}), "
         f"with declared origin {spec['time_origin']!r}; reference time={spec['time_reference']}. "
@@ -84,22 +125,28 @@ def _figures(result, directory, prefix, profile):
         + "No variable selection, small-sample correction or additional hypothesis test is performed by the renderer. "
     )
 
-    def new(height=125):
-        return plt.subplots(figsize=(180 / 25.4, height / 25.4))
+    def new(height=125, *, keep_height=False):
+        return plt.subplots(
+            figsize=(180 / 25.4, height * (180 / profile["width_mm"] if keep_height else 1) / 25.4)
+        )
 
     def save(fig, kind, title, caption, explanation, data):
+        required = (dictionary.note(), mappings, group_note) if dictionary.value else ()
         publication = save_publication_figure(
             fig,
             directory,
             f"{prefix}_longitudinal_{kind}",
             number=len(records) + 1,
             title=title,
-            caption=sample_note + caption,
+            caption=sample_note + caption + " " + dictionary.note() + mappings,
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=required,
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             dict(
                 path=publication["files"]["png"],
@@ -163,7 +210,7 @@ def _figures(result, directory, prefix, profile):
             marker=markers[index],
             color=COLORS[index],
             markersize=5,
-            label=short_label(f"{codes[label]}: {label}", codes[label], 24),
+            label=group_label(label),
         )
         data.extend({"group_code": codes[label], **p} for p in points)
     ylabel = (
@@ -173,7 +220,15 @@ def _figures(result, directory, prefix, profile):
         if spec["distribution"] == "binomial"
         else f"Observed mean\n({outcome_unit})"
     )
-    ax.set(xlabel=f"Time ({time_unit})", ylabel=ylabel)
+    time_label = (
+        textwrap.fill(
+            compact(dictionary.label(spec["time"]), compact(spec["time"], "Time", 24), 40), 24
+        )
+        + f"\n({time_unit})"
+        if dictionary.value
+        else f"Time ({time_unit})"
+    )
+    ax.set(xlabel=time_label, ylabel=ylabel)
     if spec["distribution"] == "binomial":
         ax.set_ylim(-0.03, 1.03)
     observed_times = sorted({p["time"] for p in result["observed_by_time"]})
@@ -212,12 +267,16 @@ def _figures(result, directory, prefix, profile):
     for start in range(0, len(coefficients), 8):
         block = coefficients[start : start + 8]
         descriptions = [term_description(row, result) for row in block]
-        displays = [term_label(row, result, codes) for row in block]
-        fig, ax = new(max(75, 15 * len(block)))
+        displays = [term_label(row, result, codes, dictionary) for row in block]
+        wrapped = [textwrap.fill(label, 23) for label in displays]
+        fig, ax = new(
+            max(65, 28 + sum((label.count("\n") + 1) * 4 + 3 for label in wrapped)),
+            keep_height=True,
+        )
         for i, row in enumerate(block):
             ax.plot([row["lower"], row["upper"]], [i, i], color=COLORS[0])
             ax.plot(row["estimate"], i, "o", color=COLORS[0])
-        ax.set_yticks(range(len(block)), [textwrap.fill(label, 23) for label in displays])
+        ax.set_yticks(range(len(block)), wrapped)
         ax.invert_yaxis()
         ax.axvline(1 if ratio else 0, linestyle="--", color="#656565")
         if ratio:
@@ -278,7 +337,7 @@ def _figures(result, directory, prefix, profile):
             marker=markers[i],
             color=COLORS[i],
             alpha=0.45,
-            label=short_label(f"{codes[label]}: {label}", codes[label], 24),
+            label=group_label(label),
         )
     ax.axhline(0, color="#656565", linestyle="--")
     ax.set(xlabel="Fitted response", ylabel="Observed minus fitted response")

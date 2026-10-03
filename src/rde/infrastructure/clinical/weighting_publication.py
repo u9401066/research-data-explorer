@@ -6,6 +6,7 @@ import textwrap
 import numpy as np
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 from .regression_report import flow
 from .survival_publication import COLORS, short_label
 from .weighting_report import balance_blocks, balance_description
@@ -26,6 +27,20 @@ def _figures(result, directory, prefix, profile):
     from matplotlib.ticker import MaxNLocator, NullLocator
 
     spec, diagnostics, records = result["spec"], result["diagnostics"], []
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    compact = dictionary.compact if dictionary.value else short_label
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+        if column != spec["subject"]
+    )
+    group_note = (
+        f"G0 (A=0)={spec['treatment_levels'][0]!r}; G1 (A=1)={spec['treatment_levels'][1]!r}. "
+    )
+
+    def level_label(p, code, limit=12):
+        fallback = compact(code, f"L{p['levels'].index(code) + 1}", limit)
+        return compact(dictionary.level(p["column"], code), fallback, limit)
 
     def sentence(text):
         text = text.strip()
@@ -33,8 +48,8 @@ def _figures(result, directory, prefix, profile):
 
     source = (
         f"Prespecified {spec['estimand']} weighting in an observational cohort; one common complete-case sample of {result['n']} cases under an independent-case working model. "
-        f"G0 (A=0)={spec['treatment_levels'][0]!r}; G1 (A=1)={spec['treatment_levels'][1]!r}. "
-        f"Exposure: {sentence(spec['treatment_definition'])} Time zero: {sentence(spec['time_origin'])} "
+        + group_note
+        + f"Exposure: {sentence(spec['treatment_definition'])} Time zero: {sentence(spec['time_origin'])} "
         f"Outcome {spec['outcome']!r}, source unit/definition {spec['outcome_unit']!r}. "
         f"Ascertainment: {sentence(spec['outcome_definition'])} Outcome window: {sentence(spec['outcome_window'])} "
         f"Study context: {sentence(spec['context'])} "
@@ -71,12 +86,15 @@ def _figures(result, directory, prefix, profile):
             f"{prefix}_weighting_{kind}",
             number=len(records) + 1,
             title=title,
-            caption=source + caption,
+            caption=source + caption + " " + dictionary.note() + mappings,
             explanation=explanation,
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(dictionary.note(), mappings, group_note) if dictionary.value else (),
         )
+        if dictionary.value:
+            pub["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             dict(
                 path=pub["files"]["png"],
@@ -124,7 +142,7 @@ def _figures(result, directory, prefix, profile):
                 return " × ".join(basis_label(lookup[name]) for name in row["components"])
             identity = f"C{row['predictor'] + 1}"
             if row["role"] == "categorical":
-                return f"{identity}: {short_label(row['level'], 'level', 10)}"
+                return f"{identity}: {level_label(spec['covariates'][row['predictor']], row['level'], 10)}"
             return (
                 f"{identity}: basis {row['basis'] + 1}"
                 if row["role"] == "spline_basis"
@@ -140,11 +158,20 @@ def _figures(result, directory, prefix, profile):
                 visible = basis_label(row)
             else:
                 p = spec["covariates"][row["covariate"]]
-                visible = short_label(p["label"], f"C{row['covariate'] + 1}", 22)
+                visible = compact(
+                    dictionary.label(p["column"], p["label"]), f"C{row['covariate'] + 1}", 22
+                )
                 if row["level"] is not None:
-                    visible += ": " + short_label(row["level"], "level", 12)
+                    visible += ": " + level_label(p, row["level"])
             labels.append(textwrap.fill(f"{identity} {visible}", 24))
-            data.append({"figure_label": identity, "description": description, **row})
+            data.append(
+                {
+                    "figure_label": identity,
+                    "display_label": visible,
+                    "description": description,
+                    **row,
+                }
+            )
         line_count = max(label.count("\n") + 1 for label in labels)
         fig, axes = new(max(65, 28 + len(block) * (line_count * 4 + 2)))
         ax = axes[0, 0]
@@ -280,7 +307,7 @@ def _figures(result, directory, prefix, profile):
     ax.set_yticks([0], [spec["estimand"]])
     ax.set_ylim(-0.8, 0.8)
     ax.xaxis.set_major_locator(MaxNLocator(4))
-    unit = short_label(spec["outcome_unit"], "source units", 24)
+    unit = compact(dictionary.unit(spec["outcome"], spec["outcome_unit"]), "source units", 24)
     ax.set_xlabel(
         (
             "Probability difference"

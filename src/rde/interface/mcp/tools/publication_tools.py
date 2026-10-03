@@ -417,7 +417,12 @@ def register_publication_tools(server):
                     "evidence_synthesis",
                     "genomics",
                 ],
-                "display_dictionary_families": ["survival", "regression"],
+                "display_dictionary_families": [
+                    "survival",
+                    "regression",
+                    "longitudinal",
+                    "weighting",
+                ],
             },
             ensure_ascii=False,
         )

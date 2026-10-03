@@ -115,6 +115,19 @@ def completed(tmp_path, family):
             json_result=False,
         )
         record = clinical_records(store)[0]
+    elif family.startswith("weighting_"):
+        from test_weighting_workflow import project_fixture
+        from rde.interface.mcp.tools.clinical_tools import clinical_records
+
+        project, store, dataset, spec = project_fixture(
+            tmp_path, "ATT", family.removeprefix("weighting_")
+        )
+        call(
+            "run_clinical_study",
+            {"dataset_id": dataset.id, "clinical_options": spec.to_dict()},
+            json_result=False,
+        )
+        record = clinical_records(store)[0]
     elif family.startswith("longitudinal"):
         from test_longitudinal_workflow import longitudinal_project
         from rde.interface.mcp.tools.clinical_tools import clinical_records

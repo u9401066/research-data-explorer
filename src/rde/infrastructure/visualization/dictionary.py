@@ -6,6 +6,8 @@ import unicodedata
 
 from rde.infrastructure.clinical.survival import SurvivalSpec
 from rde.infrastructure.clinical.regression_contract import RegressionSpec
+from rde.infrastructure.clinical.longitudinal_contract import LongitudinalSpec
+from rde.infrastructure.clinical.weighting_contract import WeightingSpec
 
 
 def submission_text(value):
@@ -55,9 +57,9 @@ def validate_dictionary(value, record, result):
     ):
         raise ValueError("Explicit review of unchanged source units and codes is required.")
     family = result.get("spec", {}).get("family")
-    if family not in {"survival", "regression"}:
+    if family not in {"survival", "regression", "longitudinal", "weighting"}:
         raise ValueError(
-            "Reviewed display dictionaries currently support survival and regression studies."
+            "Reviewed display dictionaries currently support survival, regression, longitudinal and weighting studies."
         )
     source = record.get("source", {})
     if value["source_sha256"] != source.get("sha256") or value["source_sheet"] != source.get(
@@ -100,13 +102,24 @@ def validate_dictionary(value, record, result):
             SurvivalSpec.parse(result.get("population_spec", result["spec"])).variables()
         )
         units = {spec.time: spec.time_unit}
-    else:
+    elif family == "regression":
         spec = RegressionSpec.parse(result["spec"])
         variables = set(spec.variables())
         units = {spec.outcome: spec.outcome_unit}
         units.update({p["column"]: p["unit"] for p in spec.predictors if p["kind"] == "continuous"})
         if spec.exposure:
             units[spec.exposure] = spec.exposure_unit
+    elif family == "longitudinal":
+        spec = LongitudinalSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.time: spec.time_unit, spec.outcome: spec.outcome_unit}
+        if spec.exposure:
+            units[spec.exposure] = spec.exposure_unit
+    else:
+        spec = WeightingSpec.parse(result["spec"])
+        variables = set(spec.variables())
+        units = {spec.outcome: spec.outcome_unit}
+        units.update({p["column"]: p["unit"] for p in spec.covariates if p["kind"] == "continuous"})
     columns = set()
     for entry in entries:
         if (
