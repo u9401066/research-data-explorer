@@ -146,7 +146,9 @@ def _create_verified_edition(
     root = project.output_dir.resolve()
     options = render_options(start_number, captions, len(record.get("figures", [])))
     if display_dictionary is not None:
-        options["display_dictionary"] = validate_dictionary(display_dictionary, record, result)
+        options["display_dictionary"] = validate_dictionary(
+            display_dictionary, record, result, prediction=prediction
+        )
     request = {
         "source_artifact": study_artifact,
         "source_record_sha256": expected_record_sha256,
@@ -418,6 +420,7 @@ def register_publication_tools(server):
                     "genomics",
                 ],
                 "display_dictionary_families": [
+                    "prediction",
                     "survival",
                     "regression",
                     "longitudinal",

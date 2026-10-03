@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import textwrap
 
 import numpy as np
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
+from rde.infrastructure.visualization.dictionary import DisplayDictionary
 
 BLUE = "#0072B2"
 ORANGE = "#D55E00"
@@ -31,6 +33,47 @@ def _figures(result, directory, prefix, profile):
     from sklearn.metrics import precision_recall_curve, roc_curve
 
     spec, validation = result["spec"], result["validation"]
+    dictionary = DisplayDictionary(profile.get("edition", {}).get("display_dictionary"))
+    mappings = "".join(
+        dictionary.describe(column, [level["value"] for level in entry["levels"]])
+        for column, entry in dictionary.entries.items()
+    )
+    target_label = dictionary.compact(dictionary.label(spec["target"]), "Outcome", 32)
+    original_unit = dictionary.unit(spec["target"])
+    unit = dictionary.compact(original_unit, "U1", 18) if original_unit else "original scale"
+    error_unit = "percentage points" if original_unit == "%" else unit
+    identity_note = (
+        f"Outcome is source column {spec['target']!r}. Saved split={spec['split']!r}; "
+        f"subject key={spec['subject_variable']!r}, time key={spec['time_variable']!r}, cutoff={spec['cutoff']!r}. "
+        "Training/holdout membership, feature transformations and selected model are unchanged. "
+        "The saved prediction contract does not declare physical units; reviewed units describe the original source scale without rescaling outcomes, features, predictions or errors. "
+    )
+    if original_unit:
+        identity_note += f"U1 denotes reviewed source outcome unit {original_unit!r}. "
+    if spec["task"] == "binary":
+        identity_note += (
+            "Saved outcome encoding: "
+            + "; ".join(
+                f"source {code!r} = {value}" for code, value in result["target_encoding"].items()
+            )
+            + f". Positive class remains {spec['positive_class']!r}; predicted positive requires score >= {spec['threshold']}. "
+            "Probability scores and decision thresholds are dimensionless, regardless of any outcome-code or predictor units. "
+        )
+    else:
+        identity_note += (
+            "Residuals are observed minus predicted. RMSE, MAE and residuals are absolute differences on the original outcome scale, not relative changes. "
+            + (
+                "For a percentage-valued outcome, these differences are percentage points. "
+                if original_unit == "%"
+                else ""
+            )
+        )
+    if spec["decision_curve"]:
+        curve_spec = spec["decision_curve"]
+        identity_note += (
+            f"Prespecified action={curve_spec['action']!r}; threshold basis={curve_spec['threshold_basis']!r}; "
+            f"evaluated probability thresholds={curve_spec['thresholds']!r}. No action threshold was optimized. "
+        )
     scores, uncertainty = validation["metrics"], validation["uncertainty"]
     n = validation["n"]
     y = np.asarray([r["observed"] for r in validation["predictions"]])
@@ -69,7 +112,7 @@ def _figures(result, directory, prefix, profile):
 
     bootstrap = (
         f"Confidence intervals use {uncertainty['replicates_requested']} percentile bootstrap draws "
-        f"of {'whole subjects' if uncertainty['unit']=='subject_cluster' else 'observations'}, "
+        f"of {'whole subjects' if uncertainty['unit'] == 'subject_cluster' else 'observations'}, "
         "conditional on the fixed fitted model. They exclude training/model-selection uncertainty and are not multiplicity-adjusted."
     )
 
@@ -88,7 +131,12 @@ def _figures(result, directory, prefix, profile):
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
+            required_caption=(dictionary.note(), mappings, identity_note, common)
+            if dictionary.value
+            else (),
         )
+        if dictionary.value:
+            publication["dictionary_sha256"] = dictionary.value["dictionary_sha256"]
         records.append(
             {
                 "path": publication["files"]["png"],
@@ -140,8 +188,8 @@ def _figures(result, directory, prefix, profile):
         0.79, 0.76, f"Missing/invalid outcome\nor split key: {excluded}", ha="center", va="center"
     )
     ax.text(
-        0.22,
-        0.43,
+        0.50,
+        0.03,
         f"Cross-boundary training\nobservations removed: {purged}",
         ha="center",
         va="center",
@@ -208,7 +256,11 @@ def _figures(result, directory, prefix, profile):
     ax.set(
         yticks=range(len(candidates)),
         yticklabels=labels,
-        xlabel=f"Training-fold {criterion.upper()}",
+        xlabel=textwrap.fill(
+            f"Training-fold {criterion.upper()}"
+            + (f" ({error_unit})" if dictionary.value and spec["task"] == "regression" else ""),
+            30,
+        ),
         ylim=(-0.6, len(candidates) - 0.4),
     )
     if spec["task"] == "binary":
@@ -221,7 +273,7 @@ def _figures(result, directory, prefix, profile):
         "cv",
         "Prespecified model comparison within the training set.",
         f"Open circles show individual scores from {spec['cv_folds']} training folds; diamonds show the unweighted means. "
-        f"Selection used {'maximum' if spec['task']=='binary' else 'minimum'} mean {criterion.upper()}, with ties resolved by the prespecified candidate order. "
+        f"Selection used {'maximum' if spec['task'] == 'binary' else 'minimum'} mean {criterion.upper()}, with ties resolved by the prespecified candidate order. "
         "Folds share training observations and are not independent replicates; their spread is not a confidence interval. "
         "Preprocessing was fitted separately in each training fold. The holdout did not contribute to selection. "
         f"Selected model: {selected}.",
@@ -258,6 +310,21 @@ def _figures(result, directory, prefix, profile):
             ylim=(1.5, -0.5),
             aspect="equal",
         )
+        if dictionary.value:
+            codes = {value: code for code, value in result["target_encoding"].items()}
+            labels = [
+                textwrap.fill(
+                    dictionary.compact(
+                        f"{role}: {dictionary.level(spec['target'], codes[value])}", role, 26
+                    ),
+                    16,
+                )
+                for value, role in [(0, "Negative"), (1, "Positive")]
+            ]
+            ax.set_xticklabels(labels)
+            ax.set_yticklabels(labels)
+            ax.set_xlabel(textwrap.fill(f"Observed {target_label}", 28))
+            ax.set_ylabel(textwrap.fill(f"Predicted {target_label}", 28))
         ax.tick_params(length=0)
         for spine in ax.spines.values():
             spine.set_visible(False)
@@ -300,7 +367,7 @@ def _figures(result, directory, prefix, profile):
             xlim=(0, 1),
             ylim=(0, 1.02),
         )
-        ax.legend(loc="lower right", fontsize=8)
+        ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), fontsize=8)
         save(
             fig,
             "roc",
@@ -348,7 +415,7 @@ def _figures(result, directory, prefix, profile):
             xlim=(0, 1),
             ylim=(0, 1.03),
         )
-        ax.legend(loc="lower left", fontsize=8)
+        ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), fontsize=8)
         save(
             fig,
             "pr",
@@ -446,7 +513,7 @@ def _figures(result, directory, prefix, profile):
             ax.set(
                 xlabel="Prespecified threshold probability", ylabel="Net benefit per observation"
             )
-            ax.legend(loc="best", fontsize=8)
+            ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), fontsize=8)
             data = [
                 {
                     **{k: v for k, v in r.items() if k != "intervals"},
@@ -477,7 +544,12 @@ def _figures(result, directory, prefix, profile):
         low, high = min(y.min(), prediction.min()), max(y.max(), prediction.max())
         ax.plot([low, high], [low, high], "--", color=GRAY, linewidth=1)
         ax.set(
-            xlabel="Observed outcome (original scale)", ylabel="Predicted outcome (original scale)"
+            xlabel=textwrap.fill(f"Observed {target_label} ({unit})", 30)
+            if dictionary.value
+            else "Observed outcome (original scale)",
+            ylabel=textwrap.fill(f"Predicted {target_label} ({unit})", 30)
+            if dictionary.value
+            else "Predicted outcome (original scale)",
         )
         save(
             fig,
@@ -493,7 +565,12 @@ def _figures(result, directory, prefix, profile):
         ax.scatter(prediction, y - prediction, s=15, alpha=0.7, color=BLUE, edgecolors="none")
         ax.axhline(0, color=GRAY, linestyle="--", linewidth=1)
         ax.set(
-            xlabel="Predicted outcome (original scale)", ylabel="Residual (observed − predicted)"
+            xlabel=textwrap.fill(f"Predicted {target_label} ({unit})", 30)
+            if dictionary.value
+            else "Predicted outcome (original scale)",
+            ylabel=textwrap.fill(f"Residual: observed − predicted ({error_unit})", 30)
+            if dictionary.value
+            else "Residual (observed − predicted)",
         )
         save(
             fig,

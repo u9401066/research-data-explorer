@@ -11,6 +11,7 @@ from rde.infrastructure.clinical.weighting_contract import WeightingSpec
 from rde.infrastructure.clinical.comparison_contract import ComparisonSpec
 from rde.infrastructure.clinical.repeated_contract import RepeatedSpec
 from rde.infrastructure.clinical.measurement import MeasurementSpec
+from rde.infrastructure.prediction.contract import PredictionSpec
 
 
 def submission_text(value):
@@ -36,7 +37,7 @@ def same_unit(first, second):
     return aliases.get(first, first) == aliases.get(second, second)
 
 
-def validate_dictionary(value, record, result):
+def validate_dictionary(value, record, result, *, prediction=False):
     if value is None:
         return None
     required = {
@@ -59,7 +60,9 @@ def validate_dictionary(value, record, result):
         or value["no_conversion_confirmed"] is not True
     ):
         raise ValueError("Explicit review of unchanged source units and codes is required.")
-    family = result.get("spec", {}).get("family")
+    # The caller verifies the typed source workflow before selecting this branch.
+    # PredictionSpec has no clinical family field; do not infer it from missing fields.
+    family = "prediction" if prediction else result.get("spec", {}).get("family")
     if family not in {
         "survival",
         "regression",
@@ -70,6 +73,7 @@ def validate_dictionary(value, record, result):
         "diagnostic_accuracy",
         "bland_altman",
         "cohens_kappa",
+        "prediction",
     }:
         raise ValueError("Reviewed display dictionaries are not supported for this study family.")
     source = record.get("source", {})
@@ -106,7 +110,14 @@ def validate_dictionary(value, record, result):
     entries = value["entries"]
     if not isinstance(entries, list) or not 1 <= len(entries) <= 500:
         raise ValueError("Display dictionary requires 1..500 column entries.")
-    if family == "survival":
+    if prediction:
+        spec = PredictionSpec.parse(result["spec"])
+        variables = {spec.target, *spec.predictors}
+        variables.update(v for v in [spec.subject_variable, spec.time_variable] if v)
+        # This contract never declared physical units. Reviewed units annotate the
+        # source scale; the renderer must retain that limitation in every caption.
+        units = {}
+    elif family == "survival":
         spec = SurvivalSpec.parse(result["spec"])
         # Branches retain the primary dictionary even when they omit a predictor.
         variables = set(

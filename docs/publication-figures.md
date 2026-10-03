@@ -78,7 +78,9 @@ from a column name or the follow-up unit.
 
 `render_publication_figures` and `render_branch_publication` accept an optional
 `display_dictionary` for survival studies; `render_publication_figures` also supports
-independent-case regression (Gaussian, binary/ordinal logistic, Poisson and NB2).
+independent-case regression (Gaussian, binary/ordinal logistic, Poisson and NB2),
+longitudinal, weighting, independent comparisons, paired/repeated measurements,
+diagnostic/agreement studies, and binary/continuous prediction.
 Discover `display_dictionary_families` in
 `get_publication_presets`; unsupported families cannot silently drop annotations.
 The `publication-dictionary-v1` object binds the source SHA256/sheet, the original reviewed
@@ -103,8 +105,17 @@ User caption overrides retain this note and the separate exploratory-branch limi
 Changing the dictionary creates a distinct edition, never a new interpretation of old bytes.
 Regression coefficients, spline basis terms, interaction contrasts, offsets, outcome category
 order, reference values and all non-display CSV columns stay unchanged. Full reviewed names
-and code meanings survive compact figure labels and author caption overrides. Other clinical
-families do not yet accept display dictionaries.
+and code meanings survive compact figure labels and author caption overrides.
+Prediction is selected through its verified source workflow, not an absent clinical-family
+field. Allowed roles are the original target, predictors, subject key and time key.
+Its saved specification does not declare physical units: every caption explicitly identifies
+reviewed units as descriptions of the original source scale. No rescaling occurs. A `%`
+outcome uses percentage points for RMSE, MAE and residual differences; probabilities and
+decision thresholds remain dimensionless. Binary figures preserve the original positive
+code, encoding and locked threshold. Every caption retains the saved split, model, internal
+validation and sampling limitations, including under author overrides. Decision-curve
+captions retain the prespecified action, threshold basis and probability thresholds.
+Evidence and genomics dictionaries are not supported by this contract yet.
 
 New survival sensitivity branches export the same six formats, identify their exploratory
 scope, and keep the primary complete-case population. Their full reports show one image per
