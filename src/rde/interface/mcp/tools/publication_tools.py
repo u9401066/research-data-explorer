@@ -84,6 +84,23 @@ def create_edition(
     captions,
     display_dictionary=None,
 ):
+    if re.fullmatch(r"advanced_study_[a-f0-9]{16}\.json", study_artifact):
+        from rde.interface.mcp.tools._shared.advanced_study import advanced_study_source
+
+        source, record = advanced_study_source(project, study_artifact, expected_record_sha256)
+        return _create_verified_edition(
+            project,
+            source=source,
+            study_artifact=study_artifact,
+            expected_record_sha256=expected_record_sha256,
+            record=record,
+            result=record["result"],
+            preset_id=preset_id,
+            edition_id=edition_id,
+            start_number=start_number,
+            captions=captions,
+            display_dictionary=display_dictionary,
+        )
     if not re.fullmatch(r"(?:clinical|prediction)_study_[a-f0-9]{16}\.json", study_artifact):
         raise ValueError("Use the exact completed clinical/prediction study artifact filename.")
     if str(uuid.UUID(edition_id)) != edition_id:
@@ -179,7 +196,7 @@ def _create_verified_edition(
             from rde.infrastructure.evidence.publication import figures
         elif result.get("spec", {}).get("family") == "genomics":
             from rde.infrastructure.genomics.publication import figures
-        elif result.get("spec", {}).get("family") == "advanced_exploration":
+        elif result.get("spec", {}).get("family") in {"advanced_exploration", "advanced_analysis"}:
             from rde.infrastructure.visualization.advanced_publication import figures
         elif prediction:
             from rde.infrastructure.prediction.publication import figures
@@ -212,6 +229,12 @@ def _create_verified_edition(
             "圖說與圖號供稿件使用，仍須核對目標期刊與最終稿件。",
             "",
         ]
+        if record.get("publication_scope") == "main_analysis":
+            lines += [
+                "此為一般進階分析的圖稿。主流程中的位置不代表預先指定或確認性分析；"
+                "請核對保存計畫與偏離紀錄。不同方法可能使用不同完整個案，未校正跨模型多重探索。",
+                "",
+            ]
         if record.get("publication_scope") == "exploratory_branch":
             lines[0] = "# 探索分支投稿圖版"
             lines += [
@@ -324,12 +347,23 @@ def _create_verified_edition(
             )
             if refreshed != record:
                 raise ValueError("Branch or primary evidence changed during rendering.")
+        elif record.get("publication_scope") == "main_analysis":
+            from rde.interface.mcp.tools._shared.advanced_study import advanced_study_source
+
+            _, refreshed = advanced_study_source(project, study_artifact, expected_record_sha256)
+            if refreshed != record:
+                raise ValueError("Advanced study evidence changed during rendering.")
         edition = {
             "schema": "publication-edition-v1",
             "edition_id": edition_id,
             "request": request,
             "source_numerical_receipt_sha256": result["receipt_sha256"],
             "source_dataset_id": record.get("dataset_id"),
+            **(
+                {"publication_scope": "main_analysis", "source_binding": result["source_binding"]}
+                if record.get("publication_scope") == "main_analysis"
+                else {}
+            ),
             **(
                 {
                     "publication_scope": "exploratory_branch",
@@ -450,9 +484,11 @@ def register_publication_tools(server):
                     "evidence_synthesis",
                     "genomics",
                     "advanced_exploration",
+                    "advanced_analysis",
                 ],
                 "display_dictionary_families": [
                     "advanced_exploration",
+                    "advanced_analysis",
                     "evidence_synthesis",
                     "genomics",
                     "prediction",
@@ -483,7 +519,7 @@ def register_publication_tools(server):
     ) -> str:
         """從指定 SHA256 的已保存研究另建投稿圖版，不重估、不重抽樣、不改原圖。
 
-        study_artifact 是原始 clinical_study_*.json 或 prediction_study_*.json 檔名。
+        study_artifact 是原始 clinical_study_*.json、prediction_study_*.json 或 advanced_study_*.json 檔名。
         edition_id 為新 UUID；同 ID 同請求讀回已保存產物，其他內容拒絕覆寫。
         captions 以原圖一開始的序號為 key，可明列 title/caption_en/explanation_zh；保留原圖說。
         本工具僅改顯示版本，不核准新分析或改變原計畫。圖說修訂需研究者審閱。

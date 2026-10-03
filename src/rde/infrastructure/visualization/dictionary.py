@@ -175,6 +175,7 @@ def validate_dictionary(value, record, result, *, prediction=False):
         "evidence_synthesis",
         "genomics",
         "advanced_exploration",
+        "advanced_analysis",
     }:
         raise ValueError("Reviewed display dictionaries are not supported for this study family.")
     if family == "genomics":
@@ -182,7 +183,7 @@ def validate_dictionary(value, record, result, *, prediction=False):
 
         return validate_genomics_dictionary(value, record, result)
     entries = validate_dictionary_header(value, record.get("source", {}))
-    if family == "advanced_exploration":
+    if family in {"advanced_exploration", "advanced_analysis"}:
         contract = result["contract"]
         variables = set(contract.get("covariates", []))
         variables.update(

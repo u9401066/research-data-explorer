@@ -22,6 +22,12 @@ SCOPE = (
     "Model-specific complete cases need not equal those of the primary analysis. "
     "These figures do not replace the primary analysis or establish causality."
 )
+PRIMARY_SCOPE = (
+    "General analysis recorded in the main research workflow. "
+    "Its placement does not establish prespecification or confirmatory status; consult the saved plan and deviation log. "
+    "Model-specific complete cases may differ across analyses. "
+    "Pointwise intervals and tests are not corrected across models and do not establish causality."
+)
 
 
 def publication_result(record):
@@ -34,7 +40,10 @@ def publication_result(record):
     if method not in METHODS or record.get("status") != "completed":
         raise ValueError("A completed supported general analysis is required.")
     if record.get("sha256") != digest({k: v for k, v in record.items() if k != "sha256"}):
-        raise ValueError("The complete numerical branch receipt has changed.")
+        raise ValueError("The complete numerical analysis receipt has changed.")
+    primary = record.get("schema") == "advanced-study-evidence-v1"
+    if primary and record.get("publication_scope") != "main_analysis":
+        raise ValueError("A main analysis must retain its explicit publication scope.")
     binding = record["input_evidence"]["source_binding"]
     if binding.get("status") != "verified":
         raise ValueError("Publication requires a source-bound input frame.")
@@ -111,7 +120,10 @@ def publication_result(record):
     result = {
         "schema": "advanced-publication-v1",
         "status": "completed",
-        "spec": {"family": "advanced_exploration", "method": method},
+        "spec": {
+            "family": "advanced_analysis" if primary else "advanced_exploration",
+            "method": method,
+        },
         "contract": record["analysis_contract"],
         "analysis": analysis,
         "source_binding": binding,
@@ -125,6 +137,7 @@ def publication_result(record):
                 k: v
                 for k, v in record.items()
                 if k not in {"sha256", "publication_result", "figures", "artifacts"}
+                and not (primary and k == "result")
             }
         ),
     }
@@ -234,7 +247,13 @@ def _figures(result, directory, prefix, profile):
             data=data,
             profile=profile,
             receipt_sha256=result["receipt_sha256"],
-            required_caption=(SCOPE, context, mandatory_method, dictionary.note(), mappings),
+            required_caption=(
+                PRIMARY_SCOPE if result["spec"]["family"] == "advanced_analysis" else SCOPE,
+                context,
+                mandatory_method,
+                dictionary.note(),
+                mappings,
+            ),
         )
         if dictionary.value:
             pub["dictionary_sha256"] = dictionary.value["dictionary_sha256"]

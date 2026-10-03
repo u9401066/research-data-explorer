@@ -79,6 +79,18 @@ branch_publication:
   retains: [exploratory_caption_scope, method_limitations, source_binding_or_survival_primary_binding, branch_identity, experiment_identity]
   does_not_change: [analysis_plan, branch_adoption, promotion_gate, case_set, numerical_estimates]
 
+general_analysis_publication:
+  tools: [run_advanced_analysis, render_publication_figures]
+  methods: [logistic_regression, multiple_regression, risk_estimates, propensity_score]
+  scope: main_workflow_placement_does_not_establish_prespecification_or_confirmation
+  requires: [verified_source_and_cleaning_chain, saved_plan_bytes, full_numerical_receipt, complete_original_figure_bundle]
+  rendering: saved_numerical_receipts_no_data_loading_or_model_execution
+  immutable: [source_snapshot, plan_snapshot, numerical_evidence, original_figures, journal_edition]
+  artifacts: artifacts/phase_08_execute_exploration/advanced_study_{study_id}.json
+  failed_rendering: retain_numerical_evidence_and_attempt_before_returning_failure
+  does_not_change: [approved_plan, cases, estimates, multiplicity_policy]
+  report_readiness: propensity_analysis_required_only_when_in_the_reviewed_plan
+
 phase_controls:
   concept_alignment:
     tool: align_concept

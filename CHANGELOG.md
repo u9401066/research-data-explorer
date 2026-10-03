@@ -8,6 +8,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Added
 
+- Source-bound publication figures for main-workflow Logistic, linear, binary-event and propensity analyses. Each invocation preserves its own numerical evidence, frozen plan, readable report and six-format figure bundle; journal/dictionary editions verify the retained closure without refitting. Main-workflow placement does not establish confirmatory status.
 - Complete Chinese reading reports for saved Logistic, linear, binary-event and propensity-score analyses: all model terms, coding, case counts, intervals, fit diagnostics and signed balance statistics remain traceable to the original numerical receipt. English figure captions explain coding and weighting/matching methods without raw policy JSON.
 - English publication exports for prediction figures: vector PDF/SVG, 300 dpi PNG/TIFF, full captions, plot data, font/renderer provenance and format-integrity checks. Chinese report explanations remain available.
 - Explicit prediction study design, sampling and outcome definitions; sample-scoped calibration and predictive values, prespecified decision curves with paired pointwise bootstrap, complete Chinese prediction reports and CSV/figure deliverables. Training/holdout isolation and immutable-result recovery remain enforced.
@@ -16,6 +17,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Fixed
 
+- Require propensity analysis at report assembly only when it belongs to the reviewed plan; the presence of a grouping column no longer adds an unrequested method after execution.
 - Isolated autoresearch figures and visualization manifests by branch and experiment, preserving the primary report and earlier experiments.
 - Rendered fitted regression coefficients / odds ratios and available confidence intervals instead of an unchanged outcome distribution for model figures.
 - Honored the requested confidence level in local logistic and linear models; interval availability remains explicit for regularized fallbacks.

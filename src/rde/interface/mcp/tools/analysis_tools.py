@@ -2105,6 +2105,11 @@ def register_analysis_tools(server: Any) -> None:
                 config["variables"],
             )
 
+            from rde.infrastructure.visualization.advanced_publication import METHODS
+            from rde.infrastructure.adapters.dataframe_lineage import bind_source
+
+            source_binding = bind_source(project, entry) if analysis_type in METHODS else None
+
             result = delegator.run_analysis(analysis_df, analysis_type, config)
 
             source = result["source"]
@@ -2149,15 +2154,40 @@ def register_analysis_tools(server: Any) -> None:
                     detail=f"Failure artifact: {artifact_path.name}",
                     suggestion=str(analysis_result.get("suggestion", "")),
                 )
-            figures, figure_warnings = _auto_create_advanced_analysis_figures(
-                project=project,
-                dataset=entry.dataset,
-                dataframe=analysis_df,
-                analysis_type=analysis_type,
-                source=source,
-                analysis_result=analysis_result,
-                config=decision_config,
-            )
+            from rde.infrastructure.clinical.advanced_report import supported as readable_advanced
+
+            study_path = None
+            if (
+                source_binding
+                and source_binding["status"] == "verified"
+                and readable_advanced(analysis_result)
+            ):
+                from rde.interface.mcp.tools._shared.advanced_study import save_advanced_study
+
+                study_path, study, study_report = save_advanced_study(
+                    project,
+                    entry,
+                    raw_artifact=artifact_path,
+                    analysis_type=analysis_type,
+                    source=source,
+                    config=decision_config,
+                    analysis_result=analysis_result,
+                    source_binding=source_binding,
+                    analysis_frame=analysis_df,
+                    plausibility_notes=plausibility_notes,
+                    plausibility_summary=plausibility_summary,
+                )
+                figures, figure_warnings = study["figures"], []
+            else:
+                figures, figure_warnings = _auto_create_advanced_analysis_figures(
+                    project=project,
+                    dataset=entry.dataset,
+                    dataframe=analysis_df,
+                    analysis_type=analysis_type,
+                    source=source,
+                    analysis_result=analysis_result,
+                    config=decision_config,
+                )
 
             rendered_output = _format_advanced_analysis_output(
                 analysis_type=analysis_type,
@@ -2167,6 +2197,7 @@ def register_analysis_tools(server: Any) -> None:
                 automl_available=(
                     False if source.startswith("local-clinical") else delegator.automl_available
                 ),
+                source_binding=source_binding,
             )
             if isinstance(analysis_result, dict):
                 from rde.infrastructure.clinical.advanced_report import (
@@ -2180,7 +2211,12 @@ def register_analysis_tools(server: Any) -> None:
                 if analysis_result.get("case_set") and not readable_advanced(analysis_result):
                     cases = analysis_result["case_set"]
                     rendered_output += f"\n\n**Case set:** {cases.get('n_analyzed')} / {cases.get('n_input')}; excluded: {cases.get('n_excluded')}. {cases.get('strategy')}"
-            if figures:
+            if study_path:
+                rendered_output = (
+                    study_report
+                    + f"\n\n原始數值紀錄：`{artifact_path.name}`；投稿圖來源：`{study_path.name}`。"
+                )
+            elif figures:
                 rendered_output += "\n\n## Figures\n" + "\n".join(
                     f"- `{figure['path']}` ({figure['plot_type']})" for figure in figures
                 )
@@ -2225,6 +2261,7 @@ def register_analysis_tools(server: Any) -> None:
                 artifacts=[
                     artifact_path.name,
                     markdown_artifact_path.name,
+                    *([study_path.name] if study_path else []),
                     *[figure["path"] for figure in figures],
                 ],
             )

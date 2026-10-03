@@ -3585,7 +3585,18 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
         ),
         ["decision_log.jsonl", "experiment_ledger.jsonl"],
     )
-    propensity_required = bool(group_vars and covariates)
+    # A grouping column is not authorization or a methodological indication for
+    # propensity analysis. Enforce the reviewed plan, not a post-analysis guess.
+    propensity_required = any(
+        isinstance(analysis, dict)
+        and "propensity_score"
+        in {
+            analysis.get("type"),
+            analysis.get("analysis_type"),
+            (analysis.get("execution_arguments") or {}).get("analysis_type"),
+        }
+        for analysis in analyses
+    )
     add_check(
         "propensity_score",
         "Propensity/balance analysis",
@@ -4255,6 +4266,7 @@ def _upsert_visualization_manifest(
     group_var: str | None,
     stats_summary: str | None,
     execution_arguments: dict | None = None,
+    retain_history: bool = False,
 ) -> None:
     from rde.application.pipeline import PipelinePhase
     from rde.infrastructure.persistence.artifact_store import ArtifactStore
@@ -4280,7 +4292,7 @@ def _upsert_visualization_manifest(
             entry.get("group_var"),
         )
         entry_output_path = _figure_manifest_output_path(project, entry.get("output_path"))
-        if entry_key != key and entry_output_path != output_path:
+        if (retain_history or entry_key != key) and entry_output_path != output_path:
             updated.append(entry)
     updated.append(
         {

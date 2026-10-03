@@ -1639,9 +1639,20 @@ def test_report_readiness_flags_missing_medical_analysis_depth(tmp_path: Path) -
 
     assert readiness["ready"] is False
     assert "multivariable" in readiness["analysis_depth"]["missing_requirements"]
-    assert "propensity_score" in readiness["analysis_depth"]["missing_requirements"]
-    assert "derived_variable_provenance" in readiness["analysis_depth"]["missing_requirements"]
+    # Merely observing a grouping column cannot require an unplanned propensity model.
+    assert "propensity_score" not in readiness["analysis_depth"]["missing_requirements"]
+    assert "derived_variable_provenance" not in readiness["analysis_depth"]["missing_requirements"]
     assert any(item.startswith("analysis_depth:") for item in readiness["missing_requirements"])
+
+    plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+    plan["analyses"].append({"type": "run_advanced_analysis", "analysis_type": "propensity_score"})
+    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", plan)
+    requested = _evaluate_report_readiness(
+        {"total_analyses": 5, "decision_count": 5, "deliverables": _minimum_bundle()},
+        store,
+    )
+    assert "propensity_score" in requested["analysis_depth"]["missing_requirements"]
+    assert "derived_variable_provenance" in requested["analysis_depth"]["missing_requirements"]
 
 
 def test_report_readiness_accepts_completed_medical_analysis_depth(tmp_path: Path) -> None:
