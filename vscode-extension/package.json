@@ -49,6 +49,7 @@
       "run_sample_size_plan",
       "render_sample_size_publication",
       "get_workflow_contract",
+      "read_artifact",
       "init_project",
       "get_pipeline_status",
       "get_decision_log",

@@ -5,14 +5,32 @@ from __future__ import annotations
 from typing import Any
 
 
-def fmt_error(message: str, detail: str = "", suggestion: str = "") -> str:
+def fmt_error(
+    message: str,
+    detail: str = "",
+    suggestion: str = "",
+    *,
+    code: str = "RDE_DOMAIN_ERROR",
+    retryable: bool = False,
+) -> str:
     """Format an error response."""
     parts = [f"❌ {message}"]
     if detail:
         parts.append(f"\n{detail}")
     if suggestion:
         parts.append(f"\n**建議:** {suggestion}")
-    return "\n".join(parts)
+    from rde.interface.mcp.results import ResultError, ToolFailure
+
+    return ToolFailure(
+        "\n".join(parts),
+        ResultError(
+            code=code,
+            message=message,
+            detail=detail,
+            suggestion=suggestion,
+            retryable=retryable,
+        ),
+    )
 
 
 def fmt_success(message: str, detail: str = "") -> str:

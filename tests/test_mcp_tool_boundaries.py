@@ -44,7 +44,7 @@ def test_every_tool_returns_a_structured_boundary_result(name, tmp_path):
         result = await server.call_tool(name, values)
         assert result.content, name
         assert result.structured_content is not None, name
-        assert result.structured_content["rde_tool"] == name
+        assert result.structured_content["tool"] == name
         if name not in {
             "init_project",
             "scan_data_folder",

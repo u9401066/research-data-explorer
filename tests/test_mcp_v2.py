@@ -28,7 +28,8 @@ def test_v2_client_discovers_full_surface_and_errors(mode):
                 assert tool.meta["rde/gate"] == CONTRACTS[tool.name].gate
             result = await client.call_tool("init_project", {"name": ""})
             assert result.is_error
-            assert result.structured_content["rde_status"] == "error"
+            assert result.structured_content["status"] == "error"
+            assert result.structured_content["error"]["retryable"] is False
             invalid = await client.call_tool("compare_groups", {})
             assert invalid.is_error
             assert "get_workflow_contract" in {t.name for t in tools}
@@ -51,7 +52,7 @@ def test_resolved_contract_cannot_be_forged_by_model():
                 },
             )
             assert not result.is_error
-            payload = result.structured_content
+            payload = result.structured_content["data"]
             assert payload["human_gates"] == [3, 4, 6]
             assert payload["project_found"] is False
             assert payload["next_tool"] == "init_project"
@@ -117,6 +118,6 @@ def test_v2_stdio_discovery(tmp_path):
         async with Client(params, read_timeout_seconds=30) as client:
             assert {tool.name for tool in (await client.list_tools()).tools} == set(CONTRACTS)
             result = await client.call_tool("get_workflow_contract", {})
-            assert result.structured_content["project_found"] is False
+            assert result.structured_content["data"]["project_found"] is False
 
     asyncio.run(run())

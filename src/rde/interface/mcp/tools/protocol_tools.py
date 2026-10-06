@@ -35,6 +35,29 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 def register_protocol_tools(server: Any) -> None:
     @server.tool()
+    def read_artifact(
+        project_id: str,
+        artifact_id: str,
+        expected_sha256: str,
+        offset: int = 0,
+        limit: int = 65536,
+    ) -> dict[str, Any] | str:
+        """Read exact artifact bytes in hash-pinned base64 pages within one project.
+
+        Use the full artifact identity from a tool result; never infer a path.
+        Follow next_offset with the same project, artifact ID and SHA256.
+        """
+        from rde.interface.mcp.results import read_artifact_page
+        from rde.interface.mcp.tools._shared import fmt_error
+
+        try:
+            return read_artifact_page(project_id, artifact_id, expected_sha256, offset, limit)
+        except (ValueError, KeyError, OSError) as exc:
+            message = str(exc)
+            code = "STALE_ARTIFACT" if "STALE_ARTIFACT" in message else "ARTIFACT_READ_ERROR"
+            return fmt_error(message, code=code)
+
+    @server.tool()
     def get_workflow_contract(
         contract: Annotated[dict, Resolve(resolve_workflow_contract)],
         project_id: str | None = None,
@@ -56,6 +79,8 @@ def register_protocol_tools(server: Any) -> None:
                 "tools": public_contracts(),
                 "mcp_tasks_extension": False,
                 "queue": "artifact-backed, host-driven",
+                "result_contract": "rde-result-v1",
+                "artifact_reads": "project-scoped-sha256-paged-base64",
             }
         )
 

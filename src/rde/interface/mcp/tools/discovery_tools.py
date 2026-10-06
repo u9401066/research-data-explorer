@@ -9,6 +9,16 @@ from __future__ import annotations
 from typing import Any
 
 
+def _source_identity(path, sheet_name):
+    import hashlib
+    import os
+
+    with path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        size = os.fstat(stream.fileno()).st_size
+    return {"sha256": digest, "bytes": size, "filename": path.name, "sheet_name": sheet_name}
+
+
 def _pii_gate_message(
     pii_vars: list[str], *, allow_pii: bool, context: str
 ) -> tuple[bool, str, str, str]:
@@ -413,7 +423,10 @@ def register_discovery_tools(server: Any) -> None:
                 sheet_name=sheet_name,
             )
             dataset = Dataset(metadata=metadata)
+            source_identity = _source_identity(path, sheet_name)
             df, variables, row_count, report = loader.load(metadata)
+            if _source_identity(path, sheet_name) != source_identity:
+                return fmt_error("讀取期間來源檔案已改變，請重新收件。", code="SOURCE_CHANGED")
             dataset.mark_loaded(variables, row_count)
             normalization = report.as_dict()
             dataset.tags["normalization_report"] = normalization
@@ -442,6 +455,7 @@ def register_discovery_tools(server: Any) -> None:
 
             # Step 4: Save intake artifact
             intake_report = {
+                "source": source_identity,
                 "directory": str(directory),
                 "total_files": len(files),
                 "loadable": len(loadable_files),

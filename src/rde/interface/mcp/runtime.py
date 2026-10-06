@@ -6,9 +6,18 @@ from threading import RLock
 from typing import get_type_hints
 
 from mcp.server import MCPServer
-from mcp.types import CallToolResult, ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
+from mcp.server.mcpserver.exceptions import ToolError
 
 from rde.interface.mcp.contracts import CONTRACTS
+from rde.interface.mcp.results import (
+    RdeResult,
+    ResultError,
+    ToolFailure,
+    fingerprints,
+    make_result,
+    resolve_project,
+)
 
 # The application registry is process-global; the lock must be too. Sync v2
 # handlers run on worker threads. Do not lock the event loop while they execute.
@@ -26,7 +35,16 @@ class RDEServer(MCPServer):
             @wraps(fn)
             def guarded(*call_args, **call_kwargs):
                 with STATE_LOCK:
-                    return fn(*call_args, **call_kwargs)
+                    arguments = dict(signature(fn).bind(*call_args, **call_kwargs).arguments)
+                    project = None if name == "init_project" else resolve_project(arguments)
+                    before = fingerprints(project)
+                    value = fn(*call_args, **call_kwargs)
+                    project = (
+                        None
+                        if name == "init_project" and isinstance(value, ToolFailure)
+                        else resolve_project(arguments)
+                    )
+                    return make_result(name, value, project, before)
 
             # Preserve evaluated annotations including Resolve metadata through
             # the wrapper; postponed annotations belong to the original module.
@@ -37,9 +55,9 @@ class RDEServer(MCPServer):
                     p.replace(annotation=hints.get(n, p.annotation))
                     for n, p in sig.parameters.items()
                 ],
-                return_annotation=hints.get("return", sig.return_annotation),
+                return_annotation=RdeResult,
             )
-            guarded.__annotations__ = hints
+            guarded.__annotations__ = {**hints, "return": RdeResult}
             options = dict(kwargs)
             options.setdefault(
                 "annotations",
@@ -56,6 +74,7 @@ class RDEServer(MCPServer):
                     "rde/phase": contract.phase,
                     "rde/gate": contract.gate,
                     "rde/effects": contract.effects,
+                    "rde/result-contract": "rde-result-v1",
                 },
             )
             register(*args, **options)(guarded)
@@ -64,16 +83,22 @@ class RDEServer(MCPServer):
         return decorator
 
     async def call_tool(self, name, arguments, context=None):
-        result = await super().call_tool(name, arguments, context)
+        try:
+            result = await super().call_tool(name, arguments, context)
+        except ToolError as exc:
+            payload = RdeResult(
+                tool=name,
+                status="error",
+                message=str(exc),
+                error=ResultError(code="RDE_CALL_ERROR", message=str(exc)),
+            )
+            return CallToolResult(
+                content=[TextContent(type="text", text=payload.message)],
+                structured_content=payload.model_dump(mode="json"),
+                is_error=True,
+            )
         if isinstance(result, CallToolResult):
-            markdown = "\n".join(block.text for block in result.content if block.type == "text")
-            if markdown.lstrip().startswith("❌"):
-                result.is_error = True
-            if result.structured_content is not None:
-                result.structured_content.update(
-                    {
-                        "rde_status": "error" if result.is_error else "ok",
-                        "rde_tool": name,
-                    }
-                )
+            payload = RdeResult.model_validate(result.structured_content)
+            result.is_error = payload.status == "error"
+            result.content = [TextContent(type="text", text=payload.message)]
         return result

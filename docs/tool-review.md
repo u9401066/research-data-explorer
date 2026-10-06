@@ -2,7 +2,7 @@
 
 This inventory is generated from the live official SDK registry by
 `uv run python scripts/audit_mcp_surface.py`, not inferred from function names.
-All 53 tools have matching SDK/extension inventories, input and output schemas,
+All 71 tools have matching SDK/extension inventories, input and output schemas,
 descriptions, explicit effect/gate contracts and annotations. Every row is covered
 by the parameterized `tests/test_mcp_tool_boundaries.py` isolation/error-boundary
 test; focused suites additionally exercise successful workflows.
@@ -41,6 +41,7 @@ dataset, clinical estimand or external vendor configuration.
 | `get_harness_dashboard` | all | project exists | UX artifacts | no |
 | `get_pipeline_status` | all | project exists | status | yes |
 | `get_workflow_contract` | all | server-resolved state | next legal action | yes |
+| `read_artifact` | all | project + artifact ID + exact SHA256 | bounded artifact byte page | yes |
 | `init_project` | 0 | name + mode validation | project and UX artifacts | no |
 | `inspect_clinical_study` | 3 | source and schema available | eligibility, coding and source hashes; no fitting | yes |
 | `load_dataset` | 1 | format/size/PII | session dataset | no |

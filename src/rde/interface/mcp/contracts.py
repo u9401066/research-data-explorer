@@ -18,6 +18,12 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "read_artifact": ToolContract(
+        "all",
+        "project identity + artifact ID + exact SHA256 + bounded byte page",
+        "hash-pinned artifact bytes; stale references fail closed",
+        read_only=True,
+    ),
     "evidence_arm_preparation": ToolContract(
         "evidence-arm-preparation",
         "strict operation schema + source snapshot + exact reviewed plan/approval + unchanged implementation",
