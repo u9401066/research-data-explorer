@@ -1037,7 +1037,7 @@
       <div class="content">
         <aside class="section" aria-label="Current capabilities">
           <h2>MCP 2.2+ · 開放研究 / Open research</h2>
-          <p>71 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
+          <p>72 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
           <p><a href="index.html#clinical">臨床方法 / Clinical methods</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/mcp-v2.md">SDK migration</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md">Autoresearch contracts</a></p>
           <p>研究證據以效應量、不確定性、實際個案與限制為核心；工具完成、稽核分數或 p 值都不等於臨床可信度。 / Estimates, uncertainty, actual cases, and limitations matter. Tool completion, audit scores, and p-values do not establish clinical credibility.</p>
         </aside>
@@ -1398,7 +1398,7 @@
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 71 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
+              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 72 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2471,7 +2471,7 @@ python3 -m rde</pre>
     ];
 
     const verifiedTools = [
-      ["protocol_tools.py", 2, "get_workflow_contract · read_artifact"],
+      ["protocol_tools.py", 3, "get_workflow_contract · read_artifact · research_plan"],
       ["project_tools.py", 5, "init_project, get_pipeline_status, get_decision_log, get_deviation_log, log_deviation"],
       ["discovery_tools.py", 4, "scan_data_folder, load_dataset, run_intake, build_schema"],
       ["profiling_tools.py", 2, "profile_dataset, assess_quality"],

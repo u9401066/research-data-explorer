@@ -84,13 +84,20 @@ def resolve_project(arguments: dict[str, Any]):
     return project
 
 
-def artifact_paths(project) -> dict[str, Path]:
+def artifact_paths(project, *, include_operations=False) -> dict[str, Path]:
     """Never traverse symlinks or expose files outside the selected project."""
     if project is None:
         return {}
     root = project.output_dir.resolve()
     paths = {}
-    for directory in (root / "artifacts", root / "figures"):
+    directories = [root / "artifacts", root / "figures"]
+    if include_operations:
+        operations = root / ".rde_operations"
+        if operations.is_dir() and not operations.is_symlink():
+            directories.extend(
+                p / "artifacts" for p in operations.iterdir() if p.is_dir() and not p.is_symlink()
+            )
+    for directory in directories:
         if not directory.is_dir() or directory.is_symlink():
             continue
         for path in directory.rglob("*"):
@@ -109,6 +116,8 @@ def artifact_id(project_id: str, relative_path: str) -> str:
 
 
 def artifact_role(relative_path: str) -> str:
+    if relative_path.startswith(".rde_operations/"):
+        relative_path = "/".join(relative_path.split("/")[3:])
     return {
         "artifacts/phase_01_data_intake/intake_report.json": "intake",
         "artifacts/phase_02_schema_registry/schema.json": "schema",
@@ -206,7 +215,7 @@ def read_artifact_page(
     if offset < 0 or not 1 <= limit <= 262144:
         raise ValueError("offset must be nonnegative; limit must be 1..262144 bytes")
     project = get_session().get_project(project_id)
-    for key, path in artifact_paths(project).items():
+    for key, path in artifact_paths(project, include_operations=True).items():
         if artifact_id(project.id, key) != reference_id:
             continue
         # Read and hash one byte snapshot; no hash/read race across independent opens.

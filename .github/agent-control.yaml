@@ -444,3 +444,19 @@ pre_commit_hooks:
     constraint: H-006
     script: scripts/hooks/report_sanitize.py
     checks: report files for leaked paths, credentials, tokens
+
+research_protocol_versions:
+  tool: research_plan
+  operations: [draft, read, approve, attach_results, reuse]
+  immutable: [protocol, parent_reference, source_hashes, sample_size_basis, approval, result_lineage]
+  reuse_requires: [identical_scientific_protocol, explicit_approval, verified_result_bytes]
+  does_not_establish: [assumption_truth, execution_phase_approval, new_calculation_when_reused]
+
+durable_operations:
+  parameter: execution_key
+  format: sha256_hex
+  scope: mutating_tools_except_init_project
+  replay_requires: [same_project_key_arguments_implementation, complete_sealed_receipt, verified_snapshot_bytes]
+  ambiguous_result: EXECUTION_INDETERMINATE_do_not_repeat_effects
+  status_query: get_workflow_contract.execution_receipts
+  does_not_establish: [exactly_once_external_effects, automatic_resume_authorization, assumption_truth]

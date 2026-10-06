@@ -35,7 +35,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 Version 0.5.0, local verification on 2026-10-01: **595 Python tests passed**,
 including real Arial exports for four journal presets across eight study variants;
 five optional tests were explicitly skipped. Ruff and pre-commit passed.
-The survival publication commit also passed 40 extension tests and VSIX packaging. The live inventory now contains 71 tools across 16 modules.
+The survival publication commit also passed 40 extension tests and VSIX packaging. The live inventory now contains 72 tools across 16 modules.
 Publication editions preserve the original study and plotting data, support edited
 English captions with Chinese explanations, and retain source, font and output
 hashes. See [publication figures and configured fonts](docs/publication-figures.md).
@@ -69,7 +69,7 @@ This README is aligned with the current implementation, not only the older prose
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
 | MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 15 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
-| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 71 tools, explicit effect/gate metadata, structured output and live inventory tests |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 72 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
@@ -114,11 +114,11 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 71 MCP tools across 16 modules:
+The current implementation exposes 72 MCP tools across 16 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
-| `protocol_tools.py` | 1 | `get_workflow_contract` |
+| `protocol_tools.py` | 3 | `get_workflow_contract`, `read_artifact`, `research_plan` |
 | `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
 | `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |

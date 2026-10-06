@@ -1,7 +1,7 @@
 """Protocol boundary: SDK v2 concurrency, effect hints and machine-readable errors."""
 
 from functools import wraps
-from inspect import signature
+from inspect import signature, Parameter
 from threading import RLock
 from typing import get_type_hints
 
@@ -35,8 +35,26 @@ class RDEServer(MCPServer):
             @wraps(fn)
             def guarded(*call_args, **call_kwargs):
                 with STATE_LOCK:
+                    execution_key = call_kwargs.pop("execution_key", None)
                     arguments = dict(signature(fn).bind(*call_args, **call_kwargs).arguments)
                     project = None if name == "init_project" else resolve_project(arguments)
+                    operation_dir = None
+                    if execution_key:
+                        from rde.interface.mcp.operations import begin
+
+                        try:
+                            operation_dir, saved = begin(project, execution_key, name, arguments)
+                            if saved is not None:
+                                return saved
+                        except (ValueError, OSError, KeyError) as error:
+                            return RdeResult(
+                                tool=name,
+                                status="error",
+                                message=str(error),
+                                error=ResultError(
+                                    code=str(error).split(":")[0], message=str(error)
+                                ),
+                            )
                     before = fingerprints(project)
                     value = fn(*call_args, **call_kwargs)
                     project = (
@@ -44,17 +62,29 @@ class RDEServer(MCPServer):
                         if name == "init_project" and isinstance(value, ToolFailure)
                         else resolve_project(arguments)
                     )
-                    return make_result(name, value, project, before)
+                    result = make_result(name, value, project, before)
+                    if operation_dir is not None:
+                        from rde.interface.mcp.operations import finish
+
+                        result = finish(project, operation_dir, result)
+                    return result
 
             # Preserve evaluated annotations including Resolve metadata through
             # the wrapper; postponed annotations belong to the original module.
             hints = get_type_hints(fn, include_extras=True)
             sig = signature(fn)
+            parameters = [
+                p.replace(annotation=hints.get(n, p.annotation)) for n, p in sig.parameters.items()
+            ]
+            if not contract.read_only and name != "init_project":
+                parameters.append(
+                    Parameter(
+                        "execution_key", Parameter.KEYWORD_ONLY, default=None, annotation=str | None
+                    )
+                )
+                hints["execution_key"] = str | None
             guarded.__signature__ = sig.replace(
-                parameters=[
-                    p.replace(annotation=hints.get(n, p.annotation))
-                    for n, p in sig.parameters.items()
-                ],
+                parameters=parameters,
                 return_annotation=RdeResult,
             )
             guarded.__annotations__ = {**hints, "return": RdeResult}

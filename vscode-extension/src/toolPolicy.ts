@@ -45,6 +45,7 @@ export const RDE_MCP_TOOL_NAMES = [
     ...EXTERNAL_GENOMICS_TOOL_NAMES,
     ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
+    'research_plan',
     'read_artifact',
     'init_project',
     'get_pipeline_status',
@@ -93,6 +94,7 @@ export const RDE_MCP_TOOL_NAMES = [
 ] as const;
 
 const WORKFLOW_PREREQUISITE_TOOLS = [
+    'research_plan',
     'init_project',
     'get_pipeline_status',
     'scan_data_folder',

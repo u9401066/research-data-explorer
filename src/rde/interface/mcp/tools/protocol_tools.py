@@ -30,17 +30,43 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
                 "next_tool": "init_project",
                 "action_contract": workflow_actions(None, None),
             }
+        from rde.interface.mcp.operations import operation_status
+
         pipeline = get_session().get_pipeline(project.id)
         return {
             **base,
             "project_found": True,
             "project_id": project.id,
             "pipeline": pipeline.summary(),
+            "execution_receipts": operation_status(project),
             "action_contract": workflow_actions(project, pipeline),
         }
 
 
 def register_protocol_tools(server: Any) -> None:
+    @server.tool()
+    def research_plan(project_id: str, request: dict) -> str:
+        """Immutable native protocol: draft/read/approve/attach_results/reuse.
+
+        request.op and plan_id required. draft requires protocol (question, steps,
+        sourceHash, schemaHash and full scientific assumptions), sources with absolute
+        path/sha256/bytes, intent initial/revise/append, reason, and exact parent
+        {plan_id,sha256} for revision. approve requires expected_sha256 and reviewer.
+        attach_results requires exact plan hash, execution_id UUID and artifacts.
+        reuse only links a parent's verified results when scientific protocols match.
+        Does not unlock execution plans or automatically approve revised protocols.
+        """
+        from rde.interface.mcp.research_plans import execute
+        from rde.interface.mcp.tools._shared import ensure_project_context, fmt_error
+
+        ok, message, project = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(message)
+        try:
+            return json.dumps(execute(project, request), ensure_ascii=False)
+        except (ValueError, KeyError, TypeError, OSError) as error:
+            return fmt_error(str(error), code="RESEARCH_PLAN_ERROR")
+
     @server.tool()
     def read_artifact(
         project_id: str,

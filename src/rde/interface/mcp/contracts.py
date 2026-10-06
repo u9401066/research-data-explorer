@@ -18,6 +18,11 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "research_plan": ToolContract(
+        "research-plan",
+        "immutable protocol + verified bytes + exact approval and lineage",
+        "native research revisions, differences, approval and explicit result reuse",
+    ),
     "read_artifact": ToolContract(
         "all",
         "project identity + artifact ID + exact SHA256 + bounded byte page",
