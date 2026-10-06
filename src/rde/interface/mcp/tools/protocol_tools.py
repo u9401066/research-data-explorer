@@ -13,6 +13,7 @@ from rde.interface.mcp.runtime import STATE_LOCK
 def resolve_workflow_contract(project_id: str | None = None) -> dict:
     from rde.interface.mcp.tools._shared import ensure_project_context
     from rde.application.session import get_session
+    from rde.interface.mcp.workflow import workflow_actions
 
     with STATE_LOCK:
         ok, _, project = ensure_project_context(project_id)
@@ -23,13 +24,19 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
             "quick_explore_is_audited": False,
         }
         if not ok:
-            return {**base, "project_found": False, "next_tool": "init_project"}
+            return {
+                **base,
+                "project_found": False,
+                "next_tool": "init_project",
+                "action_contract": workflow_actions(None, None),
+            }
         pipeline = get_session().get_pipeline(project.id)
         return {
             **base,
             "project_found": True,
             "project_id": project.id,
             "pipeline": pipeline.summary(),
+            "action_contract": workflow_actions(project, pipeline),
         }
 
 
