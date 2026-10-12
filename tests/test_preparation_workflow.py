@@ -77,12 +77,31 @@ def test_immutable_draft_approval_release_and_restart(tmp_path):
 
 def test_agent_preview_executes_the_contract_without_approving_or_saving_a_version(tmp_path):
     project, request = setup(tmp_path)
+    live_contract = workflow.execute(project, {"op": "contract"})
+    semantics = live_contract["execution_semantics"]
+    assert "available_column" in semantics["baseline_availability"]
+    assert "not_available" in semantics["baseline_availability"]
+    assert "ENTIRE analysis unit" in semantics["exclude_statuses"]
+    assert "descriptive" in semantics["column_roles"]
+    assert not project.output_dir.exists()
     result = workflow.execute(
         project,
         {"op": "preview", "sources": request["sources"], "specification": request["specification"]},
     )
     assert result["advisory_only"] is True
     assert result["summary"]["population"]["subjects"] == 6
+    # Contract words must agree with the actual engine on this oracle fixture:
+    # window/availability/coverage mark missingness without deleting the patient.
+    lab_link = result["summary"]["relationships"][0]
+    assert lab_link["statuses"] == {
+        "matched": 1,
+        "outside_window": 1,
+        "not_available": 1,
+        "not_exported": 1,
+        "no_record": 1,
+        "unknown_coverage": 1,
+    }
+    assert lab_link["analysis_units_after"] == 6
     assert not (workflow.directory(project) / "versions").exists()
     assert not any("values" in issue for issue in result["issues"])
     request["specification"]["relations"][0]["filters"] = [

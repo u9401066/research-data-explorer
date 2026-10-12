@@ -15,6 +15,11 @@ def facts(**changes):
 
 
 def test_typed_ports_and_phase_gates_are_independent():
+    for source in ["preparation", "dataset", "question"]:
+        assert not validate_connection(source, "create_plan", facts(preparationUnready=True))[
+            "allowed"
+        ]
+        assert validate_connection(source, "create_plan", facts())["allowed"]
     assert validate_connection("plan_draft", "sample_size", facts())["allowed"]
     for source in ["plan_approved", "analysis", "exploration", "result"]:
         assert not validate_connection(source, "sample_size", facts())["allowed"]

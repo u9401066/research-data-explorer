@@ -580,6 +580,17 @@ def execute(project, request):
                 "filtered_out",
             ],
             "model_execution": False,
+            "execution_semantics": {
+                "cohort": "Each cohort.keep executes exactly one predicate. Multiple conditions need separate rules, applied sequentially. Rule id/reason are explanations, not executable conditions.",
+                "filters": "relation.filters address columns of that relation's event source, not the main unit table. Numeric comparisons use literal constants. Cross-column dates belong in window, never filters.",
+                "window": "Event time minus the unit index time is compared in fractional 24-hour days with start_days/end_days and bounds. end_days=0 means the exact index timestamp, not the end of its calendar day. followup_end_column additionally bounds event time when present.",
+                "baseline_availability": "With window.purpose=baseline, available_column is parsed and events known after index are classified not_available and cannot contribute feature values. availability=event_time_confirmed explicitly uses event time instead. This check is implemented by RDE; do not add a duplicate cross-column filter.",
+                "coverage": "coverage.mode=by_column reads the named column from the MAIN unit row: exported_values => complete; not_exported_values => not_exported; every other value => unknown. With no matching records these produce no_record/not_exported/unknown_coverage statuses respectively. Coverage does not itself delete a unit.",
+                "exclude_statuses": "These statuses delete the ENTIRE analysis unit after aggregation. The default empty list retains units without usable events. Filtering unusable/future event records does not require excluding their patients or encounters.",
+                "column_roles": "Derived fields with a window inherit baseline/followup from window.purpose. Without a window and without at_index_basis they are descriptive, not baseline predictors. A declared at_index_basis without a window attests index-time availability. A requested all-time descriptive medication count must not acquire an invented baseline window or availability assertion.",
+                "aggregation": "Every relation is aggregated independently to each unit before combining features; raw event tables are never joined together. count counts selected event records. Missing feature values and linkage statuses stay separate; unknown/not-exported coverage is not evidence of zero events.",
+                "validation": "Preview executes the specification and returns denominators, statuses and technical issues without approval or persistent analysis version. Zero blockers is not semantic or clinical approval; requirement alignment and actual linkage truth require review.",
+            },
             "clinical_truth": "Software validation and reviewer attestation are distinct; neither proves real clinical linkage truth.",
         }
     root = directory(project)
