@@ -90,6 +90,8 @@ RDE makes the agent behave more like a traceable analysis operator:
 
 ## What It Is Honest About
 
+Relational clinical exports are not yet a governed end-to-end input workflow. Multiple-file intake and source hashes do not establish patient/encounter/lab/medication joins, partial-linkage quality, temporal cohort construction, or the correct participant denominator. Existing paired and longitudinal methods operate on an already prepared table. See the [2026-10-12 live MCP boundary audit](docs/relational-data-boundary.md) before treating multi-table hospital exports as an analysis-ready dataset.
+
 RDE can govern standard, template-friendly analysis families: descriptive summaries, Table 1, group comparisons, correlation/collinearity review, repeated-measures summaries, common figures, adjusted local models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, Cox regression when feasible, and lightweight propensity scoring.
 
 Specialized methods that depend heavily on study design still need custom integration or human methodology review. RDE should not pretend that an imagined method is implemented just because an agent can describe it.
