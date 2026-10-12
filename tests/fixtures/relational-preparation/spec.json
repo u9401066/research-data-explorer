@@ -97,7 +97,7 @@
     }
   ],
   "definitions": {
-    "unit": "One patient per site and lexical patient ID",
+    "unit": "One participant per site and lexical subject key",
     "linkage": "Synthetic identifiers share the site namespace",
     "time": "UTC index; labs must be known at index",
     "missingness": "Explicit export flags; unknown never means negative"
