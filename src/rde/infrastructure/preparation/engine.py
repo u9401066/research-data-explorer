@@ -55,10 +55,14 @@ def matches(values, rule):
     if rule.op in {"in", "not_in"}:
         if not isinstance(rule.value, list):
             raise ValueError("in/not_in requires an explicit list")
-        found = str(actual) in rule.value
+        found = (
+            actual in [number(v) for v in rule.value]
+            if isinstance(actual, (int, float))
+            else str(actual) in rule.value
+        )
         return found if rule.op == "in" else not found
-    if isinstance(rule.value, (int, float)):
-        equal = number(actual) == rule.value
+    if isinstance(rule.value, (int, float)) or isinstance(actual, (int, float)):
+        equal = number(actual) == number(rule.value)
     else:
         equal = str(actual) == rule.value
     return equal if rule.op == "eq" else not equal
@@ -78,13 +82,23 @@ class Evaluation:
         self.columns = []
 
     def issue(
-        self, code, message, *, severity="blocker", source_id=None, records=None, unit_id=None
+        self,
+        code,
+        message,
+        *,
+        severity="blocker",
+        source_id=None,
+        records=None,
+        unit_id=None,
+        column=None,
     ):
         record = {"code": code, "message": message, "severity": severity}
         if source_id:
             record["source_id"] = source_id
         if unit_id:
             record["unit_id"] = unit_id
+        if column:
+            record["column"] = column
         if records:
             record["records"] = records
         self.issues.append(record)
@@ -407,16 +421,10 @@ class Evaluation:
             [u["values"] for u in units],
             "Declared unit keys, duplicate policy and explicit source-row exclusions",
         )
-        units = self.apply_cohort(units, "before_links")
-        for relation in spec.relations:
-            units = self.apply_relation(units, root, relation)
-        units = self.apply_cohort(units, "after_links")
-        for u in units:
-            self.trace[u["id"]]["included"] = True
-        # Apply declared output types only after lexical identity, windows and
-        # eligibility have been evaluated. Raw keys never undergo numeric coercion.
+        # Declared cleaning applies before eligibility. Link identity and time/
+        # export metadata use the untouched source row, not numeric coercions.
         for record in self.trace.values():
-            for column in retained:
+            for column in root.columns:
                 rule = unit.columns.get(column, ColumnRule())
                 raw = record["values"][column]
                 try:
@@ -436,7 +444,16 @@ class Evaluation:
                     )
                     value = None
                 record["values"][column] = value
-                record["cells"][column]["rule"] = {"source_copy": True, **rule.model_dump()}
+                record["cells"][column] = {
+                    "rule": {"source_copy": True, **rule.model_dump()},
+                    "sources": [{**record["root"], "column": column}],
+                }
+        units = self.apply_cohort(units, "before_links")
+        for relation in spec.relations:
+            units = self.apply_relation(units, root, relation)
+        units = self.apply_cohort(units, "after_links")
+        for u in units:
+            self.trace[u["id"]]["included"] = True
         self.rows = [{column: u["values"].get(column) for column in self.columns} for u in units]
         if not units:
             self.issue(
@@ -446,6 +463,12 @@ class Evaluation:
         return self
 
     def apply_relation(self, units, root, relation):
+        if relation.window is None and not relation.at_index_basis:
+            self.issue(
+                "UNVERIFIED_TIME_" + relation.id,
+                "No time window or reviewed at-index availability basis is declared; derived values cannot be used as baseline predictors.",
+                severity="warning",
+            )
         table = self.tables[relation.source_id]
         root.require_columns(
             relation.left_keys + ([relation.coverage.column] if relation.coverage.column else [])
@@ -512,7 +535,7 @@ class Evaluation:
                 source_id=table.source.id,
             )
         left_keys = {
-            key(u["values"], relation.left_keys, relation.key_normalization) for u in units
+            key(u["row"].values, relation.left_keys, relation.key_normalization) for u in units
         }
         left_keys.discard(None)
         orphans = [r for k, rows in index.items() if k not in left_keys for r in rows]
@@ -524,10 +547,11 @@ class Evaluation:
         direct_rows = 0
         for u in units:
             uid, values = u["id"], u["values"]
-            k = key(values, relation.left_keys, relation.key_normalization)
+            raw = u["row"].values
+            k = key(raw, relation.left_keys, relation.key_normalization)
             all_matches = index.get(k, []) if k is not None else []
             direct_rows += len(all_matches)
-            coverage = self.coverage(relation, values)
+            coverage = self.coverage(relation, raw)
             selected, excluded, times = [], {"outside_window": [], "not_available": []}, {}
             try:
                 filtered = [
@@ -535,13 +559,17 @@ class Evaluation:
                     for r in all_matches
                     if all(matches(r.values, predicate) for predicate in relation.filters)
                 ]
-                selected, excluded, times = self.select_window(relation, filtered, values)
+                selected, excluded, times = self.select_window(relation, filtered, raw)
                 if coverage == "not_exported" and all_matches:
                     raise ValueError("export coverage says not exported but matching records exist")
                 if k is None:
                     status = "link_failed"
                 elif selected:
-                    status = "matched_partial" if k in rejected_keys else "matched"
+                    status = (
+                        "matched_partial"
+                        if k in rejected_keys or coverage != "complete"
+                        else "matched"
+                    )
                 elif k in rejected_keys:
                     status = "link_failed"
                 elif coverage == "not_exported":
@@ -558,7 +586,7 @@ class Evaluation:
                     status = "no_record" if coverage == "complete" else "unknown_coverage"
                 for feature in relation.features:
                     instant = (
-                        timestamp(values[self.spec.unit.index_column], self.spec.unit.timezone)
+                        timestamp(raw[self.spec.unit.index_column], self.spec.unit.timezone)
                         if relation.window
                         else None
                     )
@@ -595,6 +623,13 @@ class Evaluation:
                 },
             }
         reused = [i for i, count in consumed.items() if count > 1]
+        if counts["matched_partial"]:
+            self.issue(
+                "PARTIAL_OBSERVATIONS_" + relation.id,
+                "Some aggregates include observed matches with incomplete coverage or rejected conflicting records; they do not establish complete history.",
+                severity="warning",
+                source_id=table.source.id,
+            )
         if relation.kind == "events" and reused and relation.reuse_events != "allow":
             self.issue(
                 "REUSED_EVENTS_" + relation.id,

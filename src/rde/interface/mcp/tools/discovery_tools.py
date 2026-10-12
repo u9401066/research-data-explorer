@@ -7,6 +7,7 @@ All tools return markdown strings.
 from __future__ import annotations
 
 from typing import Any
+from rde.interface.mcp.tools._shared.numeric_summary import finite_stat
 
 
 def _source_identity(path, sheet_name):
@@ -679,11 +680,11 @@ def register_discovery_tools(server: Any) -> None:
                 ):
                     desc = df[v.name].describe()
                     var_info["stats"] = {
-                        "mean": round(float(desc.get("mean", 0)), 4),
-                        "std": round(float(desc.get("std", 0)), 4),
-                        "min": float(desc.get("min", 0)),
-                        "max": float(desc.get("max", 0)),
-                        "median": float(desc.get("50%", 0)),
+                        "mean": finite_stat(desc.get("mean"), 4),
+                        "std": finite_stat(desc.get("std"), 4),
+                        "min": finite_stat(desc.get("min")),
+                        "max": finite_stat(desc.get("max")),
+                        "median": finite_stat(desc.get("50%")),
                     }
 
                 schema["variables"].append(var_info)

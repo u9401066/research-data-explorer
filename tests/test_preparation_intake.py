@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import json
 from pathlib import Path
 import shutil
 from types import SimpleNamespace
@@ -90,6 +91,35 @@ def test_bundle_checks_hash_closure_and_paths(tmp_path):
         with pytest.raises(ValueError, match="relative path|extra files"):
             portable.import_bundle(target, str(path), sha, release["receipt_sha256"])
     assert not (target.output_dir / "escape").exists()
+
+
+def test_release_time_roles_and_frozen_cleaning_prevent_silent_new_versions(tmp_path):
+    from rde.application.session import DatasetEntry
+    from rde.domain.models.dataset import Dataset
+    from rde.infrastructure.adapters.dataframe_lineage import apply_recorded_cleaning
+    from test_dataframe_lineage import plan as cleaning_plan
+
+    project, _, release, bundle = released(tmp_path)
+    binding = portable.import_bundle(
+        project, bundle["path"], bundle["sha256"], release["receipt_sha256"]
+    )
+    assert binding["population"]["subjects"] == 6
+    assert binding["column_roles"] == {
+        "lab_count": "baseline",
+        "lab_mean": "baseline",
+        "drug_count": "descriptive",
+    }
+    metadata = DatasetMetadata(
+        Path(release["dataset"]["path"]), "csv", release["dataset"]["bytes"], preparation=binding
+    )
+    frame, variables, n, _ = PandasLoader().load(metadata)
+    dataset = Dataset(metadata=metadata)
+    dataset.mark_loaded(variables, n)
+    entry = DatasetEntry(dataset, frame)
+    before = frame.copy()
+    with pytest.raises(ValueError, match="PREPARED_DATA_IMMUTABLE"):
+        apply_recorded_cleaning(project, entry, cleaning_plan(entry, "drop_rows", "lab_mean"))
+    pd.testing.assert_frame_equal(before, entry.dataframe)
 
 
 def test_literal_unicode_sentinels_empty_columns_and_empty_strings(tmp_path):
@@ -190,6 +220,17 @@ def test_mcp_intake_restart_and_data_version_bind_approved_recipe(tmp_path):
         assert ok, message
         version = dataset_version(project, entry)
         assert version["source_status"] == "verified"
+        result = await server.call_tool(
+            "build_schema", {"project_id": project.id, "dataset_id": dataset_id}
+        )
+        assert not result.is_error, result
+        schema = ArtifactStore(project.artifacts_dir).load(
+            PipelinePhase.SCHEMA_REGISTRY, "schema.json"
+        )
+        json.dumps(schema, allow_nan=False)  # Sparse columns must remain valid JSON.
+        sparse = next(v for v in schema["variables"] if v["name"] == "lab_mean")
+        assert sparse["stats"]["mean"] == 20
+        assert sparse["stats"]["std"] is None
         receipt = ArtifactStore(project.artifacts_dir).load(
             PipelinePhase.DATA_INTAKE, "intake_report.json"
         )

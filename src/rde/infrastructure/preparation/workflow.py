@@ -389,7 +389,13 @@ def release(project, request):
         "population": plan["summary"]["population"],
         "unit": plan["specification"]["unit"],
         "column_roles": {
-            feature["output"]: (r["window"]["purpose"] if r["window"] else "descriptive")
+            feature["output"]: (
+                r["window"]["purpose"]
+                if r["window"]
+                else "baseline"
+                if r["at_index_basis"]
+                else "descriptive"
+            )
             for r in plan["specification"]["relations"]
             for feature in r["features"]
         },
@@ -454,6 +460,8 @@ def trace(project, request):
     if column not in record["cells"]:
         raise ValueError("column has no trace in this preparation")
     cell = record["cells"][column]
+    relation = cell.get("relation")
+    linkage = record["relations"].get(relation) if relation else None
     offset, limit = request.get("offset", 0), request.get("limit", 30)
     if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("invalid trace page")
@@ -477,11 +485,46 @@ def trace(project, request):
         "column": column,
         "value": record["values"].get(column),
         "rule": {k: v for k, v in cell.items() if k != "sources"},
+        "root_reference": record["root"],
+        "relation_rule": next(
+            (r for r in plan["specification"]["relations"] if r["id"] == relation), None
+        ),
+        "linkage_evidence": {
+            "status": linkage["status"],
+            "coverage": linkage["coverage"],
+            "matched_count": len(linkage["matched_records"]),
+            "selected_count": len(linkage["selected_records"]),
+            "excluded_counts": {reason: len(rows) for reason, rows in linkage["excluded"].items()},
+        }
+        if linkage
+        else None,
         "source_records": values,
         "offset": offset,
         "total": len(refs),
         "next_offset": offset + limit if offset + limit < len(refs) else None,
     }
+
+
+def source_row(project, request):
+    plan = read_plan(project, request["preparation_id"], request["expected_sha256"])
+    reference = request["reference"]
+    item = next(
+        (s for s in plan["source_snapshots"] if s["source"]["id"] == reference.get("source_id")),
+        None,
+    )
+    if item is None:
+        raise ValueError("source does not belong to this preparation")
+    table = sources.load(
+        contract.Source.model_validate(item["source"]),
+        safe_path(directory(project), item["snapshot"]),
+    )
+    index = reference.get("record_index")
+    if type(index) is not int or not 0 <= index < len(table.rows):
+        raise ValueError("invalid source record position")
+    row = table.rows[index]
+    if table.ref(row) != reference:
+        raise ValueError("STALE_SOURCE_ROW: full source record reference differs")
+    return {"reference": reference, "values": row.values}
 
 
 def execute(project, request):
@@ -513,6 +556,7 @@ def execute(project, request):
             "limit",
         },
         "bundle": {"op", "preparation_id", "expected_sha256", "release_sha256"},
+        "source_row": {"op", "preparation_id", "expected_sha256", "reference"},
     }
     if op not in allowed or set(request) - allowed[op]:
         raise ValueError("unknown preparation operation or fields")
@@ -539,6 +583,8 @@ def execute(project, request):
         }
     root = directory(project)
     with locked(root):
+        if op == "source_row":
+            return source_row(project, request)
         if op == "bundle":
             from rde.infrastructure.preparation.portable import export_bundle
 

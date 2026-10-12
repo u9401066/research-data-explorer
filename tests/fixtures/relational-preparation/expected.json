@@ -1,0 +1,17 @@
+{
+  "subjects": 6,
+  "units": 6,
+  "site_A_pid_001": {
+    "lab_count": 3,
+    "lab_mean": 20,
+    "drug_count": 2
+  },
+  "statuses": {
+    "matched": 1,
+    "outside_window": 1,
+    "not_available": 1,
+    "no_record": 1,
+    "not_exported": 1,
+    "unknown_coverage": 1
+  }
+}

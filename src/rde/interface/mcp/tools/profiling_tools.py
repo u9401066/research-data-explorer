@@ -198,18 +198,20 @@ def register_profiling_tools(server: Any) -> None:
                         and pd.api.types.is_numeric_dtype(col)
                         and v.variable_type in {VariableType.CONTINUOUS, VariableType.BIOMARKER}
                     ):
+                        from rde.interface.mcp.tools._shared.numeric_summary import finite_stat
+
                         desc = col.describe()
                         vp_kwargs.update(
                             {
-                                "mean": float(desc.get("mean", 0)),
-                                "std": float(desc.get("std", 0)),
-                                "min_val": float(desc.get("min", 0)),
-                                "max_val": float(desc.get("max", 0)),
-                                "median": float(desc.get("50%", 0)),
-                                "q1": float(desc.get("25%", 0)),
-                                "q3": float(desc.get("75%", 0)),
-                                "skewness": float(col.skew()),
-                                "kurtosis": float(col.kurtosis()),
+                                "mean": finite_stat(desc.get("mean")),
+                                "std": finite_stat(desc.get("std")),
+                                "min_val": finite_stat(desc.get("min")),
+                                "max_val": finite_stat(desc.get("max")),
+                                "median": finite_stat(desc.get("50%")),
+                                "q1": finite_stat(desc.get("25%")),
+                                "q3": finite_stat(desc.get("75%")),
+                                "skewness": finite_stat(col.skew()),
+                                "kurtosis": finite_stat(col.kurtosis()),
                             }
                         )
                     elif col is not None:

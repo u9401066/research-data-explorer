@@ -194,6 +194,8 @@ def import_bundle(project, path, expected_sha, release_sha):
         "preparation_id": plan["preparation_id"],
         "dataset": release["dataset"],
         "column_roles": release["column_roles"],
+        "unit": release["unit"],
+        "population": release["population"],
     }
 
 

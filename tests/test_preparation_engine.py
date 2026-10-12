@@ -5,6 +5,7 @@ import hashlib
 import io
 import random
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -181,6 +182,17 @@ def test_predeclared_truth_and_independent_sql_prevent_three_by_two_expansion(tm
     )
 
 
+def test_observed_events_with_unknown_coverage_are_partial_not_complete(tmp_path):
+    sources, spec, _ = fixture(tmp_path)
+    spec["relations"][0]["coverage"] = {"mode": "unknown"}
+    result = evaluate(sources, spec)
+    row = next(r for r in result.rows if r["site"] == "A" and r["pid"] == "001")
+    assert row["lab_count"] == 3
+    assert row["_rde_labs_status"] == "matched_partial"
+    assert any(i["code"] == "PARTIAL_OBSERVATIONS_labs" for i in result.issues)
+    assert any(i["code"] == "UNVERIFIED_TIME_meds" for i in result.issues)
+
+
 def test_shuffled_records_preserve_every_output_value_and_unit_identity(tmp_path):
     sources, specification, _ = fixture(tmp_path)
     original = evaluate(sources, specification)
@@ -325,3 +337,98 @@ def test_excel_formula_is_not_silently_treated_as_cached_measurement(tmp_path):
     )
     with pytest.raises(ValueError, match="values-only"):
         load(s)
+
+
+def test_declared_cleaning_precedes_eligibility_and_invalid_numbers_block(tmp_path):
+    inputs, spec, _ = fixture(tmp_path)
+    spec["unit"]["columns"] = {"age": {"value_type": "number", "missing_tokens": ["", "40"]}}
+    spec["cohort"] = [
+        {
+            "id": "observed_age",
+            "reason": "Synthetic explicit sentinel",
+            "keep": {"column": "age", "op": "present"},
+        }
+    ]
+    result = evaluate(inputs, spec)
+    assert result.summary()["ready_for_approval"]
+    assert len(result.rows) == 6
+    assert not any(r["site"] == "A" and r["pid"] == "001" for r in result.rows)
+    spec["cohort"][0]["keep"] = {"column": "age", "op": "in", "value": ["30", "50"]}
+    result = evaluate(inputs, spec)
+    assert sorted(r["age"] for r in result.rows) == [30, 50]
+    spec["unit"]["columns"]["lab_exported"] = {"value_type": "number"}
+    blocked = evaluate(inputs, spec)
+    assert not blocked.summary()["ready_for_approval"]
+    assert any(
+        i["code"] == "INVALID_OUTPUT_TYPE" and i["column"] == "lab_exported" for i in blocked.issues
+    )
+
+
+def test_encounters_keep_subject_denominator_and_reused_events_are_explicit(tmp_path):
+    inputs, spec, _ = fixture(tmp_path)
+    people = source(
+        tmp_path,
+        "encounters",
+        ["site", "pid", "visit", "index_at", "lab_exported", "age"],
+        [
+            ["A", "001", "v1", "2025-01-10T00:00:00Z", "yes", 40],
+            ["A", "001", "v2", "2025-01-11T00:00:00Z", "yes", 40],
+        ],
+    )
+    inputs[0] = people
+    spec["unit"].update(source_id="encounters", kind="encounter", keys=["site", "pid", "visit"])
+    result = evaluate(inputs, spec)
+    assert result.summary()["population"]["subjects"] == 1
+    assert result.summary()["population"]["units"] == 2
+    assert not result.summary()["ready_for_approval"]
+    assert any(i["code"] == "REUSED_EVENTS_labs" for i in result.issues)
+    for relation in spec["relations"]:
+        relation["reuse_events"] = "allow"
+    allowed = evaluate(inputs, spec)
+    assert allowed.summary()["ready_for_approval"]
+    assert [r["lab_count"] for r in allowed.rows] == [3, 3]
+    assert allowed.summary()["population"]["encounters"] == 2
+
+
+def test_independent_sql_compares_every_analysis_value_and_identity(tmp_path):
+    import json
+
+    inputs, spec, _ = fixture(tmp_path)
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    for source in inputs:
+        with Path(source.path).open(newline="") as file:
+            reader = csv.reader(file)
+            columns = next(reader)
+            # All raw columns remain lexical strings in the reference import.
+            db.execute(
+                f'CREATE TABLE "{source.id}" (' + ",".join(f'"{c}" TEXT' for c in columns) + ")"
+            )
+            db.executemany(
+                f'INSERT INTO "{source.id}" VALUES (' + ",".join("?" for _ in columns) + ")", reader
+            )
+    sql = (Path(__file__).parent / "fixtures/relational-preparation/reference.sql").read_text()
+    expected = [dict(row) for row in db.execute(sql)]
+    db.close()
+    actual = evaluate(inputs, spec).rows
+    assert len(actual) == len(expected) == 6
+    for row, reference in zip(actual, expected, strict=True):
+        assert {
+            k: v for k, v in row.items() if k not in {"_rde_unit_id", "_rde_subject_id"}
+        } == reference
+        key = [row["site"], row["pid"]]
+
+        # Reference identities use only stdlib JSON/SHA, no native key helpers.
+        def independent_hash(value):
+            return hashlib.sha256(
+                json.dumps(
+                    value,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ).encode()
+            ).hexdigest()
+
+        assert row["_rde_unit_id"] == "u_" + independent_hash(["preparation", "patient", key])
+        assert row["_rde_subject_id"] == "s_" + independent_hash(["preparation", key])

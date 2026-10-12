@@ -64,8 +64,13 @@ class Unit(StrictModel):
             if len(keys) != len(set(keys)):
                 raise ValueError("column selections cannot repeat a column")
         for key in set(self.keys + self.subject_keys):
-            if key in self.columns and self.columns[key].value_type != "text":
-                raise ValueError("identifier columns must retain their lexical text")
+            if key in self.columns and (
+                self.columns[key].value_type != "text"
+                or any(v for v in self.columns[key].missing_tokens)
+            ):
+                raise ValueError(
+                    "identifier columns must retain their lexical text; exclude sentinel-ID records explicitly"
+                )
         return self
 
 
@@ -142,6 +147,7 @@ class Relation(StrictModel):
     coverage: Coverage = Field(default_factory=Coverage)
     filters: list[Predicate] = Field(default_factory=list, max_length=30)
     window: Window | None = None
+    at_index_basis: str | None = Field(default=None, min_length=10, max_length=2000)
     features: list[Feature] = Field(min_length=1, max_length=50)
     reuse_events: Literal["block", "allow"] = "block"
     exclude_statuses: list[

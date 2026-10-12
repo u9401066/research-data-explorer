@@ -222,6 +222,10 @@ def bind_source(project, entry):
 
 def apply_recorded_cleaning(project, entry, approved_plan):
     """Commit evidence before the caller replaces its live frame or plan."""
+    if entry.dataset.metadata and entry.dataset.metadata.preparation and _operations(approved_plan):
+        raise ValueError(
+            "PREPARED_DATA_IMMUTABLE: revise and approve a new preparation instead of modifying the released analysis dataset."
+        )
     binding = bind_source(project, entry)
     if binding["status"] != "verified":
         raise ValueError("Recorded cleaning requires a readable original source file.")

@@ -1,0 +1,105 @@
+{
+  "unit": {
+    "source_id": "people",
+    "kind": "patient",
+    "keys": [
+      "site",
+      "pid"
+    ],
+    "subject_keys": [
+      "site",
+      "pid"
+    ],
+    "index_column": "index_at"
+  },
+  "relations": [
+    {
+      "id": "labs",
+      "source_id": "labs",
+      "left_keys": [
+        "site",
+        "pid"
+      ],
+      "right_keys": [
+        "site",
+        "pid"
+      ],
+      "kind": "events",
+      "record_keys": [
+        "lab_id"
+      ],
+      "coverage": {
+        "mode": "by_column",
+        "column": "lab_exported",
+        "exported_values": [
+          "yes"
+        ],
+        "not_exported_values": [
+          "no"
+        ]
+      },
+      "window": {
+        "event_column": "taken_at",
+        "available_column": "known_at",
+        "start_days": -7,
+        "end_days": 0
+      },
+      "features": [
+        {
+          "output": "lab_count",
+          "aggregate": "count"
+        },
+        {
+          "output": "lab_mean",
+          "column": "value",
+          "aggregate": "mean",
+          "value_type": "number"
+        }
+      ],
+      "reason": "Synthetic oracle: baseline available labs, retaining partial linkage states"
+    },
+    {
+      "id": "meds",
+      "source_id": "meds",
+      "left_keys": [
+        "site",
+        "pid"
+      ],
+      "right_keys": [
+        "site",
+        "pid"
+      ],
+      "kind": "events",
+      "record_keys": [
+        "med_id"
+      ],
+      "coverage": {
+        "mode": "complete"
+      },
+      "features": [
+        {
+          "output": "drug_count",
+          "aggregate": "count"
+        }
+      ],
+      "reason": "Synthetic oracle: count distinct medication records separately"
+    }
+  ],
+  "cohort": [
+    {
+      "id": "adult",
+      "reason": "Prewritten synthetic age eligibility",
+      "keep": {
+        "column": "age",
+        "op": "gte",
+        "value": 18
+      }
+    }
+  ],
+  "definitions": {
+    "unit": "One patient per site and lexical patient ID",
+    "linkage": "Synthetic identifiers share the site namespace",
+    "time": "UTC index; labs must be known at index",
+    "missingness": "Explicit export flags; unknown never means negative"
+  }
+}

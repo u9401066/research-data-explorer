@@ -12,7 +12,7 @@ no fuzzy linkage, implicit Cartesian join or silent negative recoding is perform
    It saves originals, rules, typed output, CSV, denominators, exceptions, SVG flow,
    per-value source references and an implementation fingerprint. Each relation
    reduces its records separately to one row per declared patient/encounter/event.
-3. `page` and `trace` expose exceptions, included/excluded units and original source
+3. `page`, `trace` and `source_row` expose exceptions, included/excluded units and original source
    records using the exact draft hash. `approve` requires no blockers, the exact
    warning acknowledgements, an attributed reviewer, sampled unit IDs and explicit
    denominator confirmation. A synthetic oracle review is labelled `synthetic_only`;
@@ -25,14 +25,20 @@ no fuzzy linkage, implicit Cartesian join or silent negative recoding is perform
    its sources in the target project, and loads the approved typed values without
    header normalization, sentinel guessing or empty-column removal. Restart and
    isolated analysis workspaces retain that contract. Data-version identity binds
-   the release and bundle as well as subsequent recorded cleaning operations.
+   the release and bundle. Post-release cleaning is blocked: revise and approve
+   a new preparation so intake and autoresearch cannot silently use different values.
 
 Root output columns default to text with only the literal empty string treated as
 missing. `unit.columns` explicitly selects numeric types and missing tokens;
-identifier columns must remain text. Derived features declare types, aggregation,
+identifier columns must remain text. Root cleaning precedes eligibility evaluation,
+while linkage uses lexical source keys. Derived features declare types, aggregation,
 unit conversion and missing tokens. Baseline windows cannot extend past index;
 availability time is separately checked. Follow-up features carry a time-role
-label for downstream plan review. Source record indices address parsed records,
+label for downstream plan review. Untimed sources require an explicit
+`at_index_basis` to label their features as baseline; otherwise they are descriptive,
+with an unverified-time warning. Observed events with unknown export coverage remain
+`matched_partial`. Even absent values have root, coverage and rule trace evidence.
+Source record indices address parsed records,
 not physical CSV lines. XLSX numeric identifiers require explicit review of original
 precision; a parser cannot recover zeros or digits already lost by Excel.
 
