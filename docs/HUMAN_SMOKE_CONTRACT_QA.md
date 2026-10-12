@@ -13,3 +13,9 @@ canvas contract 新增由 host 保存狀態推導的 preparationUnready。未完
 ## Readiness report correction
 
 The live UI run found S-007 treating outcome–predictor association as predictor collinearity. Exclude the declared outcome from the continuous predictor screen; an explicit empty column list must check no columns. Wording now states pairwise screening rather than claiming VIF or absence of multicollinearity. Five focused tests passed, including the MCP readiness scope integration. The original report remains retained; a new real UI execution will verify the corrected report. Previous full suite: 1,091 passed, 76 skipped, 5 deselected (vendor integration excluded).
+
+## 已核准分析的自主探索埠
+
+2026-10-12 實機迴歸畫布仍提供探索入口，但平台 API 已禁止依顯著性重選模型。共同契約新增 `explorationSupported` 與 `baselineCompleted`，由 host 的保存計畫／工作推導；`explore` 同時要求已核准計畫、適用方法及該版已完成分析。不是以同研究的任意完成工作代替。RDE 仍驗證完整布林事實與 port 規則，native 執行仍保有資料版本與方法限制。
+
+聚焦 canvas 4 tests passed；Workbench 的真正外部 MCP 全節點／轉換／階段矩陣一致。既有共線性修正後完整套件 1,093 passed、76 skipped、5 deselected；此次新增契約測試另驗。Web 前端、Agent 背景與 API 使用相同方法資格判定，未開放鎖定方法的泛用探索。

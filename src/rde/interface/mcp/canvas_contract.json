@@ -175,7 +175,9 @@
       ],
       "requires": [
         "hasPlan",
-        "planApproved"
+        "planApproved",
+        "explorationSupported",
+        "baselineCompleted"
       ],
       "forbids": [],
       "sampleTarget": "exploration"
@@ -227,7 +229,9 @@
     "planApproved",
     "hasFigures",
     "samplePlan",
-    "preparationUnready"
+    "preparationUnready",
+    "explorationSupported",
+    "baselineCompleted"
   ],
   "rules": [
     "樣本數規劃屬於研究設計；不能接在已核准計畫、分析、探索或其後代作為下一項檢定。",
@@ -236,6 +240,7 @@
     "研究方向繼承上層限制；改名、加一層方向或經由報告節點不能重設研究階段。",
     "檢視原計畫與既有樣本數依據是導覽，不會建立新的執行連線。",
     "已執行連線保存實際來源，不能以拖曳改寫；保存設定並通過後端檢查後才建立新節點。",
-    "多表資料準備及其後代須完成品質核對、核准、發布並明確採用分析資料版本，才能由該分支建立分析計畫；草稿的技術試算不是核准。"
+    "多表資料準備及其後代須完成品質核對、核准、發布並明確採用分析資料版本，才能由該分支建立分析計畫；草稿的技術試算不是核准。",
+    "自主探索須有相同計畫的已完成主要分析，且領域／方法支援其探索策略；鎖定的迴歸、配對、縱向、預測等計畫不能接獨立資料列探索，需追加研究問題並審閱新設定。"
   ]
 }

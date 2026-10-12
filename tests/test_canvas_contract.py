@@ -72,3 +72,12 @@ def test_native_sample_draft_cannot_bypass_a_locked_analysis_project():
         "get_sample_size_plan", {"project_id": project.id, "plan_id": previous["plan_id"]}
     )
     assert retained["plan"]["receipt_sha256"] == previous["receipt_sha256"]
+
+
+def test_exploration_requires_supported_method_and_exact_completed_baseline():
+    ready = facts(
+        hasPlan=True, planApproved=True, explorationSupported=True, baselineCompleted=True
+    )
+    assert validate_connection("analysis", "explore", ready)["allowed"]
+    for missing in ("explorationSupported", "baselineCompleted"):
+        assert not validate_connection("analysis", "explore", {**ready, missing: False})["allowed"]
