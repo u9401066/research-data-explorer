@@ -75,6 +75,30 @@ def test_immutable_draft_approval_release_and_restart(tmp_path):
     assert read == {"plan": plan, "approval": approval, "release": released}
 
 
+def test_agent_preview_executes_the_contract_without_approving_or_saving_a_version(tmp_path):
+    project, request = setup(tmp_path)
+    result = workflow.execute(
+        project,
+        {"op": "preview", "sources": request["sources"], "specification": request["specification"]},
+    )
+    assert result["advisory_only"] is True
+    assert result["summary"]["population"]["subjects"] == 6
+    assert not (workflow.directory(project) / "versions").exists()
+    assert not any("values" in issue for issue in result["issues"])
+    request["specification"]["relations"][0]["filters"] = [
+        {"column": "known_at", "op": "lte", "value": "${index_at}"}
+    ]
+    with pytest.raises(ValueError, match="date comparisons.*window"):
+        workflow.execute(
+            project,
+            {
+                "op": "preview",
+                "sources": request["sources"],
+                "specification": request["specification"],
+            },
+        )
+
+
 def test_changed_source_blocks_approval_but_retained_trace_remains_readable(tmp_path):
     project, request = setup(tmp_path)
     plan = workflow.execute(project, request)

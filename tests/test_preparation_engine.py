@@ -193,6 +193,15 @@ def test_observed_events_with_unknown_coverage_are_partial_not_complete(tmp_path
     assert any(i["code"] == "UNVERIFIED_TIME_meds" for i in result.issues)
 
 
+def test_retained_patients_do_not_hide_an_agent_filter_that_removed_every_lab(tmp_path):
+    sources, spec, _ = fixture(tmp_path)
+    spec["relations"][0]["filters"] = [{"column": "value", "op": "lte", "value": 0}]
+    result = evaluate(sources, spec)
+    assert len(result.rows) == 6
+    assert result.summary()["feature_quality"]["lab_mean"] == {"observed": 0, "missing": 6}
+    assert "ALL_MISSING_FEATURE_lab_mean" in result.summary()["warnings"]
+
+
 def test_shuffled_records_preserve_every_output_value_and_unit_identity(tmp_path):
     sources, specification, _ = fixture(tmp_path)
     original = evaluate(sources, specification)

@@ -534,6 +534,7 @@ def execute(project, request):
     allowed = {
         "contract": {"op"},
         "inspect": {"op", "sources"},
+        "preview": {"op", "sources", "specification"},
         "draft": {"op", "preparation_id", "sources", "specification", "parent", "reason", "author"},
         "read": {"op", "preparation_id", "expected_sha256"},
         "approve": {
@@ -591,6 +592,21 @@ def execute(project, request):
             return export_bundle(project, request)
         if op == "inspect":
             return sources.inspect({s.id: sources.load(s) for s in source_list(request["sources"])})
+        if op == "preview":
+            spec = contract.Specification.model_validate(request["specification"])
+            evaluated = engine.Evaluation(
+                {s.id: sources.load(s) for s in source_list(request["sources"])}, spec, project.id
+            ).evaluate()
+            return {
+                "schema": "rde-preparation-preview-v1",
+                "advisory_only": True,
+                "summary": evaluated.summary(),
+                "issues": [
+                    {k: issue[k] for k in ("code", "severity", "message")}
+                    for issue in evaluated.issues[:100]
+                ],
+                "issue_count": len(evaluated.issues),
+            }
         if op == "read":
             plan = read_plan(project, request["preparation_id"], request.get("expected_sha256"))
             folder = safe_path(root, "versions/" + plan["preparation_id"])

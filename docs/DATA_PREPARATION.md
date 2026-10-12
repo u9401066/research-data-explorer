@@ -8,6 +8,9 @@ no fuzzy linkage, implicit Cartesian join or silent negative recoding is perform
 1. `inspect` profiles explicit sources and suggests single/composite candidate keys.
    It returns counts and column names, not example clinical values. Matching names
    or high match rates do not establish correct clinical linkage.
+   `preview` executes a proposed specification and returns advisory quality counts
+   and issues without publishing a version or exposing source values. Agents can
+   repair unsupported rules before asking people to confirm research definitions.
 2. `draft` takes a new UUID, byte-pinned sources, a specification, reason and author.
    It saves originals, rules, typed output, CSV, denominators, exceptions, SVG flow,
    per-value source references and an implementation fingerprint. Each relation

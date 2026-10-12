@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The first synchronized repository and VS Code extension release is planned as 0.1.0.
 
-## [Unreleased]
+## [0.5.1] - 2026-10-12
+
+### Governed data preparation and research recovery
+
+- Add `data_preparation`: source inspection and candidate keys, advisory execution for agent repair, immutable drafts, denominator and case review, approval, release, complete typed source bundles, and row/cell provenance. Deterministic composite-key linkage aggregates each event table separately; partial exports, missing links, unavailable information and out-of-window records remain distinguishable.
+- Preserve approved types, leading-zero IDs, literal missing tokens and original source closure through intake, isolated analysis workspaces and restart. Prepared datasets cannot be silently cleaned after release; revisions require new review and adoption. Independent SQLite fixtures compare every output value, and source/recipe/implementation changes invalidate stale approval.
+- Persist native research plans, revisions, operation contracts and invocation checkpoints. Autoresearch binds the original effective data version and verifies sources and recorded cleaning on each resume/lease. The MCP inventory contains 74 tools.
+- Sparse numeric summaries serialize an unestimable statistic as null rather than invalid JSON NaN.
+- Two lexical numeric codes remain text but are correctly classified as a binary variable, allowing reviewed binary-group analyses without changing source values.
+- These engineering controls preserve audit evidence; they do not certify real clinical linkage. Data managers still review individual records, key semantics and denominators.
 
 ### Added
 
@@ -13,7 +22,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 - English publication exports for prediction figures: vector PDF/SVG, 300 dpi PNG/TIFF, full captions, plot data, font/renderer provenance and format-integrity checks. Chinese report explanations remain available.
 - Explicit prediction study design, sampling and outcome definitions; sample-scoped calibration and predictive values, prespecified decision curves with paired pointwise bootstrap, complete Chinese prediction reports and CSV/figure deliverables. Training/holdout isolation and immutable-result recovery remain enforced.
 - Prespecified survival studies through `inspect_clinical_study` and `run_clinical_study`: full-source eligibility review, KM/log-rank, tied competing-event cumulative incidence, adjusted Cox estimates, PH diagnostics, participant ledgers and complete Chinese reports.
-- Source/specification-bound numerical receipts, renderer recovery without refitting, exact-plan execution and artifact-integrity report gates. The MCP inventory now has 53 tools; the version remains 0.5.0.
+- Source/specification-bound numerical receipts, renderer recovery without refitting, exact-plan execution and artifact-integrity report gates.
 
 ### Fixed
 

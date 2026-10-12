@@ -139,6 +139,10 @@ class VariableClassifier:
             if sample_values:
                 if self._looks_like_datetime(sample_values):
                     return VariableType.DATETIME
+                if n_unique == 2:
+                    # Lexical codes remain text, but two observed categories are
+                    # binary regardless of whether their spelling looks numeric.
+                    return VariableType.BINARY
                 if self._looks_like_numeric_string(sample_values):
                     # Numeric strings with low cardinality → ordinal
                     if n_unique <= 10:

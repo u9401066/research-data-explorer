@@ -61,6 +61,11 @@ def test_exact_typed_values_and_trace_closure(tmp_path):
     assert frame.loc[frame["pid"] == "004", "lab_count"].isna().all()
     assert not report.has_changes
     assert variables[0].role.value == "id"
+    from rde.domain.services.variable_classifier import VariableClassifier
+
+    coded = VariableClassifier().classify("treatment", "object", 2, 160, ["0", "1"] * 10)
+    assert coded.variable_type.value == "binary"
+    assert coded.dtype == "object"  # Statistical role must not coerce lexical values.
     folder = Path(binding["folder"])
     assert len(list((folder / "sources").glob("*.csv"))) == 3
     assert (folder / "trace.jsonl").exists()

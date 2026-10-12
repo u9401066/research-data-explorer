@@ -33,7 +33,10 @@ def timestamp(value, zone):
 
 
 def number(value):
-    result = float(value)
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Value is not a number under the declared rule") from exc
     if not math.isfinite(result):
         raise ValueError("non-finite numeric value")
     return result
@@ -455,6 +458,15 @@ class Evaluation:
         for u in units:
             self.trace[u["id"]]["included"] = True
         self.rows = [{column: u["values"].get(column) for column in self.columns} for u in units]
+        for relation in spec.relations:
+            for feature in relation.features:
+                if self.rows and all(row[feature.output] is None for row in self.rows):
+                    self.issue(
+                        "ALL_MISSING_FEATURE_" + feature.output,
+                        "No included unit has an observed value for this derived feature. Review filters, coverage and windows; do not silently change the research definition.",
+                        severity="warning",
+                        column=feature.output,
+                    )
         if not units:
             self.issue(
                 "EMPTY_COHORT",
@@ -679,6 +691,14 @@ class Evaluation:
             "relationships": self.relationships,
             "population": self.population(population),
             "output_columns": self.columns,
+            "feature_quality": {
+                feature.output: {
+                    "observed": sum(row[feature.output] is not None for row in self.rows),
+                    "missing": sum(row[feature.output] is None for row in self.rows),
+                }
+                for relation in self.spec.relations
+                for feature in relation.features
+            },
             "blockers": sum(i["severity"] == "blocker" for i in self.issues),
             "warnings": sorted({i["code"] for i in self.issues if i["severity"] == "warning"}),
             "exception_count": len(self.exceptions),

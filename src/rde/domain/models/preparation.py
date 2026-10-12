@@ -1,6 +1,7 @@
 """Typed, non-executable specifications for relational research preparation."""
 
 from typing import Literal
+import math
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -24,6 +25,23 @@ class Predicate(StrictModel):
     column: str = Field(min_length=1, max_length=160)
     op: Literal["eq", "ne", "in", "not_in", "gt", "gte", "lt", "lte", "missing", "present"]
     value: str | float | list[str] | None = None
+
+    @model_validator(mode="after")
+    def literal_comparison(self):
+        if self.op in {"gt", "gte", "lt", "lte"}:
+            try:
+                valid = not isinstance(self.value, (list, type(None))) and math.isfinite(
+                    float(self.value)
+                )
+            except (TypeError, ValueError):
+                valid = False
+            if not valid:
+                raise ValueError(
+                    "Numeric filters require a finite constant; date comparisons and index-relative expressions belong in window, not filters."
+                )
+        if self.op in {"in", "not_in"} and not isinstance(self.value, list):
+            raise ValueError("in/not_in filters require an explicit list of literal values")
+        return self
 
 
 class CohortRule(StrictModel):
