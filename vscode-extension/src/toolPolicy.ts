@@ -46,6 +46,7 @@ export const RDE_MCP_TOOL_NAMES = [
     ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
     'get_dataset_version',
+    'data_preparation',
     'research_plan',
     'read_artifact',
     'init_project',
@@ -96,6 +97,7 @@ export const RDE_MCP_TOOL_NAMES = [
 
 const WORKFLOW_PREREQUISITE_TOOLS = [
     'research_plan',
+    'data_preparation',
     'init_project',
     'get_pipeline_status',
     'scan_data_folder',
@@ -111,6 +113,7 @@ const WORKFLOW_PREREQUISITE_TOOLS = [
 export const TOOL_GROUPS = {
     explore: [
         'read_artifact',
+        'data_preparation',
         'get_workflow_contract',
         'init_project',
         'get_pipeline_status',

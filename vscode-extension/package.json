@@ -52,6 +52,7 @@
       "research_plan",
       "read_artifact",
       "get_dataset_version",
+      "data_preparation",
       "init_project",
       "get_pipeline_status",
       "get_decision_log",

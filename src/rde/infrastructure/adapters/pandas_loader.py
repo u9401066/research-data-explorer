@@ -60,6 +60,10 @@ class PandasLoader(DataLoaderPort):
         self, metadata: DatasetMetadata
     ) -> tuple[pd.DataFrame, list[Variable], int, RawDataNormalizationReport]:
         """Load data from file and return normalized data plus an audit report."""
+        if metadata.preparation is not None:
+            from rde.infrastructure.preparation.portable import load_prepared
+
+            return load_prepared(metadata)
         report = RawDataNormalizationReport()
         raw = self._read_raw_table(metadata, report)
         header_rows = self._detect_header_rows(raw)

@@ -45,6 +45,32 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 def register_protocol_tools(server: Any) -> None:
     @server.tool()
+    def data_preparation(project_id: str, request: dict) -> dict[str, Any] | str:
+        """Governed relational preparation before statistical analysis.
+
+        op=contract discovers strict source/specification/review schemas. inspect
+        returns aggregate candidate keys and linkage evidence, never approval.
+        draft evaluates an immutable specification and snapshots every source;
+        read/page/trace expose denominators, exceptions and exact row/cell lineage.
+        approve pins expected_sha256, warning acknowledgements and reviewer case/
+        denominator checks; release requires the exact approval hash. Revisions
+        are portable through bundle, whose full source closure and typed values
+        can be imported with run_intake(prepared_source=...). These versions
+        need a new preparation_id UUID and exact parent reference. No raw Cartesian
+        joins, inferred negative missing links, models or implicit human approval.
+        """
+        from rde.infrastructure.preparation.workflow import execute
+        from rde.interface.mcp.tools._shared import ensure_project_context, fmt_error
+
+        ok, message, project = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(message)
+        try:
+            return execute(project, request)
+        except (ValueError, KeyError, TypeError, OSError) as error:
+            return fmt_error(str(error), code="DATA_PREPARATION_ERROR")
+
+    @server.tool()
     def get_dataset_version(project_id: str, dataset_id: str) -> dict[str, Any] | str:
         """Verify exact source, effective frame and replayed cleaning-chain identity.
 

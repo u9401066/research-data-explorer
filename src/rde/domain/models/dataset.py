@@ -36,6 +36,7 @@ class DatasetMetadata:
     file_size_bytes: int
     encoding: str | None = None
     sheet_name: str | None = None  # For Excel files
+    preparation: dict[str, Any] | None = None  # Verified immutable prepared bundle binding
 
 
 @dataclass

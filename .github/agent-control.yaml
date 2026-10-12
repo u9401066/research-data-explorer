@@ -57,6 +57,16 @@ external_genomics_publication:
   decision_log: artifacts/genomics_publication/decision_log.jsonl
   does_not_establish: [biological_source_truth, biological_replicate_independence, independent_extraction, cryptographic_human_signature, completed_patient_eda_audit]
 
+relational_data_preparation:
+  tool: data_preparation
+  phase: before_analysis
+  contract: rde-data-preparation-contract-v1
+  flow: [inspect_sources, immutable_draft, quality_and_denominators, exact_review, release]
+  linkage: deterministic_composite_keys_and_per_unit_aggregation
+  rejects: [unapproved_release, stale_sources, duplicate_keys_without_policy, unacknowledged_warnings, future_baseline_information, conflicting_time_ties, changed_implementation]
+  retains: [source_bytes, specifications, all_flow_denominators, exceptions, row_and_cell_lineage, reviewer_attestation, failed_and_interrupted_attempts]
+  does_not_establish: [probabilistic_linkage, clinical_identity_truth, independent_data_manager_verification]
+
 source_frame_lineage:
   tools: [get_dataset_version, apply_cleaning, run_branch_experiment, start_autoresearch_run, resume_autoresearch_run, run_autoresearch_next_task]
   scope: persisted_typed_cleaning_and_generic_branch_input_binding

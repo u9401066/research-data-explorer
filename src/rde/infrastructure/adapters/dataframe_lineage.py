@@ -182,15 +182,41 @@ def bind_source(project, entry):
             "encoding": metadata.encoding,
         },
         "parser": {
-            "name": "PandasLoader",
+            "name": "PreparedSourceLoader" if metadata.preparation else "PandasLoader",
             "pandas": pd.__version__,
             "normalization": normalization.as_dict(),
+            **(
+                {
+                    "preparation": {
+                        key: metadata.preparation[key]
+                        for key in (
+                            "bundle_sha256",
+                            "release_sha256",
+                            "project_id",
+                            "preparation_id",
+                        )
+                    }
+                }
+                if metadata.preparation
+                else {}
+            ),
         },
         "parsed_frame": parsed_record,
         "input_frame": frame_record(entry.dataframe),
         "cleaning": cleaning,
         "row_locator_scope": "Model row positions address the bound input frame; normalized source indices are retained by cleaning operations. Raw file header/normalization locations are described by the parser report.",
         "input_source_indices": entry.dataframe.index.tolist(),
+        **(
+            {
+                "preparation": {
+                    "folder": str(Path(metadata.preparation["folder"]).resolve().relative_to(root)),
+                    "release_sha256": metadata.preparation["release_sha256"],
+                    "bundle_sha256": metadata.preparation["bundle_sha256"],
+                }
+            }
+            if metadata.preparation
+            else {}
+        ),
     }
 
 
@@ -267,6 +293,15 @@ def verify_source_binding(binding, root):
     if binding.get("schema") != "data-source-binding-v1" or binding.get("status") != "verified":
         raise ValueError("Complete source-to-frame binding is required for publication.")
     source = binding["source"]
+    if binding.get("preparation"):
+        from rde.infrastructure.preparation.portable import verify_bundle_folder
+
+        preparation = binding["preparation"]
+        # _confined expects a regular file; bind the folder via its plan file.
+        folder = _confined(root, preparation["folder"] + "/plan.json").parent
+        _, release = verify_bundle_folder(folder, preparation["release_sha256"])
+        if release["dataset"]["sha256"] != source["sha256"]:
+            raise ValueError("Prepared source closure differs from the model binding.")
     snapshot = _confined(root, source["snapshot"])
     if _hash(snapshot) != source["sha256"] or snapshot.stat().st_size != source["bytes"]:
         raise ValueError("The retained original source differs from its binding.")

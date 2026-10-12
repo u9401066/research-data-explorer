@@ -17,6 +17,7 @@ class Source(StrictModel):
     sheet: str | None = None
     encoding: Literal["utf-8-sig", "utf-8", "big5", "cp950"] = "utf-8-sig"
     delimiter: Literal[",", "\t", ";"] = ","
+    synthetic: bool = False
 
 
 class Predicate(StrictModel):
@@ -39,6 +40,11 @@ class ExcludedRow(StrictModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class ColumnRule(StrictModel):
+    value_type: Literal["text", "number"] = "text"
+    missing_tokens: list[str] = Field(default_factory=lambda: [""])
+
+
 class Unit(StrictModel):
     source_id: str
     kind: Literal["patient", "encounter", "event"]
@@ -50,6 +56,17 @@ class Unit(StrictModel):
     null_keys: Literal["block", "exclude"] = "block"
     duplicates: Literal["block", "drop_identical", "exclude_conflicts"] = "block"
     retain_columns: list[str] | None = None
+    columns: dict[str, ColumnRule] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def column_identity(self):
+        for keys in (self.keys, self.subject_keys, self.retain_columns or []):
+            if len(keys) != len(set(keys)):
+                raise ValueError("column selections cannot repeat a column")
+        for key in set(self.keys + self.subject_keys):
+            if key in self.columns and self.columns[key].value_type != "text":
+                raise ValueError("identifier columns must retain their lexical text")
+        return self
 
 
 class Coverage(StrictModel):
@@ -165,6 +182,13 @@ class Definitions(StrictModel):
     linkage: str = Field(default="", max_length=3000)
     time: str = Field(default="", max_length=3000)
     missingness: str = Field(default="", max_length=3000)
+
+
+class Review(StrictModel):
+    kind: Literal["data_manager", "synthetic_oracle"]
+    denominator_confirmed: bool
+    reviewed_unit_ids: list[str] = Field(min_length=1, max_length=100)
+    notes: str = Field(min_length=1, max_length=5000)
 
 
 class Specification(StrictModel):

@@ -350,6 +350,7 @@ def register_discovery_tools(server: Any) -> None:
         project_id: str | None = None,
         allow_pii: bool = False,
         sheet_name: str | None = None,
+        prepared_source: dict | None = None,
     ) -> str:
         """執行完整收件流程（Phase 1 orchestration）。
 
@@ -361,6 +362,7 @@ def register_discovery_tools(server: Any) -> None:
             project_id: 專案 ID，用於關聯 intake artifact（可選，如已呼叫 init_project）
             allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
             sheet_name: 明確選取 Excel 工作表；收件紀錄會保存此選擇供 session 恢復使用。
+            prepared_source: 已核准資料的 bundle_path、bundle_sha256、release_sha256；驗證完整來源包並原樣載入，不再次猜測欄名、型別或缺值。
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -416,11 +418,34 @@ def register_discovery_tools(server: Any) -> None:
             # Step 2: Load first available file
             first_file = loadable_files[0]
             path = Path(first_file.file_path)
+            preparation = None
+            if prepared_source is not None:
+                if (
+                    set(prepared_source) != {"bundle_path", "bundle_sha256", "release_sha256"}
+                    or len(loadable_files) != 1
+                    or sheet_name is not None
+                ):
+                    return fmt_error(
+                        "核准資料收件需要完整來源包參照及唯一的 CSV 檔案。",
+                        code="INVALID_PREPARED_SOURCE",
+                    )
+                ok_project, project_msg, prepared_project = ensure_project_context(project_id)
+                if not ok_project or prepared_project is None:
+                    return fmt_error(project_msg, code="INVALID_PREPARED_SOURCE")
+                from rde.infrastructure.preparation.portable import import_bundle
+
+                preparation = import_bundle(
+                    prepared_project,
+                    prepared_source["bundle_path"],
+                    prepared_source["bundle_sha256"],
+                    prepared_source["release_sha256"],
+                )
             metadata = DatasetMetadata(
                 file_path=path,
                 file_format=path.suffix.lstrip(".").lower(),
                 file_size_bytes=path.stat().st_size,
                 sheet_name=sheet_name,
+                preparation=preparation,
             )
             dataset = Dataset(metadata=metadata)
             source_identity = _source_identity(path, sheet_name)
@@ -472,6 +497,7 @@ def register_discovery_tools(server: Any) -> None:
                     {"file": f.file_name, "reason": f.rejection_reason} for f in rejected_files
                 ],
                 "timestamp": datetime.now().isoformat(),
+                **({"preparation": preparation} if preparation else {}),
             }
             dataset.tags["intake_report"] = intake_report
 

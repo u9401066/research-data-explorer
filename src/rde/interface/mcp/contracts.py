@@ -18,6 +18,11 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "data_preparation": ToolContract(
+        "data-preparation",
+        "project ownership + typed rules + source snapshots + exact quality and case review approval",
+        "immutable relational drafts, denominators, provenance and approved releases; no model execution",
+    ),
     "get_dataset_version": ToolContract(
         "all",
         "explicit project/dataset ownership + source and cleaning replay verification",

@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from rde.domain.models.preparation import Specification
+from rde.domain.models.preparation import ColumnRule, Specification
 from rde.infrastructure.preparation.sources import canonical, digest, empty, key
 
 
@@ -327,6 +327,7 @@ class Evaluation:
         ZoneInfo(unit.timezone)
         retained = unit.retain_columns if unit.retain_columns is not None else root.columns
         root.require_columns(retained)
+        root.require_columns(list(unit.columns))
         feature_names = [f.output for r in spec.relations for f in r.features]
         if set(feature_names) & set(root.columns):
             raise ValueError("derived outputs cannot overwrite source columns")
@@ -384,7 +385,15 @@ class Evaluation:
                 "root": root.ref(row),
                 "values": values,
                 "cells": {
-                    c: {"rule": "source_copy", "sources": [root.ref(row, c)]} for c in retained
+                    **{c: {"rule": "source_copy", "sources": [root.ref(row, c)]} for c in retained},
+                    "_rde_unit_id": {
+                        "rule": "sha256_project_unit_keys",
+                        "sources": [root.ref(row, c) for c in unit.keys],
+                    },
+                    "_rde_subject_id": {
+                        "rule": "sha256_project_subject_keys",
+                        "sources": [root.ref(row, c) for c in unit.subject_keys],
+                    },
                 },
                 "relations": {},
                 "exclusions": [],
@@ -404,6 +413,30 @@ class Evaluation:
         units = self.apply_cohort(units, "after_links")
         for u in units:
             self.trace[u["id"]]["included"] = True
+        # Apply declared output types only after lexical identity, windows and
+        # eligibility have been evaluated. Raw keys never undergo numeric coercion.
+        for record in self.trace.values():
+            for column in retained:
+                rule = unit.columns.get(column, ColumnRule())
+                raw = record["values"][column]
+                try:
+                    value = (
+                        None
+                        if raw in rule.missing_tokens
+                        else number(raw)
+                        if rule.value_type == "number"
+                        else raw
+                    )
+                except (ValueError, TypeError, OverflowError):
+                    self.issue(
+                        "INVALID_OUTPUT_TYPE",
+                        "Value does not match the declared output type",
+                        unit_id=record["unit_id"],
+                        column=column,
+                    )
+                    value = None
+                record["values"][column] = value
+                record["cells"][column]["rule"] = {"source_copy": True, **rule.model_dump()}
         self.rows = [{column: u["values"].get(column) for column in self.columns} for u in units]
         if not units:
             self.issue(
@@ -546,6 +579,11 @@ class Evaluation:
                 for feature in relation.features:
                     values[feature.output] = None
             values[f"_rde_{relation.id}_status"] = status
+            self.trace[uid]["cells"][f"_rde_{relation.id}_status"] = {
+                "rule": "linkage_and_coverage_status",
+                "relation": relation.id,
+                "sources": [root.ref(u["row"]), *[table.ref(r) for r in all_matches]],
+            }
             counts[status] += 1
             self.trace[uid]["relations"][relation.id] = {
                 "status": status,
