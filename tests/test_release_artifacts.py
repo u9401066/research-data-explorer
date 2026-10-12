@@ -6,7 +6,7 @@ import tomllib
 
 import pytest
 
-from scripts.audit_release_artifacts import check_members, check_source
+from scripts.audit_release_artifacts import check_members, check_source, runtime_sources
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,10 +56,15 @@ def test_release_allows_source_and_diagrams():
     check_members(["rde/interface/mcp/server.py", "extension/resources/evidence-chain.svg"])
 
 
-def test_release_detects_stale_packaged_source(tmp_path):
-    source = tmp_path / "source.py"
+def test_release_audits_installed_canvas_contract():
+    assert ROOT / "src/rde/interface/mcp/canvas_contract.json" in runtime_sources(ROOT)
+
+
+@pytest.mark.parametrize("name", ["source.py", "canvas_contract.json"])
+def test_release_detects_stale_packaged_source(tmp_path, name):
+    source = tmp_path / name
     source.write_bytes(b"new source")
     with ZipFile(BytesIO(), "w") as archive:
-        archive.writestr("source.py", b"old source")
+        archive.writestr(name, b"old source")
         with pytest.raises(AssertionError, match="Stale packaged"):
-            check_source(archive, "source.py", source)
+            check_source(archive, name, source)

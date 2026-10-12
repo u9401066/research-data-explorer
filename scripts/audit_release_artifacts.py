@@ -24,6 +24,11 @@ def check_source(archive: ZipFile, member: str, source: Path) -> None:
     assert archive.read(member) == source.read_bytes(), f"Stale packaged source: {member}"
 
 
+def runtime_sources(root: Path) -> list[Path]:
+    """Include executable code and data contracts used by the installed MCP server."""
+    return sorted(path for path in (root / "src/rde").rglob("*") if path.suffix in {".py", ".json"})
+
+
 def audit(root: Path = ROOT) -> dict:
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     version = project["project"]["version"]
@@ -36,7 +41,7 @@ def audit(root: Path = ROOT) -> dict:
     vsix = ext / f"research-data-explorer-{version}.vsix"
     with ZipFile(wheel) as built:
         check_members(built.namelist())
-        for source in (root / "src/rde").rglob("*.py"):
+        for source in runtime_sources(root):
             check_source(built, source.relative_to(root / "src").as_posix(), source)
         metadata = built.read(f"research_data_explorer-{version}.dist-info/METADATA").decode()
         assert f"Version: {version}\n" in metadata
@@ -46,7 +51,7 @@ def audit(root: Path = ROOT) -> dict:
         check_members(built.namelist())
         check_source(built, "extension/package.json", ext / "package.json")
         check_source(built, "extension/bundled/tool/pyproject.toml", root / "pyproject.toml")
-        for source in (root / "src/rde").rglob("*.py"):
+        for source in runtime_sources(root):
             member = "extension/bundled/tool/src/" + source.relative_to(root / "src").as_posix()
             check_source(built, member, source)
         for name in (

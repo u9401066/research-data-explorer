@@ -32,7 +32,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Version 0.5.1, local verification on 2026-10-12: **1,085 Python tests passed,
+Version 0.5.2 adds [typed Canvas transitions](docs/canvas-workflow.md). Baseline 0.5.1 verification on 2026-10-12: **1,085 Python tests passed,
 81 explicitly skipped**; Ruff, 40 extension tests and the wheel/sdist/VSIX payload
 audit passed. The live inventory contains **75 tools across 16 modules**.
 [Governed data preparation](docs/DATA_PREPARATION.md) now covers immutable multi-table

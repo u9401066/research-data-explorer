@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The first synchronized repository and VS Code extension release is planned as 0.1.0.
 
+## [0.5.2] - 2026-10-12
+
+### Typed research workflow ports
+
+- Publish `rde-canvas-v1` through the existing workflow contract and `validate_workflow_connection`. Explicit node outputs, accepted input types, stage facts and versioned revision/append relations support contextual host canvases without a second MCP server.
+- Prospective sample-size drafts are rejected in locked or already-executed native analysis projects. A host must derive full ancestry and approval from persisted state; compatible ports do not authorize execution or overwrite historical evidence.
+- Synchronize the 75-tool inventory, VSIX policies and user/agent guidance. Existing statistical engines and immutable results remain unchanged.
+
 ## [0.5.1] - 2026-10-12
 
 ### Governed data preparation and research recovery
