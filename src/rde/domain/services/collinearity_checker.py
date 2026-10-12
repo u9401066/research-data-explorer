@@ -51,7 +51,8 @@ def check_collinearity(
 
     Args:
         data: DataFrame
-        variables: Numeric columns to check. If None, all numeric columns.
+        variables: Numeric columns to check. If None, all numeric columns;
+            an explicit empty list checks no columns.
         threshold: Absolute correlation threshold (default 0.8).
 
     Returns:
@@ -59,7 +60,7 @@ def check_collinearity(
     """
     df: pd.DataFrame = data
 
-    if variables:
+    if variables is not None:
         numeric_cols = [
             v for v in variables if v in df.columns and pd.api.types.is_numeric_dtype(df[v])
         ]

@@ -286,7 +286,9 @@ def _build_readiness_variable_scope(
         missing_pattern.append(name)
         if variable_type in {"continuous", "biomarker"} and role != VariableRole.GROUP.value:
             continuous.append(name)
-            collinearity.append(name)
+            # Outcome-predictor association is not predictor collinearity.
+            if role != VariableRole.OUTCOME.value:
+                collinearity.append(name)
 
     return {
         "source": source,
@@ -1733,7 +1735,7 @@ def register_plan_tools(server: Any) -> None:
 
         驗證 H-003 (樣本量 ≥10), H-004 (PII), H-007 (計畫已鎖定),
         H-008 (artifact gate), S-001 (常態性提醒), S-005 (缺失模式),
-        S-007 (共線性 VIF 預檢)。
+        S-007 (連續解釋因素間的成對相關篩檢，非 VIF)。
 
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
@@ -1991,7 +1993,7 @@ def register_plan_tools(server: Any) -> None:
                         }
                     )
 
-            # S-007: Collinearity check (VIF preview)
+            # S-007: Pairwise predictor correlation, not a design-matrix/VIF test.
             if dataset_ok and dataset_entry is not None:
                 df = dataset_entry.dataframe
                 from rde.domain.services.collinearity_checker import check_collinearity
@@ -2004,11 +2006,12 @@ def register_plan_tools(server: Any) -> None:
                     checks.append(
                         {
                             "id": "S-007",
-                            "name": "共線性預檢",
+                            "name": "因素間相關篩檢",
                             "passed": True,
                             "detail": (
                                 f"scope={readiness_scope.get('source')}; "
-                                f"checked {len(collinearity_variables)} planned continuous variables. "
+                                f"checked {len(collinearity_variables)} continuous predictors; "
+                                "outcomes excluded; not VIF. "
                                 f"⚠️ 高相關: {', '.join(report.format_warnings())}"
                             ),
                         }
@@ -2017,12 +2020,13 @@ def register_plan_tools(server: Any) -> None:
                     checks.append(
                         {
                             "id": "S-007",
-                            "name": "共線性預檢",
+                            "name": "因素間相關篩檢",
                             "passed": True,
                             "detail": (
                                 f"scope={readiness_scope.get('source')}; "
-                                f"checked {len(collinearity_variables)} planned continuous variables. "
-                                "無明顯共線性"
+                                f"checked {len(collinearity_variables)} continuous predictors; "
+                                "outcomes excluded; not VIF. "
+                                "未檢出高成對相關；不代表排除多重共線性。"
                             ),
                         }
                     )

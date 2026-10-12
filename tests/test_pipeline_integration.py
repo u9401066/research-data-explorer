@@ -1834,6 +1834,8 @@ def test_check_readiness_scopes_prechecks_to_locked_plan_variables(
     assert not any(name.startswith("noise_") for name in scoped_variables)
     assert "noise_00" not in readiness_output
     assert "scope=locked_plan_and_concept_roles" in readiness_output
+    assert "outcome" not in checklist["scope"]["collinearity_variables"]
+    assert {"age", "score"}.issubset(checklist["scope"]["collinearity_variables"])
 
 
 def test_project_bound_dataset_rehydrates_after_session_reset(

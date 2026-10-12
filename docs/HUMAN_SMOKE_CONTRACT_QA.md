@@ -9,3 +9,7 @@ canvas contract 新增由 host 保存狀態推導的 preparationUnready。未完
 真實 UI 主路徑：CSV＋Excel 兩工作表，76 次住院／64 人 → 成人 74／62 → 首次住院 62／62；57 筆匹配，五種其他狀態各 1。62 列、930 個欄位以獨立 SQLite 答案比對；3 筆檢驗與 2 筆用藥獨立彙總，未生成 6 個人。CSV 下載以 1e-12 容差再次核對；識別碼保留前導零。原始來源包、個案／逐值追溯、核准與採用均由 UI 操作完成。
 
 聚焦測試 tests/test_preparation_workflow.py、tests/test_preparation_engine.py、tests/test_canvas_contract.py：32 passed。完整套件與部署複驗另行記錄。合成驗證與模型核對不代表真實臨床連結已由資料管理者核實。
+
+## Readiness report correction
+
+The live UI run found S-007 treating outcome–predictor association as predictor collinearity. Exclude the declared outcome from the continuous predictor screen; an explicit empty column list must check no columns. Wording now states pairwise screening rather than claiming VIF or absence of multicollinearity. Five focused tests passed, including the MCP readiness scope integration. The original report remains retained; a new real UI execution will verify the corrected report. Previous full suite: 1,091 passed, 76 skipped, 5 deselected (vendor integration excluded).
