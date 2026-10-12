@@ -203,19 +203,21 @@ def _append_unique(values: list[str], value: object) -> None:
         values.append(text)
 
 
-def _collect_plan_variable_names(value: Any, names: list[str]) -> None:
+def _collect_plan_variable_names(
+    value: Any, names: list[str], *, variable_values: bool = False
+) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
             if key in _READINESS_VARIABLE_KEYS:
-                _collect_plan_variable_names(item, names)
+                _collect_plan_variable_names(item, names, variable_values=True)
             elif isinstance(item, (dict, list, tuple)):
                 _collect_plan_variable_names(item, names)
         return
     if isinstance(value, (list, tuple)):
         for item in value:
-            _collect_plan_variable_names(item, names)
+            _collect_plan_variable_names(item, names, variable_values=variable_values)
         return
-    if isinstance(value, str):
+    if isinstance(value, str) and variable_values:
         _append_unique(names, value)
 
 
@@ -234,7 +236,7 @@ def _collect_role_variable_names(roles: dict[str, Any] | None, names: list[str])
         role = _normalize_role_key(key)
         if role is None or role == VariableRole.UNASSIGNED:
             continue
-        _collect_plan_variable_names(value, names)
+        _collect_plan_variable_names(value, names, variable_values=True)
 
 
 def _build_readiness_variable_scope(

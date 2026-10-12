@@ -30,3 +30,23 @@ def test_empty_predictor_scope_does_not_silently_scan_all_numeric_columns():
     df = pd.DataFrame({"outcome": [2, 4, 6], "id": [1, 2, 3]})
     assert check_collinearity(df).has_collinearity
     assert not check_collinearity(df, []).has_collinearity
+
+
+def test_category_levels_are_not_reported_as_missing_variable_names():
+    scope = _build_readiness_variable_scope(
+        variables=[
+            Variable("outcome", "float64", VariableType.CONTINUOUS, VariableRole.OUTCOME),
+            Variable("sex", "object", VariableType.CATEGORICAL, VariableRole.COVARIATE),
+        ],
+        plan={
+            "analyses": [
+                {
+                    "variables": ["outcome", "sex", "truly_missing"],
+                    "parameters": {"factors": [{"levels": ["M", "F"], "reference": "M"}]},
+                }
+            ],
+        },
+        roles={"outcome": "outcome", "covariates": ["sex"]},
+    )
+    assert scope["variables"] == ["outcome", "sex"]
+    assert scope["missing_from_dataset"] == ["truly_missing"]
