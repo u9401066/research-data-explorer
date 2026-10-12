@@ -4,6 +4,9 @@
 Discover `op=contract` for the exact typed source, specification and review schemas.
 It accepts CSV, TSV and values-only XLSX sheets. Lexical identifiers are preserved;
 no fuzzy linkage, implicit Cartesian join or silent negative recoding is performed.
+Each version declares one root analysis unit and directly keyed relations to that
+root. Arbitrary multi-hop joins and probabilistic identity resolution are outside
+this contract; resolve those into an explicitly governed source before use.
 
 1. `inspect` profiles explicit sources and suggests single/composite candidate keys.
    It returns counts and column names, not example clinical values. Matching names
@@ -11,6 +14,11 @@ no fuzzy linkage, implicit Cartesian join or silent negative recoding is perform
    `preview` executes a proposed specification and returns advisory quality counts
    and issues without publishing a version or exposing source values. Agents can
    repair unsupported rules before asking people to confirm research definitions.
+   Every derived feature reports observed/missing counts. An all-missing feature
+   raises a warning even when all root patients remain, so a plausible denominator
+   cannot hide a bad value filter. Workbench retries an invalid agent proposal at
+   most three times against this native preview; it never treats the preview as
+   human approval.
 2. `draft` takes a new UUID, byte-pinned sources, a specification, reason and author.
    It saves originals, rules, typed output, CSV, denominators, exceptions, SVG flow,
    per-value source references and an implementation fingerprint. Each relation
