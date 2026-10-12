@@ -229,6 +229,34 @@ def apply_recorded_cleaning(project, entry, approved_plan):
     return frame, logs
 
 
+def dataset_version(project, entry):
+    """Compact identity of the effective input, including its preparation history.
+
+    Equal values from different approved operations are distinct versions. This
+    is a verified identity, not an approval of the scientific cleaning policy or
+    a frozen model case set. Source-less test/idea frames remain explicitly so.
+    """
+    binding = bind_source(project, entry)
+    verified = binding["status"] == "verified"
+    cleaning = binding.get("cleaning", [])
+    source = binding.get("source", {})
+    record = {
+        "schema": "rde-data-version-v1",
+        "dataset_id": entry.dataset.id,
+        "source_status": "verified" if verified else "unavailable",
+        "source": {
+            key: source.get(key) for key in ("sha256", "bytes", "format", "sheet", "encoding")
+        }
+        if verified
+        else None,
+        "parser_sha256": digest(binding["parser"]) if verified else None,
+        "frame": frame_record(entry.dataframe),
+        "cleaning_count": len(cleaning),
+        "cleaning_sha256": digest(cleaning),
+    }
+    return {**record, "version_sha256": digest(record)}
+
+
 def verify_source_binding(binding, root):
     """Check historical source/cleaning closure without parsing, cleaning or fitting.
 

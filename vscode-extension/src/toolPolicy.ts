@@ -45,6 +45,7 @@ export const RDE_MCP_TOOL_NAMES = [
     ...EXTERNAL_GENOMICS_TOOL_NAMES,
     ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
+    'get_dataset_version',
     'research_plan',
     'read_artifact',
     'init_project',

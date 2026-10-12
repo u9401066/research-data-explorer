@@ -58,7 +58,7 @@ external_genomics_publication:
   does_not_establish: [biological_source_truth, biological_replicate_independence, independent_extraction, cryptographic_human_signature, completed_patient_eda_audit]
 
 source_frame_lineage:
-  tools: [apply_cleaning, run_branch_experiment, run_autoresearch_next_task]
+  tools: [get_dataset_version, apply_cleaning, run_branch_experiment, start_autoresearch_run, resume_autoresearch_run, run_autoresearch_next_task]
   scope: persisted_typed_cleaning_and_generic_branch_input_binding
   requires: [retained_original_bytes, exact_parser_sheet_and_encoding, complete_frame_identity, ordered_cleaning_receipts]
   restart: replay_recorded_operations_and_verify_every_frame_transition
@@ -66,6 +66,9 @@ source_frame_lineage:
   immutable: [source_snapshot, cleaning_receipt, branch_input_binding]
   rejects: [untracked_frame_edits, source_drift, modified_receipts, invalid_replay]
   does_not_establish: [clinical_appropriateness_of_cleaning, fixed_primary_case_set]
+  version_contract: rde-data-version-v1
+  autoresearch: pin_effective_frames_sources_and_cleaning_chains_before_queue_then_recheck_before_resume_and_each_lease
+  no_values_changed: new_cleaning_receipts_still_change_preparation_identity
 
 branch_publication:
   tools: [render_branch_publication]

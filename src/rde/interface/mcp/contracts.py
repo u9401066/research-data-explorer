@@ -18,6 +18,11 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "get_dataset_version": ToolContract(
+        "all",
+        "explicit project/dataset ownership + source and cleaning replay verification",
+        "retained original bytes and effective data identity; no cleaning, approval or fitting",
+    ),
     "research_plan": ToolContract(
         "research-plan",
         "immutable protocol + verified bytes + exact approval and lineage",

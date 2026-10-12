@@ -45,6 +45,37 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 def register_protocol_tools(server: Any) -> None:
     @server.tool()
+    def get_dataset_version(project_id: str, dataset_id: str) -> dict[str, Any] | str:
+        """Verify exact source, effective frame and replayed cleaning-chain identity.
+
+        Retains original bytes if needed. Does not clean, approve, choose the
+        latest dataset or run a model. A version hash is not a clinical quality
+        verdict. Clients must pin this identity before queuing and on resume.
+        """
+        from rde.interface.mcp.tools._shared import (
+            ensure_project_context,
+            ensure_dataset,
+            fmt_error,
+        )
+        from rde.infrastructure.adapters.dataframe_lineage import dataset_version
+
+        ok, message, project = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(message)
+        if dataset_id not in project.dataset_ids:
+            return fmt_error("Dataset does not belong to this project.", code="DATA_VERSION_ERROR")
+        try:
+            ok, message, entry = ensure_dataset(dataset_id, project=project)
+            if not ok or entry is None:
+                raise ValueError(message)
+            result = dataset_version(project, entry)
+            if result["source_status"] != "verified":
+                raise ValueError("A retained, verified original source is required.")
+            return result
+        except (ValueError, KeyError, TypeError, OSError) as error:
+            return fmt_error(str(error), code="DATA_VERSION_ERROR")
+
+    @server.tool()
     def research_plan(project_id: str, request: dict) -> str:
         """Immutable native protocol: draft/read/approve/attach_results/reuse.
 

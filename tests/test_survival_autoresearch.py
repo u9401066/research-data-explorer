@@ -74,6 +74,14 @@ def test_identical_empty_duplicate_and_new_predictors_are_rejected(covariates):
 @pytest.fixture
 def primary(tmp_path):
     project, store, dataset, options = clinical_project(tmp_path)
+    from rde.application.session import get_session
+    from rde.infrastructure.adapters.pandas_loader import PandasLoader
+
+    # Exercise the actual CSV input, not the generator's pre-serialization
+    # floats. The new queue binding intentionally requires exact parser parity.
+    frame, variables, count, _ = PandasLoader().load(dataset.metadata)
+    dataset.mark_loaded(variables, count)
+    get_session().get_dataset_entry(dataset.id).dataframe = frame
 
     async def run():
         return await create_server().call_tool(

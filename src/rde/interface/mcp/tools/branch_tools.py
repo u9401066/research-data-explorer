@@ -792,18 +792,22 @@ def register_branch_tools(server: Any) -> None:
                 "max_failures": max(0, int(max_failures or 0)),
                 "max_minutes": max(1, int(max_minutes or 1)),
             }
-            store.save(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_RUNS_LOG, run_event)
+            # Bind before publishing a running queue. Subsequent tasks must not
+            # discover a newer cleaning state under the same dataset ID.
+            data_version = _autoresearch_data_version(project)
             store.save(
                 PipelinePhase.EXECUTE_EXPLORATION,
                 f"autoresearch_baselines/{run_id}.json",
                 {
                     "design_hashes": research_baseline(schema, plan, roles),
+                    "data_version": data_version,
                     "candidates": suggestions,
                     "selected_count": len(selected),
                     "budget": run_event,
                     "scope": "exploratory; no automatic confirmatory claim promotion",
                 },
             )
+            store.save(PipelinePhase.EXECUTE_EXPLORATION, AUTORESEARCH_RUNS_LOG, run_event)
 
             queue_items = [
                 _build_autoresearch_work_item(project.id, run_id, index + 1, suggestion)
@@ -1005,6 +1009,9 @@ def register_branch_tools(server: Any) -> None:
                     "Only stopped or expired autoresearch runs can be resumed.",
                 )
             run_id = str(status["run_id"])
+            blocker = _autoresearch_baseline_blocker(project, store, run_id)
+            if blocker:
+                return fmt_error(blocker, code="BASELINE_CHANGED")
             resumed_at = datetime.now().isoformat()
             resume_reason = reason.strip() or "Autoresearch run resumed."
             resume_event = {
@@ -1779,6 +1786,44 @@ def _auto_evaluate_autoresearch_branch(
     }
 
 
+def _autoresearch_data_version(project: Any) -> dict[str, Any]:
+    from rde.interface.mcp.tools._shared.project_context import project_dataset_ids, ensure_dataset
+    from rde.infrastructure.adapters.dataframe_lineage import dataset_version
+
+    versions = []
+    # Preserve selection order too: the generic executor resolves the last
+    # project dataset. Pin every member for explicit dataset contracts as well.
+    for dataset_id in project_dataset_ids(project):
+        ok, _, entry = ensure_dataset(dataset_id, project=project)
+        versions.append(
+            dataset_version(project, entry)
+            if ok and entry is not None
+            else {"dataset_id": dataset_id, "source_status": "unavailable"}
+        )
+    return {"schema": "autoresearch-data-baseline-v1", "datasets": versions}
+
+
+def _autoresearch_baseline_blocker(project: Any, store: ArtifactStore, run_id: str) -> str | None:
+    baseline = store.load(
+        PipelinePhase.EXECUTE_EXPLORATION, f"autoresearch_baselines/{run_id}.json"
+    )
+    if not isinstance(baseline, dict) or "data_version" not in baseline:
+        return "Research data baseline is missing. Start a new reviewed run; prior evidence is retained."
+    current_hashes = research_baseline(
+        store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {},
+        store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {},
+        store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {},
+    )
+    if current_hashes != baseline.get("design_hashes"):
+        return "Research design baseline changed. Stop this run and start a new run after reviewing the plan; prior evidence is retained."
+    try:
+        if _autoresearch_data_version(project) != baseline["data_version"]:
+            return "Research data baseline changed (source, dataset, frame or cleaning history). Start a new reviewed run; prior evidence is retained."
+    except (ValueError, KeyError, TypeError, OSError) as error:
+        return f"Research data baseline cannot be verified: {error}"
+    return None
+
+
 def _execute_autoresearch_next_task(
     project: Any,
     store: ArtifactStore,
@@ -1791,20 +1836,9 @@ def _execute_autoresearch_next_task(
         return {"ok": False, "message": "No running autoresearch run."}
 
     run_id = str(status["run_id"])
-    baseline = store.load(
-        PipelinePhase.EXECUTE_EXPLORATION, f"autoresearch_baselines/{run_id}.json"
-    )
-    if isinstance(baseline, dict):
-        current_hashes = research_baseline(
-            store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {},
-            store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {},
-            store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {},
-        )
-        if current_hashes != baseline.get("design_hashes"):
-            return {
-                "ok": False,
-                "message": "Research design baseline changed. Stop this run and start a new run after reviewing the plan; prior evidence is retained.",
-            }
+    blocker = _autoresearch_baseline_blocker(project, store, run_id)
+    if blocker:
+        return {"ok": False, "message": blocker}
     queue = _project_autoresearch_queue(store, run_id)
     if _reclaim_expired_autoresearch_leases(store, queue):
         queue = _project_autoresearch_queue(store, run_id)
