@@ -23,6 +23,9 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
             "promotion_requires_confirmation": True,
             "quick_explore_is_audited": False,
         }
+        from rde.interface.mcp.canvas import canvas_contract
+
+        base["canvas_contract"] = canvas_contract()
         if not ok:
             return {
                 **base,
@@ -44,6 +47,22 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 
 def register_protocol_tools(server: Any) -> None:
+    @server.tool()
+    def validate_workflow_connection(source_type: str, transition: str, facts: dict) -> dict | str:
+        """Validate typed research ports using get_workflow_contract.canvas_contract.
+
+        facts must contain every boolean in that contract. The host must derive
+        facts from persisted node ancestry, not from model claims. This checks
+        topology only, never authorizes execution or rewrites historical edges.
+        """
+        from rde.interface.mcp.canvas import validate_connection
+        from rde.interface.mcp.tools._shared import fmt_error
+
+        try:
+            return validate_connection(source_type, transition, facts)
+        except (ValueError, TypeError) as error:
+            return fmt_error(str(error), code="INVALID_WORKFLOW_CONNECTION")
+
     @server.tool()
     def data_preparation(project_id: str, request: dict) -> dict[str, Any] | str:
         """Governed relational preparation before statistical analysis.

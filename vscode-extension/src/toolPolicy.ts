@@ -45,6 +45,7 @@ export const RDE_MCP_TOOL_NAMES = [
     ...EXTERNAL_GENOMICS_TOOL_NAMES,
     ...PROSPECTIVE_DESIGN_TOOL_NAMES,
     'get_workflow_contract',
+    'validate_workflow_connection',
     'get_dataset_version',
     'data_preparation',
     'research_plan',
@@ -115,6 +116,7 @@ export const TOOL_GROUPS = {
         'read_artifact',
         'data_preparation',
         'get_workflow_contract',
+        'validate_workflow_connection',
         'init_project',
         'get_pipeline_status',
         'get_harness_dashboard',
@@ -131,6 +133,7 @@ export const TOOL_GROUPS = {
     pipeline: [
         'read_artifact',
         'get_workflow_contract',
+        'validate_workflow_connection',
         ...WORKFLOW_PREREQUISITE_TOOLS,
         'get_approval_card',
         'get_harness_dashboard',

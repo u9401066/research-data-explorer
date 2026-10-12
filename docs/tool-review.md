@@ -87,3 +87,5 @@ See [MCP v2 design](mcp-v2.md), [clinical methods](clinical-methods.md) and
 
 
 Prediction validation regressions cover held-out perturbation isolation, group/time separation, candidate failure, saved-result reuse and renderer recovery.
+
+| `validate_workflow_connection` | all | host-derived node identity and full facts | topology compatibility only; no approval | yes |

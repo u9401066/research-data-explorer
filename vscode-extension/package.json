@@ -49,6 +49,7 @@
       "run_sample_size_plan",
       "render_sample_size_publication",
       "get_workflow_contract",
+      "validate_workflow_connection",
       "research_plan",
       "read_artifact",
       "get_dataset_version",

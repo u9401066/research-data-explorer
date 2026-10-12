@@ -473,3 +473,13 @@ durable_operations:
   ambiguous_result: EXECUTION_INDETERMINATE_do_not_repeat_effects
   status_query: get_workflow_contract.execution_receipts
   does_not_establish: [exactly_once_external_effects, automatic_resume_authorization, assumption_truth]
+
+canvas_transitions:
+  contract: rde-canvas-v1
+  discovery: get_workflow_contract.canvas_contract
+  validator: validate_workflow_connection
+  source: src/rde/interface/mcp/canvas_contract.json
+  host_resolves: [identity, full_ancestry, plan_reference, approval, scope_ownership]
+  compatibility_is_not_authorization: true
+  rejects: [prospective_design_after_analysis, ancestor_reset_via_direction, unknown_types, incomplete_facts]
+  immutable: [executed_source_edges, original_plan_versions]

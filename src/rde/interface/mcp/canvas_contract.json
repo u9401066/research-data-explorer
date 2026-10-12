@@ -1,0 +1,237 @@
+{
+  "contract": "rde-canvas-v1",
+  "scope": "Typed research transitions; the host resolves node identity, ancestry and approvals. A compatible port never grants execution approval.",
+  "nodes": {
+    "question": {
+      "label": "研究問題",
+      "stage": "研究設計",
+      "output": "research_question"
+    },
+    "dataset": {
+      "label": "研究資料",
+      "stage": "資料準備",
+      "output": "analysis_dataset"
+    },
+    "preparation": {
+      "label": "資料準備",
+      "stage": "資料準備",
+      "output": "prepared_dataset"
+    },
+    "plan_draft": {
+      "label": "計畫草案",
+      "stage": "研究計畫",
+      "output": "draft_protocol"
+    },
+    "plan_approved": {
+      "label": "核准計畫",
+      "stage": "研究計畫",
+      "output": "approved_protocol"
+    },
+    "sample_design": {
+      "label": "收案設計",
+      "stage": "研究計畫",
+      "output": "sample_design"
+    },
+    "sample_result": {
+      "label": "樣本數依據",
+      "stage": "研究計畫",
+      "output": "sample_basis"
+    },
+    "analysis": {
+      "label": "研究分析",
+      "stage": "分析執行",
+      "output": "analysis_result"
+    },
+    "exploration": {
+      "label": "探索分支",
+      "stage": "探索分析",
+      "output": "exploratory_result"
+    },
+    "result": {
+      "label": "研究成果",
+      "stage": "成果與報告",
+      "output": "research_result"
+    },
+    "model": {
+      "label": "模型研究",
+      "stage": "模型研究",
+      "output": "model_result"
+    }
+  },
+  "transitions": {
+    "prepare": {
+      "label": "準備分析資料",
+      "target": "preparation",
+      "relation": "derives",
+      "accepts": [
+        "research_question",
+        "analysis_dataset",
+        "prepared_dataset"
+      ],
+      "requires": [],
+      "forbids": [
+        "analysisBound"
+      ],
+      "sampleTarget": "preparation"
+    },
+    "create_plan": {
+      "label": "擬定研究計畫",
+      "target": "plan_draft",
+      "relation": "derives",
+      "accepts": [
+        "research_question",
+        "analysis_dataset",
+        "prepared_dataset"
+      ],
+      "requires": [],
+      "forbids": [
+        "analysisBound"
+      ],
+      "sampleTarget": "plan_draft"
+    },
+    "sample_size": {
+      "label": "規劃收案樣本數",
+      "target": "sample_design",
+      "relation": "branches",
+      "accepts": [
+        "research_question",
+        "draft_protocol",
+        "sample_design",
+        "sample_basis"
+      ],
+      "requires": [],
+      "forbids": [
+        "analysisBound",
+        "planLocked",
+        "executionStarted"
+      ],
+      "sampleTarget": "sample_design"
+    },
+    "revise_plan": {
+      "label": "修訂計畫成新版本",
+      "target": "plan_draft",
+      "relation": "revision",
+      "accepts": [
+        "draft_protocol",
+        "approved_protocol",
+        "analysis_result",
+        "exploratory_result",
+        "research_result",
+        "sample_design",
+        "sample_basis",
+        "research_question"
+      ],
+      "requires": [
+        "hasPlan"
+      ],
+      "forbids": [],
+      "sampleTarget": "sample_design"
+    },
+    "append_question": {
+      "label": "追加研究問題",
+      "target": "plan_draft",
+      "relation": "branches",
+      "accepts": [
+        "draft_protocol",
+        "approved_protocol",
+        "analysis_result",
+        "exploratory_result",
+        "research_result",
+        "sample_design",
+        "sample_basis",
+        "research_question"
+      ],
+      "requires": [
+        "hasPlan"
+      ],
+      "forbids": [],
+      "sampleTarget": "sample_design"
+    },
+    "run_analysis": {
+      "label": "執行核准的分析",
+      "target": "analysis",
+      "relation": "derives",
+      "accepts": [
+        "approved_protocol"
+      ],
+      "requires": [
+        "hasPlan",
+        "planApproved"
+      ],
+      "forbids": [],
+      "sampleTarget": "analysis"
+    },
+    "explore": {
+      "label": "新增自主探索",
+      "target": "exploration",
+      "relation": "branches",
+      "accepts": [
+        "approved_protocol",
+        "analysis_result",
+        "exploratory_result",
+        "research_result",
+        "research_question"
+      ],
+      "requires": [
+        "hasPlan",
+        "planApproved"
+      ],
+      "forbids": [],
+      "sampleTarget": "exploration"
+    },
+    "publication": {
+      "label": "製作投稿圖稿",
+      "target": "result",
+      "relation": "derives",
+      "accepts": [
+        "approved_protocol",
+        "analysis_result",
+        "exploratory_result",
+        "research_result",
+        "sample_basis"
+      ],
+      "requires": [
+        "hasFigures"
+      ],
+      "forbids": [],
+      "sampleTarget": "result"
+    },
+    "direction": {
+      "label": "新增研究方向",
+      "target": "question",
+      "relation": "branches",
+      "accepts": [
+        "research_question",
+        "analysis_dataset",
+        "prepared_dataset",
+        "draft_protocol",
+        "approved_protocol",
+        "sample_design",
+        "sample_basis",
+        "analysis_result",
+        "exploratory_result",
+        "research_result",
+        "model_result"
+      ],
+      "requires": [],
+      "forbids": [],
+      "sampleTarget": "question"
+    }
+  },
+  "facts": [
+    "analysisBound",
+    "planLocked",
+    "executionStarted",
+    "hasPlan",
+    "planApproved",
+    "hasFigures",
+    "samplePlan"
+  ],
+  "rules": [
+    "樣本數規劃屬於研究設計；不能接在已核准計畫、分析、探索或其後代作為下一項檢定。",
+    "從分析結果提出新問題，須明確追加問題或修訂計畫、產生新草案並重新核准。",
+    "研究方向繼承上層限制；改名、加一層方向或經由報告節點不能重設研究階段。",
+    "檢視原計畫與既有樣本數依據是導覽，不會建立新的執行連線。",
+    "已執行連線保存實際來源，不能以拖曳改寫；保存設定並通過後端檢查後才建立新節點。"
+  ]
+}

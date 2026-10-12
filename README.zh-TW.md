@@ -72,7 +72,7 @@ RDE 是給非資料科學家使用的 agent harness，不是只產生漂亮摘�
 
 | Module | 數量 | 工具 |
 | --- | ---: | --- |
-| `protocol_tools.py` | 1 | `get_workflow_contract` |
+| `protocol_tools.py` | 6 | `get_workflow_contract`, `validate_workflow_connection`, `read_artifact`, `research_plan`, `get_dataset_version`, `data_preparation` |
 | `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
 | `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |

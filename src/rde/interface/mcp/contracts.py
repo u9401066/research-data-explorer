@@ -227,6 +227,12 @@ CONTRACTS = {
     "get_workflow_contract": ToolContract(
         "all", "server-resolved state", "next legal action", True
     ),
+    "validate_workflow_connection": ToolContract(
+        "all",
+        "host-derived node type and complete facts",
+        "typed topology compatibility; no execution permission",
+        True,
+    ),
 }
 
 

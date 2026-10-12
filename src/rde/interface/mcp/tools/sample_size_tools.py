@@ -69,6 +69,19 @@ def register_sample_size_tools(server):
         僅 prospective_superiority、two-sided、零差值虛無；無預設效應或數值假設。
         回傳完整草案 hash；用 get_sample_size_plan 讀完整人類審閱內容後才可核准。
         """
+        from rde.application.session import get_session
+        from rde.application.pipeline import PipelinePhase
+
+        ok, message, project = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(message)
+        pipeline = get_session().get_pipeline(project.id)
+        if pipeline.plan_locked or PipelinePhase.EXECUTE_EXPLORATION in pipeline.completed_phases:
+            return fmt_error(
+                "前瞻樣本數規劃須在計畫鎖定前完成；此分析已綁定計畫。"
+                "新的收案研究請建立獨立研究設計，不能接在此分析之後。",
+                code="RESEARCH_STAGE_CONFLICT",
+            )
         return call(project_id, workflow.draft_plan, plan_id=plan_id, options=planning_options)
 
     @server.tool()

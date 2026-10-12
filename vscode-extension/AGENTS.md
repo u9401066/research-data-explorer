@@ -38,3 +38,11 @@ Use `draft_sample_size_plan` → `get_sample_size_plan` → explicit human revie
 hashes fixed. No patient dataset or EDA phase advancement is required or implied.
 `render_sample_size_publication` only renders saved numerical receipts.
 Do not use observed-effect post-hoc power to interpret a nonsignificant result.
+
+## Typed canvas transitions
+
+Discover `get_workflow_contract.canvas_contract` and use `validate_workflow_connection`
+for topology checks. Host-derived identity, ancestry and approval remain mandatory;
+compatibility does not grant execution permission. A direction below analysis cannot
+reset the phase to prospective sample-size planning. Use explicit protocol revision
+or appended research questions and fresh approval; retain historical source edges.

@@ -380,3 +380,11 @@ Agent 應該在回覆時引用具體的 artifact：
 不推進 EDA 13 階段，也不代表完成病人資料的完整稽核。成功與失敗均保留，
 重啟驗證全產物；假設改變新建草案。完整契約及驗收見 `docs/sample-size-planning.md`。
 舊 `power_analysis_advanced` 不再允許隱含數值預設或用觀察效應解釋未顯著結果。
+
+## Canvas 與節點連接
+
+先讀 `get_workflow_contract.canvas_contract`，依輸出／輸入種類與研究階段選下一步。
+`validate_workflow_connection` 只檢查拓樸，不授予執行權限；host 必須從保存的節點與
+完整祖先推導事實。分析後的新問題走計畫修訂或追加並重新核准；不能透過方向節點
+倒接事前樣本數。RDE 已鎖定／執行分析的原生專案也不能新增前瞻樣本數草案。
+詳見 [節點契約](docs/canvas-workflow.md)，沿用同一個 RDE MCP server。
