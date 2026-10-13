@@ -40,6 +40,15 @@ python scripts/codex_rde_smoke.py
 - 子法：.github/bylaws/pipeline-workflow.md
 - Hook 清單：SPEC.md §6
 
+## 執行範圍與完成證據
+
+- 先讀 live `get_workflow_contract`、工具 schema 與目前計畫；以下流程是導覽，不是固定要全部執行的方法清單。網站內的 agent 指引由 Workbench 編譯，不會自動載入本檔。
+- 核准綁定精確計畫與來源／分析資料集版本。研究計畫已鎖定後，只執行登錄的方法；樣本數規劃屬研究設計階段，不能在已看結果的分析分支補做事前規劃。autoresearch 候選保留獨立探索標記，不自動升格成主要研究。
+- 下列人工確認適用互動式編輯器流程。宿主有已保存的全自動授權及審閱機制時，依該宿主契約核對，不重問已授權的操作；模型不能自行聲稱得到授權或以 `confirm=true` 取代審閱。
+- 未知臨床定義維持未知。可先鎖定可行的描述性階段，保留事件／病人分母和缺失；不可將指定推論悄悄改成描述，或把重複事件當成獨立病人。
+- 執行後完整讀取本次工作的專用方法報告與 `audit_report.json`、`report_readiness.json`。按工具提供的分頁接續；不能只讀尾頁、舊工作報告或用 `completed` 宣稱已完成解讀。
+- 核對 readiness 的 `scope`、`target_tier`、缺口及適用性。`descriptive_only` 不要求通用投稿圖表配額，不代表可投稿；稽核等級也不是科學品質證書。`auto_improve` 不授權新增未核准分析。
+
 ## 完整流程
 
 ### Phase 0: Project Setup
@@ -109,11 +118,9 @@ check_readiness()
 
 ### Phase 8: Execute Exploration 🔒 計畫鎖定中
 ```
+# 僅執行已鎖定的資料準備與方法；下列為可選工具例，不是必跑清單
 apply_cleaning()
-generate_table_one()
-compare_groups() × N
-analyze_variable() × N
-correlation_matrix()
+generate_table_one() / compare_groups() / analyze_variable() / correlation_matrix()
 → H-009: 每步自動寫入 decision_log.jsonl
 → S-002 多重比較, S-009 Effect size, S-010 Power
 ```

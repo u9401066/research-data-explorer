@@ -119,3 +119,60 @@ def test_real_mcp_locked_scope_saved_reuse_and_source_drift(tmp_path, monkeypatc
     report.write_bytes(original)
     dataset.metadata.file_path.write_text("changed source")
     assert call().is_error
+
+
+def test_descriptive_full_mcp_audit_does_not_demand_inferential_publication_bundle(tmp_path):
+    from test_clinical_survival import clinical_project
+    from rde.application.pipeline import PipelinePhase
+    from rde.interface.mcp.server import create_server
+
+    project, store, dataset, _ = clinical_project(tmp_path, frame=frame())
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        dict(
+            locked=True,
+            alpha=0.05,
+            missing_strategy="available",
+            multiple_comparison_method="holm",
+            analyses=[
+                dict(
+                    type="run_descriptive_study",
+                    variables=OPTIONS["columns"],
+                    execution_arguments=dict(descriptive_options=OPTIONS),
+                )
+            ],
+        ),
+    )
+    server = create_server()
+
+    def call(tool, **args):
+        result = asyncio.run(server.call_tool(tool, args))
+        assert not result.is_error, result.content
+        return result
+
+    call("run_descriptive_study", dataset_id=dataset.id, descriptive_options=OPTIONS)
+    call("collect_results", project_id=project.id)
+    call("assemble_report", project_id=project.id, allow_incomplete=False)
+    call("run_audit", project_id=project.id)
+    audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
+    bundle = next(c for c in audit["checks"] if c["category"] == "publication_bundle")
+    assert bundle["passed"] and bundle["applicable"] is False
+    assert bundle["score"] == bundle["max"] == 0
+    assert not any("粗分析圖" in x or "細分析圖" in x for x in audit["suggestions"])
+    summary = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+    assert summary["deliverables"]["missing_components"] == []
+    assert summary["deliverables"]["minimum_publication_bundle_met"] is False
+    call("auto_improve", project_id=project.id)
+    final = store.load(PipelinePhase.AUTO_IMPROVE, "final_report.md")
+    assert "ready for descriptive_only" in final
+    assert "**status:** production-ready" not in final
+    assert "Why this is production-ready" not in final
+    assert "not applicable (descriptive-only)" in final
+    # A scoped audit must still detect missing real evidence; this is not a waiver.
+    store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "descriptive_report.md").unlink()
+    call("run_audit", project_id=project.id)
+    invalid = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
+    assert (
+        next(c for c in invalid["checks"] if c["category"] == "report_readiness")["passed"] is False
+    )

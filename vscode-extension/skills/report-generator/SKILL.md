@@ -23,6 +23,12 @@ Phase 10 的報告組裝工作流，包括品質檢查、敏感資訊清除、�
 2. `results_summary.json` 存在
 3. `decision_log.jsonl` 存在
 
+## 來源、範圍與最終解讀
+
+先讀 live `get_workflow_contract` 與目前鎖定計畫；本檔為編輯器指引，網站指引由宿主平台另外載入。依同一次執行、相同來源與分析資料集版本讀取專用方法報告、`audit_report.json` 及 `report_readiness.json`，分頁必須完整覆蓋。舊研究成果不能替代本次缺少的報告。
+
+核對 `scope`、`target_tier`、未通過項目與適用性；`descriptive_only` 等範圍完成不等於一般 production／投稿就緒。描述性研究不為補齊通用 Table 1 或圖數配額新增分析，缺少真實報告仍屬失敗。字母評級、DOCX／PDF 匯出成功及 `completed` 都不能替代科學解讀或實際版面檢查。保留計畫、資料版本與執行來源，說明真實納排、估計、不確定性與限制；沒有圖像像素不能聲稱看圖。
+
 ## 報告結構 (H-005 必備章節)
 
 ```markdown
@@ -54,10 +60,10 @@ Phase 10 的報告組裝工作流，包括品質檢查、敏感資訊清除、�
 
 ## Candidate Finding Markers
 
-報告中可直接用於論文的段落用以下標記：
+報告中待作者核對的候選段落可用以下標記；標記不代表可直接投稿：
 ```markdown
 <!-- CANDIDATE_FINDING:START -->
-這段內容可直接用於論文 Methods/Results
+待核對來源、統計解讀與投稿要求的 Methods/Results 草稿
 <!-- CANDIDATE_FINDING:END -->
 ```
 

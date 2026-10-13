@@ -205,8 +205,14 @@ def register_audit_tools(server: Any) -> None:
                 }
             )
 
+            # Readiness is derived from the locked scope, never the stale summary.
+            from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
+
+            report_readiness = _evaluate_report_readiness(results, store)
+            publication_applicable = report_readiness.get("scope") != "descriptive_evidence_only"
+
             # ── 6. Publication bundle completeness ────────────────
-            max_score += 10
+            max_score += 10 if publication_applicable else 0
             deliverables = results.get("deliverables", {}) if results else {}
             required_desc = deliverables.get("required_descriptive_figures", 3)
             required_analytical = deliverables.get("required_analytical_figures", 6)
@@ -217,14 +223,20 @@ def register_audit_tools(server: Any) -> None:
                 bundle_score += 2
             bundle_score += int(3 * min(1.0, descriptive / max(1, required_desc)))
             bundle_score += int(5 * min(1.0, analytical / max(1, required_analytical)))
+            if not publication_applicable:
+                bundle_score = 0
             total_score += bundle_score
             checks.append(
                 {
                     "category": "publication_bundle",
                     "score": bundle_score,
-                    "max": 10,
-                    "passed": bool(deliverables.get("minimum_publication_bundle_met")),
-                    "details": (
+                    "max": 10 if publication_applicable else 0,
+                    "applicable": publication_applicable,
+                    "passed": not publication_applicable
+                    or bool(deliverables.get("minimum_publication_bundle_met")),
+                    "details": "Not applicable to locked descriptive-only scope; no publication readiness claim."
+                    if not publication_applicable
+                    else (
                         f"table_one={'✅' if deliverables.get('table_one_present') else '❌'}, "
                         f"crude={descriptive}/{required_desc}, detailed={analytical}/{required_analytical}"
                     ),
@@ -232,14 +244,11 @@ def register_audit_tools(server: Any) -> None:
             )
 
             # ── 7. Final report readiness ─────────────────────────
-            max_score += 10
-            from rde.interface.mcp.tools.report_tools import _evaluate_report_readiness
-
-            report_readiness = _evaluate_report_readiness(results, store)
+            max_score += 10 if publication_applicable else 7
             readiness_score = 0
             if report_readiness.get("review_status") in {"pass", "repaired"}:
                 readiness_score += 3
-            if report_readiness.get("publication_bundle_met"):
+            if publication_applicable and report_readiness.get("publication_bundle_met"):
                 readiness_score += 3
             if report_readiness.get("ready"):
                 readiness_score += 4
@@ -256,7 +265,7 @@ def register_audit_tools(server: Any) -> None:
                 {
                     "category": "report_readiness",
                     "score": readiness_score,
-                    "max": 10,
+                    "max": 10 if publication_applicable else 7,
                     "passed": bool(report_readiness.get("ready")),
                     "details": readiness_details,
                 }
@@ -1231,13 +1240,24 @@ def _render_recovered_quality_markdown(report: dict[str, Any]) -> str:
 
 def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> str:
     ready = bool(report_readiness.get("ready"))
-    lines = ["## Production Readiness\n"]
-    lines.append(f"- **status:** {'production-ready' if ready else 'not production-ready'}")
+    target = str(report_readiness.get("target_tier", "unknown"))
+    scoped = target != "production_ready"
+    lines = ["## Report Readiness\n" if scoped else "## Production Readiness\n"]
+    status = (
+        (f"ready for {target}" if ready else f"not ready for {target}")
+        if scoped
+        else ("production-ready" if ready else "not production-ready")
+    )
+    lines.append(f"- **status:** {status}")
+    if scoped:
+        lines.append(
+            "- Scope-specific completion does not establish production or publication readiness."
+        )
     lines.append(f"- **target tier:** {report_readiness.get('target_tier', 'unknown')}")
     lines.append(f"- **current tier:** {report_readiness.get('current_tier', 'unknown')}")
     lines.append(f"- **methodology review:** {report_readiness.get('review_status', 'unknown')}")
     lines.append(
-        f"- **publication bundle:** {'met' if report_readiness.get('publication_bundle_met') else 'not met'}"
+        f"- **publication bundle:** {'not applicable (descriptive-only)' if report_readiness.get('scope') == 'descriptive_evidence_only' else 'met' if report_readiness.get('publication_bundle_met') else 'not met'}"
     )
     data_quality = report_readiness.get("data_quality") or {}
     if isinstance(data_quality, dict) and data_quality:
@@ -1257,7 +1277,13 @@ def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> st
         lines.append(
             f"- **core goal audit:** {'met' if core_goal_audit.get('ready') else 'not met'}"
         )
-    if ready:
+    if ready and scoped:
+        lines.append(f"\n### Evidence completed for {target}")
+        lines.append("- the locked scope's required source, method and report checks passed")
+        lines.append(
+            "- broader inference, additional analyses and publication approval are not implied"
+        )
+    elif ready:
         lines.append("\n### Why this is production-ready")
         lines.append("- methodology review has already passed")
         lines.append("- the locked plan reached the production_ready target tier")
@@ -1265,7 +1291,11 @@ def _render_phase10_readiness_summary(report_readiness: dict[str, object]) -> st
         if core_goal_audit:
             lines.append("- the core non-coder agent workflow contract is complete")
     else:
-        lines.append("\n### Why this is not yet production-ready")
+        lines.append(
+            "\n### Remaining scope-specific gaps"
+            if scoped
+            else "\n### Why this is not yet production-ready"
+        )
         missing = _as_string_list(report_readiness.get("missing_requirements", []))
         if missing:
             for requirement in missing:

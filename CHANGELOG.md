@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The first synchronized repository and VS Code extension release is planned as 0.1.0.
 
+## Unreleased — 2026-10-13
+
+- Scope descriptive report readiness and audit to the locked plan. A non-applicable publication bundle receives 0/0, while missing source/method/report evidence still fails.
+- Render scoped readiness truthfully instead of calling every ready result production-ready.
+- Align packaged EDA/report skills with exact execution evidence, complete report reading and host-owned authorization; candidate prose is not certified publication content.
+
 ## [0.5.2] - 2026-10-12
 
 ### Typed research workflow ports
