@@ -22,7 +22,10 @@ def _publication_bundle_check(deliverables: dict, applicable: bool) -> dict:
     """
     if not applicable:
         return dict(
-            category="publication_bundle", score=0, max=0, applicable=False,
+            category="publication_bundle",
+            score=0,
+            max=0,
+            applicable=False,
             passed=True,
             details="Not applicable to locked descriptive-only scope; no publication readiness claim.",
         )
@@ -33,7 +36,10 @@ def _publication_bundle_check(deliverables: dict, applicable: bool) -> dict:
     analytical = deliverables.get("analytical_figures", 0)
     score = 2 if table_required and deliverables.get("table_one_present") else 0
     maximum = 2 if table_required else 0
-    for weight, actual, required in [(3, descriptive, required_desc), (5, analytical, required_analytical)]:
+    for weight, actual, required in [
+        (3, descriptive, required_desc),
+        (5, analytical, required_analytical),
+    ]:
         if required > 0:
             maximum += weight
             score += int(weight * min(1.0, actual / required))
@@ -41,9 +47,16 @@ def _publication_bundle_check(deliverables: dict, applicable: bool) -> dict:
     if not table_required:
         table = "not_required_by_locked_scope"
     desc = f"{descriptive}/{required_desc}" if required_desc else "not_required_by_locked_scope"
-    detailed = f"{analytical}/{required_analytical}" if required_analytical else "not_required_by_locked_scope"
+    detailed = (
+        f"{analytical}/{required_analytical}"
+        if required_analytical
+        else "not_required_by_locked_scope"
+    )
     return dict(
-        category="publication_bundle", score=score, max=maximum, applicable=True,
+        category="publication_bundle",
+        score=score,
+        max=maximum,
+        applicable=True,
         passed=bool(deliverables.get("minimum_publication_bundle_met")),
         details=f"table_one={table}, crude={desc}, detailed={detailed}; evidence completeness only, not publication approval.",
     )
