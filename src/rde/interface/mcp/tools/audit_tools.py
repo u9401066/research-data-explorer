@@ -14,6 +14,41 @@ import re
 from typing import Any
 
 
+def _publication_bundle_check(deliverables: dict, applicable: bool) -> dict:
+    """Score and describe only deliverables required by the locked workflow.
+
+    A clinical/prediction/repeated study can require method figures without a
+    generic Table 1 or crude EDA figures. Physical absence is not a failed check.
+    """
+    if not applicable:
+        return dict(
+            category="publication_bundle", score=0, max=0, applicable=False,
+            passed=True,
+            details="Not applicable to locked descriptive-only scope; no publication readiness claim.",
+        )
+    table_required = deliverables.get("table_one_required", True)
+    required_desc = deliverables.get("required_descriptive_figures", 3)
+    required_analytical = deliverables.get("required_analytical_figures", 6)
+    descriptive = deliverables.get("descriptive_figures", 0)
+    analytical = deliverables.get("analytical_figures", 0)
+    score = 2 if table_required and deliverables.get("table_one_present") else 0
+    maximum = 2 if table_required else 0
+    for weight, actual, required in [(3, descriptive, required_desc), (5, analytical, required_analytical)]:
+        if required > 0:
+            maximum += weight
+            score += int(weight * min(1.0, actual / required))
+    table = "present" if deliverables.get("table_one_present") else "missing"
+    if not table_required:
+        table = "not_required_by_locked_scope"
+    desc = f"{descriptive}/{required_desc}" if required_desc else "not_required_by_locked_scope"
+    detailed = f"{analytical}/{required_analytical}" if required_analytical else "not_required_by_locked_scope"
+    return dict(
+        category="publication_bundle", score=score, max=maximum, applicable=True,
+        passed=bool(deliverables.get("minimum_publication_bundle_met")),
+        details=f"table_one={table}, crude={desc}, detailed={detailed}; evidence completeness only, not publication approval.",
+    )
+
+
 def register_audit_tools(server: Any) -> None:
     """Register audit and auto-improve MCP tools."""
 
@@ -212,36 +247,11 @@ def register_audit_tools(server: Any) -> None:
             publication_applicable = report_readiness.get("scope") != "descriptive_evidence_only"
 
             # ── 6. Publication bundle completeness ────────────────
-            max_score += 10 if publication_applicable else 0
             deliverables = results.get("deliverables", {}) if results else {}
-            required_desc = deliverables.get("required_descriptive_figures", 3)
-            required_analytical = deliverables.get("required_analytical_figures", 6)
-            descriptive = deliverables.get("descriptive_figures", 0)
-            analytical = deliverables.get("analytical_figures", 0)
-            bundle_score = 0
-            if deliverables.get("table_one_present"):
-                bundle_score += 2
-            bundle_score += int(3 * min(1.0, descriptive / max(1, required_desc)))
-            bundle_score += int(5 * min(1.0, analytical / max(1, required_analytical)))
-            if not publication_applicable:
-                bundle_score = 0
-            total_score += bundle_score
-            checks.append(
-                {
-                    "category": "publication_bundle",
-                    "score": bundle_score,
-                    "max": 10 if publication_applicable else 0,
-                    "applicable": publication_applicable,
-                    "passed": not publication_applicable
-                    or bool(deliverables.get("minimum_publication_bundle_met")),
-                    "details": "Not applicable to locked descriptive-only scope; no publication readiness claim."
-                    if not publication_applicable
-                    else (
-                        f"table_one={'✅' if deliverables.get('table_one_present') else '❌'}, "
-                        f"crude={descriptive}/{required_desc}, detailed={analytical}/{required_analytical}"
-                    ),
-                }
-            )
+            bundle_check = _publication_bundle_check(deliverables, publication_applicable)
+            max_score += bundle_check["max"]
+            total_score += bundle_check["score"]
+            checks.append(bundle_check)
 
             # ── 7. Final report readiness ─────────────────────────
             max_score += 10 if publication_applicable else 7
