@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import math
 from pathlib import Path
 import uuid
@@ -295,7 +296,26 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
     if data_path is None:
         return None
 
-    from rde.application.session import DatasetEntry as SessionDatasetEntry
+    def verify_source() -> None:
+        # Older receipts without source identity remain explicitly legacy. New
+        # receipts must never reload changed bytes under an existing dataset ID,
+        # including the common case where no cleaning chain exists yet.
+        source = intake.get("source")
+        if source is None:
+            return
+        with data_path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        if (
+            not isinstance(source, dict)
+            or source.get("sha256") != digest
+            or source.get("bytes") != data_path.stat().st_size
+            or source.get("sheet_name") != intake.get("sheet_name")
+            or source.get("filename") != data_path.name
+        ):
+            raise ValueError("Saved intake source identity has changed; import a new dataset.")
+
+    verify_source()
+
     from rde.infrastructure.adapters import PandasLoader
 
     metadata = DatasetMetadata(
@@ -306,6 +326,7 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
         preparation=intake.get("preparation"),
     )
     dataframe, variables, row_count, report = PandasLoader().load(metadata)
+    verify_source()
     from rde.infrastructure.adapters.dataframe_lineage import (
         restore_cleaning,
         synchronize_variables,
@@ -320,6 +341,20 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
         dataset.mark_cleaned()
         dataset.tags["restored_cleaning"] = cleaning
     dataset.tags["normalization_report"] = report.as_dict()
+    dataset.tags["intake_report"] = intake
+    if isinstance(schema, dict) and schema.get("dataset_id") == dataset_id:
+        from rde.domain.models.variable import VariableType
+
+        dataset.tags["schema_registry"] = schema
+        by_name = {variable.name: variable for variable in dataset.variables}
+        for saved in schema.get("variables", []):
+            variable = by_name.get(saved.get("name"))
+            if variable is None:
+                continue
+            if saved.get("variable_type"):
+                variable.variable_type = VariableType(saved["variable_type"])
+            if saved.get("role"):
+                variable.role = VariableRole(saved["role"])
 
     if isinstance(alignment, dict):
         raw_roles = alignment.get("variable_roles")
@@ -336,8 +371,43 @@ def _rehydrate_dataset_from_project(project: Project, dataset_id: str) -> Datase
             dataset.tags["concept_alignment"] = alignment
 
     session = get_session()
+    # Metadata may already be cached while another project is active. Publish
+    # the verified owner explicitly so dataset-only tools save their receipts
+    # under that project, and never switch context before source checks pass.
+    try:
+        owner = session.get_project(project.id)
+    except KeyError:
+        owner = project
+    session.register_project(owner)
     session.register_dataset(dataset, dataframe)
-    return SessionDatasetEntry(dataset=dataset, dataframe=dataframe)
+    return session.get_dataset_entry(dataset_id)
+
+
+def _saved_dataset_owner(dataset_id: str) -> tuple[str, Project | None]:
+    """Find an explicit, unique durable binding; never guess the latest project."""
+    from rde.infrastructure.persistence import (
+        FileSystemProjectRepository,
+        resolve_projects_base_dir,
+    )
+
+    session = get_session()
+    repo = FileSystemProjectRepository(resolve_projects_base_dir())
+    owners: set[str] = set()
+    for record in repo.list_all():
+        bound = record.get("dataset_ids") or []
+        if dataset_id in bound:
+            owners.add(record["id"])
+        elif not bound:
+            candidate = repo.load_project(record["id"])
+            if dataset_id in _recover_project_dataset_ids(candidate):
+                owners.add(candidate.id)
+    if session.active_project_id:
+        active = session.get_project()
+        if dataset_id in project_dataset_ids(active):
+            owners.add(active.id)
+    if len(owners) > 1:
+        return "資料集綁定多個專案；請明確指定 project_id 後再操作。", None
+    return "", repo.load_project(next(iter(owners))) if owners else None
 
 
 def ensure_dataset(
@@ -381,10 +451,14 @@ def ensure_dataset(
         entry = session.get_dataset_entry(resolved_dataset_id)
         return True, f"資料集: {resolved_dataset_id}", entry
     except KeyError:
+        if project is None:
+            message, project = _saved_dataset_owner(resolved_dataset_id)
+            if message:
+                return False, message, None
         if project is not None:
             entry = _rehydrate_dataset_from_project(project, resolved_dataset_id)
             if entry is not None:
-                return True, f"鞈??? {resolved_dataset_id} (rehydrated)", entry
+                return True, f"資料集: {resolved_dataset_id} (rehydrated)", entry
         available = project_dataset_ids(project)
         return False, f"資料集 '{resolved_dataset_id}' 不存在。可用: {available}", None
 
