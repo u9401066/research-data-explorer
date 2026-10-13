@@ -341,7 +341,9 @@ def _build_formal_research_report(
         ReportSection(
             section_id="baseline_table",
             title="Table 1. Baseline Characteristics",
-            content=_interpret_table_one(table_one, schema),
+            content="此描述性階段沒有治療組比較或基線表；逐欄分母與分布見描述性報告。"
+            if results and results.get("descriptive_studies")
+            else _interpret_table_one(table_one, schema),
             tables=[table_payload] if table_payload else [],
             order=4,
         )
@@ -563,7 +565,10 @@ def register_report_tools(server: Any) -> None:
 
             deliverables = _summarize_publication_deliverables(project, store)
             exploration_branches = _summarize_exploration_branches(store)
+            from rde.interface.mcp.tools.descriptive_tools import descriptive_summary
+
             summary = {
+                "descriptive_studies": descriptive_summary(store),
                 "comparisons": _persisted_comparisons(store),
                 "predictions": _prediction_summaries(store),
                 "clinical_studies": _clinical_summaries(store),
@@ -1611,6 +1616,9 @@ def _load_latest_repeated_measures_markdown_bundle(store: Any) -> str | None:
 
 def _format_analyses(results: dict | None) -> str:
     """Format statistical analyses section."""
+    if results and results.get("descriptive_studies"):
+        return "\n\n".join(r["summary_markdown"] for r in results["descriptive_studies"])
+
     if not results:
         return "[No analysis results collected]"
     lines = [f"**分析總數:** {results.get('total_analyses', 0)}"]
@@ -1805,6 +1813,8 @@ def _formal_abstract(
     concept_alignment: str | None = None,
     variable_roles: dict | None = None,
 ) -> str:
+    if results and results.get("descriptive_studies"):
+        return "本報告完成原始資料列的描述性研究與可行性核對。尚未確定的收案、身份、時間與結果定義保留在計畫限制；未執行推論或假定獨立樣本。"
     loaded_file = (intake or {}).get("loaded_file", "study dataset")
     normalization = (intake or {}).get("normalization") if isinstance(intake, dict) else {}
     loaded_sheet = (
@@ -2080,6 +2090,9 @@ def _comparison_results_markdown(results: dict | None) -> str:
 
 
 def _formal_key_findings(results: dict | None) -> str:
+    if results and results.get("descriptive_studies"):
+        return "已完成逐欄資料描述與可行性核對；各欄分母、重複代碼與未知事項見描述性報告。沒有進行推論，不能由缺少檢定推論沒有差異。"
+
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
@@ -2115,6 +2128,9 @@ def _formal_key_findings(results: dict | None) -> str:
 
 
 def _formal_statistical_summary(project: Any, store: Any, results: dict | None) -> str:
+    if results and results.get("descriptive_studies"):
+        return "\n\n".join(r["summary_markdown"] for r in results["descriptive_studies"])
+
     if results and results.get("clinical_studies"):
         return "\n\n".join(r["summary_markdown"] for r in results["clinical_studies"])
     if results and results.get("repeated_measurements"):
@@ -2161,6 +2177,9 @@ def _formal_conclusions(
     schema: dict | None = None,
     variable_roles: dict | None = None,
 ) -> str:
+    if results and results.get("descriptive_studies"):
+        return "描述限於本次來源的資料列；不同識別碼不等於獨立病人。逐欄保留缺失，沒有陰性補值、刪除重複列或檢定。推論需要依報告未解事項另訂研究定義與方法，再修訂／追加並審閱計畫。"
+
     if results and results.get("clinical_studies"):
         if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
             return "配對變化不直接代表治療因果效果。配對秩效果量不是中位數差，Kendall W 不是結果變異的解釋比例；逐項區間與校正 p 是不同的推論，未達門檻不代表等效。"
@@ -2248,6 +2267,9 @@ def _build_interpretation_discussion(
     include_figure_details: bool = True,
 ) -> str:
     """Build narrative interpretation, recommendations, and literature context."""
+
+    if results and results.get("descriptive_studies"):
+        return "描述限於本次來源的資料列；不同識別碼不等於獨立病人。逐欄保留缺失，沒有陰性補值、刪除重複列或檢定。推論需要依報告未解事項另訂研究定義與方法，再修訂／追加並審閱計畫。"
 
     if results and results.get("clinical_studies"):
         if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
@@ -2803,6 +2825,9 @@ def _build_interpretation_recommendations(
 
 def _format_findings(results: dict | None) -> str:
     """Format key findings section."""
+    if results and results.get("descriptive_studies"):
+        return "已完成逐欄資料描述與可行性核對；各欄分母、重複代碼與未知事項見描述性報告。沒有進行推論，不能由缺少檢定推論沒有差異。"
+
     if not results:
         return "[No findings to report]"
     if results.get("repeated_measurements") or results.get("clinical_studies"):
@@ -3180,6 +3205,12 @@ def _evaluate_report_readiness(
     from rde.domain.policies.heuristics import DEFAULT_HEURISTIC_POLICY
     from rde.interface.mcp.tools.prediction_tools import prediction_plan
     from rde.interface.mcp.tools.clinical_tools import clinical_plan
+
+    from rde.interface.mcp.tools.descriptive_tools import planned_descriptive, descriptive_readiness
+
+    plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+    if planned_descriptive(plan.get("analyses", [])) is not None:
+        return descriptive_readiness(store, require_report_generation)
 
     if clinical_plan(store) is not None:
         from rde.interface.mcp.tools._shared.clinical_readiness import clinical_readiness

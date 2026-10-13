@@ -388,3 +388,12 @@ Agent 應該在回覆時引用具體的 artifact：
 完整祖先推導事實。分析後的新問題走計畫修訂或追加並重新核准；不能透過方向節點
 倒接事前樣本數。RDE 已鎖定／執行分析的原生專案也不能新增前瞻樣本數草案。
 詳見 [節點契約](docs/canvas-workflow.md)，沿用同一個 RDE MCP server。
+
+## 未完整定義的研究也要先推進
+
+廣泛的「自行探索／完整分析」若缺少抽樣、主終點或獨立性，不要反覆把方法選擇交回人。
+可用 `align_concept(analysis_scope="descriptive", variable_roles={"unassigned": [...], "id": [...]}, confirm=true)`
+確認受限範圍，再以完整 `run_descriptive_study` 規格登錄計畫；確認需依 host 保存的授權。
+保留未知事項並完成逐欄分母、缺失、重複碼及分布，不推定人數、獨立性、隨機分派或陰性事件。
+描述性計畫不能直接跑推論 autoresearch；要追加／修訂並重新審閱。明確限定的推論不能被描述報告冒充。
+契約與限制見 [描述性研究](docs/descriptive-study.md)。網站 Agent 指引在 workbench 執行時載入，不能只改 editor skill。

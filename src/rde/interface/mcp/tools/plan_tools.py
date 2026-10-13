@@ -627,6 +627,7 @@ def register_plan_tools(server: Any) -> None:
         dataset_id: str | None = None,
         research_question: str = "",
         variable_roles: dict[str, str | list[str]] | None = None,
+        analysis_scope: str = "inferential",
         confirm: bool = False,
     ) -> str:
         """對齊研究概念與資料 schema（Phase 3）。
@@ -637,6 +638,7 @@ def register_plan_tools(server: Any) -> None:
         Args:
             project_id: 專案 ID（可選，預設使用當前專案）
             research_question: 研究問題，如 "ICU sepsis 患者 28 天死亡率的影響因素"
+            analysis_scope: inferential 須結果角色；descriptive 僅描述已指定欄位，不推定主終點，後續只能鎖定描述性計畫。
             variable_roles: 變數角色指定，格式: {"outcome": "mortality", "group": "treatment", "covariates": ["age", "sex"]}
             confirm: 是否確認概念對齊，必須設為 true 才能解鎖 Phase 4（預設 false）
         """
@@ -704,6 +706,8 @@ def register_plan_tools(server: Any) -> None:
             role_assignments: dict[str, str] = {}
             role_assignment_source = "user"
             role_warnings: list[str] = []
+            if analysis_scope not in {"inferential", "descriptive"}:
+                return fmt_error("analysis_scope must be inferential or descriptive")
             if variable_roles:
                 role_assignments, role_errors = _assign_explicit_variable_roles(
                     variable_roles=variable_roles,
@@ -738,7 +742,11 @@ def register_plan_tools(server: Any) -> None:
                     ),
                 )
 
-            if confirm and VariableRole.OUTCOME.value not in set(role_assignments.values()):
+            if (
+                confirm
+                and analysis_scope != "descriptive"
+                and VariableRole.OUTCOME.value not in set(role_assignments.values())
+            ):
                 return fmt_error(
                     "Concept alignment requires at least one outcome before confirm=true.",
                     f"Assigned roles: {role_assignments}",
@@ -762,6 +770,7 @@ def register_plan_tools(server: Any) -> None:
                 "dataset": ds.id,
                 "total_variables": len(ds.variables),
                 "analyzable_variables": analyzable,
+                "analysis_scope": analysis_scope,
                 "variable_roles": role_assignments,
                 **_roles_by_role(role_assignments),
                 "role_assignment_source": role_assignment_source,
@@ -1203,6 +1212,19 @@ def register_plan_tools(server: Any) -> None:
 
             from rde.domain.services.analysis_policy import validate_policy
 
+            from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+            descriptive_spec = planned_descriptive(analyses)
+            scope = (
+                ArtifactStore(project.artifacts_dir).load(
+                    PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json"
+                )
+                or {}
+            )
+            if scope.get("analysis_scope") == "descriptive" and descriptive_spec is None:
+                return fmt_error(
+                    "Descriptive concept scope requires a descriptive-only plan; revise the concept before inference"
+                )
             single_weighting = (
                 isinstance(analyses, list)
                 and len(analyses) == 1
@@ -1217,7 +1239,7 @@ def register_plan_tools(server: Any) -> None:
                 alpha,
                 missing_strategy,
                 multiple_comparison_method,
-                single_contrast=single_weighting,
+                single_contrast=single_weighting or descriptive_spec is not None,
             )
 
             session = get_session()
@@ -1233,7 +1255,10 @@ def register_plan_tools(server: Any) -> None:
             can_review_plan, review_gate_reason = pipeline.can_execute(
                 PipelinePhase.PLAN_COMPLETENESS_REVIEW
             )
-            if not can_review_plan:
+            if not can_review_plan and not (
+                descriptive_spec is not None
+                and pipeline.can_execute(PipelinePhase.CREATIVE_IDEATION)[0]
+            ):
                 return fmt_error(
                     review_gate_reason,
                     suggestion=(
@@ -1252,6 +1277,7 @@ def register_plan_tools(server: Any) -> None:
                 schedule_preview: list[dict[str, Any]] = []
                 phase4_payload = {
                     "source": "register_analysis_plan",
+                    "confirmed": confirm,
                     "strategy": "user_supplied_plan",
                     "candidate_pool_size": len(analyses),
                     "selected": analyses,
@@ -1329,6 +1355,7 @@ def register_plan_tools(server: Any) -> None:
                 "run_advanced_analysis",
                 "run_prediction_study",
                 "run_clinical_study",
+                "run_descriptive_study",
                 "run_repeated_measures",
                 "propensity_score",
                 "survival_analysis",
@@ -1455,6 +1482,7 @@ def register_plan_tools(server: Any) -> None:
                 and not prediction_only
                 and repeated_contract is None
                 and not clinical_entries
+                and descriptive_spec is None
             ):
                 from rde.domain.services.autonomous_eda_planner import AutonomousEDAPlanner
 
@@ -1578,6 +1606,40 @@ def register_plan_tools(server: Any) -> None:
                     )
                 ]
                 script_content = "# Execute run_clinical_study through RDE MCP with the locked clinical_options.\n"
+
+            if descriptive_spec is not None:
+                if missing_strategy != "pairwise" or multiple_comparison_method != "none":
+                    return fmt_error(
+                        "Descriptive plans require per-column (pairwise) missing policy and no multiplicity"
+                    )
+                methodology_review_dict = dict(
+                    status="pass",
+                    scope="observed_rows_only",
+                    completeness_tier="descriptive_only",
+                    recommended_analysis_floor=1,
+                    academic_analysis_target=1,
+                    production_analysis_target=1,
+                    final_analysis_count=1,
+                    checks=[dict(name="no_inferential_expansion", passed=True)],
+                    warnings=[
+                        "Descriptive scope only; no independence, design or clinical validity established."
+                    ],
+                )
+                execution_schedule = [
+                    dict(
+                        order=1,
+                        step_id="run_descriptive_study",
+                        stage="descriptive",
+                        tool_name="run_descriptive_study",
+                        analysis_label="run_descriptive_study",
+                        variables=descriptive_spec["columns"],
+                        depends_on=[],
+                        rationale="Observed rows without inference",
+                    )
+                ]
+                script_content = (
+                    "# Execute only run_descriptive_study via RDE MCP. No inferential expansion.\n"
+                )
 
             if repeated_contract is not None:
                 methodology_review_dict = {
@@ -1779,6 +1841,9 @@ def register_plan_tools(server: Any) -> None:
             store = ArtifactStore(project.artifacts_dir)
             dataset_ok, dataset_msg, dataset_entry = ensure_dataset(project=project)
             plan_artifact = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+            from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+            descriptive_only = planned_descriptive(plan_artifact.get("analyses", [])) is not None
             role_artifact = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {}
             readiness_scope: dict[str, Any] = {
                 "source": "unavailable",
@@ -1877,8 +1942,19 @@ def register_plan_tools(server: Any) -> None:
                 if not passed:
                     all_passed = False
 
+            if descriptive_only:
+                readiness_scope["inference"] = "not_performed"
+                checks.append(
+                    dict(
+                        id="DESCRIPTIVE-SCOPE",
+                        name="描述性範圍",
+                        passed=True,
+                        detail="保留逐欄缺失；不做常態性檢定、缺失機制檢定或共線性篩檢，不推定獨立性。",
+                    )
+                )
+
             # S-001: Normality hint
-            if dataset_ok and dataset_entry is not None:
+            if dataset_ok and dataset_entry is not None and not descriptive_only:
                 df = dataset_entry.dataframe
                 continuous = list(readiness_scope.get("continuous_variables", []))
                 normality_details: list[str] = []
@@ -1923,7 +1999,7 @@ def register_plan_tools(server: Any) -> None:
                     checks[-1]["detail"] = prefix + "; " + "; ".join(normality_details)
 
             # S-005: Missing pattern analysis
-            if dataset_ok and dataset_entry is not None:
+            if dataset_ok and dataset_entry is not None and not descriptive_only:
                 df = dataset_entry.dataframe
                 missing_scope = [
                     c
@@ -1996,7 +2072,7 @@ def register_plan_tools(server: Any) -> None:
                     )
 
             # S-007: Pairwise predictor correlation, not a design-matrix/VIF test.
-            if dataset_ok and dataset_entry is not None:
+            if dataset_ok and dataset_entry is not None and not descriptive_only:
                 df = dataset_entry.dataframe
                 from rde.domain.services.collinearity_checker import check_collinearity
 

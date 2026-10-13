@@ -483,3 +483,12 @@ canvas_transitions:
   compatibility_is_not_authorization: true
   rejects: [prospective_design_after_analysis, ancestor_reset_via_direction, unknown_types, incomplete_facts]
   immutable: [executed_source_edges, original_plan_versions]
+
+observed_row_description:
+  tool: run_descriptive_study
+  concept: align_concept(analysis_scope=descriptive) with explicit selected columns
+  plan: one exact descriptive operation; confirmed register_analysis_plan records explicit supplied phase4 scope
+  requires: [verified_source_and_cleaning_version, locked_settings, retained_unknown_facts]
+  returns: [per_column_denominators, missingness, identifier_multiplicity, observed_distributions, report]
+  prohibits: [imputation, row_removal, inferred_independence, inferred_sampling, p_values, confidence_intervals, inferential_autoresearch]
+  readiness: descriptive_evidence_only_not_inferential_or_publication_readiness

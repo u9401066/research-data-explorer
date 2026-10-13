@@ -83,6 +83,7 @@
       "run_repeated_measures",
       "run_prediction_study",
       "run_clinical_study",
+      "run_descriptive_study",
       "inspect_clinical_study",
       "get_publication_presets",
       "render_publication_figures",

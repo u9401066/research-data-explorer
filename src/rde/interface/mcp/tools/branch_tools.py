@@ -174,6 +174,15 @@ def register_branch_tools(server: Any) -> None:
         assert project is not None
         assert store is not None
 
+        from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+        if planned_descriptive(plan.get("analyses", [])) is not None:
+            return fmt_error(
+                "Descriptive scope does not authorize inferential branches; revise and review a new plan first.",
+                code="DESCRIPTIVE_SCOPE_PROTECTED",
+            )
+
         try:
             board = _reconstruct_board(store)
             branch = board["branches"].get(branch_id)
@@ -689,6 +698,15 @@ def register_branch_tools(server: Any) -> None:
         assert project is not None
         assert store is not None
 
+        from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+        if planned_descriptive(plan.get("analyses", [])) is not None:
+            return fmt_error(
+                "Descriptive scope does not authorize inferential branches; revise and review a new plan first.",
+                code="DESCRIPTIVE_SCOPE_PROTECTED",
+            )
+
         try:
             if max_tasks < 1 or max_branches < 1 or max_minutes < 1 or max_failures < 0:
                 return fmt_error(
@@ -994,6 +1012,15 @@ def register_branch_tools(server: Any) -> None:
         assert project is not None
         assert store is not None
 
+        from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+        if planned_descriptive(plan.get("analyses", [])) is not None:
+            return fmt_error(
+                "Descriptive scope does not authorize inferential branches; revise and review a new plan first.",
+                code="DESCRIPTIVE_SCOPE_PROTECTED",
+            )
+
         try:
             status = _autoresearch_status_payload(store)
             if not status.get("run_id"):
@@ -1101,6 +1128,15 @@ def register_branch_tools(server: Any) -> None:
         assert project is not None
         assert store is not None
 
+        from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+        if planned_descriptive(plan.get("analyses", [])) is not None:
+            return fmt_error(
+                "Descriptive scope does not authorize inferential branches; revise and review a new plan first.",
+                code="DESCRIPTIVE_SCOPE_PROTECTED",
+            )
+
         try:
             result = _execute_autoresearch_next_task(
                 project,
@@ -1153,6 +1189,15 @@ def register_branch_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert store is not None
+
+        from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+
+        plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+        if planned_descriptive(plan.get("analyses", [])) is not None:
+            return fmt_error(
+                "Descriptive scope does not authorize inferential branches; revise and review a new plan first.",
+                code="DESCRIPTIVE_SCOPE_PROTECTED",
+            )
 
         try:
             processed: list[dict[str, Any]] = []

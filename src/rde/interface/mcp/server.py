@@ -20,6 +20,7 @@ from rde.interface.mcp.tools.ux_tools import register_ux_tools
 from rde.interface.mcp.tools.protocol_tools import register_protocol_tools
 from rde.interface.mcp.tools.prediction_tools import register_prediction_tools
 from rde.interface.mcp.tools.clinical_tools import register_clinical_tools
+from rde.interface.mcp.tools.descriptive_tools import register_descriptive_tools
 from rde.interface.mcp.tools.publication_tools import register_publication_tools
 from rde.interface.mcp.tools.evidence_tools import register_evidence_tools
 from rde.interface.mcp.tools.genomics_tools import register_genomics_tools
@@ -63,6 +64,7 @@ def create_server():
     register_plan_tools(server)  # Phase 3-7: Concept, Plan, Pre-check
     register_analysis_tools(server)  # Phase 8-9: Execute & Collect
     register_prediction_tools(server)  # Phase 8: Training-only selection and held-out validation
+    register_descriptive_tools(server)
     register_clinical_tools(server)  # Phase 8: Prespecified clinical study bundles
     register_evidence_tools(server)  # Verified external R evidence, no patient EDA advancement
     register_genomics_tools(server)  # Verified multi-source DESeq2 figures, no patient EDA

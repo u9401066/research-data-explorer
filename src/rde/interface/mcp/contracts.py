@@ -18,6 +18,11 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "run_descriptive_study": ToolContract(
+        "8",
+        "exact locked descriptive scope + verified source and cleaning version",
+        "observed-row summaries, identifier multiplicity, missing denominators and report; no inference",
+    ),
     "data_preparation": ToolContract(
         "data-preparation",
         "project ownership + typed rules + source snapshots + exact quality and case review approval",

@@ -57,6 +57,7 @@ dataset, clinical estimand or external vendor configuration.
 | `run_autoresearch_next_task` | 8 | governed project + lease + budget | experiment/evaluation | no |
 | `run_autoresearch_queue` | 8 | governed project + lease + budget | bounded experiments | no |
 | `run_branch_experiment` | 8 | governed branch | experiment ledger | no |
+| `run_descriptive_study` | 8 | exact locked descriptive scope + source/preparation version | observed-row denominators, duplicates, distributions and report; no inference | no |
 | `run_clinical_study` | 8 | exact locked clinical options + readiness + source integrity | common-case survival/competing-event models, figures, tables and receipt | no |
 | `run_intake` | 1 | format/size/PII | intake and datasets | no |
 | `run_prediction_study` | 8 | exact locked prediction options + readiness + holdout reuse guard | training CV, validation receipt, predictions, figures and decision | no |
