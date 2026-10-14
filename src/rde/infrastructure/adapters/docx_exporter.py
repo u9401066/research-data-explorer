@@ -11,7 +11,9 @@ PDF requires optional xhtml2pdf; falls back to HTML if unavailable.
 from __future__ import annotations
 
 import logging
+import html
 import re
+import string
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,110 @@ from rde.domain.models.report import EDAReport, ReportSection
 from rde.domain.ports import DocumentExporterPort
 
 logger = logging.getLogger(__name__)
+
+
+def _inline_fragments(text: str) -> list[tuple[str, frozenset[str]]]:
+    """Small inline subset shared by Word/plain text/HTML, with literal shielding.
+
+    Escapes apply only to ASCII punctuation outside code spans. They are consumed
+    before emphasis parsing, so an escaped asterisk cannot become formatting.
+    Code spans preserve backslashes and entities; ordinary text decodes entities
+    once, and the HTML output escapes the resulting text again.
+    """
+    tokens: list[tuple[str, str]] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "\\" and index + 1 < len(text) and text[index + 1] in string.punctuation:
+            tokens.append(("literal", text[index + 1]))
+            index += 2
+            continue
+        if char == "`":
+            end = index + 1
+            while end < len(text) and text[end] == "`":
+                end += 1
+            delimiter = text[index:end]
+            close = re.search(r"(?<!`)" + re.escape(delimiter) + r"(?!`)", text[end:])
+            if close:
+                tokens.append(("code", text[end : end + close.start()]))
+                index = end + close.end()
+                continue
+            tokens.append(("literal", delimiter))
+            index = end
+            continue
+        if char == "*":
+            end = index + 1
+            while end < len(text) and text[end] == "*":
+                end += 1
+            value = text[index:end]
+            tokens.append(("delimiter" if len(value) <= 2 else "literal", value))
+            index = end
+            continue
+        end = index + 1
+        while end < len(text) and text[end] not in "\\`*":
+            end += 1
+        tokens.append(("text", text[index:end]))
+        index = end
+
+    def render(start: int, stop: int, styles: frozenset[str]):
+        result: list[tuple[str, frozenset[str]]] = []
+        index = start
+        while index < stop:
+            kind, value = tokens[index]
+            if kind == "delimiter":
+                closing = next(
+                    (i for i in range(index + 2, stop) if tokens[i] == (kind, value)),
+                    None,
+                )
+                if closing is not None:
+                    result.extend(
+                        render(index + 1, closing, styles | {"bold" if value == "**" else "italic"})
+                    )
+                    index = closing + 1
+                    continue
+            result.append(
+                (
+                    html.unescape(value) if kind == "text" else value,
+                    styles | {"code"} if kind == "code" else styles,
+                )
+            )
+            index += 1
+        return result
+
+    return render(0, len(tokens), frozenset())
+
+
+def _markdown_cells(line: str) -> list[str]:
+    """Split table delimiters without splitting escaped pipes or code spans."""
+    text = line.strip()
+    if text.startswith("|"):
+        text = text[1:]
+    if text.endswith("|") and not re.search(r"(?<!\\)(?:\\\\)*\\\|$", text):
+        text = text[:-1]
+    cells: list[str] = []
+    start = index = 0
+    code = ""
+    while index < len(text):
+        if not code and text[index] == "\\" and index + 1 < len(text):
+            index += 2
+            continue
+        if text[index] == "`":
+            end = index + 1
+            while end < len(text) and text[end] == "`":
+                end += 1
+            marker = text[index:end]
+            if not code:
+                code = marker
+            elif marker == code:
+                code = ""
+            index = end
+            continue
+        if not code and text[index] == "|":
+            cells.append(text[start:index].strip())
+            start = index + 1
+        index += 1
+    cells.append(text[start:].strip())
+    return cells
 
 
 class DocxExporter(DocumentExporterPort):
@@ -180,15 +286,19 @@ class DocxExporter(DocumentExporterPort):
                 i += 1
                 continue
 
-            # Fenced code block (```)
-            if stripped.startswith("```"):
+            # Fenced code is literal: no escape, emphasis or entity conversion.
+            opening = re.match(r"^(`{3,}|~{3,})", stripped)
+            if opening:
+                fence = opening[1]
                 i += 1
                 code_lines: list[str] = []
                 while i < len(lines):
-                    if lines[i].strip().startswith("```"):
+                    if re.fullmatch(
+                        re.escape(fence[0]) + "{" + str(len(fence)) + ",}", lines[i].strip()
+                    ):
                         i += 1
                         break
-                    code_lines.append(lines[i].rstrip())
+                    code_lines.append(lines[i])
                     i += 1
                 if code_lines:
                     p = doc.add_paragraph()
@@ -199,21 +309,10 @@ class DocxExporter(DocumentExporterPort):
                     run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
                 continue
 
-            # Headings (# ## ### ####)
-            if stripped.startswith("#### "):
-                doc.add_heading(stripped[5:].strip(), level=4)
-                i += 1
-                continue
-            if stripped.startswith("### "):
-                doc.add_heading(stripped[4:].strip(), level=3)
-                i += 1
-                continue
-            if stripped.startswith("## "):
-                doc.add_heading(stripped[3:].strip(), level=2)
-                i += 1
-                continue
-            if stripped.startswith("# "):
-                doc.add_heading(stripped[2:].strip(), level=1)
+            # Headings use the same literal/inline handling as body paragraphs.
+            heading = re.match(r"^(#{1,4}) (.+)$", stripped)
+            if heading:
+                self._add_formatted_run(doc.add_heading(level=len(heading[1])), heading[2])
                 i += 1
                 continue
 
@@ -313,25 +412,18 @@ class DocxExporter(DocumentExporterPort):
             i += 1
 
     def _add_formatted_run(self, paragraph: Any, text: str) -> None:
-        """Add a run with basic markdown formatting (bold, italic)."""
-        # Split by **bold** and *italic* markers
-        parts = re.split(r"(\*\*[^*]+\*\*|\*[^*]+\*)", text)
-        for part in parts:
-            if part.startswith("**") and part.endswith("**"):
-                run = paragraph.add_run(part[2:-2])
-                run.bold = True
-            elif part.startswith("*") and part.endswith("*"):
-                run = paragraph.add_run(part[1:-1])
-                run.italic = True
-            else:
-                paragraph.add_run(part)
+        """Render only actual emphasis tokens; escaped markers stay literal."""
+        for value, styles in _inline_fragments(text):
+            run = paragraph.add_run(value)
+            run.bold = "bold" in styles
+            run.italic = "italic" in styles
+            if "code" in styles:
+                run.font.name = "Courier New"
 
     @staticmethod
     def _strip_md_formatting(text: str) -> str:
-        """Remove markdown bold/italic markers for plain text contexts."""
-        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
-        text = re.sub(r"\*([^*]+)\*", r"\1", text)
-        return text
+        """Decode inline syntax once, retaining literal punctuation and code."""
+        return "".join(value for value, _ in _inline_fragments(text))
 
     def _add_table(self, doc: Any, tbl_data: dict[str, Any]) -> None:
         """Add a structured dict table to the Word document."""
@@ -384,7 +476,7 @@ class DocxExporter(DocumentExporterPort):
         """Parse markdown table lines (| col | col |) into a Word table."""
         rows_data: list[list[str]] = []
         for line in table_lines:
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            cells = _markdown_cells(line)
             # Skip separator row (--- | ---)
             if all(re.match(r"^[-:]+$", c) for c in cells):
                 continue
@@ -423,7 +515,8 @@ class DocxExporter(DocumentExporterPort):
             image_source.seek(0)
         run.add_picture(image_source, width=Inches(width_inches))
 
-        cap = doc.add_paragraph(caption)
+        cap = doc.add_paragraph()
+        self._add_formatted_run(cap, caption)
         cap_fmt = cap.paragraph_format
         cap_fmt.alignment = 1  # CENTER
         for run in cap.runs:
@@ -509,24 +602,49 @@ class DocxExporter(DocumentExporterPort):
 
             # Markdown tables are real report tables, including preparation flow.
             table_lines: list[str] = []
+            code_lines: list[str] | None = None
+            fence = ""
 
             def flush_table():
                 if not table_lines:
                     return
                 rows = []
                 for line in table_lines:
-                    cells = [
-                        c.strip().replace("\\|", "|")
-                        for c in re.split(r"(?<!\\)\|", line.strip("|"))
-                    ]
+                    cells = _markdown_cells(line)
                     if not all(re.fullmatch(r"[-: ]+", cell) for cell in cells):
                         rows.append(cells)
                 if rows:
-                    lines.append(self._dict_to_html_table({"headers": rows[0], "rows": rows[1:]}))
+                    lines.append(
+                        "<table><thead><tr>"
+                        + "".join(f"<th>{self._md_to_html_inline(c)}</th>" for c in rows[0])
+                        + "</tr></thead><tbody>"
+                        + "".join(
+                            "<tr>"
+                            + "".join(f"<td>{self._md_to_html_inline(c)}</td>" for c in row)
+                            + "</tr>"
+                            for row in rows[1:]
+                        )
+                        + "</tbody></table>"
+                    )
                 table_lines.clear()
 
             for para in section.content.split("\n"):
                 stripped = para.strip()
+                if code_lines is not None:
+                    if re.fullmatch(re.escape(fence[0]) + "{" + str(len(fence)) + ",}", stripped):
+                        lines.append(
+                            "<pre><code>" + html.escape("\n".join(code_lines)) + "</code></pre>"
+                        )
+                        code_lines = None
+                    else:
+                        code_lines.append(para)
+                    continue
+                opening = re.match(r"^(`{3,}|~{3,})", stripped)
+                if opening:
+                    flush_table()
+                    fence = opening[1]
+                    code_lines = []
+                    continue
                 if stripped.startswith("|") and stripped.endswith("|"):
                     table_lines.append(stripped)
                     continue
@@ -556,6 +674,8 @@ class DocxExporter(DocumentExporterPort):
                     lines.append(f"<p>{self._md_to_html_inline(para)}</p>")
 
             flush_table()
+            if code_lines is not None:
+                lines.append("<pre><code>" + html.escape("\n".join(code_lines)) + "</code></pre>")
 
             # Tables
             if section.tables:
@@ -583,10 +703,15 @@ class DocxExporter(DocumentExporterPort):
 
     @staticmethod
     def _md_to_html_inline(text: str) -> str:
-        """Convert inline markdown (bold, italic) to HTML tags."""
-        text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
-        text = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", text)
-        return text
+        """Escape literal HTML and render the same inline subset as Word."""
+        output = []
+        for text, styles in _inline_fragments(text):
+            value = html.escape(text)
+            for style, tag in (("code", "code"), ("italic", "em"), ("bold", "strong")):
+                if style in styles:
+                    value = f"<{tag}>{value}</{tag}>"
+            output.append(value)
+        return "".join(output)
 
     @staticmethod
     def _match_markdown_image(text: str) -> tuple[str, str] | None:

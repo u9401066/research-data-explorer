@@ -2524,7 +2524,66 @@ def _figure_interpretation_harness_entry(
     plot = plot_type.lower()
     variables_text = ", ".join(variables) if variables else "unspecified variables"
 
-    if plot in {"line", "paired"}:
+    clinical_role = None
+    if plot == "clinical_participant_flow":
+        clinical_role = (
+            "Analysis-population inclusion and exclusion",
+            "The native participant-flow panel records the included population and stated exclusion stages. It is not an outcome or treatment-effect plot.",
+            "Flow counts do not establish representativeness, statistical independence or absence of selection bias.",
+            "Report the saved stage denominators and exclusions with the exact analysis population.",
+            "Read the saved case ledger and approved population definition; do not equate retained rows with independently sampled people.",
+        )
+    elif re.fullmatch(r"clinical_incidence_g\d+", plot):
+        clinical_role = (
+            "Cumulative incidence with competing events",
+            "The native panel presents cumulative incidence over follow-up for the stated stratum and event codes. Use its saved caption for the target/competing-event mapping and uncertainty definition.",
+            "Competing events cannot be treated as ordinary censoring for cumulative incidence. Different follow-up endpoints are not a fixed-time group comparison; this panel alone establishes neither a treatment effect nor equivalence.",
+            "Describe the saved cumulative-incidence estimates within their declared population, event definitions and time window.",
+            "Read the Aalen–Johansen receipt and caption, including censoring, event codes, denominators and pointwise-interval limitations; do not add an unperformed between-group test.",
+        )
+    elif plot == "clinical_survival":
+        clinical_role = (
+            "Kaplan–Meier survival estimation",
+            "The native panel presents estimated survival over follow-up for the stated groups, with the censoring and interval conventions recorded in its caption.",
+            "Survival curves rely on the stated censoring and sampling assumptions; visible separation alone does not establish a treatment effect or equivalence.",
+            "Report the saved survival estimates at explicitly supported times, preserving the declared endpoint and uncertainty.",
+            "Check the saved survival and risk-table receipts; quote group tests only when they were actually performed.",
+        )
+    elif re.fullmatch(r"clinical_risk_table_\d+", plot):
+        clinical_role = (
+            "Numbers at risk over follow-up",
+            "The native table gives the number still at risk immediately before the stated event/censoring times, using the saved time and group definitions.",
+            "A shrinking risk set limits later estimates. Zero remaining at risk is not evidence of zero event risk, and counts are not effect estimates.",
+            "Report the saved risk-set counts at their exact follow-up times alongside the corresponding curves.",
+            "Use the downloadable risk table to distinguish earlier target events, competing events and censoring without combining them into a negative outcome.",
+        )
+    elif re.fullmatch(r"clinical_cox_\d+", plot):
+        clinical_role = (
+            "Cox hazard-ratio estimates and uncertainty",
+            "The native forest plot presents fitted hazard ratios and their saved intervals for the encoded predictors and reference levels. Its caption specifies whether the model is unadjusted or adjusted and whether hazards are cause-specific.",
+            "A hazard ratio is not a cumulative-risk ratio or causal effect. Interpretation depends on the fitted covariates, proportional-hazards assumptions and saved interval/multiplicity policy.",
+            "Report the saved hazard-ratio estimates with their reference coding, interval definition and actual adjustment scope.",
+            "Read the exact fitted coefficients and PH diagnostics; do not infer a different adjustment set or Fine–Gray model from this display.",
+        )
+    elif re.fullmatch(r"clinical_ph_[a-z0-9_]+", plot):
+        clinical_role = (
+            "Proportional-hazards diagnostic",
+            "The native panel shows scaled Schoenfeld residuals for the specified encoded parameter at target-event times. Its saved caption identifies the performed transformations and diagnostic p-value corrections.",
+            "These diagnostic p values do not test a treatment effect. A large p value or apparently flat pattern does not prove proportional hazards, and no extra trend is fitted by report assembly.",
+            "Describe only the saved residual diagnostic and its actual method-specific checks, retaining uncertainty about proportional hazards.",
+            "Review the saved PH checks and their within-model multiplicity scope; any revised time-dependent model requires a new approved analysis.",
+        )
+
+    if clinical_role:
+        evidence_role, visual_read, validity_caveat, reportable_claim, next_analysis = clinical_role
+        statistical_support = (
+            stats_summary
+            or "No saved caption/statistical summary is available; numerical interpretation remains unverified."
+        )
+        # A PH caption can contain multiple raw/adjusted tests. Do not collapse
+        # them into one generic group-effect p value or a significance verdict.
+        p_text, p_value, sparse_groups = "See the saved method-specific caption/receipt.", None, []
+    elif plot in {"line", "paired"}:
         evidence_role = "Within-subject complete-case description"
         visual_read = "Columns are ordered measurement occasions of the same subjects; lines do not represent independent treatment groups."
         statistical_support = stats_summary or "No inferential test is attached."
@@ -2636,16 +2695,14 @@ def _figure_interpretation_harness_entry(
             "table before presenting any adjusted treatment contrast."
         )
     else:
-        evidence_role = "Exploratory visual evidence"
-        visual_read = f"The figure displays {variables[0] if variables else 'an analysis artifact'} for exploratory review."
+        evidence_role = "Saved figure context; interpretation type not mapped"
+        visual_read = "The manifest identifies this saved figure, but its plot type has no structured interpretation here. Its visual pattern, direction and inferential meaning have not been inferred from a filename or variable list."
         statistical_support = (
             stats_summary or "No statistical annotation is attached to this figure."
         )
-        validity_caveat = (
-            "The evidentiary role is unclear until it is linked to a prespecified question."
-        )
-        reportable_claim = f"The figure is supporting context for {variables_text}."
-        next_analysis = "Treat as supporting context and link it to a specific model or table before publication."
+        validity_caveat = "The retained caption is evidence to review, not an independent visual or scientific validation of the figure."
+        reportable_claim = "No additional result claim is generated for this unmapped plot type."
+        next_analysis = "Review the exact saved caption, numerical receipt and figure against the approved question before using it in a conclusion."
 
     return {
         "figure_no": figure_no,
