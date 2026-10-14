@@ -49,6 +49,15 @@ python scripts/codex_rde_smoke.py
 - 執行後完整讀取本次工作的專用方法報告與 `audit_report.json`、`report_readiness.json`。按工具提供的分頁接續；不能只讀尾頁、舊工作報告或用 `completed` 宣稱已完成解讀。
 - 核對 readiness 的 `scope`、`target_tier`、缺口及適用性。`descriptive_only` 不要求通用投稿圖表配額，不代表可投稿；稽核等級也不是科學品質證書。`auto_improve` 不授權新增未核准分析。
 
+## 原始多表：先完成 Data Aggregation
+
+- 使用同一個 `data_preparation` MCP：先讀 `op="contract"` 的原生 `aggregation` registry／schemas，再用 `inspect` 取得每張表的 source schema、候選鍵與 observed constraints。候選鍵不等於已確認的病人／就醫識別，原始表也不是已完成準備的分析資料。
+- 以 `aggregation_compose` 的 unit／已知 definitions 建立候選，或從保存的 `from_specification` 建立分支；後續以 `aggregation_patch` 修改精確 `candidate_ref` 下的 relation ID／feature output／window／cohort。保留未提及規則；使用 native typed operations，不生成 Python／SQL、不為每次修正重寫整份規格。缺少研究事實保持未知，不能靠省略來源或補造定義取得通過。
+- 依 registry 選方法：`unique` 是全選定範圍的一個唯一非缺失值，不是 distinct count；`count` 是事件列數；`first/last` 是有值的最早／最新事件時間，同時點異值會阻擋、同值保留所有來源，不需另造衝突欄位。不要為修正 event feature 而改壞另一個 lookup。
+- `aggregation_preview` 後，依 diagnostic 的 relation／feature／stage 定位修正。用同一 reference＋`preview_sha256` 透過 `aggregation_read` 分頁核對 issues、units/output 和 cell trace；`aggregation_diff` 比較規則與已有預覽。分開報告事件配對、來源列、分析單位與病人數；未知涵蓋和缺失不是零值。
+- 候選及 preview 都不是核准。已知定義與規則通過審閱後，仍須 draft → 完整核對 → approve → release → bundle → prepared intake；宿主若有自動授權，使用原生 `automated_review` 的 sealed receipt，保留 `clinical_validation="not_performed"`，不得宣稱人工／臨床驗證或完整研究完成。後續分析／autoresearch固定發布資料版本，規則改變走新準備版本。
+- 保留完整 request／revision UUID以供失聯後 exact replay；stale reference先讀取比對，不把同一意圖偷偷套到新head。RDE repo內的完整說明為 `docs/DATA_AGGREGATION.md`／`docs/DATA_PREPARATION.md`；安裝環境以 live contract為準。網站的模型指引仍由Workbench宿主載入，不能假設它會讀本skill。
+
 ## 完整流程
 
 ### Phase 0: Project Setup

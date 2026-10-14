@@ -12,6 +12,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 - Add immutable, source-bound candidate revisions and typed compose, local patch, read, preview and diff operations inside `data_preparation`. Stable relation/feature targets, exact base hashes, atomic validation, replay guards and restart-safe evidence prevent unrelated rules from being rewritten.
 - Preserve precise rule/stage diagnostics and occurrence counts, including conflicting values and invalid lookup methods. Retain hash-pinned preview pages, exact cell source members and before/after outcome counts. Published drafts use the same evaluation, review and release gates; technical readiness never establishes clinical truth.
 - Record sequential relation selection counts as event-to-unit pairs, distinct source records, analysis units and subjects. Keep these audit denominators separate from analysis columns and never count repeated events as people.
+- Document native aggregation as a complete preparation part: method semantics, exact candidate/replay identity, typed local edits, paged preview/trace, outcome differences and release boundaries. Update host-specific EDA skills and canonical agent guidance without replacing host authorization rules; remove the obsolete whole-specification three-proposal workflow description.
 
 ### Accurate Cox report wording
 

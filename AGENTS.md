@@ -46,6 +46,17 @@ PYTHONIOENCODING = "utf-8"
 
 ## Quick Start
 
+原始多表先走同一個 RDE MCP 的 `data_preparation`，再把核准的分析資料集交給下列
+intake／EDA 流程。先 discover `op="contract"` 的 `aggregation` 方法與型別契約，
+以 `inspect` 取得各表原生 schema／候選鍵；`aggregation_compose` 建立候選後，用
+`aggregation_patch` 對精確 `candidate_ref` 局部修改 relation／feature／window，
+不生成 Python／SQL 或反覆重寫整份規格。`aggregation_preview` 後按同一 reference
+與 `preview_sha256` 分頁核對問題、分母和逐值 trace；只有已知研究定義才能補入規則。
+`ready_for_draft` 不授予核准：仍須 draft → 完整審閱 → approve → release → bundle →
+intake。自動核對必須使用原生 `automated_review` 收據，保留
+`clinical_validation="not_performed"`。詳見 [Data Aggregation](docs/DATA_AGGREGATION.md)
+與 [Data Preparation](docs/DATA_PREPARATION.md)；不另開 MCP，也不以預覽成功宣稱研究完成。
+
 ```text
 用戶: 「我有一個 CSV 檔案，想看看裡面有什麼」
 Agent:

@@ -16,6 +16,12 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 
 平台將這份目錄呈現為 SVG／PNG 能力圖及可搜尋清單。CLEF 只協助選大類；Agent 仍需讀取所選方法契約、核對研究事實與來源，才可在授權範圍執行。
 
+## 多表資料準備與原生聚合（開發分支）
+
+原始多表先走 [Data Preparation](docs/DATA_PREPARATION.md)，確認分析單位、關聯、族群與時間窗，再發布可追溯的分析資料集。[Data Aggregation](docs/DATA_AGGREGATION.md) 在同一個 `data_preparation` MCP 內提供十種原生方法、不可變候選版本、typed compose／局部 patch／read／preview／diff，以及逐步分母和逐值來源。Agent 先讀實際 schema 與方法契約，再修正被診斷定位的規則，不需要自行寫聚合程式或反覆重造整份規格。
+
+預覽成功只表示可進入草案流程；仍須審閱、核准、發布與 prepared intake。自動技術核對保留 `clinical_validation="not_performed"`，不代表人工／臨床驗證或完整研究完成。這是開發分支能力說明，並非新正式版本發布公告。
+
 ## 臨床研究能力與可信度
 
 - 新增七種本機分析：風險比／勝算比／風險差、診斷準確度、exact McNemar、Bland–Altman、Cohen's kappa、GEE、隨機截距混合模型。各方法的參數、信賴區間與適用限制見[臨床方法文件](docs/clinical-methods.md)。

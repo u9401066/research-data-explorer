@@ -41,6 +41,16 @@ You are in a governed analysis mode for this workspace.
 
 ## Allowed execution style
 
+- Raw multi-table exports first use the same `data_preparation` MCP tool: discover
+  `op="contract"`, inspect native source schemas, compose a candidate, then use
+  typed `aggregation_patch` operations on exact references and stable rule IDs.
+  Read the saved preview's issues, denominators and cell trace with its candidate
+  reference and preview hash. Repair the located rule without inventing domain
+  facts or replacing unrelated rules. No generated aggregation code is needed.
+  Preview readiness is not approval: complete draft, review, approval, release and
+  prepared intake. An authorized automated review uses the native sealed receipt
+  and retains `clinical_validation="not_performed"`; it never claims human review.
+
 - Use RDE MCP tools such as `init_project`, `run_intake`, `build_schema`, `align_concept`, `propose_analysis_plan`, `register_analysis_plan`, `check_readiness`, `compare_groups`, `generate_table_one`, `run_advanced_analysis`, `start_autoresearch_run`, `run_autoresearch_queue`, `collect_results`, `assemble_report`, `run_audit`, and `verify_audit_trail`.
 - Use the lightweight memory tools only to preserve project context.
 

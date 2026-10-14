@@ -19,6 +19,14 @@ Use RDE as a 13-phase auditable EDA harness for clinically meaningful, reproduci
 
 ## Full Report Flow
 
+For raw relational tables, discover `data_preparation` with `op="contract"` and
+inspect native source schemas first. Use its `aggregation_compose` and exact-reference
+`aggregation_patch` operations to edit specific rules, then inspect hash-pinned
+`aggregation_preview`/`aggregation_read` evidence. Keep unknown definitions explicit;
+do not replace this stage with code or whole-specification retries. Preview readiness
+does not authorize release. Complete draft/review/approve/release/bundle before
+prepared intake; automated review remains `clinical_validation="not_performed"`.
+
 `init_project` -> `run_intake` -> `build_schema` -> `align_concept(confirm=true)` -> `propose_analysis_plan(confirm=false)` -> review Phase 4 artifacts -> `propose_analysis_plan(confirm=true)` -> `register_analysis_plan(confirm=true)` -> `check_readiness` -> execute planned analyses -> `collect_results` -> `assemble_report` -> `run_audit` -> `auto_improve` -> optional `export_final_report` / `export_handoff`.
 
 ## Codex Support

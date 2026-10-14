@@ -46,6 +46,14 @@ completed RDE analysis and an autoresearch branch with the same fixed data versi
 and preserved all 392 primary artifact hashes while browsers disconnected.
 Synthetic engineering validation does not establish real clinical linkage validity.
 
+On the development branch, [Data Aggregation](docs/DATA_AGGREGATION.md) makes that
+preparation workflow discoverable through ten native methods and immutable typed
+compose/patch/read/preview/diff operations. Agents can correct a specific relation,
+window or feature and inspect exact denominators/source members instead of generating
+custom code or repeatedly replacing the whole recipe. Preview readiness does not
+authorize release or establish clinical validation; this description is not a new
+published-release announcement.
+
 Historical version 0.5.0 verification on 2026-10-01: **595 Python tests passed**,
 including real Arial exports for four journal presets across eight study variants;
 five optional tests were explicitly skipped. Ruff and pre-commit passed.
@@ -104,7 +112,7 @@ RDE makes the agent behave more like a traceable analysis operator:
 
 ## What It Is Honest About
 
-Relational clinical exports are not yet a governed end-to-end input workflow. Multiple-file intake and source hashes do not establish patient/encounter/lab/medication joins, partial-linkage quality, temporal cohort construction, or the correct participant denominator. Existing paired and longitudinal methods operate on an already prepared table. See the [2026-10-12 live MCP boundary audit](docs/relational-data-boundary.md) before treating multi-table hospital exports as an analysis-ready dataset.
+Relational clinical exports require the explicit [data-preparation workflow](docs/DATA_PREPARATION.md) before analysis. Ordinary multiple-file intake and source hashes alone do not establish patient/encounter/lab/medication joins, partial-linkage quality or the participant denominator. Native preparation now supports directly keyed relations, per-unit aggregation, cohort/time rules and a reviewed, traceable release; arbitrary multi-hop/probabilistic linkage and clinical identity verification remain outside its contract. Existing paired and longitudinal methods consume the resulting prepared table. The [2026-10-12 boundary audit](docs/relational-data-boundary.md) records the earlier gap, not the current capability inventory.
 
 RDE can govern standard, template-friendly analysis families: descriptive summaries, Table 1, group comparisons, correlation/collinearity review, repeated-measures summaries, common figures, adjusted local models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, Cox regression when feasible, and lightweight propensity scoring.
 
@@ -220,6 +228,8 @@ RDE treats a report as a contract, not a Markdown side effect. The report layer 
 - Live workflow website: <https://u9401066.github.io/research-data-explorer/>
 - Traditional Chinese guide: [README.zh-TW.md](README.zh-TW.md)
 - Agent operational contract: [AGENTS.md](AGENTS.md)
+- Governed multi-table input: [Data Preparation](docs/DATA_PREPARATION.md)
+- Native rule editing, methods and trace: [Data Aggregation](docs/DATA_AGGREGATION.md)
 - VS Code extension guide: [vscode-extension/README.md](vscode-extension/README.md)
 - Product doctrine: [docs/product-doctrine.md](docs/product-doctrine.md)
 - Machine-readable control manifest: [.github/agent-control.yaml](.github/agent-control.yaml)
