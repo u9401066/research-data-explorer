@@ -182,6 +182,9 @@ def test_descriptive_full_mcp_audit_does_not_demand_inferential_publication_bund
     assert bundle["score"] == bundle["max"] == 0
     assert not any("粗分析圖" in x or "細分析圖" in x for x in audit["suggestions"])
     summary = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+    record = store.load(PipelinePhase.EXECUTE_EXPLORATION, "descriptive_study.json")
+    assert summary["deliverables"]["total_figures"] == len(record["figures"]) == 2
+    assert len(summary["deliverables"]["figure_files"]) == 2
     assert summary["deliverables"]["missing_components"] == []
     assert summary["deliverables"]["minimum_publication_bundle_met"] is False
     call("auto_improve", project_id=project.id)

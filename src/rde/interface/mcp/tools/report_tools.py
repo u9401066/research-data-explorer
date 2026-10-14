@@ -4428,22 +4428,28 @@ def _resolved_visualization_manifest_entries(project: Any, store: Any) -> list[d
 
 def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, Any]:
     from rde.application.pipeline import PipelinePhase
-    from rde.interface.mcp.tools.descriptive_tools import planned_descriptive
+    from rde.interface.mcp.tools.descriptive_tools import (
+        planned_descriptive,
+        _figure_evidence_valid,
+    )
 
     plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
     if planned_descriptive(plan.get("analyses", [])) is not None:
+        record = store.load(PipelinePhase.EXECUTE_EXPLORATION, "descriptive_study.json") or {}
+        verified = _figure_evidence_valid(store, record)
+        images = record.get("figures", []) if verified else []
         return {
             "scope": "descriptive_only",
             "publication_bundle_applicable": False,
             "minimum_publication_bundle_met": False,
             "table_one_present": False,
-            "descriptive_figures": 0,
+            "descriptive_figures": len(images),
             "analytical_figures": 0,
-            "required_descriptive_figures": 0,
+            "required_descriptive_figures": 1,
             "required_analytical_figures": 0,
-            "total_figures": 0,
-            "figure_files": [],
-            "missing_components": [],
+            "total_figures": len(images),
+            "figure_files": [Path(image["path"]).name for image in images],
+            "missing_components": [] if verified else ["descriptive_figures_missing_or_invalid"],
             "applicability": "Observed-row description does not require an inferential publication bundle or establish publication readiness.",
         }
     from rde.interface.mcp.tools.clinical_tools import clinical_plan

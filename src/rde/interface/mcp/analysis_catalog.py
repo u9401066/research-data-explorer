@@ -335,11 +335,12 @@ def family_declarations():
             ("columns", "要描述的欄位", "實際存在的欄位"),
             ("identifiers", "可能的識別碼", "與 unresolved 明確列出"),
         ],
-        ["逐欄分母", "缺失模式", "識別碼重複性", "描述報告／Table 1"],
+        ["逐欄分母", "缺失模式", "識別碼重複性", "缺失與五數摘要圖", "描述報告／Table 1"],
         [locked],
         ["observed_rows 不補值、不刪除、不做推論，不把資料列直接稱為病人人數。"],
         [
             "src/rde/infrastructure/adapters/descriptive_study.py",
+            "src/rde/infrastructure/visualization/descriptive.py",
             "src/rde/interface/mcp/tools/analysis_tools.py",
         ],
     )

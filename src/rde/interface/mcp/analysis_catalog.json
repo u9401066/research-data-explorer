@@ -538,6 +538,10 @@
       "sha256": "d3c739192241e67d5591adac33c66dd03e549d8659e381847510021c6bbb50df"
     },
     {
+      "path": "src/rde/infrastructure/visualization/descriptive.py",
+      "sha256": "efca50903ac41838f8d0ae8659e6551c4514d981952ced54fcb847beedbea62f"
+    },
+    {
       "path": "src/rde/infrastructure/visualization/dictionary.py",
       "sha256": "f302484fc7227780f594bc700c06ed439b03420ea23e911c58149008bd99214e"
     },
@@ -567,7 +571,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "caf5e88743f5be32f211681e66643adde2de6999b85c8a829dc41becda3dd504"
+      "sha256": "33db04b2ce5a158a8659fc19c53a6e38495f4bd9aa0a0a1844587d9efa59905a"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -663,7 +667,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/descriptive_tools.py",
-      "sha256": "e323c5734487883d38019f06c8fd650ce31bca44fe63cfe16668fd963f715119"
+      "sha256": "96811f0455617eec281250744e7c941192188ff6181c786c9d0355d6966d6dfd"
     },
     {
       "path": "src/rde/interface/mcp/tools/discovery_tools.py",
@@ -703,7 +707,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "34c7e4854c1b5ddfd6a3158e3790ad24109d76a6a85dbdd26b10b867f878b4ba"
+      "sha256": "a666fdfb36ecbd89d85f87df99f39e74e477f75185e2e5189d6be123afeea585"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -2497,6 +2501,7 @@
         "逐欄分母",
         "缺失模式",
         "識別碼重複性",
+        "缺失與五數摘要圖",
         "描述報告／Table 1"
       ],
       "requirements": [
@@ -2507,6 +2512,7 @@
       ],
       "contract_refs": [
         "src/rde/infrastructure/adapters/descriptive_study.py",
+        "src/rde/infrastructure/visualization/descriptive.py",
         "src/rde/interface/mcp/tools/analysis_tools.py"
       ],
       "tool_input_schemas": {
@@ -2627,6 +2633,10 @@
         {
           "path": "src/rde/infrastructure/adapters/descriptive_study.py",
           "sha256": "49bb0be58c483f42fb6288221acff9b6504fb6f7a4148c053933f0447218b64e"
+        },
+        {
+          "path": "src/rde/infrastructure/visualization/descriptive.py",
+          "sha256": "efca50903ac41838f8d0ae8659e6551c4514d981952ced54fcb847beedbea62f"
         },
         {
           "path": "src/rde/interface/mcp/tools/analysis_tools.py",
@@ -8086,7 +8096,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "34c7e4854c1b5ddfd6a3158e3790ad24109d76a6a85dbdd26b10b867f878b4ba"
+          "sha256": "a666fdfb36ecbd89d85f87df99f39e74e477f75185e2e5189d6be123afeea585"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -8107,5 +8117,5 @@
       ]
     }
   ],
-  "catalog_sha256": "8a10191f1a9e032cbd2ae046ac713cacb17fbe1493c944654a0c6c01ae99e616"
+  "catalog_sha256": "2fe1771a692b2d805db7ae990f9e2c222ad4084622727bf3a573f60d1dbf1955"
 }

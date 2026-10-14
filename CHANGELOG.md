@@ -8,6 +8,11 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [0.5.4] - 2026-10-14
 
+### Complete descriptive figures
+
+- Produce source-bound missingness and range/quartile graphics within the locked descriptive method, with English captions, Chinese explanations, 300 dpi PNG, vector PDF/SVG, TIFF and exact plot data. Identifier values are not plotted, declared units come from verified preparation releases, and no inferential fit or confidence interval is added.
+- Seal numeric results before rendering; resume failed rendering without recomputing summaries, verify every delivered file and manifest on reuse, and report actual figure counts. Reject linked output targets and publish staged bytes without following external paths.
+
 ### Traceable prepared-data reports
 
 - Bind report methods and denominators to the exact imported, approved preparation release. Verify the retained source/trace closure and intake identity before rendering declared units, keys, time windows, aggregation rules, sequential event/unit/subject counts, missingness statuses and receipt hashes in assembled and DOCX/PDF reports. Missing or changed evidence blocks these claims; automatic checks remain distinct from clinical validation.
