@@ -13,7 +13,7 @@ import uuid
 import zipfile
 
 from rde.infrastructure.evidence.workflow import safe_path
-from rde.infrastructure.preparation.sources import file_hash
+from rde.infrastructure.preparation.sources import digest, file_hash
 
 MAX_BUNDLE = 2 * 1024**3
 
@@ -37,6 +37,46 @@ def output_schema(spec, columns):
             }
         )
     return {"schema": "rde-prepared-columns-v1", "columns": result, "missing": "json_null_only"}
+
+
+def verify_automated_evidence(folder, plan, approval, release):
+    """Historical receipt binding, without rerunning old rules on new software."""
+    from rde.domain.models.preparation import Review
+    from rde.infrastructure.preparation import workflow as w
+
+    if approval["review"]["kind"] != "automated_checks":
+        return False
+    review = Review.model_validate(approval["review"])
+    path = folder / "automated_review.json"
+    if not path.is_file():
+        raise ValueError("CORRUPT_BUNDLE: automatic review evidence is missing")
+    audit = w.read_sealed(path)
+    bindings = {
+        "schema": "rde-preparation-automated-checks-v1",
+        "project_id": plan["project_id"],
+        "preparation_id": plan["preparation_id"],
+        "plan_sha256": plan["receipt_sha256"],
+        "source_set_sha256": digest(plan["source_snapshots"]),
+        "specification_sha256": digest(plan["specification"]),
+        "files_sha256": digest(plan["files"]),
+        "schema_sha256": plan["files"]["analysis.schema.json"]["sha256"],
+        "summary_sha256": digest(plan["summary"]),
+        "implementation": plan["implementation"],
+        "population": plan["summary"]["population"],
+        "reviewed_unit_ids": review.reviewed_unit_ids,
+        "receipt_sha256": review.automated_receipt_sha256,
+        "clinical_validation": "not_performed",
+        "review_scope": "automated_checks_only",
+    }
+    if (
+        any(audit.get(key) != value for key, value in bindings.items())
+        or not review.denominator_confirmed
+        or len(set(review.reviewed_unit_ids)) != len(review.reviewed_unit_ids)
+        or approval.get("clinical_validation") != "not_performed"
+        or release.get("clinical_validation") != "not_performed"
+    ):
+        raise ValueError("CORRUPT_BUNDLE: automatic review does not bind the retained release")
+    return True
 
 
 def verify_bundle_folder(folder, release_sha):
@@ -63,6 +103,8 @@ def verify_bundle_folder(folder, release_sha):
         source = item["source"]
         expected[item["snapshot"]] = {"sha256": source["sha256"], "bytes": source["bytes"]}
     names = set(expected) | {"plan.json", "approval.json", "release.json"}
+    if verify_automated_evidence(folder, plan, approval, release):
+        names.add("automated_review.json")
     actual = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
     if actual != names:
         raise ValueError("CORRUPT_BUNDLE: evidence closure is incomplete or contains extra files")
@@ -87,6 +129,7 @@ def export_bundle(project, request):
         or release["approval_sha256"] != approval["receipt_sha256"]
     ):
         raise ValueError("STALE_RELEASE: bundle must bind the exact approved release")
+    automated = verify_automated_evidence(folder, plan, approval, release)
     destination = safe_path(root, "bundles/" + release["receipt_sha256"] + ".zip")
     receipt_path = destination.with_suffix(".json")
     if receipt_path.exists():
@@ -96,6 +139,8 @@ def export_bundle(project, request):
         return receipt
     paths = {name: safe_path(folder, name) for name in plan["files"]}
     paths.update({name: folder / name for name in ("plan.json", "approval.json", "release.json")})
+    if automated:
+        paths["automated_review.json"] = folder / "automated_review.json"
     paths.update(
         {item["snapshot"]: safe_path(root, item["snapshot"]) for item in plan["source_snapshots"]}
     )
@@ -196,6 +241,7 @@ def import_bundle(project, path, expected_sha, release_sha):
         "column_roles": release["column_roles"],
         "unit": release["unit"],
         "population": release["population"],
+        "clinical_validation": release["clinical_validation"],
     }
 
 

@@ -90,8 +90,14 @@ def register_protocol_tools(server: Any) -> None:
         returns aggregate candidate keys and linkage evidence, never approval.
         draft evaluates an immutable specification and snapshots every source;
         read/page/trace expose denominators, exceptions and exact row/cell lineage.
+        automated_review verifies retained/live bytes, all output rows against
+        included trace and population, saving a sealed technical-check receipt.
+        It does not perform clinical validation or independent recomputation.
         approve pins expected_sha256, warning acknowledgements and reviewer case/
-        denominator checks; release requires the exact approval hash. Revisions
+        denominator checks; automated_checks additionally requires that server
+        receipt hash and its exact reviewed_unit_ids, never a caller assertion.
+        Its approval/release clinical_validation stays not_performed.
+        release requires the exact approval hash. Revisions
         are portable through bundle, whose full source closure and typed values
         can be imported with run_intake(prepared_source=...). These versions
         need a new preparation_id UUID and exact parent reference. No raw Cartesian

@@ -209,10 +209,22 @@ class Definitions(StrictModel):
 
 
 class Review(StrictModel):
-    kind: Literal["data_manager", "synthetic_oracle"]
+    kind: Literal["data_manager", "synthetic_oracle", "automated_checks"]
     denominator_confirmed: bool
     reviewed_unit_ids: list[str] = Field(min_length=1, max_length=100)
     notes: str = Field(min_length=1, max_length=5000)
+    automated_receipt_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def automatic_receipt_scope(self):
+        if self.kind == "automated_checks":
+            if self.automated_receipt_sha256 is None:
+                raise ValueError(
+                    "automated_checks requires a server-generated automated_receipt_sha256"
+                )
+        elif "automated_receipt_sha256" in self.model_fields_set:
+            raise ValueError("only automated_checks may carry an automated receipt")
+        return self
 
 
 class Specification(StrictModel):

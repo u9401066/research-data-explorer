@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The first synchronized repository and VS Code extension release is planned as 0.1.0.
 
+## [Unreleased]
+
+### Automated preparation review
+
+- Add native `data_preparation(op="automated_review")` with an immutable technical-check receipt binding the exact project, plan, implementation, source bytes and retained files. Verify native output schemas and identifier roles, all included trace identities, population denominators and every CSV/typed output row.
+- Permit explicitly attributed `automated_checks` approval only with the server-generated audit hash and its exact bounded unit sample; stale sources, altered evidence, quality blockers and unacknowledged warnings still fail. Automatic approval and release remain `clinical_validation=not_performed`, without claiming independent linkage recomputation or human review.
+- Preserve automatic audit evidence through portable source bundles and restart. Manual data-manager and synthetic-oracle review retain their separate meanings. Prepared storage keeps explicit text/finite-number types; root dates and booleans are not silently converted or assigned clinical roles.
+
 ## [0.5.3] - 2026-10-14
 
 ### Discoverable analysis capabilities

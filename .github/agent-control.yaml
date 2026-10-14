@@ -62,9 +62,12 @@ relational_data_preparation:
   phase: before_analysis
   contract: rde-data-preparation-contract-v1
   flow: [inspect_sources, immutable_draft, quality_and_denominators, exact_review, release]
+  review_modes: [data_manager_attestation, synthetic_oracle, server_generated_automated_checks]
+  automated_review: sealed_rde_preparation_automated_checks_v1_exact_plan_implementation_files_live_sources_population_and_all_output_rows
+  automated_review_limit: technical_consistency_only_clinical_validation_not_performed
   linkage: deterministic_composite_keys_and_per_unit_aggregation
   rejects: [unapproved_release, stale_sources, duplicate_keys_without_policy, unacknowledged_warnings, future_baseline_information, conflicting_time_ties, changed_implementation]
-  retains: [source_bytes, specifications, all_flow_denominators, exceptions, row_and_cell_lineage, reviewer_attestation, failed_and_interrupted_attempts]
+  retains: [source_bytes, specifications, all_flow_denominators, exceptions, row_and_cell_lineage, reviewer_attestation, automated_check_receipts_including_portable_bundles, failed_and_interrupted_attempts]
   does_not_establish: [probabilistic_linkage, clinical_identity_truth, independent_data_manager_verification]
 
 source_frame_lineage:

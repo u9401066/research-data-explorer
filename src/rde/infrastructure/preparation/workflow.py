@@ -4,6 +4,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import os
 import sys
 import uuid
@@ -318,6 +319,193 @@ def draft(project, request):
         raise
 
 
+def automated_payload(project, plan):
+    """Stream all retained rows; check consistency, never attest clinical truth.
+
+    Only IDs and row digests are retained in memory. Trace order is the source
+    order while analysis rows are key-sorted, so row positions are not identity.
+    """
+    if plan["implementation"] != implementation():
+        raise ValueError("IMPLEMENTATION_CHANGED: create and review a new draft")
+    summary = plan["summary"]
+    if not summary["ready_for_approval"]:
+        raise ValueError("QUALITY_BLOCKED: resolve every blocker before automated review")
+    folder = safe_path(directory(project), "versions/" + plan["preparation_id"])
+    required = {
+        "analysis.csv",
+        "analysis.jsonl",
+        "analysis.schema.json",
+        "trace.jsonl",
+        "validation.json",
+        "specification.json",
+    }
+    if not required <= set(plan["files"]):
+        raise ValueError("AUTOMATED_CHECK_FAILED: incomplete retained preparation evidence")
+    if (
+        json.loads((folder / "validation.json").read_text(encoding="utf-8")) != summary
+        or json.loads((folder / "specification.json").read_text(encoding="utf-8"))
+        != plan["specification"]
+    ):
+        raise ValueError("AUTOMATED_CHECK_FAILED: summary or specification differs from plan")
+    columns = summary["output_columns"]
+    if (
+        not isinstance(columns, list)
+        or not all(isinstance(c, str) for c in columns)
+        or len(columns) != len(set(columns))
+        or not {"_rde_unit_id", "_rde_subject_id"} <= set(columns)
+    ):
+        raise ValueError("AUTOMATED_CHECK_FAILED: invalid analysis columns")
+    from rde.infrastructure.preparation.portable import output_schema
+
+    schema = json.loads((folder / "analysis.schema.json").read_text(encoding="utf-8"))
+    spec = contract.Specification.model_validate(plan["specification"])
+    if schema != output_schema(spec, columns):
+        raise ValueError(
+            "AUTOMATED_CHECK_FAILED: native output schema differs from rules or identifiers"
+        )
+    all_units, subjects, expected = set(), set(), {}
+    for record in lines(folder / "trace.jsonl"):
+        uid, sid, values = record.get("unit_id"), record.get("subject_id"), record.get("values")
+        if (
+            not isinstance(uid, str)
+            or not uid
+            or not isinstance(sid, str)
+            or not sid
+            or uid in all_units
+            or type(record.get("included")) is not bool
+            or not isinstance(values, dict)
+            or values.get("_rde_unit_id") != uid
+            or values.get("_rde_subject_id") != sid
+        ):
+            raise ValueError("AUTOMATED_CHECK_FAILED: invalid or duplicate trace identity")
+        all_units.add(uid)
+        if record["included"]:
+            subjects.add(sid)
+            projected = {column: values.get(column) for column in columns}
+            for column in schema["columns"]:
+                value = projected[column["name"]]
+                if value is not None and (
+                    (column["type"] == "text" and not isinstance(value, str))
+                    or (
+                        column["type"] == "number"
+                        and (type(value) not in (int, float) or not math.isfinite(value))
+                    )
+                ):
+                    raise ValueError(
+                        "AUTOMATED_CHECK_FAILED: trace value differs from native output schema"
+                    )
+            expected[uid] = (
+                digest(projected),
+                digest(["" if projected[c] is None else str(projected[c]) for c in columns]),
+            )
+    count = len(expected)
+    kind = plan["specification"]["unit"]["kind"]
+    population = {
+        "rows": count,
+        "units": count,
+        "subjects": len(subjects),
+        "unit_kind": kind,
+        "encounters": count if kind == "encounter" else None,
+        "events": count if kind == "event" else None,
+    }
+    if not count or population != summary["population"] or len(all_units) != summary["trace_units"]:
+        raise ValueError("AUTOMATED_CHECK_FAILED: trace and population denominators differ")
+    seen = set()
+    for row in lines(folder / "analysis.jsonl"):
+        uid = row.get("_rde_unit_id") if isinstance(row, dict) else None
+        if (
+            not isinstance(uid, str)
+            or uid not in expected
+            or uid in seen
+            or set(row) != set(columns)
+            or digest(row) != expected[uid][0]
+        ):
+            raise ValueError(
+                "AUTOMATED_CHECK_FAILED: typed analysis row differs from included trace"
+            )
+        seen.add(uid)
+    if len(seen) != count:
+        raise ValueError("AUTOMATED_CHECK_FAILED: typed analysis rows omit included units")
+    seen.clear()
+    with (folder / "analysis.csv").open(encoding="utf-8", newline="") as stream:
+        rows = csv.reader(stream)
+        if next(rows, None) != columns:
+            raise ValueError("AUTOMATED_CHECK_FAILED: CSV columns differ from plan")
+        unit_index = columns.index("_rde_unit_id")
+        for row in rows:
+            uid = row[unit_index] if len(row) == len(columns) else None
+            if uid not in expected or uid in seen or digest(row) != expected[uid][1]:
+                raise ValueError("AUTOMATED_CHECK_FAILED: CSV row differs from included trace")
+            seen.add(uid)
+    if len(seen) != count:
+        raise ValueError("AUTOMATED_CHECK_FAILED: CSV rows omit included units")
+    return {
+        "schema": "rde-preparation-automated-checks-v1",
+        "project_id": project.id,
+        "preparation_id": plan["preparation_id"],
+        "plan_sha256": plan["receipt_sha256"],
+        "source_set_sha256": digest(plan["source_snapshots"]),
+        "specification_sha256": digest(plan["specification"]),
+        "files_sha256": digest(plan["files"]),
+        "schema_sha256": plan["files"]["analysis.schema.json"]["sha256"],
+        "summary_sha256": digest(summary),
+        "implementation": plan["implementation"],
+        "population": population,
+        "checked_counts": {
+            "trace_units": len(all_units),
+            "included_units": count,
+            "analysis_jsonl_rows": count,
+            "analysis_csv_rows": count,
+        },
+        "reviewed_unit_ids": sorted(expected)[:100],
+        "sample_policy": "First up to 100 included unit IDs in lexical order; deterministic technical trace sample, not a representative clinical case review.",
+        "checks": {
+            "retained_files": "verified",
+            "live_sources": "verified",
+            "native_output_schema_and_value_types": "verified",
+            "unique_trace_units": "verified",
+            "population": "verified",
+            "all_analysis_rows_against_trace": "verified",
+        },
+        "clinical_validation": "not_performed",
+        "review_scope": "automated_checks_only",
+        "limitations": [
+            "Consistency of retained software outputs is not independent recomputation of joins or aggregations.",
+            "Clinical identity, source completeness and appropriateness of cohort, linkage and time definitions are not established.",
+            "No data-manager review or clinical attestation was performed.",
+        ],
+    }
+
+
+def checked_automated_receipt(project, plan, expected_hash=None, create=False):
+    """Only the fixed server path supplies evidence; caller assertions cannot."""
+    path = safe_path(
+        directory(project), "versions/" + plan["preparation_id"] + "/automated_review.json"
+    )
+    if not path.exists() and not create:
+        raise ValueError("AUTOMATED_REVIEW_REQUIRED: run automated_review for this exact draft")
+    payload = automated_payload(project, plan)
+    # Recheck bytes after streaming, before publishing or reusing an attestation.
+    read_plan(project, plan["preparation_id"], plan["receipt_sha256"], live=True)
+    if path.exists():
+        previous = read_sealed(path)
+        if {
+            k: v for k, v in previous.items() if k not in {"created_at", "receipt_sha256"}
+        } != payload:
+            raise ValueError(
+                "STALE_AUTOMATED_REVIEW: audit differs from the exact draft or implementation"
+            )
+        if expected_hash is not None and previous["receipt_sha256"] != expected_hash:
+            raise ValueError("STALE_AUTOMATED_REVIEW: expected audit hash differs")
+        return previous
+    return seal(path, {**payload, "created_at": now()})
+
+
+def automated_review(project, request):
+    plan = read_plan(project, request["preparation_id"], request["expected_sha256"], live=True)
+    return checked_automated_receipt(project, plan, create=True)
+
+
 def approve(project, request):
     plan = read_plan(project, request["preparation_id"], request["expected_sha256"], live=True)
     if plan["implementation"] != implementation():
@@ -338,6 +526,12 @@ def approve(project, request):
     ):
         raise ValueError("real sources cannot be approved as a synthetic oracle")
     folder = safe_path(directory(project), "versions/" + plan["preparation_id"])
+    if review.kind == "automated_checks":
+        audit = checked_automated_receipt(project, plan, review.automated_receipt_sha256)
+        if review.reviewed_unit_ids != audit["reviewed_unit_ids"]:
+            raise ValueError(
+                "AUTOMATED_REVIEW_SAMPLE: review must retain the exact audited unit IDs"
+            )
     units = {r["unit_id"] for r in lines(folder / "trace.jsonl")}
     if (
         len(review.reviewed_unit_ids) != len(set(review.reviewed_unit_ids))
@@ -351,10 +545,12 @@ def approve(project, request):
         "plan_sha256": plan["receipt_sha256"],
         "reviewer": reviewer,
         "acknowledged_warnings": warnings,
-        "review": review.model_dump(),
-        "clinical_validation": "manager_attestation"
-        if review.kind == "data_manager"
-        else "synthetic_only",
+        "review": review.model_dump(exclude_none=True),
+        "clinical_validation": {
+            "data_manager": "manager_attestation",
+            "synthetic_oracle": "synthetic_only",
+            "automated_checks": "not_performed",
+        }[review.kind],
     }
     path = folder / "approval.json"
     if path.exists():
@@ -376,6 +572,14 @@ def release(project, request):
         or approval["receipt_sha256"] != request["approval_sha256"]
     ):
         raise ValueError("STALE_APPROVAL: exact approval does not bind this preparation")
+    if approval["review"]["kind"] == "automated_checks":
+        review = contract.Review.model_validate(approval["review"])
+        audit = checked_automated_receipt(project, plan, review.automated_receipt_sha256)
+        if (
+            review.reviewed_unit_ids != audit["reviewed_unit_ids"]
+            or approval["clinical_validation"] != "not_performed"
+        ):
+            raise ValueError("CORRUPT_APPROVAL: automatic review cannot attest clinical validation")
     payload = {
         "schema": "rde-data-release-v1",
         "project_id": project.id,
@@ -537,6 +741,7 @@ def execute(project, request):
         "preview": {"op", "sources", "specification"},
         "draft": {"op", "preparation_id", "sources", "specification", "parent", "reason", "author"},
         "read": {"op", "preparation_id", "expected_sha256"},
+        "automated_review": {"op", "preparation_id", "expected_sha256"},
         "approve": {
             "op",
             "preparation_id",
@@ -590,6 +795,8 @@ def execute(project, request):
                 "column_roles": "Derived fields with a window inherit baseline/followup from window.purpose. Without a window and without at_index_basis they are descriptive, not baseline predictors. A declared at_index_basis without a window attests index-time availability. A requested all-time descriptive medication count must not acquire an invented baseline window or availability assertion.",
                 "aggregation": "Every relation is aggregated independently to each unit before combining features; raw event tables are never joined together. count counts selected event records. Missing feature values and linkage statuses stay separate; unknown/not-exported coverage is not evidence of zero events.",
                 "validation": "Preview executes the specification and returns denominators, statuses and technical issues without approval or persistent analysis version. Zero blockers is not semantic or clinical approval; requirement alignment and actual linkage truth require review.",
+                "automated_review": "After an immutable draft, automated_review requires preparation_id and expected_sha256. The server verifies every retained file and live source, the native analysis.schema.json against declared rules/identifier roles/headers/value types, all included trace identities and denominators, and every CSV/typed row against its included trace. It saves rde-preparation-automated-checks-v1 with an immutable receipt_sha256 and up to 100 actual reviewed_unit_ids. This is consistency checking, not independent recomputation, clinical validation or a human review. Prepared storage supports text and finite numbers; root dates and booleans remain explicit text unless a numeric rule was declared. Do not infer clinical roles or model types from this storage schema.",
+                "automated_approval": "approve review.kind=automated_checks requires automated_receipt_sha256, denominator_confirmed=true, exactly the audited reviewed_unit_ids in their returned order, and notes. The server revalidates the sealed audit, files, sources and implementation; caller assertions alone cannot approve. Exact warning acknowledgements and attributed reviewer are still required. Approval and release clinical_validation remain not_performed. Other review kinds cannot carry an automated receipt.",
             },
             "clinical_truth": "Software validation and reviewer attestation are distinct; neither proves real clinical linkage truth.",
         }
@@ -646,6 +853,7 @@ def execute(project, request):
             return {"plan": plan, "approval": approval, "release": released}
         return {
             "draft": draft,
+            "automated_review": automated_review,
             "approve": approve,
             "release": release,
             "page": page,
