@@ -188,6 +188,55 @@ def _key_stats(table, columns):
     }
 
 
+def source_schema(table, columns):
+    """Describe the verified parser output, without inferring clinical roles."""
+    source = table.source
+    file_format = Path(source.path).suffix.lower().lstrip(".")
+    schema = {
+        "schema": "rde-source-table-schema-v1",
+        "source_id": source.id,
+        "source_sha256": source.sha256,
+        "source_bytes": source.bytes,
+        "rows": len(table.rows),
+        "parser": {
+            "format": file_format,
+            "encoding": source.encoding if file_format != "xlsx" else None,
+            "delimiter": source.delimiter if file_format != "xlsx" else None,
+            "sheet": source.sheet if file_format == "xlsx" else None,
+            "implicit_single_sheet": file_format == "xlsx" and source.sheet is None,
+        },
+        "storage_type": "text",
+        "storage_representation": "All loaded cell values are strings. Delimited spelling is preserved; XLSX empty cells become empty strings, dates/times use ISO text, booleans true/false, and numeric cells use decimal text. This is storage normalization, not clinical classification or identifier validation.",
+        "column_order": list(table.columns),
+        "columns": [
+            {
+                "index": index,
+                "name": column["name"],
+                "storage_type": "text",
+                "observed_constraints": {
+                    "missing_rows": column["missing"],
+                    "distinct_nonmissing": column["distinct"],
+                    "numeric_excel_cells": column["numeric_excel_cells"],
+                    "unique_nonmissing": column["distinct"] > 0
+                    and column["distinct"] == len(table.rows) - column["missing"],
+                    "no_missing": column["missing"] == 0,
+                },
+            }
+            for index, column in enumerate(columns)
+        ],
+        "missing_convention": {
+            "profile_predicate": "value is None, or a string equal to '' or satisfying Python str.isspace()",
+            "loaded_null_cells": "empty strings",
+            "whitespace": "counted as missing in profiling and key checks; stored spelling is preserved",
+            "literal_tokens": "NA, N/A, NULL and other nonblank strings are retained as literal values; missing-token cleaning requires explicit preparation rules",
+            "automatic_null_coercion": False,
+        },
+        "constraints_scope": "Observed file only; candidates do not declare primary/foreign keys or establish cross-system identity.",
+        "clinical_semantics": "not_inferred",
+    }
+    return {**schema, "schema_sha256": digest(schema)}
+
+
 def profile(table):
     columns = []
     for name in table.columns:
@@ -214,6 +263,7 @@ def profile(table):
         "source_sha256": table.source.sha256,
         "rows": len(table.rows),
         "columns": columns,
+        "source_schema": source_schema(table, columns),
         "candidate_keys": sorted(
             candidates,
             key=lambda c: (not c["unique"], c["null_rows"], c["duplicate_rows"], len(c["columns"])),

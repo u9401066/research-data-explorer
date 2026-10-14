@@ -107,7 +107,7 @@
     },
     {
       "path": "src/rde/domain/models/preparation.py",
-      "sha256": "2be511fc59446939f2e376d7c43eaf85b966c43973e4deca84c0bfb0dca5b781"
+      "sha256": "b44144cd31c80040f7f881c4da822771f0c896b43ef92ca69db943adcc66903d"
     },
     {
       "path": "src/rde/domain/models/profile.py",
@@ -363,7 +363,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/report.py",
-      "sha256": "051bda5da7d52397f3d734f20e8e6183513005569b11aaf8a038aa0f478449bf"
+      "sha256": "46407c540d130cf9affc4594c0d12712b135009d457b2a832a92e3772e67af68"
     },
     {
       "path": "src/rde/infrastructure/clinical/sample_size.py",
@@ -383,7 +383,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/survival_publication.py",
-      "sha256": "2a700ada43b6712421847fcc530e404548a68e4760d8413bc1ab1ee989da0974"
+      "sha256": "b9176eaf72c8562838cc9fd69b0c0d2ef516d23943ad143f289d51ac705fe213"
     },
     {
       "path": "src/rde/infrastructure/clinical/weighting.py",
@@ -507,15 +507,15 @@
     },
     {
       "path": "src/rde/infrastructure/preparation/portable.py",
-      "sha256": "f5b7a7845a8f55d793dd89922d9c54fe400338fc935b3cdaf901bb41cae5c104"
+      "sha256": "4452fbcf5d94c9c3a4d91d2beaeb259c11947081b91006e55311b9162a7bb768"
     },
     {
       "path": "src/rde/infrastructure/preparation/sources.py",
-      "sha256": "aa1fead4c768782faf4b345be9ae3bd01ecd03e0783a3dc2655e1de04249c429"
+      "sha256": "c3bfad2b48b3af2a4550d4c972c20909cb53e26c943b623c7e449bc3c8c751c6"
     },
     {
       "path": "src/rde/infrastructure/preparation/workflow.py",
-      "sha256": "61f848c131354fbc1d3fe0227791835f0d01ed926792c56da02f40de56a6e942"
+      "sha256": "43a826d6ffa6a4838d69cedf3bb6bbc5ec727e3bac2b5d4e13e9833593a274ff"
     },
     {
       "path": "src/rde/infrastructure/visualization/__init__.py",
@@ -563,7 +563,7 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "f3cf1b26619cf4aae0152ab95d5c1b5d8c8296b01b385938fc53b7642b68204f"
+      "sha256": "1e5574dd9201d853bdb1e1d147f7c703f0f3e66e9b5619c667b31615895e08ef"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
@@ -683,7 +683,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "54659b12873dbbe9b9fc1036d41241768e6e5464cb484524681509f9cd809aad"
+      "sha256": "0eb79cb01181ccd9c350a71c130d79b1b1a06ac0c5c3e0884bed43416665d437"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -1955,11 +1955,11 @@
       "contract_sources": [
         {
           "path": "src/rde/domain/models/preparation.py",
-          "sha256": "2be511fc59446939f2e376d7c43eaf85b966c43973e4deca84c0bfb0dca5b781"
+          "sha256": "b44144cd31c80040f7f881c4da822771f0c896b43ef92ca69db943adcc66903d"
         },
         {
           "path": "src/rde/infrastructure/preparation/workflow.py",
-          "sha256": "61f848c131354fbc1d3fe0227791835f0d01ed926792c56da02f40de56a6e942"
+          "sha256": "43a826d6ffa6a4838d69cedf3bb6bbc5ec727e3bac2b5d4e13e9833593a274ff"
         }
       ]
     },
@@ -8064,5 +8064,5 @@
       ]
     }
   ],
-  "catalog_sha256": "1b9c1c3ca44c141ea7ecde982d503dcef917dd7c3480afba76342eaf2422394c"
+  "catalog_sha256": "57deef474e6f3ff35b1757e5b2e273c801af5728ea4f9c6ebc7cec9b1b945e82"
 }
