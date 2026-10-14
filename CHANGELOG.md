@@ -6,6 +6,8 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-10-14
+
 ### Traceable prepared-data reports
 
 - Bind report methods and denominators to the exact imported, approved preparation release. Verify the retained source/trace closure and intake identity before rendering declared units, keys, time windows, aggregation rules, sequential event/unit/subject counts, missingness statuses and receipt hashes in assembled and DOCX/PDF reports. Missing or changed evidence blocks these claims; automatic checks remain distinct from clinical validation.
