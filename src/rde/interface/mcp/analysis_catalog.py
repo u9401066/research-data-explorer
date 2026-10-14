@@ -243,6 +243,7 @@ def family_declarations():
         "明訂分析單位、鍵、時間窗、納排、品質核准與逐列追溯。",
         [
             method("relational_preparation", "關聯與族群規格"),
+            method("data_aggregation", "原生資料聚合與局部規則修訂"),
             method("cleaning", "鎖定計畫內的清理"),
         ],
         [
@@ -265,9 +266,13 @@ def family_declarations():
         [
             "一對多不直接做笛卡兒積；未配對不等同陰性。",
             "清理或新來源須產生可追溯版本。",
+            "聚合依原生方法契約與具版本的局部規則操作；試算通過不等於研究核准。",
         ],
         [
             "src/rde/domain/models/preparation.py",
+            "src/rde/domain/models/preparation_edit.py",
+            "src/rde/infrastructure/preparation/aggregation.py",
+            "src/rde/infrastructure/preparation/engine.py",
             "src/rde/infrastructure/preparation/workflow.py",
         ],
     )

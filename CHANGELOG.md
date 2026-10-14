@@ -6,6 +6,13 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+### Native data aggregation
+
+- Make all ten existing aggregation methods discoverable with input, window, missing-value, tie, cardinality and lineage rules. Distinguish whole-window `unique` from timestamp-based `first`/`last`; no new statistical engine or executable Python/SQL is introduced.
+- Add immutable, source-bound candidate revisions and typed compose, local patch, read, preview and diff operations inside `data_preparation`. Stable relation/feature targets, exact base hashes, atomic validation, replay guards and restart-safe evidence prevent unrelated rules from being rewritten.
+- Preserve precise rule/stage diagnostics and occurrence counts, including conflicting values and invalid lookup methods. Retain hash-pinned preview pages, exact cell source members and before/after outcome counts. Published drafts use the same evaluation, review and release gates; technical readiness never establishes clinical truth.
+- Record sequential relation selection counts as event-to-unit pairs, distinct source records, analysis units and subjects. Keep these audit denominators separate from analysis columns and never count repeated events as people.
+
 ### Accurate Cox report wording
 
 - Label a one-predictor Cox model as unadjusted in Chinese reports, publication axes and bilingual captions. A categorical predictor with several encoded coefficients remains one source predictor; only models with multiple prespecified source predictors are described as adjusted. Numerical receipts and locked specifications remain unchanged.

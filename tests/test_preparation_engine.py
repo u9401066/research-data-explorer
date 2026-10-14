@@ -242,6 +242,83 @@ def test_conflicting_same_timestamp_does_not_pick_first_row(tmp_path):
     assert any("same event time" in i["message"] for i in result.issues)
 
 
+def test_last_accepts_different_earlier_values_while_unique_blocks_whole_window(tmp_path):
+    sources, spec, _ = fixture(tmp_path)
+    feature = spec["relations"][0]["features"][1]
+    feature.update(output="lab_endpoint", aggregate="last")
+    latest = evaluate(sources, spec)
+    assert latest.summary()["ready_for_approval"], latest.issues
+    row = next(r for r in latest.rows if r["site"] == "A" and r["pid"] == "001")
+    assert row["lab_endpoint"] == 30
+    assert row["_rde_labs_status"] == "matched"
+    refs = latest.trace[row["_rde_unit_id"]]["cells"]["lab_endpoint"]["sources"]
+    assert [ref["record_index"] for ref in refs] == [2]
+    assert all(ref["source_sha256"] == sources[1].sha256 for ref in refs)
+
+    # The same observations are not a single value across the whole window.
+    feature["aggregate"] = "unique"
+    unique = evaluate(sources, spec)
+    assert not unique.summary()["ready_for_approval"]
+    assert any(i["message"] == "lookup/unique has conflicting values" for i in unique.issues)
+    blocked = next(r for r in unique.rows if r["_rde_unit_id"] == row["_rde_unit_id"])
+    assert blocked["lab_endpoint"] is None
+    assert blocked["_rde_labs_status"] == "link_failed"
+    assert len(unique.rows) == len(latest.rows) == 6
+
+
+def test_last_equal_timestamp_values_keep_all_members_independent_of_row_order(tmp_path):
+    sources, spec, raw = fixture(tmp_path)
+    header = load(sources[1]).columns
+    rows = raw[1] + [["tie", "A", "001", "2025-01-09T00:00:00Z", "2025-01-09T01:00:00Z", "30.0"]]
+    spec["relations"][0]["features"][1].update(output="lab_endpoint", aggregate="last")
+    expected_unit_id = None
+    for ordered in (rows, list(reversed(rows))):
+        sources[1] = source(tmp_path, "labs", header, ordered)
+        result = evaluate(sources, spec)
+        assert result.summary()["ready_for_approval"], result.issues
+        row = next(r for r in result.rows if r["site"] == "A" and r["pid"] == "001")
+        assert row["lab_endpoint"] == 30
+        assert row["lab_count"] == 4
+        if expected_unit_id is None:
+            expected_unit_id = row["_rde_unit_id"]
+        assert row["_rde_unit_id"] == expected_unit_id
+        refs = result.trace[row["_rde_unit_id"]]["cells"]["lab_endpoint"]["sources"]
+        assert len(refs) == 2
+        assert {ordered[ref["record_index"]][0] for ref in refs} == {"l3", "tie"}
+        assert all(
+            ref["source_sha256"] == sources[1].sha256 and ref["column"] == "value" for ref in refs
+        )
+
+
+def test_last_skips_latest_missing_value_and_never_turns_all_missing_into_zero(tmp_path):
+    sources, spec, raw = fixture(tmp_path)
+    header = load(sources[1]).columns
+    rows = raw[1] + [
+        ["blank", "A", "001", "2025-01-09T12:00:00Z", "2025-01-09T13:00:00Z", ""],
+        ["token", "A", "001", "2025-01-09T15:00:00Z", "2025-01-09T16:00:00Z", "NA"],
+    ]
+    spec["relations"][0]["features"][1].update(
+        output="lab_endpoint", aggregate="last", missing_tokens=["", "NA"]
+    )
+    sources[1] = source(tmp_path, "labs", header, rows)
+    result = evaluate(sources, spec)
+    assert result.summary()["ready_for_approval"], result.issues
+    row = next(r for r in result.rows if r["site"] == "A" and r["pid"] == "001")
+    assert row["lab_endpoint"] == 30
+    assert row["lab_count"] == 5
+    refs = result.trace[row["_rde_unit_id"]]["cells"]["lab_endpoint"]["sources"]
+    assert [rows[ref["record_index"]][0] for ref in refs] == ["l3"]
+
+    all_missing = [[*r[:-1], ""] if r[1:3] == ["A", "001"] else r for r in rows]
+    sources[1] = source(tmp_path, "labs", header, all_missing)
+    missing = evaluate(sources, spec)
+    row = next(r for r in missing.rows if r["site"] == "A" and r["pid"] == "001")
+    assert row["lab_endpoint"] is None
+    assert row["lab_count"] == 5
+    assert row["_rde_labs_status"] == "matched"
+    assert len(missing.rows) == len(result.rows) == 6
+
+
 def test_null_foreign_key_is_never_matched_or_interpreted_as_absence(tmp_path):
     sources, spec, raw = fixture(tmp_path)
     table = load(sources[1])

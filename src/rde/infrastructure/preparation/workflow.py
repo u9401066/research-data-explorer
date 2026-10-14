@@ -24,7 +24,8 @@ def now():
 
 
 def implementation():
-    from rde.infrastructure.preparation import portable
+    from rde.domain.models import preparation_edit
+    from rde.infrastructure.preparation import aggregation, portable
 
     return {
         "files": {
@@ -35,6 +36,8 @@ def implementation():
                 "engine": engine,
                 "workflow": sys.modules[__name__],
                 "portable": portable,
+                "aggregation": aggregation,
+                "preparation_edit": preparation_edit,
             }.items()
         },
         "python": sys.version.split()[0],
@@ -204,6 +207,18 @@ def flow_svg(summary):
 
 
 def draft(project, request):
+    candidate_ref = request.get("candidate_ref")
+    if candidate_ref is not None:
+        if "sources" in request or "specification" in request:
+            raise ValueError("candidate_ref cannot be mixed with sources/specification")
+        from rde.infrastructure.preparation.aggregation import resolve_draft
+
+        candidate = resolve_draft(project, candidate_ref)
+        request = {
+            **request,
+            "sources": candidate["sources"],
+            "specification": candidate["specification"],
+        }
     pid = canonical_id(request["preparation_id"])
     inputs = source_list(request["sources"])
     spec = contract.Specification.model_validate(request["specification"])
@@ -228,6 +243,7 @@ def draft(project, request):
         "reason": reason,
         "author": author,
         "implementation": implementation(),
+        "candidate_ref": candidate_ref,
     }
     intent_path = safe_path(root, f"intents/{pid}.json")
     if intent_path.exists():
@@ -294,6 +310,7 @@ def draft(project, request):
                 "project_id": project.id,
                 "preparation_id": pid,
                 "parent": parent,
+                "candidate_ref": candidate_ref,
                 "created_at": now(),
                 "author": author,
                 "reason": reason,
@@ -739,7 +756,47 @@ def execute(project, request):
         "contract": {"op"},
         "inspect": {"op", "sources"},
         "preview": {"op", "sources", "specification"},
-        "draft": {"op", "preparation_id", "sources", "specification", "parent", "reason", "author"},
+        "draft": {
+            "op",
+            "preparation_id",
+            "sources",
+            "specification",
+            "candidate_ref",
+            "parent",
+            "reason",
+            "author",
+        },
+        "aggregation_compose": {
+            "op",
+            "candidate_id",
+            "revision_id",
+            "sources",
+            "unit",
+            "definitions",
+            "from_specification",
+            "author",
+            "reason",
+        },
+        "aggregation_patch": {
+            "op",
+            "candidate_ref",
+            "revision_id",
+            "operations",
+            "author",
+            "reason",
+        },
+        "aggregation_read": {
+            "op",
+            "candidate_ref",
+            "preview_sha256",
+            "section",
+            "unit_id",
+            "column",
+            "offset",
+            "limit",
+        },
+        "aggregation_preview": {"op", "candidate_ref"},
+        "aggregation_diff": {"op", "before", "after"},
         "read": {"op", "preparation_id", "expected_sha256"},
         "automated_review": {"op", "preparation_id", "expected_sha256"},
         "approve": {
@@ -767,6 +824,8 @@ def execute(project, request):
     if op not in allowed or set(request) - allowed[op]:
         raise ValueError("unknown preparation operation or fields")
     if op == "contract":
+        from rde.infrastructure.preparation.aggregation import contract as aggregation_contract
+
         return {
             "schema": "rde-data-preparation-contract-v1",
             "operations": list(allowed),
@@ -785,6 +844,7 @@ def execute(project, request):
                 "filtered_out",
             ],
             "model_execution": False,
+            "aggregation": aggregation_contract(),
             "execution_semantics": {
                 "source_schema": "inspect returns a hash-bound rde-source-table-schema-v1 per verified source, preserving column order, raw text storage, parser settings, observed missingness and uniqueness. It does not declare clinical roles or confirmed keys. This raw-source schema is separate from the preparation's analysis.schema.json (explicit typed rules) and downstream intake's semantic variable classification.",
                 "cohort": "Each cohort.keep executes exactly one predicate. Multiple conditions need separate rules, applied sequentially. Rule id/reason are explanations, not executable conditions.",
@@ -795,6 +855,9 @@ def execute(project, request):
                 "exclude_statuses": "These statuses delete the ENTIRE analysis unit after aggregation. The default empty list retains units without usable events. Filtering unusable/future event records does not require excluding their patients or encounters.",
                 "column_roles": "Derived fields with a window inherit baseline/followup from window.purpose. Without a window and without at_index_basis they are descriptive, not baseline predictors. A declared at_index_basis without a window attests index-time availability. A requested all-time descriptive medication count must not acquire an invented baseline window or availability assertion.",
                 "aggregation": "Every relation is aggregated independently to each unit before combining features; raw event tables are never joined together. count counts selected event records. Missing feature values and linkage statuses stay separate; unknown/not-exported coverage is not evidence of zero events.",
+                "aggregation_unique": "unique requires one distinct nonmissing value across ALL records selected for that relation and unit, after declared value typing and unit conversion. It returns a single value, not a list of distinct values. Different values at different event times still conflict. Do not add unique as a tie check for first/last; it imposes a different, stronger whole-window requirement.",
+                "aggregation_first_last": "first/last requires an explicit event-time window and selects the earliest/latest timestamp among selected records with a nonmissing feature value, after declared value typing and unit conversion. Unequal values at other timestamps do not conflict. All nonmissing values at the selected timestamp must agree; unequal values raise a blocker, and identical-value ties retain all contributing source records. Physical row order is never a tie breaker. No usable feature value produces null, not zero.",
+                "aggregation_evidence": "Draft/release retain validation.json population and per-stage flow, relationships/status counts, feature quality, issues/exceptions and exact trace.jsonl source members. first/last already blocks conflicting selected-time values and preserves every equal-valued selected-time contributor. Do not require invented latest-value-list, conflict-flag or duplicated stage-count analysis columns to establish these native audit facts. Published report still explains the observed evidence and limits.",
                 "validation": "Preview executes the specification and returns denominators, statuses and technical issues without approval or persistent analysis version. Zero blockers is not semantic or clinical approval; requirement alignment and actual linkage truth require review.",
                 "automated_review": "After an immutable draft, automated_review requires preparation_id and expected_sha256. The server verifies every retained file and live source, the native analysis.schema.json against declared rules/identifier roles/headers/value types, all included trace identities and denominators, and every CSV/typed row against its included trace. It saves rde-preparation-automated-checks-v1 with an immutable receipt_sha256 and up to 100 actual reviewed_unit_ids. This is consistency checking, not independent recomputation, clinical validation or a human review. Prepared storage supports text and finite numbers; root dates and booleans remain explicit text unless a numeric rule was declared. Do not infer clinical roles or model types from this storage schema.",
                 "automated_approval": "approve review.kind=automated_checks requires automated_receipt_sha256, denominator_confirmed=true, exactly the audited reviewed_unit_ids in their returned order, and notes. The server revalidates the sealed audit, files, sources and implementation; caller assertions alone cannot approve. Exact warning acknowledgements and attributed reviewer are still required. Approval and release clinical_validation remain not_performed. Other review kinds cannot carry an automated receipt.",
@@ -803,6 +866,10 @@ def execute(project, request):
         }
     root = directory(project)
     with locked(root):
+        if op.startswith("aggregation_"):
+            from rde.infrastructure.preparation.aggregation import execute as aggregation_execute
+
+            return aggregation_execute(project, request)
         if op == "source_row":
             return source_row(project, request)
         if op == "bundle":
@@ -821,7 +888,7 @@ def execute(project, request):
                 "advisory_only": True,
                 "summary": evaluated.summary(),
                 "issues": [
-                    {k: issue[k] for k in ("code", "severity", "message")}
+                    {k: v for k, v in issue.items() if k != "records"}
                     for issue in evaluated.issues[:100]
                 ],
                 "issue_count": len(evaluated.issues),

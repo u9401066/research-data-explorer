@@ -110,6 +110,10 @@
       "sha256": "b44144cd31c80040f7f881c4da822771f0c896b43ef92ca69db943adcc66903d"
     },
     {
+      "path": "src/rde/domain/models/preparation_edit.py",
+      "sha256": "8da40ce11fc2bf21ea13704e2bcc2c6cbf5b1a8b34ed7f031e7854ad50053cdb"
+    },
+    {
       "path": "src/rde/domain/models/profile.py",
       "sha256": "f19655a82490e764a356da7c452ee93fd835455dfe81608532f4b390b9334d10"
     },
@@ -502,8 +506,12 @@
       "sha256": "626299153bf674bc82468f8ee62c300f859aaebc12842ee165eb30fa8a08e08f"
     },
     {
+      "path": "src/rde/infrastructure/preparation/aggregation.py",
+      "sha256": "2b128d52afa29129e0b19b25de463a2e0af66867db1fa02987fb3ca809bf1fa5"
+    },
+    {
       "path": "src/rde/infrastructure/preparation/engine.py",
-      "sha256": "810fe6f56283145e5da962e1c11431c05315523d23db6e5728968c02256b39b5"
+      "sha256": "9d3317b57541e5c1d5cf0cc9d4c035444d0068bce4e07de9ff0b02b78cf1512c"
     },
     {
       "path": "src/rde/infrastructure/preparation/portable.py",
@@ -515,7 +523,7 @@
     },
     {
       "path": "src/rde/infrastructure/preparation/workflow.py",
-      "sha256": "43a826d6ffa6a4838d69cedf3bb6bbc5ec727e3bac2b5d4e13e9833593a274ff"
+      "sha256": "e188e6f1c1e225bd836f311f6ed7e0d36a20a9e1e33c81de029dab4ca5445726"
     },
     {
       "path": "src/rde/infrastructure/visualization/__init__.py",
@@ -555,7 +563,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "98a606d2b781909c1d9aed7c83a5b18390b6f8fea20662ee06d16549766d24d6"
+      "sha256": "f66041fae03611350f86174d01ff76d845130f04ff1072f5194b440d9f3a66ce"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -683,7 +691,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "0eb79cb01181ccd9c350a71c130d79b1b1a06ac0c5c3e0884bed43416665d437"
+      "sha256": "a6c314d98b8a5bbcce794d32a8148002bd2ee15bcf368302edaa39093bcae6fa"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -1043,6 +1051,11 @@
           "execution_kind": "native"
         },
         {
+          "id": "data_aggregation",
+          "label": "原生資料聚合與局部規則修訂",
+          "execution_kind": "native"
+        },
+        {
           "id": "cleaning",
           "label": "鎖定計畫內的清理",
           "execution_kind": "native"
@@ -1095,10 +1108,14 @@
       ],
       "limitations": [
         "一對多不直接做笛卡兒積；未配對不等同陰性。",
-        "清理或新來源須產生可追溯版本。"
+        "清理或新來源須產生可追溯版本。",
+        "聚合依原生方法契約與具版本的局部規則操作；試算通過不等於研究核准。"
       ],
       "contract_refs": [
         "src/rde/domain/models/preparation.py",
+        "src/rde/domain/models/preparation_edit.py",
+        "src/rde/infrastructure/preparation/aggregation.py",
+        "src/rde/infrastructure/preparation/engine.py",
         "src/rde/infrastructure/preparation/workflow.py"
       ],
       "tool_input_schemas": {
@@ -1958,8 +1975,20 @@
           "sha256": "b44144cd31c80040f7f881c4da822771f0c896b43ef92ca69db943adcc66903d"
         },
         {
+          "path": "src/rde/domain/models/preparation_edit.py",
+          "sha256": "8da40ce11fc2bf21ea13704e2bcc2c6cbf5b1a8b34ed7f031e7854ad50053cdb"
+        },
+        {
+          "path": "src/rde/infrastructure/preparation/aggregation.py",
+          "sha256": "2b128d52afa29129e0b19b25de463a2e0af66867db1fa02987fb3ca809bf1fa5"
+        },
+        {
+          "path": "src/rde/infrastructure/preparation/engine.py",
+          "sha256": "9d3317b57541e5c1d5cf0cc9d4c035444d0068bce4e07de9ff0b02b78cf1512c"
+        },
+        {
           "path": "src/rde/infrastructure/preparation/workflow.py",
-          "sha256": "43a826d6ffa6a4838d69cedf3bb6bbc5ec727e3bac2b5d4e13e9833593a274ff"
+          "sha256": "e188e6f1c1e225bd836f311f6ed7e0d36a20a9e1e33c81de029dab4ca5445726"
         }
       ]
     },
@@ -8064,5 +8093,5 @@
       ]
     }
   ],
-  "catalog_sha256": "57deef474e6f3ff35b1757e5b2e273c801af5728ea4f9c6ebc7cec9b1b945e82"
+  "catalog_sha256": "5b42489c647f6344e81e4e5abe3ec4f568c93c7650dc7241bd265db601463f6b"
 }

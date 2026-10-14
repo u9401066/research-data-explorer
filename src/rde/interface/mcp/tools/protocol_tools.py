@@ -88,6 +88,13 @@ def register_protocol_tools(server: Any) -> None:
 
         op=contract discovers strict source/specification/review schemas. inspect
         returns aggregate candidate keys and linkage evidence, never approval.
+        contract.aggregation discovers all ten native methods and typed local
+        edits. aggregation_compose/patch/read/preview/diff use immutable exact
+        candidate references and stable relation/feature targets, never Python,
+        SQL or a rewritten whole specification. Unspecified research definitions
+        remain unresolved. Preview diagnostics identify the exact rule and stage;
+        zero blockers is not semantic or clinical approval. draft may resolve
+        candidate_ref instead of receiving sources/specification again.
         draft evaluates an immutable specification and snapshots every source;
         read/page/trace expose denominators, exceptions and exact row/cell lineage.
         automated_review verifies retained/live bytes, all output rows against

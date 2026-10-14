@@ -62,6 +62,14 @@ relational_data_preparation:
   phase: before_analysis
   contract: rde-data-preparation-contract-v1
   flow: [inspect_sources, immutable_draft, quality_and_denominators, exact_review, release]
+  aggregation_contract: rde-aggregation-contract-v1
+  aggregation_operations: [aggregation_compose, aggregation_patch, aggregation_read, aggregation_preview, aggregation_diff]
+  aggregation_methods: [unique, count, exists, sum, mean, min, max, first, last, days_to_first]
+  candidate_revisions: immutable_exact_source_specification_receipt_and_parent_with_typed_stable_targets
+  preview_evidence: hash_pinned_paged_issues_units_output_and_cell_trace_with_rule_locators_and_occurrence_counts
+  selection_flow: sequential_event_pairs_distinct_source_records_analysis_units_and_subjects_before_feature_aggregation
+  candidate_edits_do_not_authorize_release: true
+  prohibits_aggregation_code_generation: [python, sql, arbitrary_expressions, json_pointer_edits]
   review_modes: [data_manager_attestation, synthetic_oracle, server_generated_automated_checks]
   automated_review: sealed_rde_preparation_automated_checks_v1_exact_plan_implementation_files_live_sources_population_and_all_output_rows
   automated_review_limit: technical_consistency_only_clinical_validation_not_performed

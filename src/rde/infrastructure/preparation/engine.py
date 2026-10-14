@@ -13,6 +13,14 @@ from rde.domain.models.preparation import ColumnRule, Specification
 from rde.infrastructure.preparation.sources import canonical, digest, empty, key
 
 
+class FeatureValueError(ValueError):
+    """Machine-readable aggregation error without losing the scientific cause."""
+
+    def __init__(self, code, message):
+        self.code = code
+        super().__init__(message)
+
+
 def timestamp(value, zone):
     if empty(value):
         raise ValueError("missing timestamp")
@@ -94,6 +102,9 @@ class Evaluation:
         records=None,
         unit_id=None,
         column=None,
+        relation_id=None,
+        feature_output=None,
+        errorStage=None,
     ):
         record = {"code": code, "message": message, "severity": severity}
         if source_id:
@@ -104,6 +115,13 @@ class Evaluation:
             record["column"] = column
         if records:
             record["records"] = records
+        for name, value in (
+            ("relation_id", relation_id),
+            ("feature_output", feature_output),
+            ("errorStage", errorStage),
+        ):
+            if value is not None:
+                record[name] = value
         self.issues.append(record)
 
     def exception(self, table, row, reason, action, relation=None):
@@ -290,13 +308,16 @@ class Evaluation:
             )
             selected = [(v, r) for v, r in values if times[r.index] == target]
             if len({canonical(v) for v, _ in selected}) != 1:
-                raise ValueError(
-                    "conflicting values at the same event time; no row-order tie breaking"
+                raise FeatureValueError(
+                    "EVENT_TIME_VALUE_CONFLICT",
+                    "conflicting values at the same event time; no row-order tie breaking",
                 )
             return selected[0][0], [r for _, r in selected]
         if feature.aggregate == "unique":
             if len({canonical(v) for v, _ in values}) != 1:
-                raise ValueError("lookup/unique has conflicting values")
+                raise FeatureValueError(
+                    "UNIQUE_VALUE_CONFLICT", "lookup/unique has conflicting values"
+                )
             value = values[0][0]
         elif feature.aggregate in {"sum", "mean"}:
             value = math.fsum(sorted(v for v, _ in values))
@@ -557,6 +578,33 @@ class Evaluation:
         counts = Counter()
         consumed = Counter()
         direct_rows = 0
+        stage_specs = [{"stage": "linked"}] + [
+            {"stage": "filter", "filter_index": i, "predicate": predicate.model_dump()}
+            for i, predicate in enumerate(relation.filters)
+        ]
+        if relation.window:
+            stage_specs += [{"stage": "event_window"}, {"stage": "availability"}]
+        stage_counts = [
+            {
+                "event_pairs": 0,
+                "source_records": set(),
+                "units": set(),
+                "subjects": set(),
+                "evaluated_units": set(),
+            }
+            for _ in stage_specs
+        ]
+        evaluation_error_units = set()
+
+        def track(position, rows, unit):
+            current = stage_counts[position]
+            current["event_pairs"] += len(rows)
+            current["source_records"].update(row.index for row in rows)
+            current["evaluated_units"].add(unit["id"])
+            if rows:
+                current["units"].add(unit["id"])
+                current["subjects"].add(self.trace[unit["id"]]["subject_id"])
+
         for u in units:
             uid, values = u["id"], u["values"]
             raw = u["row"].values
@@ -565,13 +613,20 @@ class Evaluation:
             direct_rows += len(all_matches)
             coverage = self.coverage(relation, raw)
             selected, excluded, times = [], {"outside_window": [], "not_available": []}, {}
+            active_feature = None
+            error_stage = "filter"
             try:
-                filtered = [
-                    r
-                    for r in all_matches
-                    if all(matches(r.values, predicate) for predicate in relation.filters)
-                ]
+                track(0, all_matches, u)
+                filtered = all_matches
+                for position, predicate in enumerate(relation.filters, start=1):
+                    filtered = [r for r in filtered if matches(r.values, predicate)]
+                    track(position, filtered, u)
+                error_stage = "window"
                 selected, excluded, times = self.select_window(relation, filtered, raw)
+                if relation.window:
+                    track(1 + len(relation.filters), selected + excluded["not_available"], u)
+                    track(2 + len(relation.filters), selected, u)
+                error_stage = "linkage"
                 if coverage == "not_exported" and all_matches:
                     raise ValueError("export coverage says not exported but matching records exist")
                 if k is None:
@@ -597,6 +652,8 @@ class Evaluation:
                 else:
                     status = "no_record" if coverage == "complete" else "unknown_coverage"
                 for feature in relation.features:
+                    active_feature = feature
+                    error_stage = "feature_aggregation"
                     instant = (
                         timestamp(raw[self.spec.unit.index_column], self.spec.unit.timezone)
                         if relation.window
@@ -614,7 +671,17 @@ class Evaluation:
                     }
                 consumed.update(r.index for r in selected)
             except (ValueError, TypeError, OverflowError) as exc:
-                self.issue("RELATION_VALUE_ERROR", str(exc), source_id=table.source.id, unit_id=uid)
+                evaluation_error_units.add(uid)
+                self.issue(
+                    getattr(exc, "code", "RELATION_VALUE_ERROR"),
+                    str(exc),
+                    source_id=table.source.id,
+                    unit_id=uid,
+                    relation_id=relation.id,
+                    feature_output=active_feature.output if active_feature else None,
+                    column=active_feature.column if active_feature else None,
+                    errorStage=error_stage,
+                )
                 status = "link_failed"
                 for feature in relation.features:
                     values[feature.output] = None
@@ -678,6 +745,20 @@ class Evaluation:
                 "reused_source_records": len(reused),
                 "statuses": dict(counts),
                 "aggregation_prevents_row_expansion": True,
+                "selection_flow": [
+                    {
+                        **definition,
+                        "event_pairs": counter["event_pairs"],
+                        "distinct_source_records": len(counter["source_records"]),
+                        "analysis_units_with_records": len(counter["units"]),
+                        "subjects_with_records": len(counter["subjects"]),
+                        "evaluated_analysis_units": len(counter["evaluated_units"]),
+                        "analysis_units_at_relation_start": len(units),
+                    }
+                    for definition, counter in zip(stage_specs, stage_counts, strict=True)
+                ],
+                "selection_flow_note": "Counts are event-to-unit pairs, distinct source records and units/subjects with records at each sequential filter/window stage, before feature missing-value aggregation or relation-level exclusions. Reused records may contribute multiple pairs. Never interpret event_pairs as people.",
+                "evaluation_error_units": len(evaluation_error_units),
             }
         )
         return kept
