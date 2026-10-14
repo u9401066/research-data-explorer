@@ -479,6 +479,8 @@ research_protocol_versions:
     requires: [exact_protocol_and_approval_file_bytes_and_sealed_hashes, locked_matching_execution_methods, verified_execution_source, exact_dataset_and_execution_ids]
     artifacts: [research_execution/context.json, research_execution/plan.json, research_execution/approval.json, phase_06_plan_registration/research_execution.json]
     immutable: true
+    required_binding: pinned_in_locked_analysis_plan_and_retained_on_identical_registration
+    recovery: revalidate_live_binding_not_only_completed_checkpoint_receipt
     rendering: reverify_saved_protocol_approval_source_and_locked_methods_no_refitting_no_latest_plan
     retains: [research_definitions, assumptions, limitations, original_researcher_reason, provenance]
     clinical_validation: not_performed

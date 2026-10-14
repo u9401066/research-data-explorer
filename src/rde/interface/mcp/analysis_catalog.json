@@ -587,7 +587,7 @@
     },
     {
       "path": "src/rde/interface/mcp/research_execution.py",
-      "sha256": "9df7535e9fa5bab4cd27878ba0b8c09e0ce377246725cd209c7ba875b6b6842f"
+      "sha256": "5e1cbe0af9c3b5725c1636105fdc1b86fc5baf44cce2726dd0f08114a180c863"
     },
     {
       "path": "src/rde/interface/mcp/research_plans.py",
@@ -595,7 +595,7 @@
     },
     {
       "path": "src/rde/interface/mcp/results.py",
-      "sha256": "c4320db8f3492ea845bcf662b776e76201c80ac5179829af748bd1b9106c4983"
+      "sha256": "0063621edf5b3e2830aff7eda3b2107b3c7b60704669060a1cf2836538f8cb67"
     },
     {
       "path": "src/rde/interface/mcp/runtime.py",
@@ -687,7 +687,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "ee9f6aaf77667feedd6350ae110c272cb7fe3c8623c7f513960498e1951436f5"
+      "sha256": "3bb2cd055bbed0a61c1d6d0aedc3800b006dfdff719a8a1f400470c3defbc35f"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -8121,5 +8121,5 @@
       ]
     }
   ],
-  "catalog_sha256": "b71a0c33234eb19b8584544d27920f2f5d3500b379866517f185f384e20c169d"
+  "catalog_sha256": "55adb42e00ec25ab1250b51fcca6db8a86811f2f62eef67d60ea2d697030af92"
 }

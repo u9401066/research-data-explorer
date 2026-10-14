@@ -15,8 +15,10 @@ from rde.interface.mcp.research_plans import execute, root, write_once
 from rde.interface.mcp.research_execution import (
     RELATIVE_PATH,
     MARKER_PATH,
+    REQUIRED_BINDING,
     execution_evidence,
     execution_markdown,
+    preserve_execution_binding,
 )
 from rde.interface.mcp.tools.report_tools import (
     _build_formal_research_report,
@@ -140,9 +142,14 @@ def test_approved_definition_binding_formal_docx_provenance_and_exact_replay(tmp
         MARKER_PATH,
         "artifacts/research_execution/plan.json",
         "artifacts/research_execution/approval.json",
+        "artifacts/phase_06_plan_registration/analysis_plan.yaml",
     }
     locked["created_at"] = "recovery registration"
-    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", locked)
+    store.save(
+        PipelinePhase.PLAN_REGISTRATION,
+        "analysis_plan.yaml",
+        preserve_execution_binding(project, locked),
+    )
     assert execute(project, request) == first
     # Reading a bound report does not need a live in-memory DatasetEntry.
     get_session()._datasets.clear()
@@ -179,6 +186,9 @@ def test_approved_definition_binding_formal_docx_provenance_and_exact_replay(tmp
         "missing_marker",
         "missing_imported_plan",
         "missing_imported_approval",
+        "all_evidence_removed",
+        "required_binding_removed",
+        "required_binding_changed",
         "context_tampered",
         "plan_tampered",
         "approval_tampered",
@@ -195,6 +205,18 @@ def test_bound_reports_fail_closed_without_refitting_or_losing_old_results(tmp_p
     project, entry, store, intake, _, locked, request, _ = fixture(tmp_path)
     execute(project, request)
     base = project.artifacts_dir / "research_execution"
+    if fault == "all_evidence_removed":
+        import shutil
+
+        shutil.rmtree(base)
+        (project.output_dir / MARKER_PATH).unlink()
+    if fault.startswith("required_binding_"):
+        saved = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+        if fault == "required_binding_removed":
+            saved.pop(REQUIRED_BINDING)
+        else:
+            saved[REQUIRED_BINDING]["context_sha256"] = "0" * 64
+        store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", saved)
     if fault.startswith("missing_"):
         target = {
             "missing_context": base / "context.json",
@@ -236,6 +258,34 @@ def test_bound_reports_fail_closed_without_refitting_or_losing_old_results(tmp_p
         execution_evidence(project, intake)
     with pytest.raises(ValueError, match="RESEARCH_REPORT_EVIDENCE_INVALID"):
         _build_formal_research_report(project, store, "# Must not silently export")
+
+
+def test_re_registration_retains_requirement_and_rebind_does_not_recreate_lost_copies(tmp_path):
+    import copy
+    import shutil
+
+    project, _, store, intake, _, locked, request, _ = fixture(tmp_path)
+    execute(project, request)
+    required = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")[REQUIRED_BINDING]
+    # This is the same helper used by real register_analysis_plan. Re-registering
+    # methods before recovery cannot turn a previously bound run into legacy.
+    locked["created_at"] = "resume"
+    resumed = preserve_execution_binding(project, locked)
+    assert resumed[REQUIRED_BINDING] == required
+    store.save(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml", resumed)
+    wrong = copy.deepcopy(locked)
+    wrong["analyses"][0]["variables"] = ["different"]
+    with pytest.raises(ValueError, match="IMMUTABLE_RECORD"):
+        preserve_execution_binding(project, wrong)
+    shutil.rmtree(project.artifacts_dir / "research_execution")
+    (project.output_dir / MARKER_PATH).unlink()
+    with pytest.raises(ValueError, match="RESEARCH_REPORT_EVIDENCE_INVALID"):
+        execution_evidence(project, intake)
+    # An uncached bind is validation, not implicit repair of deleted evidence.
+    with pytest.raises(ValueError, match="RESEARCH_REPORT_EVIDENCE_INVALID"):
+        execute(project, request)
+    assert not (project.artifacts_dir / "research_execution").exists()
+    assert not (project.output_dir / MARKER_PATH).exists()
 
 
 @pytest.mark.parametrize(
@@ -344,5 +394,105 @@ def test_execution_binding_mcp_envelope_and_durable_replay(tmp_path):
             )
             assert not second.is_error
             assert second.structured_content == data
+
+    asyncio.run(run())
+
+
+def test_real_register_checkpoint_stays_immutable_when_binding_pins_live_plan(tmp_path):
+    import asyncio
+    from mcp import Client
+    from rde.application.pipeline import REQUIRED_ARTIFACTS
+    from rde.interface.mcp.server import create_server
+    from test_exploration_branch_loop import _complete_phase
+
+    project, _, store, _, protocol, _, request, _ = fixture(tmp_path)
+    project.research_question = protocol["question"]
+    pipeline = get_session().get_pipeline(project.id)
+    for phase in list(PipelinePhase)[:5]:
+        files = {}
+        for name in REQUIRED_ARTIFACTS[phase]:
+            existing = store.load(phase, name)
+            files[name] = (
+                existing
+                if existing is not None
+                else ({"confirmed": True} if name.endswith((".json", ".yaml")) else "")
+            )
+        pipeline.mark_completed(_complete_phase(store, phase, files, user_confirmed=True))
+    args = dict(
+        project_id=project.id,
+        analyses=[s["planEntry"] for s in protocol["steps"]],
+        alpha=protocol["alpha"],
+        missing_strategy=protocol["missingStrategy"],
+        multiple_comparison_method=protocol["multiplicity"],
+        allow_methodology_override=True,
+        confirm=True,
+        execution_key="2" * 64,
+    )
+
+    async def run():
+        async with Client(create_server()) as client:
+            registered = await client.call_tool("register_analysis_plan", args)
+            assert not registered.is_error, registered.content
+            register_data = registered.structured_content
+            saved_ref = next(
+                r
+                for r in register_data["artifacts"]
+                if r["relative_path"].endswith("/analysis_plan.yaml")
+            )
+            saved_path = project.output_dir / saved_ref["relative_path"]
+            saved_bytes = saved_path.read_bytes()
+            assert hashlib.sha256(saved_bytes).hexdigest() == saved_ref["sha256"]
+            locked = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+            # The approved protocol exactly adopts the actual registered method
+            # list; this test checks receipt lifecycle, not a statistical result.
+            catalog = Project(
+                id="new-catalog",
+                name="catalog",
+                data_dir=tmp_path,
+                output_dir=tmp_path / "new-catalog",
+            )
+            original = json.loads(Path(request["plan_file"]["path"]).read_text())["payload"]
+            adopted = {**protocol, "steps": [{"planEntry": a} for a in locked["analyses"]]}
+            plan_id = str(uuid4())
+            plan = execute(
+                catalog,
+                dict(
+                    op="draft",
+                    plan_id=plan_id,
+                    protocol=adopted,
+                    sources=original["sources"],
+                    reason=original["reason"],
+                ),
+            )
+            execute(
+                catalog,
+                dict(
+                    op="approve",
+                    plan_id=plan_id,
+                    expected_sha256=plan["sha256"],
+                    reviewer={"kind": "agent"},
+                ),
+            )
+            bind_request = {
+                **request,
+                "plan_id": plan_id,
+                "expected_sha256": plan["sha256"],
+                "plan_file": ref(root(catalog, plan_id) / "plan.json"),
+                "approval_file": ref(root(catalog, plan_id) / "approval.json"),
+            }
+            bound = await client.call_tool(
+                "research_plan", {"project_id": project.id, "request": bind_request}
+            )
+            assert not bound.is_error, bound.content
+            current = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml")
+            assert (
+                current[REQUIRED_BINDING]["context_sha256"]
+                == bound.structured_content["data"]["context_sha256"]
+            )
+            assert saved_path.read_bytes() == saved_bytes
+            replay = await client.call_tool("register_analysis_plan", args)
+            assert not replay.is_error and replay.structured_content == register_data
+            assert store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") == current
+            assert saved_path.read_bytes() == saved_bytes
 
     asyncio.run(run())

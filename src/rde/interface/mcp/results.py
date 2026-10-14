@@ -209,6 +209,7 @@ def make_result(tool: str, value: Any, project=None, before=None) -> RdeResult:
                 "artifacts/research_execution/plan.json",
                 "artifacts/research_execution/approval.json",
                 "artifacts/phase_06_plan_registration/research_execution.json",
+                "artifacts/phase_06_plan_registration/analysis_plan.yaml",
             ):
                 if relative not in paths:
                     raise ValueError("Research execution binding evidence is missing")

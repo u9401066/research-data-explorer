@@ -37,11 +37,11 @@ approval_file: {path: 原 approval.json 絕對路徑, sha256: 整檔 SHA256, byt
 
 原生工具驗證檔案與內部 seal、核准對應、來源及 catalog schema 的原始檔案，再比對執行來源、收件身分和鎖定方法／alpha／缺失及多重比較設定。執行專案重新產生的 schema 可有不同原生 dataset ID，不將它誤當 catalog schema 的同一檔案；兩者來源仍須一致。回覆 `schema=rde-research-execution-context-v1`，包含 project/execution/plan IDs、`plan_sha256`、`approval_sha256`、`source_sha256`、`context_sha256` 及固定 `relative_path=artifacts/research_execution/context.json`。回覆的 approval hash 是 sealed payload hash，不是 approval 整檔 SHA。
 
-`research_execution/` 保存原始 plan／approval bytes 與不可變 context；另在 `phase_06_plan_registration/research_execution.json` 保存 seal marker。相同身分可安全重試；原方法重新登錄的時間戳可變，科學設定與排程不可變。不能以相同執行改綁新計畫、來源或核准。MCP artifacts 即使無新檔變更仍回傳四個必要引用，並沿用 execution_key 的不可變回放規則。
+`research_execution/` 保存原始 plan／approval bytes 與不可變 context；另在 `phase_06_plan_registration/research_execution.json` 保存 seal marker。鎖定的 `analysis_plan.yaml` 也固定 `research_execution_binding`，相同方法重新登錄時必須保留，所以整個 context 目錄與 marker 同時遺失仍不能降級成 legacy。相同身分可安全重試；原方法重新登錄的時間戳可變，科學設定與排程不可變。不能以相同執行改綁新計畫、來源或核准。MCP artifacts 即使無新檔變更仍回傳四個證據檔及鎖定分析計畫五個必要引用，並沿用 execution_key 的不可變回放規則。主機恢復時須實際重新驗證綁定，不得把已完成 checkpoint／execution_key 的歷史收據當成目前檔案仍完整的證明。
 
 assemble_report、正式 DOCX/PDF 匯出與 claim provenance 每次讀取都重新核對 context、marker、原始收據 copies、來源 closure 與鎖定設定；缺失／竄改必須拒絕，不能悄悄退回未綁定報告。報告保留核准 `researchDetails`、限制、來源 hash，以及已封存 `plan.payload.reason` 原始研究者需求，讓代碼／單位定義與獨立假設有明確出處。這些是已核准的來源陳述，`clinical_validation=not_performed`，不證明研究事實或假設成立，也不表示原始需求中的所有延伸問題均已執行。不補猜臨床編碼、不重算模型、不修改舊研究成果。
 
-未曾綁定的既有原生研究仍可按原流程產生報告，但不宣稱具有此核准 protocol。刪除既有 context 或 marker 會拒絕報告；歷史輸出不自動補造或覆寫，需在獨立新執行／私有複本明確驗證。
+未曾綁定的既有原生研究仍可按原流程產生報告，但不宣稱具有此核准 protocol。刪除既有 context 或 marker 會拒絕報告及重新 bind，不以舊 checkpoint 參數默默重建。首次綁定若在保存必要 pin 後中斷亦保留未完成狀態，需另行明確處理；歷史輸出不自動補造或覆寫，需在獨立新執行／私有複本明確驗證。
 
 ## 可恢復的執行收據
 

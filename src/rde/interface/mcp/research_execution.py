@@ -25,6 +25,7 @@ from rde.interface.mcp.research_plans import (
 RELATIVE_PATH = "artifacts/research_execution/context.json"
 MARKER_PATH = "artifacts/phase_06_plan_registration/research_execution.json"
 SCHEMA = "rde-research-execution-context-v1"
+REQUIRED_BINDING = "research_execution_binding"
 
 
 def _regular(path):
@@ -60,15 +61,72 @@ def _bytes_once(path, data):
         temporary.unlink(missing_ok=True)
 
 
-def _locked_plan(project, protocol):
-    path = _regular(
-        project.artifacts_dir / PipelinePhase.PLAN_REGISTRATION.value / "analysis_plan.yaml"
-    )
+def _plan_path(project):
+    return project.artifacts_dir / PipelinePhase.PLAN_REGISTRATION.value / "analysis_plan.yaml"
+
+
+def _plan_document(project):
     import yaml
 
-    locked = yaml.safe_load(path.read_text(encoding="utf8"))
+    path = _regular(_plan_path(project))
+    return yaml.safe_load(path.read_text(encoding="utf8"))
+
+
+def _read_locked(project):
+    locked = _plan_document(project)
     if not isinstance(locked, dict) or locked.get("locked") is not True:
         raise ValueError("An exact locked execution plan is required")
+    return locked
+
+
+def _scientific_plan(locked):
+    return {k: v for k, v in locked.items() if k not in ("created_at", REQUIRED_BINDING)}
+
+
+def preserve_execution_binding(project, plan):
+    """Re-registering the identical methods cannot erase a required report binding."""
+    if not _plan_path(project).exists():
+        return plan
+    previous = _plan_document(project)
+    if not isinstance(previous, dict) or REQUIRED_BINDING not in previous:
+        return plan
+    if _scientific_plan(previous) != _scientific_plan(plan):
+        raise ValueError("IMMUTABLE_RECORD: bound execution methods cannot be replaced")
+    return {**plan, REQUIRED_BINDING: previous[REQUIRED_BINDING]}
+
+
+def _pin_required_binding(project, required):
+    """Pin outside the evidence directory before publishing its immutable files."""
+    import yaml
+
+    path = _regular(_plan_path(project))
+    before = path.read_bytes()
+    locked = _read_locked(project)
+    if REQUIRED_BINDING in locked:
+        if locked[REQUIRED_BINDING] != required:
+            raise ValueError("IMMUTABLE_RECORD: execution binding requirement differs")
+        return
+    raw = yaml.safe_dump({**locked, REQUIRED_BINDING: required}, allow_unicode=True).encode()
+    temporary = path.with_name(f".{uuid4()}.tmp")
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if _regular(path).read_bytes() != before:
+            raise ValueError("Execution plan changed while binding")
+        os.replace(temporary, path)
+        fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _locked_plan(project, protocol):
+    locked = _read_locked(project)
     expected = {
         "project_id": project.id,
         "research_question": protocol["question"],
@@ -81,7 +139,7 @@ def _locked_plan(project, protocol):
         raise ValueError("Locked execution methods/settings differ from the approved protocol")
     # Registering the identical plan on recovery refreshes created_at. Scientific
     # content and execution schedule must remain identical; timestamp is not identity.
-    return {k: v for k, v in locked.items() if k != "created_at"}
+    return _scientific_plan(locked)
 
 
 def _dataset_binding(project, dataset_id):
@@ -170,6 +228,14 @@ def bind_execution(project, request):
     intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
     locked = _verify_records(project, plan, approval, request.dataset_id, binding, intake)
     base = project.artifacts_dir / "research_execution"
+    if (
+        REQUIRED_BINDING in _read_locked(project)
+        or base.exists()
+        or (project.output_dir / MARKER_PATH).exists()
+    ):
+        # Revalidation is not recovery: do not silently reconstruct deleted or
+        # partially published evidence from a completed checkpoint's arguments.
+        execution_evidence(project, intake)
     payload = {
         "schema": SCHEMA,
         "project_id": project.id,
@@ -196,17 +262,19 @@ def bind_execution(project, request):
     path = base / "context.json"
     if path.exists() and read_sealed(path) != {"payload": payload, "sha256": digest(payload)}:
         raise ValueError("IMMUTABLE_RECORD: execution context already bound differently")
+    required = {
+        "project_id": project.id,
+        "execution_id": request.execution_id,
+        "context_sha256": digest(payload),
+        "relative_path": RELATIVE_PATH,
+    }
+    _pin_required_binding(project, required)
     for name, raw in inputs.items():
         _bytes_once(base / f"{name}.json", raw)
     sealed = write_once(path, payload)
     write_once(
         project.output_dir / MARKER_PATH,
-        {
-            "project_id": project.id,
-            "execution_id": request.execution_id,
-            "context_sha256": sealed["sha256"],
-            "relative_path": RELATIVE_PATH,
-        },
+        required,
     )
     execution_evidence(project, intake)
     return {
@@ -228,15 +296,23 @@ def execution_evidence(project, intake):
     """Read exact saved context and bytes, without parsing data or refitting models."""
     path = project.output_dir / RELATIVE_PATH
     marker_path = project.output_dir / MARKER_PATH
-    if not path.exists() and not marker_path.exists() and not path.parent.exists():
-        return None  # Native/legacy studies never silently acquire an approval.
     try:
+        plan_document = _plan_document(project) if _plan_path(project).exists() else None
+        required = plan_document.get(REQUIRED_BINDING) if isinstance(plan_document, dict) else None
+        if (
+            required is None
+            and not path.exists()
+            and not marker_path.exists()
+            and not path.parent.exists()
+        ):
+            return None  # Native/legacy studies never silently acquire an approval.
         context = read_sealed(_regular(path))
         marker = read_sealed(_regular(marker_path))["payload"]
         data = context["payload"]
         if (
             data["schema"] != SCHEMA
             or data["project_id"] != project.id
+            or required != marker
             or marker
             != {
                 "project_id": project.id,

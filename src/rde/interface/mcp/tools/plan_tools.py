@@ -1668,6 +1668,9 @@ def register_plan_tools(server: Any) -> None:
                 "created_at": datetime.now().isoformat(),
                 "locked": True,
             }
+            from rde.interface.mcp.research_execution import preserve_execution_binding
+
+            plan = preserve_execution_binding(project, plan)
 
             if methodology_review_dict is None:
                 methodology_review_dict = {
