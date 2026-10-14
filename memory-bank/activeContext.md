@@ -1,5 +1,13 @@
 # Active Context
 
+## 2026-10-14 — 0.5.3 capability discovery release candidate
+
+- Added project-free `get_analysis_catalog`: six groups / twenty research and workflow families, actual schemas and selectors, explicit native/external/optional boundaries. MCP inventory is 77 tools.
+- Workbench 0.1.9 consumes the same catalog; family contracts and advisory CLEF navigation do not authorize research execution.
+- Current local core suite: 1,153 passed, 76 skipped, 5 optional vendor deselected; extension 40 passed, Ruff and package checks passed. Final focused regression including runtime source guards, diagnostic-role semantics and CLI checks: 158 passed; packaged wheel/VSIX MCP discovery and pre-commit checks passed.
+- Release/deployment are pending final real Qwen/RDE host verification; do not describe this candidate as published yet.
+- See `docs/analysis-catalog.md`; historical release evidence below retains its original scope.
+
 ## MEM+ 2026-09-16 — 0.5.0 released
 
 - All implementation segments are on main. Release tag `v0.5.0` points to

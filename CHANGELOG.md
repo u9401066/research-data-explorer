@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The first synchronized repository and VS Code extension release is planned as 0.1.0.
 
-## Unreleased — 2026-10-13
+## [0.5.3] - 2026-10-14
+
+### Discoverable analysis capabilities
+
+- Add project-free, read-only `get_analysis_catalog`: six question-oriented groups and twenty analysis/workflow families. Lightweight summaries lead to complete per-family structural schemas, dispatcher selectors, input roles, outputs, limits and source references.
+- Bind the complete declaration to a canonical hash and source/schema checks. A catalog entry is not a runtime health probe, semantic validation or execution authorization. External evidence/genomics computations remain external; RDE checks their receipts.
+- Verify real dispatch aliases and exclude a declared legacy method without a handler. Native clinical/prediction validators, source locks and approval gates remain authoritative.
+- Synchronize the 77-tool MCP, extension and documentation inventories.
+
+### Research completion and reporting
 
 - Scope descriptive report readiness and audit to the locked plan. A non-applicable publication bundle receives 0/0, while missing source/method/report evidence still fails.
 - Render scoped readiness truthfully instead of calling every ready result production-ready.

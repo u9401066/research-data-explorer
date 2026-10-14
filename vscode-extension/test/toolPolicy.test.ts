@@ -136,6 +136,7 @@ describe('toolPolicy', () => {
 
         expect(filtered.map(tool => tool.name)).not.toContain('init_project');
         expect(findMissingRequiredRdeTools(filtered)).toEqual([
+            'get_analysis_catalog',
             'research_plan',
             'data_preparation',
             'init_project',
@@ -166,6 +167,7 @@ describe('toolPolicy', () => {
         );
 
         expect(findMissingRequiredRdeTools(filtered)).toEqual([
+            'get_analysis_catalog',
             'research_plan',
             'data_preparation',
             'propose_analysis_plan',

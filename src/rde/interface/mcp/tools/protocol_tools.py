@@ -48,6 +48,25 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 def register_protocol_tools(server: Any) -> None:
     @server.tool()
+    def get_analysis_catalog(family: str | None = None, detail: bool = False) -> dict | str:
+        """Discover actual research methods before planning; no project required.
+
+        Default returns every family without large schemas. Supply an exact family
+        ID for its native structural schema and tool inputs, or detail=true for the
+        complete declaration. catalog_sha256 always binds the complete declaration,
+        not a filtered response. Selectors are incomplete dispatch fragments; native
+        validators, study facts and workflow gates still apply. Availability is not
+        probed. External receipts are not RDE model fitting; host support is separate.
+        """
+        from rde.interface.mcp.analysis_catalog import get_catalog
+        from rde.interface.mcp.tools._shared import fmt_error
+
+        try:
+            return get_catalog(family, detail)
+        except (ValueError, OSError) as error:
+            return fmt_error(str(error), code="ANALYSIS_CATALOG_ERROR")
+
+    @server.tool()
     def validate_workflow_connection(source_type: str, transition: str, facts: dict) -> dict | str:
         """Validate typed research ports using get_workflow_contract.canvas_contract.
 
@@ -180,11 +199,23 @@ def register_protocol_tools(server: Any) -> None:
     @server.resource("rde://capabilities", mime_type="application/json")
     def capabilities() -> str:
         from rde.infrastructure.adapters.clinical_engine import CLINICAL_METHODS
+        from rde.interface.mcp.analysis_catalog import load_catalog
+
+        catalog = load_catalog()
 
         return json.dumps(
             {
                 "sdk_version": version("mcp"),
                 "clinical_methods": CLINICAL_METHODS,
+                "clinical_methods_scope": "legacy adapter subset; use analysis_catalog for all research families",
+                "analysis_catalog": {
+                    "tool": "get_analysis_catalog",
+                    "schema": catalog["schema"],
+                    "version": catalog["version"],
+                    "catalog_sha256": catalog["catalog_sha256"],
+                    "family_ids": [family["id"] for family in catalog["families"]],
+                    "hash_scope": catalog["hash_scope"],
+                },
                 "tools": public_contracts(),
                 "mcp_tasks_extension": False,
                 "queue": "artifact-backed, host-driven",

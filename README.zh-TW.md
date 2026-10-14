@@ -8,13 +8,21 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 
 ![從研究設計、個案帳本、效果量與不確定性，到可審查結論](docs/assets/evidence-chain.svg)
 
+## 0.5.3：依研究問題查找能力
+
+先讀 [分析能力目錄](docs/analysis-catalog.md)，或呼叫 `get_analysis_catalog()`：六大類、二十項研究／流程能力，列出資料需求、產出、限制及真正派送入口。無需先上傳資料。指定 `family` 取得完整結構規格，核准、來源與方法語意仍由原生驗證檢查。
+
+能力摘要與單一舊版方法名稱表不同：目前 MCP 有 **77 個工具、17 組 modules**。外部證據合成／基因分析由對應執行器計算，RDE 接收並核對結果收據；optional AutoML 需另有可用 vendor。目錄不是當前環境健康檢查，不能因為能描述方法就宣稱可執行。
+
+平台將這份目錄呈現為 SVG／PNG 能力圖及可搜尋清單。CLEF 只協助選大類；Agent 仍需讀取所選方法契約、核對研究事實與來源，才可在授權範圍執行。
+
 ## 臨床研究能力與可信度
 
 - 新增七種本機分析：風險比／勝算比／風險差、診斷準確度、exact McNemar、Bland–Altman、Cohen's kappa、GEE、隨機截距混合模型。各方法的參數、信賴區間與適用限制見[臨床方法文件](docs/clinical-methods.md)。
 - 長格式配對比較必須以受試者 ID 對齊，不依資料列順序配對；每項 outcome 保存分析個案及排除數。重複測量明確區分共同完整樣本與各 contrast 的 pairwise-complete 樣本。
 - 分析完整性逐一核對鎖定計畫中的必要項目與成功產物；重複執行、失敗或僅記錄想法不會灌高完成度。
 - Autoresearch 接受 agent 自訂 `agent_proposals`；探索支線保留獨立證據，未支援的方法記為 `recorded` 而不是假裝執行。沒有顯著差異不代表研究失敗，p 值也不是研究品質分數。[設計與參考 repo](docs/autoresearch-design.md)。
-- 使用官方 [MCP SDK v2](docs/mcp-v2.md)，提供結構化結果、工具效果／gate 宣告、workflow resources 與 prompts。[51 個工具的逐項檢查](docs/tool-review.md)列明驗證範圍。
+- 使用官方 [MCP SDK v2](docs/mcp-v2.md)，提供結構化結果、工具效果／gate 宣告、workflow resources 與 prompts。[歷史 51 個工具的逐項檢查](docs/tool-review.md)列明驗證範圍。
 
 ```mermaid
 flowchart LR
@@ -38,7 +46,9 @@ Audit 通過僅代表已實作的流程檢查通過，不保證研究設計無�
 
 ## 目前真實程式碼快照
 
-0.5.0 本機驗證：411 項 Python 測試通過（6 項明確跳過）、40 項 extension
+0.5.3 本輪完整 Python 核心回歸：1,153 passed、76 skipped、5 optional vendor tests deselected；extension 40 tests 通過。新增能力宣告與派送驗證不代表本輪重新臨床驗證每個方法。
+
+歷史 0.5.0 本機驗證：411 項 Python 測試通過（6 項明確跳過）、40 項 extension
 測試通過、50 個 MCP tools 契約檢查通過、桌面／手機 Chromium QA 通過。
 wheel、source archive 與 VSIX 已核對程式和圖片內容。最終遠端發布證據見
 [release workboard](docs/release-0.5.0-plan.md)。
@@ -48,8 +58,8 @@ wheel、source archive 與 VSIX 已核對程式和圖片內容。最終遠端發
 | 合約面向 | 程式碼來源 | 目前事實 |
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | `PipelinePhase` 定義 13 個 phase，從 `phase_00_project_setup` 到 `phase_12_auto_improve` |
-| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 官方 SDK v2 `MCPServer` 註冊 10 組 tool modules |
-| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 51 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
+| MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 官方 SDK v2 `MCPServer` 註冊 17 組 tool modules |
+| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 77 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls、override flags、audit paths、delegation、UX harness、core goal contract |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) 與 [vscode-extension/package.json](vscode-extension/package.json) | MCP provider、`@rde` chat participant、Command Palette 指令、Codex config helper、optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`、`academic_ready`、`production_ready`、publication bundle、semantic quality、claim provenance、core-goal audit |

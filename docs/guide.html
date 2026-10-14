@@ -1037,7 +1037,7 @@
       <div class="content">
         <aside class="section" aria-label="Current capabilities">
           <h2>MCP 2.2+ · 開放研究 / Open research</h2>
-          <p>75 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
+          <p>77 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
           <p><a href="index.html#clinical">臨床方法 / Clinical methods</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/mcp-v2.md">SDK migration</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md">Autoresearch contracts</a></p>
           <p>研究證據以效應量、不確定性、實際個案與限制為核心；工具完成、稽核分數或 p 值都不等於臨床可信度。 / Estimates, uncertainty, actual cases, and limitations matter. Tool completion, audit scores, and p-values do not establish clinical credibility.</p>
         </aside>
@@ -1142,6 +1142,14 @@
             tool 數量來自 <code>src/rde/interface/mcp/tools/*</code> 的 <code>@server.tool()</code> 註冊與
             <code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code>，
             gate 與 artifact contract 來自 <code>.github/agent-control.yaml</code>。
+          </div>
+
+          <div class="callout">
+            <strong>先發現能力，再指定研究：</strong>
+            <code>get_analysis_catalog()</code> 不需要 project，先取得 6 組、20 個研究族群的摘要；
+            再用 <code>get_analysis_catalog(family="survival")</code> 讀取該族群的原生輸入 schema、前提與限制。
+            工具會區分本機分析、外部結果收據與需另行配置的 AutoML。目錄不代表核准或服務已就緒；
+            詳見 <a href="analysis-catalog.md">能力目錄契約</a>。
           </div>
 
           <div class="section">
@@ -1398,7 +1406,7 @@
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 75 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
+              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 77 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2082,7 +2090,7 @@ python3 -m rde</pre>
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> lists 60 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
+              <p><code>vscode-extension/package.json</code> lists 77 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2471,7 +2479,7 @@ python3 -m rde</pre>
     ];
 
     const verifiedTools = [
-      ["protocol_tools.py", 6, "validate_workflow_connection · get_workflow_contract · read_artifact · research_plan · get_dataset_version · data_preparation"],
+      ["protocol_tools.py", 7, "get_analysis_catalog · validate_workflow_connection · get_workflow_contract · read_artifact · research_plan · get_dataset_version · data_preparation"],
       ["project_tools.py", 5, "init_project, get_pipeline_status, get_decision_log, get_deviation_log, log_deviation"],
       ["discovery_tools.py", 4, "scan_data_folder, load_dataset, run_intake, build_schema"],
       ["profiling_tools.py", 2, "profile_dataset, assess_quality"],

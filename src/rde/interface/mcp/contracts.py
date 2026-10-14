@@ -18,6 +18,12 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "get_analysis_catalog": ToolContract(
+        "all",
+        "versioned server declaration; no project or runtime probe required",
+        "read-only research family, method, input schema and output discovery; no approval or execution",
+        read_only=True,
+    ),
     "run_descriptive_study": ToolContract(
         "8",
         "exact locked descriptive scope + verified source and cleaning version",
