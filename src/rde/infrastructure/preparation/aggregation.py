@@ -113,6 +113,7 @@ def contract():
             "aggregation_diff",
         ],
         "execution_semantics": {
+            "unit_conversion": rules.UNIT_CONVERSION_SEMANTICS,
             "identity": "Use exact candidate_ref and stable relation.id/feature.output/cohort.id targets. Sources are immutable; changes to source bytes/parser need a new candidate. Never use array offsets or arbitrary JSON pointers.",
             "compose": "Supply a declared unit and known definitions, or import from_specification. Unspecified definitions and unhandled sources remain incomplete diagnostics; no automatic facts or omission reasons.",
             "patch": "1..32 typed operations applied atomically to the exact latest base. Unmentioned rules remain unchanged. Whole resulting specification is validated before a new revision is saved. Repeating the exact revision_id and request returns the same receipt; reusing an ID for different intent fails.",

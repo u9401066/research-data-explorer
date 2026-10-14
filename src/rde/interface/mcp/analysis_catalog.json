@@ -107,7 +107,7 @@
     },
     {
       "path": "src/rde/domain/models/preparation.py",
-      "sha256": "b44144cd31c80040f7f881c4da822771f0c896b43ef92ca69db943adcc66903d"
+      "sha256": "47adc2836e736758a94effdadcf0c84cf3bb2d346e1fb19de727ee10b86c106c"
     },
     {
       "path": "src/rde/domain/models/preparation_edit.py",
@@ -507,7 +507,7 @@
     },
     {
       "path": "src/rde/infrastructure/preparation/aggregation.py",
-      "sha256": "2b128d52afa29129e0b19b25de463a2e0af66867db1fa02987fb3ca809bf1fa5"
+      "sha256": "8a83ee3b357f867e4eb2b781bc9e8e227b16d9687db71f65cfa087e01634824d"
     },
     {
       "path": "src/rde/infrastructure/preparation/engine.py",
@@ -527,7 +527,7 @@
     },
     {
       "path": "src/rde/infrastructure/preparation/workflow.py",
-      "sha256": "e188e6f1c1e225bd836f311f6ed7e0d36a20a9e1e33c81de029dab4ca5445726"
+      "sha256": "37145ec9e5a390cde0fa29a8f8c00b7aaa9197fa8f36a66d7aa32fbe77f11486"
     },
     {
       "path": "src/rde/infrastructure/visualization/__init__.py",
@@ -1421,6 +1421,37 @@
           },
           "Feature": {
             "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "unit_column": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "unit_column"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit_conversions": {
+                      "minProperties": 1,
+                      "type": "object"
+                    },
+                    "output_unit": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "unit_conversions",
+                    "output_unit"
+                  ]
+                }
+              }
+            ],
             "properties": {
               "output": {
                 "maxLength": 160,
@@ -1476,12 +1507,14 @@
                   }
                 ],
                 "default": null,
+                "description": "Source column containing exact unit labels. When nonempty, explicitly supply nonempty unit_conversions and output_unit; filters do not supply a mapping.",
                 "title": "Unit Column"
               },
               "unit_conversions": {
                 "additionalProperties": {
                   "$ref": "#/$defs/UnitConversion"
                 },
+                "description": "Reviewed mapping for every retained nonmissing numeric value: output = value * scale + offset. Same-unit identity still requires an explicit entry, e.g. {\"U\": {\"scale\": 1, \"offset\": 0}}. Never infer unknown conversion factors.",
                 "title": "Unit Conversions",
                 "type": "object"
               },
@@ -1495,6 +1528,7 @@
                   }
                 ],
                 "default": null,
+                "description": "Declared target unit label, required with a nonempty unit_column; naming it does not create a conversion.",
                 "title": "Output Unit"
               },
               "missing_tokens": {
@@ -1839,11 +1873,13 @@
             "properties": {
               "scale": {
                 "default": 1,
+                "description": "Reviewed multiplier in output = value * scale + offset.",
                 "title": "Scale",
                 "type": "number"
               },
               "offset": {
                 "default": 0,
+                "description": "Reviewed additive offset after multiplication.",
                 "title": "Offset",
                 "type": "number"
               }
@@ -1984,7 +2020,7 @@
       "contract_sources": [
         {
           "path": "src/rde/domain/models/preparation.py",
-          "sha256": "b44144cd31c80040f7f881c4da822771f0c896b43ef92ca69db943adcc66903d"
+          "sha256": "47adc2836e736758a94effdadcf0c84cf3bb2d346e1fb19de727ee10b86c106c"
         },
         {
           "path": "src/rde/domain/models/preparation_edit.py",
@@ -1992,7 +2028,7 @@
         },
         {
           "path": "src/rde/infrastructure/preparation/aggregation.py",
-          "sha256": "2b128d52afa29129e0b19b25de463a2e0af66867db1fa02987fb3ca809bf1fa5"
+          "sha256": "8a83ee3b357f867e4eb2b781bc9e8e227b16d9687db71f65cfa087e01634824d"
         },
         {
           "path": "src/rde/infrastructure/preparation/engine.py",
@@ -2000,7 +2036,7 @@
         },
         {
           "path": "src/rde/infrastructure/preparation/workflow.py",
-          "sha256": "e188e6f1c1e225bd836f311f6ed7e0d36a20a9e1e33c81de029dab4ca5445726"
+          "sha256": "37145ec9e5a390cde0fa29a8f8c00b7aaa9197fa8f36a66d7aa32fbe77f11486"
         }
       ]
     },
@@ -8121,5 +8157,5 @@
       ]
     }
   ],
-  "catalog_sha256": "69ab4a33d45519a5834f50fbf209679a330789b18f20fa329a927a08bcf54765"
+  "catalog_sha256": "fd95a93d2ead99aae7be414d3f6690c8e85d4c73f287bca9b3625a9760122afa"
 }

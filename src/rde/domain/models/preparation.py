@@ -123,20 +123,66 @@ class Window(StrictModel):
 
 
 class UnitConversion(StrictModel):
-    scale: float = 1
-    offset: float = 0
+    scale: float = Field(
+        default=1, description="Reviewed multiplier in output = value * scale + offset."
+    )
+    offset: float = Field(default=0, description="Reviewed additive offset after multiplication.")
+
+
+UNIT_CONVERSION_SEMANTICS = (
+    "A nonempty feature.unit_column requires nonempty unit_conversions and output_unit. "
+    "For value-based numeric aggregation, every retained nonmissing value must have an explicit "
+    "mapping keyed by its exact source unit label; output = value * scale + offset. "
+    'Even unchanged units require an identity entry, e.g. {"U": {"scale": 1, "offset": 0}} '
+    'with output_unit="U". Relation filters select records but do not supply a mapping. '
+    "An undeclared unit label (including a missing label on a nonmissing value) blocks execution; "
+    "conversion factors are never inferred from labels or filters. Explicitly reviewed mappings "
+    "may cover multiple units. Missing feature values remain governed by missing_tokens. "
+    "count/exists/days_to_first aggregate records or time, not converted feature values."
+)
 
 
 class Feature(StrictModel):
+    # Expose the existing semantic_shape condition to JSON-schema clients too.
+    # The nonempty-string condition deliberately preserves the native truthiness
+    # boundary; this is discovery metadata, not a new default or validation rule.
+    model_config = ConfigDict(
+        json_schema_extra={
+            "allOf": [
+                {
+                    "if": {
+                        "required": ["unit_column"],
+                        "properties": {"unit_column": {"type": "string", "minLength": 1}},
+                    },
+                    "then": {
+                        "required": ["unit_conversions", "output_unit"],
+                        "properties": {
+                            "unit_conversions": {"type": "object", "minProperties": 1},
+                            "output_unit": {"type": "string", "minLength": 1},
+                        },
+                    },
+                }
+            ]
+        }
+    )
     output: str = Field(min_length=1, max_length=160)
     column: str | None = None
     aggregate: Literal[
         "unique", "count", "exists", "sum", "mean", "min", "max", "first", "last", "days_to_first"
     ]
     value_type: Literal["text", "number", "datetime"] = "text"
-    unit_column: str | None = None
-    unit_conversions: dict[str, UnitConversion] = Field(default_factory=dict)
-    output_unit: str | None = None
+    unit_column: str | None = Field(
+        default=None,
+        description="Source column containing exact unit labels. When nonempty, explicitly supply nonempty unit_conversions and output_unit; filters do not supply a mapping.",
+    )
+    unit_conversions: dict[str, UnitConversion] = Field(
+        default_factory=dict,
+        description='Reviewed mapping for every retained nonmissing numeric value: output = value * scale + offset. Same-unit identity still requires an explicit entry, e.g. {"U": {"scale": 1, "offset": 0}}. Never infer unknown conversion factors.',
+    )
+    output_unit: str | None = Field(
+        default=None,
+        description="Declared target unit label, required with a nonempty unit_column; naming it does not create a conversion.",
+    )
     missing_tokens: list[str] = Field(default_factory=lambda: [""])
 
     @model_validator(mode="after")
@@ -148,7 +194,16 @@ class Feature(StrictModel):
         if self.aggregate in {"sum", "mean"} and self.value_type != "number":
             raise ValueError("sum and mean require numeric values")
         if self.unit_column and (not self.unit_conversions or not self.output_unit):
-            raise ValueError("unit conversion requires a complete reviewed mapping and output unit")
+            missing = [
+                name for name in ("unit_conversions", "output_unit") if not getattr(self, name)
+            ]
+            raise ValueError(
+                "unit_column requires a nonempty reviewed unit_conversions mapping and output_unit. "
+                f"Missing: {', '.join(missing)}. "
+                'Even unchanged units need an explicit identity entry such as {"U": {"scale": 1, "offset": 0}} '
+                'with output_unit="U"; filters do not supply a mapping. '
+                "Use only reviewed unit labels/factors; do not infer unknown conversions."
+            )
         return self
 
 

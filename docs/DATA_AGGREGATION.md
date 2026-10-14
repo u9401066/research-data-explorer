@@ -78,6 +78,42 @@ code are not native method names. Do not silently substitute another estimand.
 Numeric `gt/gte/lt/lte` predicates take finite literal constants; cross-column or
 index-relative date comparisons belong in the window contract.
 
+### Explicit units, including unchanged units
+
+A nonempty `feature.unit_column` requires a nonempty `unit_conversions` mapping
+and `output_unit`. The native Feature schema exposes this existing condition with
+`if`/`then`; the model validator remains authoritative. For value-based numeric
+aggregation, every retained nonmissing value must have a reviewed mapping for its
+**exact source unit label**. The calculation is `value * scale + offset`.
+
+Even when no numeric conversion is needed, declare an identity mapping. This is a
+symbolic example, not a clinical conversion or a rule to infer for an actual study:
+
+```json
+{
+  "output": "measurement_mean",
+  "column": "value",
+  "aggregate": "mean",
+  "value_type": "number",
+  "unit_column": "unit",
+  "unit_conversions": {"U": {"scale": 1, "offset": 0}},
+  "output_unit": "U"
+}
+```
+
+A relation filter selecting only `unit == "U"` does **not** supply this mapping.
+Declaring the target label alone also does not supply it. Unmapped labels, including
+a missing unit on a retained nonmissing value, block execution. Multiple units may
+be used only with their explicitly reviewed mappings; the engine never infers
+conversion factors. Missing feature values still follow `missing_tokens`.
+`count`, `exists` and `days_to_first` aggregate records/time rather than converted
+feature values. Omitting `unit_column` does not validate physical-unit consistency.
+
+An invalid unit declaration returns `INVALID_RULE` with the affected feature and
+rule path, identifies the missing fields, and preserves the prior candidate.
+Use the discovered `execution_semantics.unit_conversion` together with the actual
+source schema; do not remove unit checks or alter research filters to silence it.
+
 ## Candidate operations and exact identity
 
 All requests below are `request` objects passed to the same MCP tool with the

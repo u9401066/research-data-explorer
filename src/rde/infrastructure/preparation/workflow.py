@@ -846,6 +846,7 @@ def execute(project, request):
             "model_execution": False,
             "aggregation": aggregation_contract(),
             "execution_semantics": {
+                "unit_conversion": contract.UNIT_CONVERSION_SEMANTICS,
                 "source_schema": "inspect returns a hash-bound rde-source-table-schema-v1 per verified source, preserving column order, raw text storage, parser settings, observed missingness and uniqueness. It does not declare clinical roles or confirmed keys. This raw-source schema is separate from the preparation's analysis.schema.json (explicit typed rules) and downstream intake's semantic variable classification.",
                 "cohort": "Each cohort.keep executes exactly one predicate. Multiple conditions need separate rules, applied sequentially. Rule id/reason are explanations, not executable conditions.",
                 "filters": "relation.filters address columns of that relation's event source, not the main unit table. Numeric comparisons use literal constants. Cross-column dates belong in window, never filters.",
