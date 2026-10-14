@@ -20,6 +20,7 @@ from rde.infrastructure.preparation.reporting import (
     preparation_evidence,
     preparation_markdown,
 )
+from rde.interface.mcp.research_execution import execution_evidence, execution_markdown
 
 
 MIN_DESCRIPTIVE_FIGURES = 3
@@ -295,6 +296,7 @@ def _build_formal_research_report(
     table_one = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
     pubmed_context = store.load(PipelinePhase.REPORT_ASSEMBLY, "pubmed_literature_context.md")
     prepared = preparation_evidence(project, intake)
+    approved_context = execution_evidence(project, intake)
     table_rows = _parse_table_markdown_rows(table_one)
     table_payload = (
         {"headers": table_rows[0], "rows": table_rows[1:]} if len(table_rows) >= 2 else None
@@ -330,7 +332,8 @@ def _build_formal_research_report(
             section_id="data_quality",
             title="資料來源與品質摘要",
             content=_formal_data_quality(schema, readiness, intake=intake)
-            + ("\n\n" + preparation_markdown(prepared) if prepared else ""),
+            + ("\n\n" + preparation_markdown(prepared) if prepared else "")
+            + ("\n\n" + execution_markdown(approved_context) if approved_context else ""),
             order=2,
         )
     )
@@ -780,12 +783,19 @@ def register_report_tools(server: Any) -> None:
 
             # Data overview from intake / schema
             intake = store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+            approved_context = execution_evidence(project, intake)
             schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
             if intake:
                 artifacts["data_overview"] = _format_data_overview(intake, schema)
                 prepared = preparation_evidence(project, intake)
                 if prepared:
                     artifacts["data_overview"] += "\n\n" + preparation_markdown(prepared)
+            if approved_context:
+                artifacts["data_overview"] = (
+                    artifacts.get("data_overview", "")
+                    + "\n\n"
+                    + execution_markdown(approved_context)
+                )
 
             # Data quality from schema / readiness
             readiness = store.load(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json")
@@ -1767,6 +1777,12 @@ def _flatten_variable_roles(variable_roles: dict | None) -> dict[str, str]:
     roles: dict[str, str] = {}
     if not isinstance(variable_roles, dict):
         return roles
+    # Native Phase 3 stores an envelope, not a column->role mapping. Metadata
+    # such as dataset/research_question must never become reported variables.
+    if isinstance(variable_roles.get("variable_roles"), dict):
+        variable_roles = variable_roles["variable_roles"]
+    elif isinstance(variable_roles.get("roles"), dict):
+        variable_roles = variable_roles["roles"]
     for key, raw in variable_roles.items():
         key_text = str(key)
         if isinstance(raw, list):
@@ -4238,6 +4254,29 @@ def _build_claim_provenance_manifest(
     prepared = preparation_evidence(
         project, store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
     )
+    approved_context = execution_evidence(
+        project, store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+    )
+    if approved_context:
+        add_claim(
+            "approved_research_definitions",
+            execution_markdown(approved_context),
+            [
+                {
+                    "artifact": "artifacts/research_execution/context.json",
+                    "receipt_sha256": approved_context["context_sha256"],
+                },
+                {
+                    "artifact": "artifacts/research_execution/plan.json",
+                    "receipt_sha256": approved_context["plan_sha256"],
+                },
+                {
+                    "artifact": "artifacts/research_execution/approval.json",
+                    "receipt_sha256": approved_context["approval_sha256"],
+                },
+            ],
+            confidence="approved_source_statements_not_clinical_validation",
+        )
     if prepared:
         prefix = f"artifacts/data_preparation/imports/{prepared['bundle_sha256']}"
         add_claim(

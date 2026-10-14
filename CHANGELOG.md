@@ -6,6 +6,9 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+- Preserve the exact approved research definitions, unverified assumptions, limitations and original researcher coding statements across catalog and execution projects. `research_plan(bind_execution)` verifies sealed plan/approval files, source identity and locked methods, saving immutable report evidence and a separate required-binding marker. Assembled and DOCX/PDF reports reverify this evidence; missing or changed records fail closed without refitting or rewriting historical results.
+- Bind report provenance to the execution context and distinguish researcher statements from clinical validation. Read native variable-role envelopes correctly so metadata keys are not presented as study variables in the abstract.
+
 ## [0.5.4] - 2026-10-14
 
 ### Complete descriptive figures

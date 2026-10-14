@@ -154,7 +154,7 @@ def register_protocol_tools(server: Any) -> None:
 
     @server.tool()
     def research_plan(project_id: str, request: dict) -> str:
-        """Immutable native protocol: draft/read/approve/attach_results/reuse.
+        """Immutable native protocol: draft/read/approve/attach_results/reuse/bind_execution.
 
         request.op and plan_id required. draft requires protocol (question, steps,
         sourceHash, schemaHash and full scientific assumptions), sources with absolute
@@ -162,6 +162,12 @@ def register_protocol_tools(server: Any) -> None:
         {plan_id,sha256} for revision. approve requires expected_sha256 and reviewer.
         attach_results requires exact plan hash, execution_id UUID and artifacts.
         reuse only links a parent's verified results when scientific protocols match.
+        bind_execution runs in the actual execution project after plan registration:
+        supply dataset_id, execution_id, exact expected_sha256 and plan_file / approval_file
+        (absolute path, file sha256, bytes). It verifies approved protocol, locked methods
+        and actual source, retaining an immutable report context and original researcher
+        definitions. This is not new approval or clinical validation. Reports reverify
+        this exact context, never the latest catalog plan. Same-identity replay is safe.
         Does not unlock execution plans or automatically approve revised protocols.
         """
         from rde.interface.mcp.research_plans import execute

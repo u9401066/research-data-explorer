@@ -196,6 +196,24 @@ def make_result(tool: str, value: Any, project=None, before=None) -> RdeResult:
             data = json.loads(path.read_text(encoding="utf-8"))
             if not any(item.relative_path == record_paths[tool] for item in artifacts):
                 artifacts.append(artifact_reference(project, record_paths[tool], path))
+        # Idempotent protocol binding still returns its exact evidence bundle.
+        # Durable invocation receipts must retain these files even on a replay
+        # that did not change any mtime; absence is rejected by bind_execution.
+        if (
+            not error
+            and tool == "research_plan"
+            and data.get("schema") == "rde-research-execution-context-v1"
+        ):
+            for relative in (
+                "artifacts/research_execution/context.json",
+                "artifacts/research_execution/plan.json",
+                "artifacts/research_execution/approval.json",
+                "artifacts/phase_06_plan_registration/research_execution.json",
+            ):
+                if relative not in paths:
+                    raise ValueError("Research execution binding evidence is missing")
+                if not any(item.relative_path == relative for item in artifacts):
+                    artifacts.append(artifact_reference(project, relative, paths[relative]))
     return RdeResult(
         tool=tool,
         status="error" if error else "ok",

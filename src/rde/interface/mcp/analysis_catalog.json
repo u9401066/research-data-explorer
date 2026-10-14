@@ -579,19 +579,23 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "1e5574dd9201d853bdb1e1d147f7c703f0f3e66e9b5619c667b31615895e08ef"
+      "sha256": "58bdf1212a9328d239a779bd4814c6869df7d24dbba434815c13bbf5876ec13c"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
       "sha256": "3e3eb5b622a070b22019fe88b7cadbc93cc2bfb17b316c321d4b50ed60489326"
     },
     {
+      "path": "src/rde/interface/mcp/research_execution.py",
+      "sha256": "9df7535e9fa5bab4cd27878ba0b8c09e0ce377246725cd209c7ba875b6b6842f"
+    },
+    {
       "path": "src/rde/interface/mcp/research_plans.py",
-      "sha256": "3f3f5b5df6908111dd0a8782034de3458fb5ba0763fa4900028a1d1fd93f751d"
+      "sha256": "ef8f99a623db17cbf47c87c029c86a251286339419d3050c04ff57df403c4eee"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
-      "sha256": "6758acd56d0310dd16007ceb0bb0b85d8857ff5afd919df2536d253eb8df77f0"
+      "sha256": "c4320db8f3492ea845bcf662b776e76201c80ac5179829af748bd1b9106c4983"
     },
     {
       "path": "src/rde/interface/mcp/runtime.py",
@@ -699,7 +703,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "a6c314d98b8a5bbcce794d32a8148002bd2ee15bcf368302edaa39093bcae6fa"
+      "sha256": "e7630c44db6558fa90f29db9b0428058e908a89c5a9303aeee08721db3a61626"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -707,7 +711,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "a666fdfb36ecbd89d85f87df99f39e74e477f75185e2e5189d6be123afeea585"
+      "sha256": "b4a4f37c716cb3918476cca4297e8b52ade4faf535cf2f55727e28f60bc6ea9d"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -8096,7 +8100,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "a666fdfb36ecbd89d85f87df99f39e74e477f75185e2e5189d6be123afeea585"
+          "sha256": "b4a4f37c716cb3918476cca4297e8b52ade4faf535cf2f55727e28f60bc6ea9d"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -8117,5 +8121,5 @@
       ]
     }
   ],
-  "catalog_sha256": "2fe1771a692b2d805db7ae990f9e2c222ad4084622727bf3a573f60d1dbf1955"
+  "catalog_sha256": "b71a0c33234eb19b8584544d27920f2f5d3500b379866517f185f384e20c169d"
 }

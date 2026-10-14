@@ -42,7 +42,7 @@ CONTRACTS = {
     "research_plan": ToolContract(
         "research-plan",
         "immutable protocol + verified bytes + exact approval and lineage",
-        "native research revisions, differences, approval and explicit result reuse",
+        "native research revisions, differences, approval, explicit result reuse and exact execution report binding; researcher statements are not clinical validation",
     ),
     "read_artifact": ToolContract(
         "all",

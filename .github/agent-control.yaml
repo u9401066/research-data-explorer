@@ -471,10 +471,17 @@ pre_commit_hooks:
 
 research_protocol_versions:
   tool: research_plan
-  operations: [draft, read, approve, attach_results, reuse]
+  operations: [draft, read, approve, attach_results, reuse, bind_execution]
   immutable: [protocol, parent_reference, source_hashes, sample_size_basis, approval, result_lineage]
   reuse_requires: [identical_scientific_protocol, explicit_approval, verified_result_bytes]
   does_not_establish: [assumption_truth, execution_phase_approval, new_calculation_when_reused]
+  execution_report_binding:
+    requires: [exact_protocol_and_approval_file_bytes_and_sealed_hashes, locked_matching_execution_methods, verified_execution_source, exact_dataset_and_execution_ids]
+    artifacts: [research_execution/context.json, research_execution/plan.json, research_execution/approval.json, phase_06_plan_registration/research_execution.json]
+    immutable: true
+    rendering: reverify_saved_protocol_approval_source_and_locked_methods_no_refitting_no_latest_plan
+    retains: [research_definitions, assumptions, limitations, original_researcher_reason, provenance]
+    clinical_validation: not_performed
 
 durable_operations:
   parameter: execution_key

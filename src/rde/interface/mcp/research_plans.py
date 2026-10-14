@@ -39,7 +39,7 @@ class File(Strict):
 
 
 class Request(Strict):
-    op: Literal["draft", "read", "approve", "attach_results", "reuse"]
+    op: Literal["draft", "read", "approve", "attach_results", "reuse", "bind_execution"]
     plan_id: str
     expected_sha256: str | None = None
     parent: Reference | None = None
@@ -50,6 +50,9 @@ class Request(Strict):
     reviewer: dict | None = None
     execution_id: str | None = None
     artifacts: list[File] | None = None
+    dataset_id: str | None = None
+    plan_file: File | None = None
+    approval_file: File | None = None
 
 
 def canonical_id(value):
@@ -138,6 +141,10 @@ def read_plan(project, plan_id, expected=None):
 
 def execute(project, request):
     req = Request.model_validate(request)
+    if req.op == "bind_execution":
+        from rde.interface.mcp.research_execution import bind_execution
+
+        return bind_execution(project, req)
     directory = root(project, req.plan_id)
     if req.op == "draft":
         if not req.protocol or not req.sources or not req.reason.strip():
