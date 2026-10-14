@@ -68,6 +68,20 @@ def test_emphasis_code_and_real_backslashes_are_distinct_runs(tmp_path):
     assert "*literal*" in html_text
 
 
+def test_heading_inherits_style_unless_inline_emphasis_explicit(tmp_path):
+    doc = Document(
+        DocxExporter().export_docx(
+            report("### Ordinary **explicit** and *italic*"), tmp_path / "heading.docx"
+        )
+    )
+    heading = next(p for p in doc.paragraphs if p.text == "Ordinary explicit and italic")
+    assert heading.style.name == "Heading 3" and heading.style.font.bold is True
+    ordinary = next(r for r in heading.runs if r.text == "Ordinary ")
+    assert ordinary.bold is None and ordinary.italic is None
+    assert next(r for r in heading.runs if r.text == "explicit").bold is True
+    assert next(r for r in heading.runs if r.text == "italic").italic is True
+
+
 @pytest.mark.parametrize("fence", ["```", "````", "~~~"])
 def test_fenced_code_is_literal_in_word_and_pdf_html(tmp_path, fence):
     code = r"\*literal\* **not bold** C:\data\file <tag> &lt;" + "  "

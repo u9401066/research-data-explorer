@@ -251,7 +251,7 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/docx_exporter.py",
-      "sha256": "80a616285ae9f84919fcf59dbe291caf1aa7bc45f3320bd973d7ac8fc672773f"
+      "sha256": "62c51e44bb05f28fb6c8dd70f0fd46c454daf5019d8ea53ab698b98663f4a1d0"
     },
     {
       "path": "src/rde/infrastructure/adapters/markdown_renderer.py",
@@ -8108,7 +8108,7 @@
         },
         {
           "path": "src/rde/infrastructure/adapters/docx_exporter.py",
-          "sha256": "80a616285ae9f84919fcf59dbe291caf1aa7bc45f3320bd973d7ac8fc672773f"
+          "sha256": "62c51e44bb05f28fb6c8dd70f0fd46c454daf5019d8ea53ab698b98663f4a1d0"
         },
         {
           "path": "src/rde/interface/mcp/tools/audit_tools.py",
@@ -8121,5 +8121,5 @@
       ]
     }
   ],
-  "catalog_sha256": "7e608857fcc9e3c283d598d1dc7ce73df2ebec1cbd814ba7a47495fb9eb29faa"
+  "catalog_sha256": "69ab4a33d45519a5834f50fbf209679a330789b18f20fa329a927a08bcf54765"
 }

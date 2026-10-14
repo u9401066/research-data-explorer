@@ -415,8 +415,10 @@ class DocxExporter(DocumentExporterPort):
         """Render only actual emphasis tokens; escaped markers stay literal."""
         for value, styles in _inline_fragments(text):
             run = paragraph.add_run(value)
-            run.bold = "bold" in styles
-            run.italic = "italic" in styles
+            if "bold" in styles:
+                run.bold = True
+            if "italic" in styles:
+                run.italic = True
             if "code" in styles:
                 run.font.name = "Courier New"
 
