@@ -6,6 +6,12 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+### Traceable prepared-data reports
+
+- Bind report methods and denominators to the exact imported, approved preparation release. Verify the retained source/trace closure and intake identity before rendering declared units, keys, time windows, aggregation rules, sequential event/unit/subject counts, missingness statuses and receipt hashes in assembled and DOCX/PDF reports. Missing or changed evidence blocks these claims; automatic checks remain distinct from clinical validation.
+- Evaluate collection readiness after saving the real results artifact and refresh assembly recommendations before rendering, so an existing results summary is not reported missing. Keep descriptive-only scope separate from unperformed inference checks.
+- Render descriptive quantiles with readable precision without changing numerical receipts or saved analysis artifacts. Distinguish input rows from upstream preparation, preserve unresolved clinical questions, and render preparation tables as actual tables in PDF/HTML output.
+
 ### Native data aggregation
 
 - Make all ten existing aggregation methods discoverable with input, window, missing-value, tie, cardinality and lineage rules. Distinguish whole-window `unique` from timestamp-based `first`/`last`; no new statistical engine or executable Python/SQL is introduced.

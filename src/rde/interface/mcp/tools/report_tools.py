@@ -15,6 +15,11 @@ from pathlib import Path
 from typing import Any
 
 from rde.application.pipeline import PipelinePhase
+from rde.infrastructure.preparation.reporting import (
+    preparation_abstract,
+    preparation_evidence,
+    preparation_markdown,
+)
 
 
 MIN_DESCRIPTIVE_FIGURES = 3
@@ -289,6 +294,7 @@ def _build_formal_research_report(
     results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
     table_one = store.load(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md")
     pubmed_context = store.load(PipelinePhase.REPORT_ASSEMBLY, "pubmed_literature_context.md")
+    prepared = preparation_evidence(project, intake)
     table_rows = _parse_table_markdown_rows(table_one)
     table_payload = (
         {"headers": table_rows[0], "rows": table_rows[1:]} if len(table_rows) >= 2 else None
@@ -312,6 +318,7 @@ def _build_formal_research_report(
                 intake,
                 schema,
                 results,
+                prepared=prepared,
                 concept_alignment=concept_alignment,
                 variable_roles=variable_roles if isinstance(variable_roles, dict) else None,
             ),
@@ -322,7 +329,8 @@ def _build_formal_research_report(
         ReportSection(
             section_id="data_quality",
             title="資料來源與品質摘要",
-            content=_formal_data_quality(schema, readiness, intake=intake),
+            content=_formal_data_quality(schema, readiness, intake=intake)
+            + ("\n\n" + preparation_markdown(prepared) if prepared else ""),
             order=2,
         )
     )
@@ -588,6 +596,9 @@ def register_report_tools(server: Any) -> None:
                 "deliverables": deliverables,
                 "exploration_branches": exploration_branches,
             }
+            # Readiness checks the retained results artifact, so persist the collected
+            # evidence before checking its existence (not a future promised file).
+            store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", summary)
             report_readiness = _evaluate_report_readiness(
                 summary,
                 store,
@@ -760,6 +771,10 @@ def register_report_tools(server: Any) -> None:
                     suggestion="先補齊 methodology / deliverables 缺口，或以 allow_incomplete=true 明示覆蓋。",
                 )
 
+            # Use this evaluation for prose, not the earlier collection snapshot.
+            if isinstance(results, dict):
+                results = {**results, "report_readiness": report_readiness}
+
             # Collect artifacts for report sections
             artifacts: dict[str, str] = {}
 
@@ -768,6 +783,9 @@ def register_report_tools(server: Any) -> None:
             schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json")
             if intake:
                 artifacts["data_overview"] = _format_data_overview(intake, schema)
+                prepared = preparation_evidence(project, intake)
+                if prepared:
+                    artifacts["data_overview"] += "\n\n" + preparation_markdown(prepared)
 
             # Data quality from schema / readiness
             readiness = store.load(PipelinePhase.PRE_EXPLORE_CHECK, "readiness_checklist.json")
@@ -1614,10 +1632,22 @@ def _load_latest_repeated_measures_markdown_bundle(store: Any) -> str | None:
     return "\n\n---\n\n".join(rendered) if rendered else None
 
 
+def _descriptive_results_markdown(results: dict) -> str:
+    from rde.infrastructure.adapters.descriptive_study import markdown
+
+    return "\n\n".join(
+        markdown(item["result"]) + f"\nReceipt SHA-256: {item['receipt_sha256']}"
+        if item.get("result", {}).get("schema") == "rde-descriptive-study-v1"
+        and item.get("receipt_sha256")
+        else item["summary_markdown"]
+        for item in results["descriptive_studies"]
+    )
+
+
 def _format_analyses(results: dict | None) -> str:
     """Format statistical analyses section."""
     if results and results.get("descriptive_studies"):
-        return "\n\n".join(r["summary_markdown"] for r in results["descriptive_studies"])
+        return _descriptive_results_markdown(results)
 
     if not results:
         return "[No analysis results collected]"
@@ -1812,9 +1842,19 @@ def _formal_abstract(
     *,
     concept_alignment: str | None = None,
     variable_roles: dict | None = None,
+    prepared: dict | None = None,
 ) -> str:
     if results and results.get("descriptive_studies"):
-        return "本報告完成原始資料列的描述性研究與可行性核對。尚未確定的收案、身份、時間與結果定義保留在計畫限制；未執行推論或假定獨立樣本。"
+        question = _extract_research_question(concept_alignment)
+        return (
+            (f"研究問題：{question}\n\n" if question else "")
+            + (
+                preparation_abstract(prepared)
+                if prepared
+                else "本報告描述本次分析輸入資料列；研究定義依已保存計畫與來源證據。"
+            )
+            + "已完成描述性研究範圍，未執行推論或假定獨立樣本；未核實的臨床定義與限制仍需分別審閱。"
+        )
     loaded_file = (intake or {}).get("loaded_file", "study dataset")
     normalization = (intake or {}).get("normalization") if isinstance(intake, dict) else {}
     loaded_sheet = (
@@ -1889,12 +1929,18 @@ def _formal_data_quality(
             )
     if isinstance(readiness, dict):
         for check in checks:
-            if not isinstance(check, dict) or check.get("passed"):
+            if not isinstance(check, dict):
                 continue
-            lines.append(f"需注意：{check.get('name', check.get('id', 'quality check'))} 未通過。")
-    lines.append(
-        "整體而言，資料適合進行探索性描述與假說生成；但 sparse group、缺失模式與共線性仍限制正式推論。"
-    )
+            name = check.get("name", check.get("id", "quality check"))
+            if (
+                check.get("applicable") is False
+                or check.get("skipped")
+                or check.get("status") in {"skipped", "not_applicable"}
+            ):
+                lines.append(f"{name}：本範圍未執行／不適用；不據此推定有或沒有問題。")
+            elif not check.get("passed"):
+                lines.append(f"需注意：{name} 未通過。")
+    lines.append("品質敘述限於已執行的核對；未檢查的稀疏組別、共線性或缺失機制不作結論。")
     return "\n".join(lines)
 
 
@@ -2129,7 +2175,7 @@ def _formal_key_findings(results: dict | None) -> str:
 
 def _formal_statistical_summary(project: Any, store: Any, results: dict | None) -> str:
     if results and results.get("descriptive_studies"):
-        return "\n\n".join(r["summary_markdown"] for r in results["descriptive_studies"])
+        return _descriptive_results_markdown(results)
 
     if results and results.get("clinical_studies"):
         return "\n\n".join(r["summary_markdown"] for r in results["clinical_studies"])
@@ -2878,7 +2924,12 @@ def _build_recommendations(results: dict | None, readiness: dict | None) -> str:
             )
     if readiness:
         for c in readiness.get("checks", []):
-            if not c.get("passed"):
+            if (
+                not c.get("passed")
+                and c.get("applicable") is not False
+                and not c.get("skipped")
+                and c.get("status") not in {"skipped", "not_applicable"}
+            ):
                 lines.append(f"- 注意: {c.get('name', '?')} 檢查未通過。")
     if not lines:
         lines.append("- 所有分析已完成，可進行審計 (Phase 11)。")
@@ -4182,6 +4233,33 @@ def _build_claim_provenance_manifest(
                 "evidence": evidence,
                 "confidence": confidence,
             }
+        )
+
+    prepared = preparation_evidence(
+        project, store.load(PipelinePhase.DATA_INTAKE, "intake_report.json")
+    )
+    if prepared:
+        prefix = f"artifacts/data_preparation/imports/{prepared['bundle_sha256']}"
+        add_claim(
+            "prepared_data_methods",
+            preparation_abstract(prepared),
+            [
+                {
+                    "artifact": f"{prefix}/{name}.json",
+                    "receipt_sha256": prepared[name]["receipt_sha256"],
+                }
+                for name in ("plan", "approval", "release")
+            ]
+            + [
+                {"artifact": f"{prefix}/{name}", **prepared["plan"]["files"][name]}
+                for name in (
+                    "specification.json",
+                    "validation.json",
+                    "analysis.schema.json",
+                    "trace.jsonl",
+                )
+            ],
+            confidence="verified_preparation_receipts_not_clinical_validation",
         )
 
     if store.exists(PipelinePhase.EXECUTE_EXPLORATION, "table_one.md"):

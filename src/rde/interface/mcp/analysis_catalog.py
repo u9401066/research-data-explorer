@@ -758,6 +758,8 @@ def family_declarations():
         ],
         [
             "src/rde/interface/mcp/tools/report_tools.py",
+            "src/rde/infrastructure/preparation/reporting.py",
+            "src/rde/infrastructure/adapters/docx_exporter.py",
             "src/rde/interface/mcp/tools/audit_tools.py",
             "src/rde/interface/mcp/tools/publication_tools.py",
         ],

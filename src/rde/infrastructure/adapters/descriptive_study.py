@@ -114,8 +114,8 @@ def markdown(result):
     lines = [
         "# 描述性資料研究報告",
         "",
-        "已完成原始資料列的描述；不宣稱完整推論研究已完成。研究設計、病人身份、獨立性及時間定義仍以來源證據為準。",
-        f"原始資料：{result['input_rows']} 列；全欄位完全重複的額外列：{result['exact_duplicate_rows']}。沒有刪除或合併資料。",
+        "已完成本次分析輸入資料列的描述；不宣稱推論研究已完成。研究設計、身份、獨立性及時間定義依已保存計畫與資料準備證據，不由本描述步驟推定。",
+        f"分析輸入：{result['input_rows']} 列；全欄位完全重複的額外列：{result['exact_duplicate_rows']}。本描述步驟沒有刪除或合併資料；上游準備的關聯與納排另見準備收據。",
         "缺失逐欄計算，不補值、不當成陰性；各欄分母不同。數值摘要保留原始單位，不把資料列數當病人人數。",
         "",
         "| 欄位 | 有值列 | 缺失列 | 不同值 | 描述 |",
@@ -127,7 +127,10 @@ def markdown(result):
         else:
             detail = (
                 f"有限數值 {row['finite']} 列；非有限值 {row['nonfinite']} 列；"
-                + "、".join(f"{k}={v}" for k, v in row["summary"].items())
+                + "、".join(
+                    f"{k}={format(v, '.6g') if v is not None else '未提供'}"
+                    for k, v in row["summary"].items()
+                )
                 if row["kind"] == "numeric"
                 else "原始代碼分布"
             )
@@ -141,7 +144,7 @@ def markdown(result):
     lines.extend(
         [
             "",
-            "## 原始列的缺失組合",
+            "## 輸入資料列的缺失組合",
             "",
             f"本次描述 {result['described_columns']} / {result['input_columns']} 個欄位。以下組合僅限所選欄位；不是缺失機制檢定。",
         ]
@@ -158,7 +161,7 @@ def markdown(result):
     lines.extend(
         [
             "",
-            "## 尚待定義的推論範圍",
+            "## 計畫記錄的待釐清事項與限制",
             "",
             *[f"- {safe(x)}" for x in result["unresolved"]],
             "",

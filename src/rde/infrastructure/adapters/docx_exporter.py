@@ -469,16 +469,20 @@ class DocxExporter(DocumentExporterPort):
             '<meta charset="utf-8">',
             "<style>",
             "  @page { size: A4; margin: 2cm; }",
-            "  body { font-family: 'Times New Roman', serif; font-size: 11pt;",
+            "  body { font-family: 'Times New Roman', 'Noto Sans CJK TC', 'Microsoft JhengHei', serif; font-size: 11pt;",
             "         max-width: 700px; margin: auto; line-height: 1.6; }",
             "  h1 { text-align: center; font-size: 18pt; margin-bottom: 0.5em; }",
             "  h2 { font-size: 14pt; border-bottom: 1px solid #ccc;",
             "       padding-bottom: 4px; margin-top: 1.5em; }",
             "  h3 { font-size: 12pt; }",
             "  table { border-collapse: collapse; width: 100%; margin: 1em 0;",
-            "          font-size: 10pt; }",
+            "          font-size: 10pt; table-layout: fixed; }",
+            "  th, td { overflow-wrap: anywhere; word-wrap: break-word; }",
             "  th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; }",
             "  th { background: #f0f0f0; font-weight: bold; }",
+            "  thead { display: table-header-group; }",
+            "  tr { break-inside: avoid; page-break-inside: avoid; }",
+            "  h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; }",
             "  img { max-width: 100%; display: block; margin: 1em auto; }",
             "  .caption { text-align: center; font-size: 10pt; color: #555;",
             "             margin-top: -0.5em; margin-bottom: 1em; }",
@@ -503,8 +507,30 @@ class DocxExporter(DocumentExporterPort):
         for section in report.sections:
             lines.append(f"<h2>{section.title}</h2>")
 
-            # Content — convert basic markdown to HTML
+            # Markdown tables are real report tables, including preparation flow.
+            table_lines: list[str] = []
+
+            def flush_table():
+                if not table_lines:
+                    return
+                rows = []
+                for line in table_lines:
+                    cells = [
+                        c.strip().replace("\\|", "|")
+                        for c in re.split(r"(?<!\\)\|", line.strip("|"))
+                    ]
+                    if not all(re.fullmatch(r"[-: ]+", cell) for cell in cells):
+                        rows.append(cells)
+                if rows:
+                    lines.append(self._dict_to_html_table({"headers": rows[0], "rows": rows[1:]}))
+                table_lines.clear()
+
             for para in section.content.split("\n"):
+                stripped = para.strip()
+                if stripped.startswith("|") and stripped.endswith("|"):
+                    table_lines.append(stripped)
+                    continue
+                flush_table()
                 para = para.strip()
                 if not para:
                     continue
@@ -517,8 +543,10 @@ class DocxExporter(DocumentExporterPort):
                     else:
                         lines.append(f"<p>{self._md_to_html_inline(para)}</p>")
                     continue
-                if para.startswith("### "):
-                    lines.append(f"<h3>{para[4:]}</h3>")
+                heading = re.match(r"^(#{1,6}) (.+)$", para)
+                if heading:
+                    level = max(3, min(6, len(heading[1])))
+                    lines.append(f"<h{level}>{self._md_to_html_inline(heading[2])}</h{level}>")
                 elif para.startswith("- ") or para.startswith("* "):
                     lines.append(f"<li>{self._md_to_html_inline(para[2:])}</li>")
                 elif para.startswith("|") and "|" in para:
@@ -526,6 +554,8 @@ class DocxExporter(DocumentExporterPort):
                     lines.append(f"<p>{para}</p>")
                 else:
                     lines.append(f"<p>{self._md_to_html_inline(para)}</p>")
+
+            flush_table()
 
             # Tables
             if section.tables:
@@ -600,17 +630,17 @@ class DocxExporter(DocumentExporterPort):
             if not headers:
                 return ""
 
-            lines = ["<table>", "<tr>"]
+            lines = ["<table>", "<thead><tr>"]
             for header in headers:
                 lines.append(f"<th>{header}</th>")
-            lines.append("</tr>")
+            lines.append("</tr></thead><tbody>")
             for row in rows:
                 padded = [str(value) for value in row] + [""] * (len(headers) - len(row))
                 lines.append("<tr>")
                 for value in padded[: len(headers)]:
                     lines.append(f"<td>{value}</td>")
                 lines.append("</tr>")
-            lines.append("</table>")
+            lines.append("</tbody></table>")
             return "\n".join(lines)
 
         headers = list(tbl.keys())
@@ -620,15 +650,15 @@ class DocxExporter(DocumentExporterPort):
         else:
             return f"<pre>{tbl}</pre>"
 
-        lines = ["<table>", "<tr>"]
+        lines = ["<table>", "<thead><tr>"]
         for h in headers:
             lines.append(f"<th>{h}</th>")
-        lines.append("</tr>")
+        lines.append("</tr></thead><tbody>")
         for rk in row_keys:
             lines.append("<tr>")
             for h in headers:
                 val = tbl[h].get(rk, "") if isinstance(tbl[h], dict) else tbl[h]
                 lines.append(f"<td>{val}</td>")
             lines.append("</tr>")
-        lines.append("</table>")
+        lines.append("</tbody></table>")
         return "\n".join(lines)

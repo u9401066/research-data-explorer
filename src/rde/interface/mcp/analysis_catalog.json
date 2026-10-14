@@ -247,11 +247,11 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/descriptive_study.py",
-      "sha256": "c2d8f9e16c7af04bcf8eebf5e1daf4ee09d5503075ec5a33fda2f6c085353f44"
+      "sha256": "49bb0be58c483f42fb6288221acff9b6504fb6f7a4148c053933f0447218b64e"
     },
     {
       "path": "src/rde/infrastructure/adapters/docx_exporter.py",
-      "sha256": "11a5799021bd60b849a4adf3e43dc876b5a656219b15863a706d3547be18be29"
+      "sha256": "670c1023a7b44246fddf09fabfdbd6c85c7c56519de87d6ccdc9de7956aa0bfc"
     },
     {
       "path": "src/rde/infrastructure/adapters/markdown_renderer.py",
@@ -518,6 +518,10 @@
       "sha256": "4452fbcf5d94c9c3a4d91d2beaeb259c11947081b91006e55311b9162a7bb768"
     },
     {
+      "path": "src/rde/infrastructure/preparation/reporting.py",
+      "sha256": "f7f5961e240dbfb9c3b2fa540800cfb952b4fe77ea6affb4d20055f3b4cc3c67"
+    },
+    {
       "path": "src/rde/infrastructure/preparation/sources.py",
       "sha256": "c3bfad2b48b3af2a4550d4c972c20909cb53e26c943b623c7e449bc3c8c751c6"
     },
@@ -563,7 +567,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "f66041fae03611350f86174d01ff76d845130f04ff1072f5194b440d9f3a66ce"
+      "sha256": "caf5e88743f5be32f211681e66643adde2de6999b85c8a829dc41becda3dd504"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -699,7 +703,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "79bf6743e4cce6eb9c71af3777857afe0619a66d599daded0fad56d713cdc607"
+      "sha256": "34c7e4854c1b5ddfd6a3158e3790ad24109d76a6a85dbdd26b10b867f878b4ba"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -2622,7 +2626,7 @@
       "contract_sources": [
         {
           "path": "src/rde/infrastructure/adapters/descriptive_study.py",
-          "sha256": "c2d8f9e16c7af04bcf8eebf5e1daf4ee09d5503075ec5a33fda2f6c085353f44"
+          "sha256": "49bb0be58c483f42fb6288221acff9b6504fb6f7a4148c053933f0447218b64e"
         },
         {
           "path": "src/rde/interface/mcp/tools/analysis_tools.py",
@@ -7475,6 +7479,8 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/report_tools.py",
+        "src/rde/infrastructure/preparation/reporting.py",
+        "src/rde/infrastructure/adapters/docx_exporter.py",
         "src/rde/interface/mcp/tools/audit_tools.py",
         "src/rde/interface/mcp/tools/publication_tools.py"
       ],
@@ -8080,7 +8086,15 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "79bf6743e4cce6eb9c71af3777857afe0619a66d599daded0fad56d713cdc607"
+          "sha256": "34c7e4854c1b5ddfd6a3158e3790ad24109d76a6a85dbdd26b10b867f878b4ba"
+        },
+        {
+          "path": "src/rde/infrastructure/preparation/reporting.py",
+          "sha256": "f7f5961e240dbfb9c3b2fa540800cfb952b4fe77ea6affb4d20055f3b4cc3c67"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/docx_exporter.py",
+          "sha256": "670c1023a7b44246fddf09fabfdbd6c85c7c56519de87d6ccdc9de7956aa0bfc"
         },
         {
           "path": "src/rde/interface/mcp/tools/audit_tools.py",
@@ -8093,5 +8107,5 @@
       ]
     }
   ],
-  "catalog_sha256": "5b42489c647f6344e81e4e5abe3ec4f568c93c7650dc7241bd265db601463f6b"
+  "catalog_sha256": "8a10191f1a9e032cbd2ae046ac713cacb17fbe1493c944654a0c6c01ae99e616"
 }

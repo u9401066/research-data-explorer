@@ -153,7 +153,28 @@ def test_descriptive_full_mcp_audit_does_not_demand_inferential_publication_bund
 
     call("run_descriptive_study", dataset_id=dataset.id, descriptive_options=OPTIONS)
     call("collect_results", project_id=project.id)
+    collected = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
+    assert collected["report_readiness"]["ready"]
+    # An older collection snapshot may be stale even though the real result exists.
+    collected["report_readiness"] = dict(ready=False, missing_requirements=["results_summary.json"])
+    store.save(PipelinePhase.COLLECT_RESULTS, "results_summary.json", collected)
+    saved_study = store.get_path(
+        PipelinePhase.EXECUTE_EXPLORATION, "descriptive_study.json"
+    ).read_bytes()
+    saved_report = store.get_path(
+        PipelinePhase.EXECUTE_EXPLORATION, "descriptive_report.md"
+    ).read_bytes()
     call("assemble_report", project_id=project.id, allow_incomplete=False)
+    assembled = store.load(PipelinePhase.REPORT_ASSEMBLY, "eda_report.md")
+    assert "請先補齊以下缺口: results_summary.json" not in assembled
+    assert (
+        store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "descriptive_study.json").read_bytes()
+        == saved_study
+    )
+    assert (
+        store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "descriptive_report.md").read_bytes()
+        == saved_report
+    )
     call("run_audit", project_id=project.id)
     audit = store.load(PipelinePhase.AUDIT_REVIEW, "audit_report.json")
     bundle = next(c for c in audit["checks"] if c["category"] == "publication_bundle")
@@ -166,6 +187,7 @@ def test_descriptive_full_mcp_audit_does_not_demand_inferential_publication_bund
     call("auto_improve", project_id=project.id)
     final = store.load(PipelinePhase.AUTO_IMPROVE, "final_report.md")
     assert "ready for descriptive_only" in final
+    assert "請先補齊以下缺口: results_summary.json" not in final
     assert "**status:** production-ready" not in final
     assert "Why this is production-ready" not in final
     assert "not applicable (descriptive-only)" in final
