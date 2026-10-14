@@ -6,6 +6,10 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ## [Unreleased]
 
+### Accurate Cox report wording
+
+- Label a one-predictor Cox model as unadjusted in Chinese reports, publication axes and bilingual captions. A categorical predictor with several encoded coefficients remains one source predictor; only models with multiple prespecified source predictors are described as adjusted. Numerical receipts and locked specifications remain unchanged.
+
 ### Automated preparation review
 
 - Add native `data_preparation(op="automated_review")` with an immutable technical-check receipt binding the exact project, plan, implementation, source bytes and retained files. Verify native output schemas and identifier roles, all included trace identities, population denominators and every CSV/typed output row.

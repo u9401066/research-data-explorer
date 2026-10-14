@@ -405,6 +405,8 @@ def _figures(result, directory, prefix, profile):
     cox = result["cox"]
     if not cox:
         return records
+    adjusted = len(spec["covariates"]) > 1
+    adjustment_label = "Adjusted" if adjusted else "Unadjusted"
     coefficients = cox["coefficients"]
     labels, term_notes = [], []
     for index, row in enumerate(coefficients):
@@ -429,6 +431,11 @@ def _figures(result, directory, prefix, profile):
         f"The {'cause-specific ' if competing else ''}Cox model uses Efron handling of tied events, "
         f"with {cox['n']} participants and {cox['events']} target events. "
         "All displayed parameters were specified before fitting; no variable selection was added. "
+        + (
+            f"Hazard ratios are mutually adjusted for the {len(spec['covariates'])} prespecified source predictors. "
+            if adjusted
+            else "This univariable model contains one source predictor and is not adjusted for other predictors; multiple encoded levels of that predictor do not make it a multivariable model. "
+        )
         + (
             "Competing events leave the risk set at their occurrence; this is not a Fine–Gray subdistribution hazard ratio. "
             if competing
@@ -460,7 +467,7 @@ def _figures(result, directory, prefix, profile):
         ax.minorticks_off()
         ax.set(
             xlim=(lower, upper),
-            xlabel=f"Adjusted {'cause-specific ' if competing else ''}HR ({ci} CI; log scale)",
+            xlabel=f"{adjustment_label} {'cause-specific ' if competing else ''}HR ({ci} CI; log scale)",
         )
         data = [
             {"display_label": label, **row}
@@ -469,7 +476,7 @@ def _figures(result, directory, prefix, profile):
         save(
             fig,
             f"cox_{start // 8 + 1}",
-            "Adjusted hazard ratios for the target event.",
+            f"{adjustment_label} hazard ratios for the target event.",
             model_note
             + terms
             + f"Points are exp(beta); horizontal lines are {ci} Wald intervals, exp(beta ± z × SE), without multiplicity adjustment. "
@@ -477,7 +484,12 @@ def _figures(result, directory, prefix, profile):
             "HR compares instantaneous target-event rates among those still at risk, not cumulative risks or causal effects. "
             + f"There are {cox['events_per_parameter']:.3g} target events per encoded parameter; this is a descriptive diagnostic, not proof of sample-size adequacy. "
             "All parameters and intervals are retained, regardless of significance.",
-            "點與橫線為 HR 及其逐一區間，虛線為1；連續欄位按原始單位增加1，不擅自換成年或標準差。類別比較保留參考組，HR不等於累積風險比或因果療效。",
+            (
+                "HR 已調整模型內其他原始預測欄位。"
+                if adjusted
+                else "此單變項模型未調整其他因素；同一類別欄位的多個編碼係數不代表多變項調整。"
+            )
+            + "點與橫線為 HR 及其逐一區間，虛線為1；連續欄位按原始單位增加1，不擅自換成年或標準差。類別比較保留參考組，HR不等於累積風險比或因果療效。",
             data,
             suffix=f"cox_{start // 8 + 1}",
         )
