@@ -12,6 +12,10 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "matching":
+        from rde.infrastructure.clinical.matching_report import required_figures as family_figures
+
+        return family_figures(result)
     if result["spec"]["family"] == "noninferiority":
         from rde.infrastructure.clinical.noninferiority_report import (
             required_figures as family_figures,
@@ -104,6 +108,7 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         ledger.get("filter_excluded_data_rows", [])
         + ledger.get("missing_excluded_data_rows", [])
         + ledger.get("indeterminate_excluded_data_rows", [])
+        + ledger.get("matching_excluded_data_rows", [])
     )
     check(
         "participant_flow",
@@ -129,6 +134,10 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             and sorted(ledger.get("sampling_data_rows", [])) == included
             and result.get("observed_cells_unchanged") is True
         )
+    elif spec["family"] == "matching":
+        from rde.infrastructure.clinical.matching_readiness import check_cases
+
+        shared_cases = check_cases(result)
     elif spec["family"] == "noninferiority":
         points, groups = result.get("observations", []), result.get("groups", [])
         shared_cases = (
@@ -249,6 +258,14 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             and effect.get("status") in {"estimated", "boundary"}
             and effect.get("ci_status") in {"estimated", "not_estimable"},
             ["strata", "cmh", "common_odds_ratio", "equal_odds"],
+        )
+    if spec["family"] == "matching":
+        from rde.infrastructure.clinical.matching_readiness import check_inference
+
+        check(
+            "matching_frozen_pairs_and_approximate_inference",
+            check_inference(result),
+            ["pairs", "effect", "diagnostics", "paired_binary"],
         )
     if spec["family"] == "noninferiority":
         inference = result.get("noninferiority", {})
@@ -417,7 +434,9 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         from rde.infrastructure.clinical.measurement_report import TITLES
 
         heading = (
-            "獨立兩組均差非劣性分析"
+            "傾向分數配對與配對群聚推論"
+            if spec["family"] == "matching"
+            else "獨立兩組均差非劣性分析"
             if spec["family"] == "noninferiority"
             else "標準多重插補與缺失資料分析"
             if spec["family"] == "imputation"

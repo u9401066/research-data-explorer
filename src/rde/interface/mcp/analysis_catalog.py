@@ -44,6 +44,7 @@ SPEC_TYPES = {
     "cohens_kappa": ("rde.infrastructure.clinical.measurement", "MeasurementSpec"),
     "regression": ("rde.infrastructure.clinical.regression_contract", "RegressionSpec"),
     "weighting": ("rde.infrastructure.clinical.weighting_contract", "WeightingSpec"),
+    "matching": ("rde.infrastructure.clinical.matching", "MatchingSpec"),
     "longitudinal": (
         "rde.infrastructure.clinical.longitudinal_contract",
         "LongitudinalSpec",
@@ -369,6 +370,43 @@ def family_declarations():
     )
 
     clinical_rows = [
+        (
+            "matching",
+            "model",
+            "傾向分數配對",
+            "固定配對設計後，保留的treated子族群有何結果差異？",
+            [
+                (
+                    "optimal_1to1_logit_caliper",
+                    "1:1無放回logit-caliper最適配對",
+                    {"method": "optimal_1to1_logit_caliper", "inference": "pair_cluster_cr1_t"},
+                )
+            ],
+            [
+                ("subject", "獨立個案", "唯一非空來源識別"),
+                ("treatment", "處置", "[對照,處置]原碼及定義"),
+                ("outcome", "結果", "連續均差或二元事件機率差，終點與時間窗固定"),
+                ("covariates", "處置前共變項", "欄位、類別、單位、基底與時間依據"),
+                (
+                    "caliper_sd",
+                    "配對界值",
+                    "預先固定兩組logit樣本變異平均平方根的倍數，不依結果調整",
+                ),
+            ],
+            [
+                "原始及完整個案／配對族群流程",
+                "逐列排除與配對清單",
+                "欄位與基底SMD、分布及重疊",
+                "配對群聚CR1 t(G−1)近似CI",
+                "英文投稿圖與完整限制",
+            ],
+            [
+                "目標僅matched_treated；treated排除後不再聲稱原全體ATT或ATE。",
+                "不是Abadie–Imbens 2016估PS變異校正；不保證有限樣本涵蓋率。",
+                "完整個案、固定1:1無放回；不支援存活、重複、多對一、放回或未核准autoresearch。",
+                "品質旗標不證明交換性或未測量混雜已消除；少於5對不推論，不依p值改caliper。",
+            ],
+        ),
         (
             "noninferiority",
             "compare",
@@ -867,6 +905,7 @@ def family_declarations():
         "regression",
         "imputation",
         "weighting",
+        "matching",
         "longitudinal",
         "survival",
         "prediction",

@@ -1289,7 +1289,7 @@ def register_plan_tools(server: Any) -> None:
                     alpha,
                     missing_strategy,
                     multiple_comparison_method,
-                    single_contrast=clinical_family in {"weighting", "stratified"}
+                    single_contrast=clinical_family in {"weighting", "stratified", "matching"}
                     or descriptive_spec is not None,
                 )
 
@@ -1527,7 +1527,7 @@ def register_plan_tools(server: Any) -> None:
                         if clinical_spec.family in {"comparison", "repeated"}
                         else "none"
                         if clinical_spec.family
-                        in {"weighting", "stratified", "imputation", "noninferiority"}
+                        in {"weighting", "stratified", "imputation", "noninferiority", "matching"}
                         else "holm"
                     )
                     if clinical_spec.family == "noninferiority" and (

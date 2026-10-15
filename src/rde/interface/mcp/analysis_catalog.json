@@ -330,6 +330,18 @@
       "sha256": "efd75fa37601726006054ca27c6989d5e042b945d14eba13f7f27fd538a02e02"
     },
     {
+      "path": "src/rde/infrastructure/clinical/matching.py",
+      "sha256": "17c50e397a78462b89c84a87c01785e947cff3fa5565f0ae9d1bfcba507c53f6"
+    },
+    {
+      "path": "src/rde/infrastructure/clinical/matching_readiness.py",
+      "sha256": "fc2ea94d45e214696f947d0c9da97b02554ef9a637d4b6b61265f1c515e1fcb3"
+    },
+    {
+      "path": "src/rde/infrastructure/clinical/matching_report.py",
+      "sha256": "22840fbcd46dbcfd0cd5544673f7e6402e9f85f0b1cd2e12490c84172f68b1c1"
+    },
+    {
       "path": "src/rde/infrastructure/clinical/measurement.py",
       "sha256": "e4ff286e9ca72ddadd26836fd294f325bdd1cafa97f912e652d8499c7970b03a"
     },
@@ -395,7 +407,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/report.py",
-      "sha256": "5b87cad97bc74f440e65431c6525fe56ba2cd1d59f46cbab9cf03ce10595f307"
+      "sha256": "3f580d6c954dd6547bbb81fd45491e99874fc2d52840cd575d566474360728ba"
     },
     {
       "path": "src/rde/infrastructure/clinical/sample_size.py",
@@ -611,7 +623,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "57e93b715a96cd0adcf4225507226fb23d2a37d7c4fb3f74ff0e512bc249bd2e"
+      "sha256": "efa546f3d4317804571555a1dd6bbeee7bcd7bf990d26eefbedc23706101fc3c"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -667,7 +679,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_readiness.py",
-      "sha256": "173db8f320fb7d111dd5c9e028a8b81ac6b53d19acc5b551d08dbb735b8a5713"
+      "sha256": "be1dba65abaa77621de77f401afe9e27f1160008adcdb85b9367dada2e5612ea"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_scope.py",
@@ -707,15 +719,15 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/branch_tools.py",
-      "sha256": "27b47286ee2bed315bce889d882f577b3192d6a0a78eb172120b3ef4aca9dfa9"
+      "sha256": "045a6781355e0fdf4b7e3e60f79330be8e42065d1bc7fb6e8eafde637dd65f03"
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_proposal.py",
-      "sha256": "43b8aaf2c047892588425e8dc0d30794435fbe9f5b110cb9ceebd0888d8e9424"
+      "sha256": "e8e45d58e6c66057a02cc8873633dc4f69d57b1d6d79ac4e35fa1437fc923098"
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-      "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+      "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
     },
     {
       "path": "src/rde/interface/mcp/tools/descriptive_tools.py",
@@ -735,7 +747,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "fcaed7644bc1092bebfe39c2bf8050c8ccb1ee77cd4bf42b7725936317cc3943"
+      "sha256": "392ee6097b3b7ef0f6ba3ba7e099c3f009cb2d59e4e5a72aa0f93071f8c5a5c7"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -755,11 +767,11 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
-      "sha256": "79eda3ce956c1a043e3100794d7343e6e7f5ed4f1e93a7ff96d344d196c93fdb"
+      "sha256": "2d4906ade81888764b4b6ef3494669fa9469444cd45fb6e2f79801a81da368d7"
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "041f9c8d503e285209f6143337a2b8663be4715aa755f592bcbc0f8603d1fa58"
+      "sha256": "0bf98951787da858ad6629c67602dd7b398767c973f47df489c82349b71f93e2"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -823,6 +835,7 @@
         "regression",
         "imputation",
         "weighting",
+        "matching",
         "longitudinal",
         "survival",
         "prediction",
@@ -3235,7 +3248,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/comparison_contract.py",
@@ -3479,7 +3492,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/stratified_contract.py",
@@ -3748,7 +3761,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/noninferiority_contract.py",
@@ -4015,7 +4028,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/repeated_contract.py",
@@ -4231,7 +4244,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4447,7 +4460,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4663,7 +4676,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4957,7 +4970,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/regression_contract.py",
@@ -5250,7 +5263,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/imputation_contract.py",
@@ -5544,11 +5557,324 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/weighting_contract.py",
           "sha256": "f7c9c2b61700a507bec4837008b98c2e3f285e5157610118e41cf429a3842ebd"
+        }
+      ]
+    },
+    {
+      "id": "matching",
+      "group_id": "model",
+      "title": "傾向分數配對",
+      "question": "固定配對設計後，保留的treated子族群有何結果差異？",
+      "summary": "先 inspect 實際資料與編碼，再按核准規格執行完整研究。",
+      "methods": [
+        {
+          "id": "optimal_1to1_logit_caliper",
+          "label": "1:1無放回logit-caliper最適配對",
+          "execution_kind": "native",
+          "selector": {
+            "family": "matching",
+            "method": "optimal_1to1_logit_caliper",
+            "inference": "pair_cluster_cr1_t"
+          }
+        }
+      ],
+      "execution": {
+        "kind": "native",
+        "availability": "not_probed",
+        "requirements": [
+          "完整選項須納入核准且鎖定的計畫，通過 readiness；來源與清理版本固定。",
+          "研究設計、時間、分析單位與代碼須有來源；未知不自動當成已確認。"
+        ]
+      },
+      "bindings": [
+        {
+          "tool": "inspect_clinical_study",
+          "argument": "clinical_options",
+          "selector": {
+            "family": "matching"
+          }
+        },
+        {
+          "tool": "run_clinical_study",
+          "argument": "clinical_options",
+          "selector": {
+            "family": "matching"
+          }
+        }
+      ],
+      "input_roles": [
+        {
+          "id": "subject",
+          "label": "獨立個案",
+          "requirement": "唯一非空來源識別"
+        },
+        {
+          "id": "treatment",
+          "label": "處置",
+          "requirement": "[對照,處置]原碼及定義"
+        },
+        {
+          "id": "outcome",
+          "label": "結果",
+          "requirement": "連續均差或二元事件機率差，終點與時間窗固定"
+        },
+        {
+          "id": "covariates",
+          "label": "處置前共變項",
+          "requirement": "欄位、類別、單位、基底與時間依據"
+        },
+        {
+          "id": "caliper_sd",
+          "label": "配對界值",
+          "requirement": "預先固定兩組logit樣本變異平均平方根的倍數，不依結果調整"
+        }
+      ],
+      "outputs": [
+        "原始及完整個案／配對族群流程",
+        "逐列排除與配對清單",
+        "欄位與基底SMD、分布及重疊",
+        "配對群聚CR1 t(G−1)近似CI",
+        "英文投稿圖與完整限制"
+      ],
+      "requirements": [
+        "完整選項須納入核准且鎖定的計畫，通過 readiness；來源與清理版本固定。",
+        "研究設計、時間、分析單位與代碼須有來源；未知不自動當成已確認。"
+      ],
+      "limitations": [
+        "目標僅matched_treated；treated排除後不再聲稱原全體ATT或ATE。",
+        "不是Abadie–Imbens 2016估PS變異校正；不保證有限樣本涵蓋率。",
+        "完整個案、固定1:1無放回；不支援存活、重複、多對一、放回或未核准autoresearch。",
+        "品質旗標不證明交換性或未測量混雜已消除；少於5對不推論，不依p值改caliper。"
+      ],
+      "contract_refs": [
+        "src/rde/interface/mcp/tools/clinical_tools.py",
+        "src/rde/infrastructure/clinical/matching.py"
+      ],
+      "tool_input_schemas": {
+        "inspect_clinical_study": {
+          "properties": {
+            "dataset_id": {
+              "title": "Dataset Id",
+              "type": "string"
+            },
+            "clinical_options": {
+              "additionalProperties": true,
+              "title": "Clinical Options",
+              "type": "object"
+            }
+          },
+          "required": [
+            "dataset_id",
+            "clinical_options"
+          ],
+          "title": "inspect_clinical_studyArguments",
+          "type": "object"
+        },
+        "run_clinical_study": {
+          "properties": {
+            "dataset_id": {
+              "title": "Dataset Id",
+              "type": "string"
+            },
+            "clinical_options": {
+              "additionalProperties": true,
+              "title": "Clinical Options",
+              "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
+            }
+          },
+          "required": [
+            "dataset_id",
+            "clinical_options"
+          ],
+          "title": "run_clinical_studyArguments",
+          "type": "object"
+        }
+      },
+      "schema_scope": "rde.infrastructure.clinical.matching.MatchingSpec.parse; structural types only; native parse/validate also required",
+      "options_schema": {
+        "description": "Reuse validated source roles; do not execute the weighting estimator.",
+        "properties": {
+          "treatment": {
+            "title": "Treatment",
+            "type": "string"
+          },
+          "treatment_levels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Treatment Levels",
+            "type": "array"
+          },
+          "treatment_definition": {
+            "title": "Treatment Definition",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "outcome_type": {
+            "title": "Outcome Type",
+            "type": "string"
+          },
+          "outcome_unit": {
+            "title": "Outcome Unit",
+            "type": "string"
+          },
+          "outcome_definition": {
+            "title": "Outcome Definition",
+            "type": "string"
+          },
+          "time_origin": {
+            "title": "Time Origin",
+            "type": "string"
+          },
+          "outcome_window": {
+            "title": "Outcome Window",
+            "type": "string"
+          },
+          "study_design": {
+            "title": "Study Design",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "estimand": {
+            "title": "Estimand",
+            "type": "string"
+          },
+          "independent_rows": {
+            "title": "Independent Rows",
+            "type": "boolean"
+          },
+          "pretreatment_covariates": {
+            "title": "Pretreatment Covariates",
+            "type": "boolean"
+          },
+          "covariates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Covariates",
+            "type": "array"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subject"
+          },
+          "outcome_levels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outcome Levels",
+            "type": "array"
+          },
+          "interactions": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Interactions",
+            "type": "array"
+          },
+          "confidence_level": {
+            "default": 0.95,
+            "title": "Confidence Level",
+            "type": "number"
+          },
+          "cohort_filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cohort Filter"
+          },
+          "family": {
+            "default": "matching",
+            "title": "Family",
+            "type": "string"
+          },
+          "caliper_sd": {
+            "title": "Caliper Sd",
+            "type": "number"
+          },
+          "method": {
+            "default": "optimal_1to1_logit_caliper",
+            "title": "Method",
+            "type": "string"
+          },
+          "inference": {
+            "default": "pair_cluster_cr1_t",
+            "title": "Inference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "treatment",
+          "treatment_levels",
+          "treatment_definition",
+          "outcome",
+          "outcome_type",
+          "outcome_unit",
+          "outcome_definition",
+          "time_origin",
+          "outcome_window",
+          "study_design",
+          "context",
+          "estimand",
+          "independent_rows",
+          "pretreatment_covariates",
+          "covariates",
+          "caliper_sd"
+        ],
+        "title": "MatchingSpec",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "contract_sources": [
+        {
+          "path": "src/rde/interface/mcp/tools/clinical_tools.py",
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+        },
+        {
+          "path": "src/rde/infrastructure/clinical/matching.py",
+          "sha256": "17c50e397a78462b89c84a87c01785e947cff3fa5565f0ae9d1bfcba507c53f6"
         }
       ]
     },
@@ -5913,7 +6239,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/longitudinal_contract.py",
@@ -6190,7 +6516,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
+          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
         },
         {
           "path": "src/rde/infrastructure/clinical/survival.py",
@@ -8289,7 +8615,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/branch_tools.py",
-          "sha256": "27b47286ee2bed315bce889d882f577b3192d6a0a78eb172120b3ef4aca9dfa9"
+          "sha256": "045a6781355e0fdf4b7e3e60f79330be8e42065d1bc7fb6e8eafde637dd65f03"
         }
       ]
     },
@@ -8993,7 +9319,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "041f9c8d503e285209f6143337a2b8663be4715aa755f592bcbc0f8603d1fa58"
+          "sha256": "0bf98951787da858ad6629c67602dd7b398767c973f47df489c82349b71f93e2"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -9009,10 +9335,10 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/publication_tools.py",
-          "sha256": "79eda3ce956c1a043e3100794d7343e6e7f5ed4f1e93a7ff96d344d196c93fdb"
+          "sha256": "2d4906ade81888764b4b6ef3494669fa9469444cd45fb6e2f79801a81da368d7"
         }
       ]
     }
   ],
-  "catalog_sha256": "e77ad32871c0080866dd95fc4c45e0a19e2d0f4a9e4a39cce36274894af65700"
+  "catalog_sha256": "22abdb568546dcda2c97ff0516ef7d8bba28e4a5a63aadb2f4710d96a1274158"
 }

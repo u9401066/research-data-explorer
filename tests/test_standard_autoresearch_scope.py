@@ -13,7 +13,7 @@ from rde.interface.mcp.server import create_server
 from rde.interface.mcp.tools import branch_tools
 
 
-FAMILIES = ["imputation", "stratified", "noninferiority"]
+FAMILIES = ["imputation", "stratified", "noninferiority", "matching"]
 CODE = "CLINICAL_EXPLORATION_UNSUPPORTED"
 
 
@@ -26,11 +26,13 @@ def fixture(tmp_path, family):
     from test_clinical_imputation import fixture as mi_fixture
     from test_clinical_stratified import fixture as cmh_fixture
     from test_clinical_noninferiority import means_fixture
+    from test_matching_candidate import matching_fixture
 
     frame, spec = {
         "imputation": mi_fixture,
         "stratified": cmh_fixture,
         "noninferiority": means_fixture,
+        "matching": matching_fixture,
     }[family]()[:2]
     project, store, dataset, spec = clinical_project(tmp_path, frame=frame, options=spec)
     frame, variables, count, _ = PandasLoader().load(dataset.metadata)

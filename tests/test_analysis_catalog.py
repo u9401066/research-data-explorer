@@ -17,7 +17,7 @@ def test_checked_declaration_matches_live_schemas_and_source_contracts():
     generated = asyncio.run(catalog.build_catalog())
     assert catalog.load_catalog() == generated
     assert generated["catalog_sha256"] == catalog.declaration_hash(generated)
-    assert len(generated["families"]) == 23
+    assert len(generated["families"]) == 24
     assert len(generated["groups"]) == 6
     assert set(sum([group["family_ids"] for group in generated["groups"]], [])) == {
         family["id"] for family in generated["families"]
@@ -89,7 +89,7 @@ def test_real_mcp_discovery_without_project_and_unknown_family_error(tmp_path, m
             result = await client.call_tool("get_analysis_catalog", {})
             assert not result.is_error
             data = result.structured_content["data"]
-            assert len(data["families"]) == 23
+            assert len(data["families"]) == 24
             assert result.structured_content["artifacts"] == []
             complete = await client.call_tool("get_analysis_catalog", {"detail": True})
             complete_data = complete.structured_content["data"]
@@ -107,7 +107,7 @@ def test_real_mcp_discovery_without_project_and_unknown_family_error(tmp_path, m
             resource = await client.read_resource("rde://capabilities")
             capabilities = json.loads(resource.contents[0].text)
             assert capabilities["analysis_catalog"]["catalog_sha256"] == data["catalog_sha256"]
-            assert len(capabilities["analysis_catalog"]["family_ids"]) == 23
+            assert len(capabilities["analysis_catalog"]["family_ids"]) == 24
             assert "legacy adapter subset" in capabilities["clinical_methods_scope"]
 
     before = set(tmp_path.rglob("*"))
@@ -403,7 +403,7 @@ def test_cli_check_is_read_only_and_rejects_source_drift(tmp_path, monkeypatch):
     result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert (
-        "23 families" in result.stdout and catalog.load_catalog()["catalog_sha256"] in result.stdout
+        "24 families" in result.stdout and catalog.load_catalog()["catalog_sha256"] in result.stdout
     )
     assert catalog.CATALOG_PATH.read_bytes() == original
     target = installed / "rde/infrastructure/clinical/measurement.py"
@@ -411,3 +411,15 @@ def test_cli_check_is_read_only_and_rejects_source_drift(tmp_path, monkeypatch):
     failed = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
     assert failed.returncode != 0 and "source drift" in failed.stderr
     assert catalog.CATALOG_PATH.read_bytes() == original
+
+
+def test_matching_catalog_binds_exact_native_method_and_required_caliper():
+    result = catalog.get_catalog("matching")["families"][0]
+    assert result["id"] + "." + result["methods"][0]["id"] == "matching.optimal_1to1_logit_caliper"
+    assert (
+        result["options_schema"]["properties"]["method"]["default"] == "optimal_1to1_logit_caliper"
+    )
+    assert result["options_schema"]["properties"]["inference"]["default"] == "pair_cluster_cr1_t"
+    assert "caliper_sd" in result["options_schema"]["required"]
+    assert result["options_schema"]["additionalProperties"] is False
+    assert any("matched_treated" in text for text in result["limitations"])

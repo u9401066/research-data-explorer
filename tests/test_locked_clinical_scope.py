@@ -19,6 +19,7 @@ from rde.interface.mcp.tools.clinical_tools import clinical_records
 from test_clinical_imputation import fixture as mi_fixture
 from test_clinical_noninferiority import means_fixture
 from test_clinical_stratified import fixture as cmh_fixture
+from test_matching_candidate import matching_fixture
 from test_clinical_survival import clinical_project
 
 
@@ -37,6 +38,7 @@ def setup(tmp_path, family):
             "imputation": mi_fixture,
             "noninferiority": lambda: means_fixture()[:2],
             "stratified": cmh_fixture,
+            "matching": matching_fixture,
         }[family]()
         frame["secondary"] = np.arange(len(frame), dtype=float) ** 2
         project, store, dataset, spec = clinical_project(tmp_path, frame=frame, options=spec)
@@ -68,7 +70,9 @@ TOOLS = [
 ]
 
 
-@pytest.mark.parametrize("family", ["imputation", "noninferiority", "stratified", "survival"])
+@pytest.mark.parametrize(
+    "family", ["imputation", "noninferiority", "stratified", "survival", "matching"]
+)
 @pytest.mark.parametrize("tool", TOOLS)
 def test_locked_clinical_blocks_legacy_entry_before_computation(
     tmp_path, monkeypatch, family, tool

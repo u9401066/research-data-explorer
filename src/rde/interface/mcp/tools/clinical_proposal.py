@@ -90,6 +90,10 @@ def propose_clinical_plan(project, entry, pipeline, store, options, *, confirm):
         warnings.append(
             "僅指定 Welch 均差非劣性與單側下界；界值依據、方向及分析族群須事前指定，完成不代表證明非劣性，不自動建立 ITT/PP 族群。"
         )
+    elif spec.get("family") == "matching":
+        warnings.append(
+            "固定 caliper 的 1:1 不放回最佳配對；目標為成功配對處置者，非原全體 ATT。配對群集 CR1 近似推論未宣稱完整校正估計傾向分數不確定性；保存所有未配對、平衡與品質限制。"
+        )
     schedule = [
         dict(
             order=1,

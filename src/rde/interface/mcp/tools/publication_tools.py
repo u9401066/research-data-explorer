@@ -200,6 +200,8 @@ def _create_verified_edition(
             from rde.infrastructure.visualization.advanced_publication import figures
         elif prediction:
             from rde.infrastructure.prediction.publication import figures
+        elif result["spec"]["family"] == "matching":
+            from rde.infrastructure.clinical.matching_report import figures
         elif result["spec"]["family"] == "noninferiority":
             from rde.infrastructure.clinical.noninferiority_report import figures
         elif result["spec"]["family"] == "imputation":
@@ -476,6 +478,7 @@ def register_publication_tools(server):
             {
                 "presets": list_presets(),
                 "supported_studies": [
+                    "matching",
                     "noninferiority",
                     "imputation",
                     "stratified",

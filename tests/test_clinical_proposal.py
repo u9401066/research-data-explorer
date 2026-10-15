@@ -12,6 +12,7 @@ from rde.interface.mcp.server import create_server
 from test_clinical_imputation import fixture as mi_fixture
 from test_clinical_noninferiority import means_fixture
 from test_clinical_stratified import fixture as cmh_fixture
+from test_matching_candidate import matching_fixture
 
 
 def call(name, args, denied=False):
@@ -22,6 +23,7 @@ def call(name, args, denied=False):
 
 def setup(tmp_path, family):
     frame, spec = {
+        "matching": matching_fixture,
         "imputation": mi_fixture,
         "stratified": cmh_fixture,
         "noninferiority": lambda: means_fixture()[:2],
@@ -65,7 +67,7 @@ def register(base, spec):
     }
 
 
-@pytest.mark.parametrize("family", ["imputation", "stratified", "noninferiority"])
+@pytest.mark.parametrize("family", ["imputation", "stratified", "noninferiority", "matching"])
 def test_typed_proposal_draft_confirm_and_registration_match_exact_method(tmp_path, family):
     base, store, spec = setup(tmp_path, family)
     args = {**base, "clinical_options": spec.to_dict(), "max_analyses": 1}
@@ -96,7 +98,7 @@ def test_typed_proposal_draft_confirm_and_registration_match_exact_method(tmp_pa
     assert [step["tool_name"] for step in schedule] == ["run_clinical_study"]
 
 
-@pytest.mark.parametrize("family", ["imputation", "stratified", "noninferiority"])
+@pytest.mark.parametrize("family", ["imputation", "stratified", "noninferiority", "matching"])
 def test_typed_confirmation_and_registration_reject_changed_or_missing_contract(tmp_path, family):
     base, store, spec = setup(tmp_path, family)
     args = {**base, "clinical_options": spec.to_dict()}
@@ -112,6 +114,8 @@ def test_typed_confirmation_and_registration_reject_changed_or_missing_contract(
     changed = deepcopy(args)
     if family == "noninferiority":
         changed["clinical_options"]["margin"] += 1
+    elif family == "matching":
+        changed["clinical_options"]["caliper_sd"] = 0.5
     elif family == "imputation":
         changed["clinical_options"]["seed"] += 1
     else:

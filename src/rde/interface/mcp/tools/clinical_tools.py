@@ -57,6 +57,7 @@ from rde.infrastructure.clinical.noninferiority_contract import (
     noninferiority_preflight,
     prepare_noninferiority,
 )
+from rde.infrastructure.clinical.matching import MatchingSpec, matching_preflight, prepare_matching
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
@@ -66,6 +67,8 @@ def planned_clinical_spec(entry):
 
 
 def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family") == "matching":
+        return MatchingSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "noninferiority":
         return NoninferioritySpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "imputation":
@@ -204,7 +207,9 @@ def register_clinical_tools(server: Any):
                 ),
             ):
                 preflight = (
-                    noninferiority_preflight
+                    matching_preflight
+                    if isinstance(spec, MatchingSpec)
+                    else noninferiority_preflight
                     if isinstance(spec, NoninferioritySpec)
                     else imputation_preflight
                     if isinstance(spec, ImputationSpec)
@@ -271,6 +276,8 @@ def register_clinical_tools(server: Any):
         內層 columns 明列原始欄位、代碼、unit、impute 與 predictors，m/burn_in/between/k_pmm/seed 固定。
         頂層 missing_strategy=multiple_imputation、multiplicity=none；全部完成CSV與模型保存，原觀察格不變。
         Rubin covariance 配逐項漸近常態Wald；不冒稱Barnard-Rubin、MNAR或NARFCS。
+        matching 僅1:1無放回logit-caliper最適配對＋pair-cluster CR1 t(G−1)近似推論；
+        僅matched_treated族群、完整個案、不得依outcome調配對、不得聲稱全體ATT或AI2016校正。
         noninferiority 只允許 method=welch_mean，subject 必填、treatment_levels=[control,treatment]、
         outcome/outcome_unit/window/definition、direction=higher_is_better/lower_is_better、margin>0、
         margin_scale=outcome_unit、margin_basis、population_definition；內層complete_case，頂層listwise/none。
@@ -332,6 +339,7 @@ def register_clinical_tools(server: Any):
         from rde.infrastructure.clinical.imputation import run_imputation
         from rde.infrastructure.clinical.stratified import run_stratified
         from rde.infrastructure.clinical.noninferiority import run_noninferiority
+        from rde.infrastructure.clinical.matching import run_matching
         from rde.infrastructure.clinical.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
@@ -352,7 +360,9 @@ def register_clinical_tools(server: Any):
                 )
             parameters["variables"] = spec.variables()
             frame_hash = (
-                prepare_noninferiority(entry.dataframe, spec)
+                prepare_matching(entry.dataframe, spec)
+                if isinstance(spec, MatchingSpec)
+                else prepare_noninferiority(entry.dataframe, spec)
                 if isinstance(spec, NoninferioritySpec)
                 else prepare_imputation(entry.dataframe, spec)
                 if isinstance(spec, ImputationSpec)
@@ -438,7 +448,9 @@ def register_clinical_tools(server: Any):
                 previous["result"]
                 if previous
                 else (
-                    run_noninferiority(entry.dataframe, spec)
+                    run_matching(entry.dataframe, spec)
+                    if isinstance(spec, MatchingSpec)
+                    else run_noninferiority(entry.dataframe, spec)
                     if isinstance(spec, NoninferioritySpec)
                     else run_imputation(entry.dataframe, spec, derived_directory)
                     if isinstance(spec, ImputationSpec)

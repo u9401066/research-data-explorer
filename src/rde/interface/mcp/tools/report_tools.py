@@ -2240,6 +2240,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "matching" for r in results["clinical_studies"]):
+            return "已完成預先鎖定的1:1無放回傾向分數配對與配對群聚近似推論。效果僅針對保留的matched-treated族群；請核對完整個案、配對排除、原始欄位與模型基底平衡及重疊，不把結果外推為原全體ATT。"
         if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
             study = next(
                 r for r in results["clinical_studies"] if r.get("family") == "noninferiority"
@@ -2343,6 +2345,8 @@ def _formal_conclusions(
         return "描述限於本次來源的資料列；不同識別碼不等於獨立病人。逐欄保留缺失，沒有陰性補值、刪除重複列或檢定。推論需要依報告未解事項另訂研究定義與方法，再修訂／追加並審閱計畫。"
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "matching" for r in results["clinical_studies"]):
+            return "配對後均差或事件機率差使用treatment-only OLS、pair-cluster CR1及G−1自由度。仍需核對交換性、未測量混雜及剩餘不平衡；SMD通過或計算完成不證明因果效果。"
         if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
             return "非劣性推論限於預定 margin、方向、單側 alpha 與共同完整個案。須以單側下限嚴格高於 −margin 且單側檢定通過共同判定，界值等號不通過；未通過 NI 也不等於已證明劣效。margin 的臨床依據、assay sensitivity、constancy、缺失機制與 ITT／PP 成員資格仍需獨立審閱。觀察性比較不能直接宣稱因果治療非劣性。"
         if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
@@ -2440,6 +2444,8 @@ def _build_interpretation_discussion(
         return "描述限於本次來源的資料列；不同識別碼不等於獨立病人。逐欄保留缺失，沒有陰性補值、刪除重複列或檢定。推論需要依報告未解事項另訂研究定義與方法，再修訂／追加並審閱計畫。"
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "matching" for r in results["clinical_studies"]):
+            return "完整個案與caliper排除會改變目標族群；估計PS的不確定性未獲完整精確校正。少量配對或稀疏discordant pairs的推論需審閱；不支援放回、多對一、生存結果或依p值調整配對。"
         if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
             return "## 非劣性結果解讀\n\n先核對原始尺度、處置與對照代碼、改善方向、預定 margin 及臨床依據，再讀單側 alpha、均差與單側下限。圖中箭頭代表無界上限，不是雙側 CI；等號或數值界值不通過。計算完成、未能證明非劣性與非劣性成立是不同狀態；NI 陰性不得改寫為 superiority、等效或劣效證明。完整個案不驗證 ITT／PP，失訪、介入依從性、研究設計與 margin 可轉用性仍需審閱。"
         if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
@@ -2641,6 +2647,7 @@ def _figure_interpretation_harness_entry(
         "clinical_imputation_flow",
         "clinical_stratified_flow",
         "clinical_noninferiority_flow",
+        "clinical_matching_flow",
     }:
         clinical_role = (
             "Prespecified clinical analysis-population flow",
@@ -2688,6 +2695,14 @@ def _figure_interpretation_harness_entry(
             "The common OR is not a risk ratio, risk difference or causal effect. CMH and the OR interval use different asymptotic procedures; a nonsignificant or unavailable equal-odds diagnostic does not prove homogeneity.",
             "Report the saved common OR, interval method and CMH result without substituting an interval crossing rule for the primary test.",
             "Read each stratum table and the Breslow-Day/Tarone diagnostic; retain all prespecified strata and do not gate reporting on heterogeneity significance.",
+        )
+    elif plot.startswith("clinical_matching_"):
+        clinical_role = (
+            "Prespecified matched-sample effect and design diagnostics",
+            "Uses the saved pairs, fixed-denominator balance diagnostics and pair-cluster interval without refitting.",
+            "Approximate matched-treated inference; observed balance does not verify unconfoundedness or the full original ATT.",
+            "Report retained pairs, unmatched reasons, original-scale direction, CR1 correction and G-1 degrees of freedom.",
+            "Review residual imbalance, score overlap, sparse pairs and the prespecified target; never tune matching by outcome p-values.",
         )
     elif plot == "clinical_noninferiority_effect":
         clinical_role = (

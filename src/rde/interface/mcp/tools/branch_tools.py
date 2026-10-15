@@ -1283,7 +1283,7 @@ def _clinical_exploration_blocker(store: ArtifactStore) -> str | None:
         arguments = entry.get("execution_arguments")
         options = arguments.get("clinical_options") if isinstance(arguments, dict) else None
         family = options.get("family") if isinstance(options, dict) else None
-        if family in {"imputation", "stratified", "noninferiority"}:
+        if family in {"imputation", "stratified", "noninferiority", "matching"}:
             return (
                 f"CLINICAL_EXPLORATION_UNSUPPORTED: The locked {family} study has no "
                 "validated branch/autoresearch contract. Execute its exact approved "
