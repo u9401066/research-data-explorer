@@ -63,7 +63,13 @@ class PandasLoader(DataLoaderPort):
         if metadata.preparation is not None:
             from rde.infrastructure.preparation.portable import load_prepared
 
-            return load_prepared(metadata)
+            data, variables, rows, report = load_prepared(metadata)
+            from .privacy import apply_privacy
+
+            data, variables = apply_privacy(
+                data, variables, metadata.privacy, source_path=metadata.file_path
+            )
+            return data, variables, rows, report
         report = RawDataNormalizationReport()
         raw = self._read_raw_table(metadata, report)
         header_rows = self._detect_header_rows(raw)
@@ -99,6 +105,11 @@ class PandasLoader(DataLoaderPort):
                 variable.extra["semantic_alias"] = semantic_alias
             variables.append(variable)
 
+        from .privacy import apply_privacy
+
+        data, variables = apply_privacy(
+            data, variables, metadata.privacy, source_path=metadata.file_path
+        )
         return data, variables, len(data), report
 
     @staticmethod

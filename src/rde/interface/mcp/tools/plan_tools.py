@@ -1896,13 +1896,25 @@ def register_plan_tools(server: Any) -> None:
             # H-004: PII check
             pii_vars = []
             if dataset_ok and dataset_entry is not None:
-                pii_vars = [v.name for v in dataset_entry.dataset.variables if v.is_pii_suspect]
+                pii_vars = [
+                    v.name
+                    for v in dataset_entry.dataset.variables
+                    if v.is_pii_suspect and not v.extra.get("privacy_action")
+                ]
             checks.append(
                 {
                     "id": "H-004",
                     "name": "PII 偵測",
                     "passed": len(pii_vars) == 0,
-                    "detail": f"疑似 PII: {pii_vars}" if pii_vars else "無 PII",
+                    "detail": f"疑似 PII: {pii_vars}"
+                    if pii_vars
+                    else (
+                        "已依研究資料保護規格處理；日期保留與未識別資訊仍需核對，不代表匿名認證。"
+                        if dataset_ok
+                        and dataset_entry.dataset.metadata
+                        and dataset_entry.dataset.metadata.privacy
+                        else "無 PII"
+                    ),
                 }
             )
             if pii_vars:

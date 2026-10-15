@@ -285,6 +285,7 @@ def register_clinical_tools(server: Any):
                 path=str(metadata.file_path),
                 sha256=hashlib.sha256(metadata.file_path.read_bytes()).hexdigest(),
                 sheet=metadata.sheet_name,
+                **({"privacy": metadata.privacy} if metadata.privacy else {}),
             )
             filename = f"clinical_study_{digest(dataset_id)[:16]}.json"
             previous = store.load(PipelinePhase.EXECUTE_EXPLORATION, filename)

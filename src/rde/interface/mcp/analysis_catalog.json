@@ -91,7 +91,7 @@
     },
     {
       "path": "src/rde/domain/models/dataset.py",
-      "sha256": "2da79969436e3115f4488c2eb01710a479113faedc91710b6aa1587bdb933706"
+      "sha256": "bb37bddd86e957a2adc2d67e2d3b9f823f409b94695d31354a9d838c5fe0e33d"
     },
     {
       "path": "src/rde/domain/models/evidence_arms.py",
@@ -211,7 +211,7 @@
     },
     {
       "path": "src/rde/domain/services/variable_classifier.py",
-      "sha256": "1989dc1034a259e9ad5227d40d43a2befb3fe6adcf648a240bce5a5d833dab4c"
+      "sha256": "c5ae191adf3fa2a4645755866000d97278db0fb01166f7249fe19222dc39f796"
     },
     {
       "path": "src/rde/infrastructure/__init__.py",
@@ -243,7 +243,7 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
-      "sha256": "d91097abeee76d71188a826becd53b1bf6efeda8a44aba273543ef71387e5c0a"
+      "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
     },
     {
       "path": "src/rde/infrastructure/adapters/descriptive_study.py",
@@ -259,7 +259,11 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/pandas_loader.py",
-      "sha256": "c76d8628b06b480f2e28ac414121aaa6c9815d8a246183cd66530bdb5eae8f5f"
+      "sha256": "86ed31b951d93b06e83ed0099cd95a292850497a4080637c50354e33d16f5696"
+    },
+    {
+      "path": "src/rde/infrastructure/adapters/privacy.py",
+      "sha256": "817f00f3feb15990368b47496a4ed2436be2988f0852c023cbbae0641132d241"
     },
     {
       "path": "src/rde/infrastructure/adapters/scipy_engine.py",
@@ -579,7 +583,7 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "58bdf1212a9328d239a779bd4814c6869df7d24dbba434815c13bbf5876ec13c"
+      "sha256": "ec944189a080c6b39f8ea95467311300dfae75424b00b662c1be840aad1e4620"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
@@ -643,7 +647,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/project_context.py",
-      "sha256": "29a34d7043cdbf3faf1f7064d715b1b51295423e85f3815e4c7c47016eb7716f"
+      "sha256": "ac7af4d5f063c41101c5767d38c9c6692b3b1e6d3604d3fe622fa60fc1370b7d"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/repeated_readiness.py",
@@ -667,7 +671,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-      "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+      "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
     },
     {
       "path": "src/rde/interface/mcp/tools/descriptive_tools.py",
@@ -675,7 +679,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/discovery_tools.py",
-      "sha256": "47d9c6f84187816273758a74736b94783f3d9f99743d3ae215eb1202cb51da5e"
+      "sha256": "e30e1c03e4cf1e64591e3f80cbdb3d3982f8210a6983a32e8ef1dd166331a510"
     },
     {
       "path": "src/rde/interface/mcp/tools/evidence_tools.py",
@@ -687,7 +691,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "3bb2cd055bbed0a61c1d6d0aedc3800b006dfdff719a8a1f400470c3defbc35f"
+      "sha256": "c727ffa42f49b363add7222dbd75825bec930e802e55a8f1c948bbaa18ee6bc3"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -929,6 +933,24 @@
               "default": null,
               "title": "Prepared Source"
             },
+            "pii_policy": {
+              "default": "block",
+              "title": "Pii Policy",
+              "type": "string"
+            },
+            "privacy": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Privacy"
+            },
             "execution_key": {
               "anyOf": [
                 {
@@ -1042,7 +1064,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/discovery_tools.py",
-          "sha256": "47d9c6f84187816273758a74736b94783f3d9f99743d3ae215eb1202cb51da5e"
+          "sha256": "e30e1c03e4cf1e64591e3f80cbdb3d3982f8210a6983a32e8ef1dd166331a510"
         },
         {
           "path": "src/rde/interface/mcp/tools/profiling_tools.py",
@@ -3184,7 +3206,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/comparison_contract.py",
@@ -3451,7 +3473,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/repeated_contract.py",
@@ -3667,7 +3689,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -3883,7 +3905,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4099,7 +4121,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4393,7 +4415,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/regression_contract.py",
@@ -4687,7 +4709,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/weighting_contract.py",
@@ -5056,7 +5078,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/longitudinal_contract.py",
@@ -5333,7 +5355,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "2037019776b39f313b4d8676e915f2e12b7d047afb451024a85d8df9575375b9"
+          "sha256": "5cbd78dd509109699a50e1b5e866dda77409f33ac1c9c8d916b050d3f4664588"
         },
         {
           "path": "src/rde/infrastructure/clinical/survival.py",
@@ -8157,5 +8179,5 @@
       ]
     }
   ],
-  "catalog_sha256": "fd95a93d2ead99aae7be414d3f6690c8e85d4c73f287bca9b3625a9760122afa"
+  "catalog_sha256": "888b8d5c587be81441ef94db8011b3e23023d007bbed94c2f07d9b1c61ba8adb"
 }

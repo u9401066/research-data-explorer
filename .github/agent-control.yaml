@@ -288,6 +288,13 @@ override_controls:
     tools:
       - load_dataset
       - run_intake
+    assisted_intake_policy: pseudonymize
+    assisted_intake_tool: run_intake
+    assisted_intake_receipt: privacy_receipt.json
+    preserves: [source_bytes, row_count, duplicate_and_null_keys, clinical_dates, ambiguous_clinical_text]
+    private_key: RDE_PRIVACY_KEY_FILE_or_workspace_private_key
+    scientific_execution: same_source_bound_privacy_recipe_on_restart_and_every_run
+    does_not_establish: [anonymous_data,_identity_truth,clinical_validation]
     explicit_override_flag: allow_pii
     user_visible_warning_required_on_override: true
 
