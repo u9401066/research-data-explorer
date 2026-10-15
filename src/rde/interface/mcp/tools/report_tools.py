@@ -1847,10 +1847,17 @@ def _flatten_variable_roles(variable_roles: dict | None) -> dict[str, str]:
         return roles
     # Native Phase 3 stores an envelope, not a column->role mapping. Metadata
     # such as dataset/research_question must never become reported variables.
-    if isinstance(variable_roles.get("variable_roles"), dict):
-        variable_roles = variable_roles["variable_roles"]
-    elif isinstance(variable_roles.get("roles"), dict):
-        variable_roles = variable_roles["roles"]
+    for wrapper in ("variable_roles", "roles"):
+        canonical = variable_roles.get(wrapper)
+        if isinstance(canonical, dict):
+            # The explicit envelope declares column -> role direction. A real
+            # column can itself be named treatment, outcome or group; applying
+            # the legacy role-key heuristic would invert it or merge columns.
+            return {
+                str(column): role
+                for column, role in canonical.items()
+                if isinstance(role, str) and role
+            }
     for key, raw in variable_roles.items():
         key_text = str(key)
         if isinstance(raw, list):
