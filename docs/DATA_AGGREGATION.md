@@ -7,7 +7,7 @@ Python/SQL, or a second aggregation engine. Candidate preview and preparation
 draft execute the same native preparation engine.
 
 This document describes the native 0.5.4 contract. Publication status and exact
-release assets are recorded in GitHub Releases, independently of a deployed host.
+release assets are recorded in [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases), independently of a deployed host.
 A successful preview is not a released dataset, an approved research plan,
 a completed analysis, or clinical validation.
 

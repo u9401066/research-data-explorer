@@ -8,9 +8,9 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 
 ![從研究設計、個案帳本、效果量與不確定性，到可審查結論](docs/assets/evidence-chain.svg)
 
-## 0.5.4 整合候選：原生資料聚合與研究證據
+## 0.5.4：原生資料聚合與研究證據
 
-同一個 RDE MCP 內建具型別 Data Aggregation、明確單位映射契約、固定研究計畫與資料準備版本的報告，以及可重算的描述性圖表。原生完整回歸為 **1,311 passed／76 skipped／5 optional vendor deselected**；擴充套件 40 項及發布封裝核對通過。平台真 Qwen 案例、最終發布與臨床效度分開判定，不能從工程測試推定已正式發布。
+同一個 RDE MCP 內建具型別 Data Aggregation、明確單位映射契約、固定研究計畫與資料準備版本的報告，以及可重算的描述性圖表。原生完整回歸為 **1,311 passed／76 skipped／5 optional vendor deselected**；擴充套件 40 項及發布封裝核對通過。平台真 Qwen 案例與臨床效度另行驗收；正式發布記錄與可下載資產以 [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases) 為準，不由工程測試或平台部署推定。
 
 ## 0.5.3：依研究問題查找能力
 

@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The Python package and VS Code extension share the release version.
 
-## [0.5.4] - 2026-10-14
+## [0.5.4] - 2026-10-15
 
 ### Approved research definitions and report rendering
 

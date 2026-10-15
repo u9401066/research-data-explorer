@@ -29,9 +29,9 @@ RDE therefore treats automl-stat-mcp as optional. The built-in MCP server can co
 
 ## Documentation / i18n
 
-- Repository overview: [../README.md](../README.md)
-- Traditional Chinese overview: [../README.zh-TW.md](../README.zh-TW.md)
-- Agent contract: [../AGENTS.md](../AGENTS.md)
+- Repository overview: [../README.md](https://github.com/u9401066/research-data-explorer/blob/main/README.md)
+- Traditional Chinese overview: [../README.zh-TW.md](https://github.com/u9401066/research-data-explorer/blob/main/README.zh-TW.md)
+- Agent contract: [../AGENTS.md](https://github.com/u9401066/research-data-explorer/blob/main/AGENTS.md)
 - Extension guide: this file
 
 Keep these documents aligned when changing phase gates, Codex MCP setup, no-Docker behavior, release validation evidence, or supported-platform expectations.

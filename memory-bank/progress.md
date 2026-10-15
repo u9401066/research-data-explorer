@@ -1,5 +1,13 @@
 # Progress
 
+## Current 0.5.4 status — 2026-10-15
+
+- Native engine remains `cf0676f`; documentation HEAD is recorded separately. Native validation remains 1,311 passed / 76 skipped / 5 optional vendor deselected, plus 40 extension tests. No new native computation is implied by this documentation update.
+- Workbench independently verified the formal single-table, multi-table and followup scopes. PBC used a manually rerun approved plan; the missing followup comparison was completed by a manually triggered, real Qwen readonly regeneration using the existing analyses. The original incomplete answer and prior failures remain evidence, not relabeled successes.
+- Native technical checks remain `clinical_validation=not_performed`. Publication status and release assets are authoritative in [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases); host deployment and research acceptance are separate records.
+- The dated entries below retain their original candidate/pending status and are historical checkpoints.
+
+
 ## 2026-10-14 — 0.5.4 native aggregation integration candidate
 
 - Native `data_preparation` now exposes ten aggregation methods and immutable compose/patch/read/preview/diff operations; existing review, approval and release gates remain separate. Explicit unit mappings are discoverable without changing computation.

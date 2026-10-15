@@ -32,7 +32,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-The **0.5.4 integration candidate** adds native [Data Aggregation](docs/DATA_AGGREGATION.md), explicit unit-rule discovery, source-bound descriptive figures and approved-plan/preparation evidence in reports. Current native validation: **1,311 passed, 76 skipped, 5 optional vendor tests deselected**, plus 40 extension tests and release-payload checks. Workbench integration and final release acceptance are tracked separately; these counts do not establish clinical validity or a published release.
+Version **0.5.4** adds native [Data Aggregation](docs/DATA_AGGREGATION.md), explicit unit-rule discovery, source-bound descriptive figures and approved-plan/preparation evidence in reports. Current native validation: **1,311 passed, 76 skipped, 5 optional vendor tests deselected**, plus 40 extension tests and release-payload checks. Workbench study acceptance is tracked separately; these counts do not establish clinical validity. The authoritative publication record and downloadable assets are in [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases).
 
 The following baseline records retain their original scope.
 
