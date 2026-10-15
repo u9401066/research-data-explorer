@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The Python package and VS Code extension share the release version.
 
+## [0.6.0] - 2026-10-15
+
+### Bounded native clinical methods
+
+- Add Python PMM multiple imputation for independent continuous/binary variables, Gaussian/binomial models, Rubin covariance and explicitly asymptotic Wald inference. Preserve observed cells, every completed dataset, case ledgers, diagnostics and immutable artifact inventories; no MNAR, multilevel or small-sample MI claims.
+- Add binary stratified CMH, common Mantel–Haenszel OR and homogeneity diagnostics with fixed strata and complete-case accounting; add independent continuous Welch noninferiority with a prespecified margin, direction, population and one-sided decision contract. Unsupported binary/survival NI and generalized/exact CMH remain explicit.
+- Add fixed 1:1 no-replacement logit-caliper matching with maximum-cardinality/minimum-distance assignment, original and matched population ledgers, balance/overlap diagnostics and approximate pair-cluster CR1 t inference. The estimand is the retained matched-treated population, not automatically all-treated ATT.
+- Add baseline point-treatment target-trial protocols that reuse native weighting. `get_target_trial_contract` returns verified approved-preparation bindings; time-zero, baseline availability, complete fixed follow-up, source/release/trace closure and outcome-blind eligibility are checked. Dynamic strategies, time-varying treatment, CCW and incomplete follow-up remain unsupported.
+
+### Exact plans, replay and reporting
+
+- Preserve full typed clinical options through inspect, proposal confirmation, plan registration, execution and reporting. Legacy analysis/cleaning and unsupported autoresearch entries cannot bypass locked method/missingness/multiplicity rules.
+- Revalidate current sources and every frozen numerical/table/figure artifact before execution-key replay. Cached results cannot silently refit, repair missing artifacts or adopt a new specification.
+- Produce source-bound native reports, DOCX and English SVG/PDF/300 dpi PNG/TIFF figures with Chinese explanations. Gaussian MI coefficients retain outcome-unit meaning even for binary predictors; matching/TTE reports preserve canonical treatment/outcome roles and cannot replace missing inference with empirical group contrasts.
+- Synchronize 78-tool editor/guide inventories and `/advanced` TTE source discovery; update six EDA/report skills with live-contract routing and precise method boundaries. Native catalog coverage is 25 families, distinct from live-model or published-article reproduction.
+
+### Release verification
+
+- Keep Python, VSIX and npm root lock metadata at 0.6.0. See `docs/release-0.6.0-validation.md` for actual local verification, optional-engine/platform limits and the separate Workbench acceptance boundary. Historical QA records remain unchanged; no publication is inferred from local packaging.
+
 ## [0.5.4] - 2026-10-15
 
 ### Approved research definitions and report rendering

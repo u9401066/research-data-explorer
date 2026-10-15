@@ -162,6 +162,25 @@ def test_vsix_package_declares_expected_mcp_tool_surface() -> None:
     assert {"init_project", "propose_analysis_plan", "get_blocker_playbook"} <= manifest_tools
 
 
+@pytest.mark.parametrize(
+    ("name", "heading"),
+    [("README.md", "## MCP Tool Surface"), ("README.zh-TW.md", "## MCP + Harness 設計")],
+)
+def test_current_readme_inventory_matches_registered_mcp_surface(name, heading):
+    section = (ROOT / name).read_text(encoding="utf-8").split(heading, 1)[1]
+    section = section.split("\n## ", 1)[0]
+    rows = re.findall(r"^\| `([^`]+\.py)` \| (\d+) \| (.+) \|$", section, re.MULTILINE)
+    assert rows, name
+    tools = []
+    for module, count, names in rows:
+        assert (TOOLS_DIR / module).is_file(), module
+        declared = re.findall(r"`(\w+)`", names)
+        assert len(declared) == int(count), module
+        tools.extend(declared)
+    assert len(tools) == len(set(tools)), name
+    assert set(tools) == _extract_server_tool_names(), name
+
+
 def test_live_mcp_tool_list_includes_project_bootstrap_chain() -> None:
     pytest.importorskip("mcp.server")
 

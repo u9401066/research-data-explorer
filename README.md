@@ -10,7 +10,7 @@ RDE helps agents collaborate on clinically meaningful, reproducible research rep
 
 ## Clinical research without extensive custom code
 
-- Seven local methods now cover risk ratios/odds ratios/risk differences, diagnostic accuracy, exact McNemar tests, Bland–Altman agreement, Cohen's kappa, GEE and random-intercept mixed models. See [methods, assumptions and uncertainty](docs/clinical-methods.md).
+- The legacy local-method adapter covers risk ratios/odds ratios/risk differences, diagnostic accuracy, exact McNemar tests, Bland–Altman agreement, Cohen's kappa, GEE and random-intercept mixed models. See [methods, assumptions and uncertainty](docs/clinical-methods.md).
 - Long-form paired comparisons join by **subject ID**, not row order. Every outcome records its analyzed case set; repeated-measures contrasts distinguish complete-cohort and pairwise-complete denominators.
 - Analysis completeness means distinct required plan entries backed by successful artifacts, not a count of repeated tool calls. Reports retain failed analyses and missing uncertainty as limitations.
 - Agents can supply their own hypotheses through `agent_proposals`. Autoresearch retains unsupported ideas as **recorded, not executed**, separates branches from primary findings, and never ranks scientific merit by statistical significance. See [design and research-agent references](docs/autoresearch-design.md).
@@ -32,15 +32,17 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Version **0.5.4** adds native [Data Aggregation](docs/DATA_AGGREGATION.md), explicit unit-rule discovery, source-bound descriptive figures and approved-plan/preparation evidence in reports. Current native validation: **1,311 passed, 76 skipped, 5 optional vendor tests deselected**, plus 40 extension tests and release-payload checks. Workbench study acceptance is tracked separately; these counts do not establish clinical validity. The authoritative publication record and downloadable assets are in [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases).
+Version **0.6.0** adds five bounded native clinical families to the existing data-preparation and analysis workflow: [PMM multiple imputation](docs/imputation-study.md), [binary stratified CMH/MH odds ratios](docs/stratified-study.md), [independent continuous Welch noninferiority](docs/noninferiority-study.md), [fixed 1:1 propensity matching](docs/matching-study.md), and [baseline target-trial protocols](docs/target-trial-source-validation.md). The live catalog contains **25 families and 78 MCP tools across 17 modules**. Discover the full family contract, inspect the exact source/specification, approve and lock it, then execute that same specification.
+
+These methods retain population ledgers, immutable numerical receipts, source-bound tables/figures and report/replay checks. Matching targets the retained matched-treated population with approximate pair-cluster inference; TTE requires approved preparation evidence and complete fixed follow-up. Neither name implies unrestricted ATT estimation, dynamic-treatment TTE, validated clinical assumptions or reproduction of published articles. Full scope and release-check boundaries are recorded in [0.6.0 native validation](docs/release-0.6.0-validation.md). Workbench/Qwen study acceptance is separate. The authoritative publication record and downloadable assets remain [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases).
 
 The following baseline records retain their original scope.
 
 Version 0.5.2 adds [typed Canvas transitions](docs/canvas-workflow.md). Baseline 0.5.1 verification on 2026-10-12: **1,085 Python tests passed,
 81 explicitly skipped**; Ruff, 40 extension tests and the wheel/sdist/VSIX payload
-audit passed. The live inventory contains **77 tools across 17 modules**.
+audit passed. At that baseline, the inventory contained **77 tools across 17 modules**.
 The project-independent [analysis catalog](docs/analysis-catalog.md) groups the
-research surface into 20 families. Call `get_analysis_catalog()` for discovery,
+then-current research surface into 20 families. Call `get_analysis_catalog()` for discovery,
 then request one family for native schemas, prerequisites and limitations.
 [Governed data preparation](docs/DATA_PREPARATION.md) now covers immutable multi-table
 rules, partial linkage, cohort/time windows, case and denominator review, typed
@@ -95,7 +97,7 @@ This README is aligned with the current implementation, not only the older prose
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
 | MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 17 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
-| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 77 tools, explicit effect/gate metadata, structured output and live inventory tests |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 78 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
@@ -142,7 +144,7 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 77 MCP tools across 17 modules:
+The current implementation exposes 78 MCP tools across 17 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
@@ -154,7 +156,7 @@ The current implementation exposes 77 MCP tools across 17 modules:
 | `analysis_tools.py` | 8 | `suggest_cleaning`, `apply_cleaning`, `analyze_variable`, `compare_groups`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures` |
 | `prediction_tools.py` | 1 | `run_prediction_study` |
 | `descriptive_tools.py` | 1 | `run_descriptive_study` |
-| `clinical_tools.py` | 2 | `inspect_clinical_study`, `run_clinical_study` |
+| `clinical_tools.py` | 3 | `get_target_trial_contract`, `inspect_clinical_study`, `run_clinical_study` |
 | `sample_size_tools.py` | 5 | `draft_sample_size_plan`, `get_sample_size_plan`, `approve_sample_size_plan`, `run_sample_size_plan`, `render_sample_size_publication` |
 | `evidence_tools.py` | 5 | `evidence_arm_preparation`, `import_evidence_source`, `get_evidence_source`, `render_evidence_study`, `render_evidence_publication` |
 | `genomics_tools.py` | 4 | `import_genomics_source`, `get_genomics_source`, `render_genomics_study`, `render_genomics_publication` |

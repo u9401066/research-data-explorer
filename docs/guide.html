@@ -508,6 +508,7 @@
     .phase code,
     code {
       font-family: var(--mono);
+      overflow-wrap: anywhere;
     }
 
     .phase-number {
@@ -1036,8 +1037,12 @@
 
       <div class="content">
         <aside class="section" aria-label="Current capabilities">
-          <h2>MCP 2.2+ · 開放研究 / Open research</h2>
+          <h2>RDE 0.6.0 · 25 個能力家族 / 25 capability families</h2>
           <p>78 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
+          <p>新原生契約 / New native contracts: PMM multiple imputation · binary CMH / MH OR · continuous Welch noninferiority · fixed 1:1 matching · baseline target trial.</p>
+          <p><code>get_analysis_catalog(family, detail=true)</code> → <code>inspect_clinical_study</code> → 審閱並鎖定完整規格 / review and lock the exact specification → <code>run_clinical_study</code>。TTE 先用 <code>get_target_trial_contract</code> 取得已核准資料準備的來源綁定。</p>
+          <p>配對僅針對保留的 matched-treated 族群，採近似推論；TTE 僅限基線單次處置、單一 time-zero 與完整固定追蹤。/ Matching targets retained matched-treated subjects with approximate inference; TTE supports baseline point treatment and complete fixed follow-up only.</p>
+          <p><a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/release-0.6.0-validation.md">0.6.0 方法界線與驗證 / Method boundaries and verification</a>。工程檢查不代表 Qwen 已正確重現論文或完成臨床驗證。 / Engineering checks do not establish paper reproduction or clinical validity.</p>
           <p><a href="index.html#clinical">臨床方法 / Clinical methods</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/mcp-v2.md">SDK migration</a> · <a href="https://github.com/u9401066/research-data-explorer/blob/main/docs/autoresearch-design.md">Autoresearch contracts</a></p>
           <p>研究證據以效應量、不確定性、實際個案與限制為核心；工具完成、稽核分數或 p 值都不等於臨床可信度。 / Estimates, uncertainty, actual cases, and limitations matter. Tool completion, audit scores, and p-values do not establish clinical credibility.</p>
         </aside>
@@ -1146,7 +1151,7 @@
 
           <div class="callout">
             <strong>先發現能力，再指定研究：</strong>
-            <code>get_analysis_catalog()</code> 不需要 project，先取得 6 組、20 個研究族群的摘要；
+            <code>get_analysis_catalog()</code> 不需要 project，先取得 6 組、25 個能力家族的摘要；
             再用 <code>get_analysis_catalog(family="survival")</code> 讀取該族群的原生輸入 schema、前提與限制。
             工具會區分本機分析、外部結果收據與需另行配置的 AutoML。目錄不代表核准或服務已就緒；
             詳見 <a href="analysis-catalog.md">能力目錄契約</a>。
@@ -1793,7 +1798,7 @@ python3 -m rde</pre>
               </article>
               <article class="card">
                 <h4>Optional automl</h4>
-                <p>若需要 full propensity matching、進階 survival 或 AutoML training，可另啟 <code>vendor/automl-stat-mcp</code>。</p>
+                <p>原生 bounded matching／weighting 已有獨立契約；需要 vendor 支援的 AutoML training 等工作時，可另啟 <code>vendor/automl-stat-mcp</code>。</p>
               </article>
             </div>
           </div>

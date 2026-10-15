@@ -1,6 +1,13 @@
 # Progress
 
-## Current 0.5.4 status — 2026-10-15
+## Current 0.6.0 release preparation — 2026-10-15
+
+- Runtime includes native PMM MI, binary CMH, Welch continuous NI, fixed 1:1 matching and baseline TTE: 25 families / 78 MCP tools. Exact clinical proposals, source/replay guards and canonical report roles retain their original finite scopes.
+- Package and extension metadata move together to 0.6.0; runtime version comes from installed package metadata. Current validation and intentional external-engine/platform limits are recorded in `docs/release-0.6.0-validation.md`.
+- This entry records release preparation, not a published tag, marketplace upload or Workbench deployment. Live Qwen acceptance belongs to the host QA record. Historical checkpoints below retain their original dates, scope and counts.
+
+
+## Historical 0.5.4 status — 2026-10-15
 
 - Native engine remains `cf0676f`; documentation HEAD is recorded separately. Native validation remains 1,311 passed / 76 skipped / 5 optional vendor deselected, plus 40 extension tests. No new native computation is implied by this documentation update.
 - Workbench independently verified the formal single-table, multi-table and followup scopes. PBC used a manually rerun approved plan; the missing followup comparison was completed by a manually triggered, real Qwen readonly regeneration using the existing analyses. The original incomplete answer and prior failures remain evidence, not relabeled successes.

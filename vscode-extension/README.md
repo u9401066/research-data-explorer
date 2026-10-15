@@ -6,9 +6,15 @@ An MCP + harness plugin that helps agents and researchers turn clinical question
 
 Agents remain free to propose hypotheses and challenge assumptions. RDE provides reusable execution, case accounting and provenance; researchers review the design and clinical claims. Unsupported methods remain explicit gaps, not invented results.
 
+## 0.6.0: typed clinical research
+
+The native catalog now exposes 25 families and 78 MCP tools. This release adds bounded PMM multiple imputation, binary stratified CMH/MH odds ratios, independent continuous Welch noninferiority, fixed 1:1 matching and baseline target-trial protocols. Each uses exact preflight, reviewed plan lock, source/population checks and immutable results. See [method boundaries and validation](https://github.com/u9401066/research-data-explorer/blob/main/docs/release-0.6.0-validation.md); these names do not promise unrestricted variants or clinical validity.
+
+`/advanced` includes `get_target_trial_contract` so a TTE request can obtain its approved preparation binding before inspection. Matching inference remains approximate and targets retained matched-treated subjects; TTE is limited to baseline point treatment and complete fixed follow-up. These new families do not authorize legacy autoresearch branches.
+
 ## Clinical and autonomous research
 
-- Seven local clinical methods: risk estimates, diagnostic accuracy, exact McNemar, Bland–Altman, Cohen's kappa, GEE and random-intercept mixed models.
+- The legacy local-method adapter includes: risk estimates, diagnostic accuracy, exact McNemar, Bland–Altman, Cohen's kappa, GEE and random-intercept mixed models.
 - Paired comparisons match subject IDs and report analyzed/excluded cases. Plan coverage counts successful required analyses rather than reruns.
 - Agent-authored autoresearch proposals retain baseline contracts and branch artifacts. Failed and recorded-only tasks are distinguished from completed analyses; significance is not a promotion criterion.
 - Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. 78 tools share executable contracts.
@@ -23,7 +29,7 @@ Audit readiness is a workflow check, not a guarantee of clinical validity or pub
 
 The VSIX path is local-first for non-data-scientists. A user should be able to install the extension, point an agent at a new real dataset, and get a governed report without installing Docker or writing analysis code.
 
-RDE therefore treats automl-stat-mcp as optional. The built-in MCP server can complete the core workflow with local statistics, local-lite adjusted models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, and lightweight propensity scoring. Docker-backed automl-stat-mcp remains useful for heavier vendor workflows such as full matching/weighting, deeper survival methods, and AutoML training.
+RDE therefore treats automl-stat-mcp as optional. The built-in MCP server can complete the core workflow with local statistics, local-lite adjusted models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, and lightweight propensity scoring. Native typed weighting and bounded matching/TTE are available locally through their own contracts. Docker-backed automl-stat-mcp remains optional for its separately supported vendor workflows, including AutoML training; availability does not expand native method scope.
 
 `report_readiness` and `run_audit` explicitly check the core goal: data understanding, analysis planning, data correctness, reproducible exploration, analysis execution and interpretation, report generation, no-code operation, and agent-friendly harness artifacts.
 
