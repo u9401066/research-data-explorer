@@ -643,7 +643,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "aae04442f61c503a4c6bb38d9eaf8793dc94fe0a431e1362928ec5f2b8e17a3d"
+      "sha256": "a66a4af7e3aef422ce83a2c4ae5af7317c0168f4284925c64abb9163ed5df74a"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -694,6 +694,10 @@
       "sha256": "ce862cf8b616ca76429ade8afe4d0a0feb0c5087a3647749c5c5be63922cdf6b"
     },
     {
+      "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+      "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+    },
+    {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_branch.py",
       "sha256": "959e0e5695b0b908ca021370e91422503dba4eac42a37ab4f7ed4f4728a4c908"
     },
@@ -727,7 +731,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-      "sha256": "f5da0cf8f07c78d4e07b9a2c056689050c48d59e4b09a23a3e7ef2cec68d675d"
+      "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/tool_logging.py",
@@ -751,7 +755,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-      "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+      "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
     },
     {
       "path": "src/rde/interface/mcp/tools/descriptive_tools.py",
@@ -771,7 +775,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "059a986e0da600cf94ae381ba205a7de227833aaba184dedcde486eaea3284cf"
+      "sha256": "c50b247523aa6372398e32cb3d997bbec4248d7bb9c2194f273daed67bd82b52"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -3090,7 +3094,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/comparison_contract.py"
+        "src/rde/infrastructure/clinical/comparison_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -3303,11 +3311,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/comparison_contract.py",
           "sha256": "af9f79f0234dfb712612060e899a3bab399507cfb0b48ebf0774873b80afb9f5"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -3391,7 +3415,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/stratified_contract.py"
+        "src/rde/infrastructure/clinical/stratified_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -3559,11 +3587,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/stratified_contract.py",
           "sha256": "7dd2ba5127e1bd5de1a1b6571c8dc201d91b7dea572ab4c15aaefb676d41a0c8"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -3653,7 +3697,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/noninferiority_contract.py"
+        "src/rde/infrastructure/clinical/noninferiority_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -3840,11 +3888,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/noninferiority_contract.py",
           "sha256": "29fcc8f292e4f3ea6924d20894b7f6965b542ae84dc5f2c01454f486f28ccbde"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -3924,7 +3988,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/repeated_contract.py"
+        "src/rde/infrastructure/clinical/repeated_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -4119,11 +4187,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/repeated_contract.py",
           "sha256": "55d5169b65241d45d3b6e108b2c549cb42ce2ce5fefaeb8beefea39ea7c8447f"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -4193,7 +4277,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/measurement.py"
+        "src/rde/infrastructure/clinical/measurement.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -4347,11 +4435,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
           "sha256": "e4ff286e9ca72ddadd26836fd294f325bdd1cafa97f912e652d8499c7970b03a"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -4421,7 +4525,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/measurement.py"
+        "src/rde/infrastructure/clinical/measurement.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -4575,11 +4683,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
           "sha256": "e4ff286e9ca72ddadd26836fd294f325bdd1cafa97f912e652d8499c7970b03a"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -4649,7 +4773,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/measurement.py"
+        "src/rde/infrastructure/clinical/measurement.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -4803,11 +4931,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
           "sha256": "e4ff286e9ca72ddadd26836fd294f325bdd1cafa97f912e652d8499c7970b03a"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -4915,7 +5059,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/regression_contract.py"
+        "src/rde/infrastructure/clinical/regression_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -5109,11 +5257,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/regression_contract.py",
           "sha256": "0e9d87af327f49de2ad515a91fd0f63e6efce85bb8561657df4b649f267ddf6a"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -5210,7 +5374,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/imputation_contract.py"
+        "src/rde/infrastructure/clinical/imputation_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -5414,11 +5582,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/imputation_contract.py",
           "sha256": "5034f3091535878346aff5b3c14e488e0e1716a2562eda15fb0ab6f03caf443a"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -5507,7 +5691,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/weighting_contract.py"
+        "src/rde/infrastructure/clinical/weighting_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -5720,11 +5908,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/weighting_contract.py",
           "sha256": "f7c9c2b61700a507bec4837008b98c2e3f285e5157610118e41cf429a3842ebd"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -5816,7 +6020,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/matching.py"
+        "src/rde/infrastructure/clinical/matching.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -6045,11 +6253,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/matching.py",
           "sha256": "17c50e397a78462b89c84a87c01785e947cff3fa5565f0ae9d1bfcba507c53f6"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -6125,11 +6349,13 @@
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
         "src/rde/infrastructure/clinical/target_trial_study.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py",
         "src/rde/infrastructure/clinical/target_trial_contract.py",
         "src/rde/infrastructure/clinical/target_trial_source.py",
-        "src/rde/infrastructure/clinical/weighting.py",
-        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-        "src/rde/interface/mcp/runtime.py"
+        "src/rde/infrastructure/clinical/weighting.py"
       ],
       "tool_input_schemas": {
         "get_target_trial_contract": {
@@ -7004,11 +7230,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/target_trial_study.py",
           "sha256": "979d545dc2170e3cc92357b2e87c282bc19ead81533fa97f476d13eb43dcf420"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         },
         {
           "path": "src/rde/infrastructure/clinical/target_trial_contract.py",
@@ -7021,14 +7263,6 @@
         {
           "path": "src/rde/infrastructure/clinical/weighting.py",
           "sha256": "aa57d51eec20a1529e0b13e2784ef0b30790367ddadabd62609269bc5dae9d51"
-        },
-        {
-          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "f5da0cf8f07c78d4e07b9a2c056689050c48d59e4b09a23a3e7ef2cec68d675d"
-        },
-        {
-          "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -7114,7 +7348,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/longitudinal_contract.py"
+        "src/rde/infrastructure/clinical/longitudinal_contract.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -7405,11 +7643,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/longitudinal_contract.py",
           "sha256": "7e9b2bd161c71584495603f93d9f847de449888aaa690603c56e4f7aa560f5ec"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -7498,7 +7752,11 @@
       ],
       "contract_refs": [
         "src/rde/interface/mcp/tools/clinical_tools.py",
-        "src/rde/infrastructure/clinical/survival.py"
+        "src/rde/infrastructure/clinical/survival.py",
+        "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/infrastructure/adapters/dataframe_lineage.py",
+        "src/rde/interface/mcp/runtime.py"
       ],
       "tool_input_schemas": {
         "inspect_clinical_study": {
@@ -7694,11 +7952,27 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "03dc9c40a7676e1bc78d733aaba54abc2d661e9d9fea73bc9e70aef714e2de0d"
+          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
         },
         {
           "path": "src/rde/infrastructure/clinical/survival.py",
           "sha256": "824976768c70e704ed16e9ee9b6957fa66e3bc446ba87ef8e04f0f836c372d78"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+          "sha256": "cd226d8e56787417e410aa3ab0c47d902bdde1569a76e83445b3b4609d5d4e39"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+        },
+        {
+          "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
+          "sha256": "2cb9db24f0af8c241339710e7450a40ef6f9b923218e3ab6aa3a805c37cfebac"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -10518,5 +10792,5 @@
       ]
     }
   ],
-  "catalog_sha256": "a674f81b2aacd0010d608f9961d8bd250df937ace0d44bd2f5635597ace5fe0c"
+  "catalog_sha256": "503e5eac1dd8d511c322ec05f32f228097f4521f383590971b2ec58a017e6b22"
 }

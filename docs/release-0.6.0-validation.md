@@ -20,7 +20,7 @@ Agent 依 live catalog 取得完整 schema，再 inspect、提出相同 clinical
 舊推論、清理與未支援的 autoresearch 不能繞過正式計畫；同 execution key 重取亦核對
 來源、凍結數值與全部產物。以上都不取代研究定義、交換性、臨床適用性或解讀審查。
 
-## 數值核心與報告修正
+## 首次候選的數值核心與報告修正
 
 合併驗證來源為 `51246acb740be09c246bb4b77626e91b9a987b62`。
 本輪升版只改套件 metadata、文件及文件守門測試；MCP server version 直接讀取已安裝
@@ -33,7 +33,7 @@ Agent 依 live catalog 取得完整 schema，再 inspect、提出相同 clinical
 binomial 模型才有 log-odds 係數。Matching／TTE 使用凍結契約內的 canonical treatment／
 outcome 角色，不能把 grouping、unbound metadata 或 raw outcome 的經驗差異替代正式效果。
 
-## 驗證紀錄
+## 首次候選驗證紀錄
 
 基線 `b53f1de` 的完整非 vendor 測試為 **1669 passed、1 failed、76 skipped、5 deselected**。
 唯一失敗是說明頁工具清單漏列 TTE source discovery；修正後網站／文件 **25 tests passed**，
@@ -55,6 +55,37 @@ Chromium 實際檢查 **1440×1000** 與 **390×844**：首頁、版本連結、
 Browser plugin 不可用，因此使用既有 Playwright；中文字型取自既有唯讀 Noto CJK，僅建立隔離快取。
 封裝測試初次以符號連結共用 `node_modules` 時被 VSIX 的 dependency inventory 拒絕；改以同一鎖檔
 在隔離目錄 `npm ci` 後重跑通過，原始失敗記錄保留，沒有改動依賴版本。
+
+## 正式維護合併後的來源與成果守門
+
+後續候選合併正式維護 `9d432559e3f4002bda973fcb90316e9d4f2b12f2`，保留 assisted intake
+建立可追溯研究資料的行為。上述 catalog 與封裝紀錄屬首次候選，不能當作新程式的驗收。
+
+所有臨床家族共用 `clinical-source-identity-v1`：inspect 與新註冊計畫保存來源檔案 SHA、
+sheet、格式、完整 loaded frame 值／index／dtype 和 privacy provenance。相同 execution key
+重取 inspect／register 時重新核對身份及原始 locked plan；來源改變不能沿用成功回覆。
+新核准計畫也在首次估計前核對來源。舊手動計畫缺少此 pin 不被回填；已存在的舊成果則適用下列限制。
+
+`clinical-artifact-inventory-v1` 封存獨立完整清單，綁定數值收據、規格、來源及每個檔案 SHA。
+主 study record 與 execution snapshot 都保存該清單。報告、CSV、每張圖的 SVG／PDF／PNG／TIFF／
+caption／data，MI 完整資料及 TTE source check／protocol 都須與原清單完全相符。
+刪除檔案後再縮短清單、重複列入項目、刪去清單本身，均不能通過重取或報告 readiness。
+尚未封存且已保存數值的真實繪圖失敗仍可接續；已封存的結果不能降級成待繪圖工作再補算。
+
+舊結果沒有此獨立封存清單時回覆 `LEGACY_CLINICAL_INVENTORY`，保留原始研究與歷史檔案供查閱，
+不修改舊收據、不替舊成果補造 hash 或冒稱已驗證。需以新研究執行取得新版驗證結果。
+跨程式版本的舊 execution key 仍由原有 implementation pin 拒絕，不改寫歷史執行收據。
+
+本輪沒有修改估計核心、依賴版本或新增模型呼叫。最終來源目錄及有界補測／封裝收據另行列入
+本輪私有 release QA；首次候選的完整基線測試不被改稱為新版本完整全綠。
+
+此修正的 catalog SHA 為
+`503e5eac1dd8d511c322ec05f32f228097f4521f383590971b2ec58a017e6b22`。
+來源／成果清單、TTE 全流程、catalog、版本與封裝／文件守門補測 **152 passed、0 skipped**。
+前一輪 **78 passed、7 failed** 的失敗全部來自新清單將 TTE 原有 protocol JSON 誤當不合格 CSV；
+修正為精確 TTE protocol 檔名後納入上述 152 項重新通過。非 TTE 五家族、survival／weighting
+及 renderer recovery 的成功紀錄保留。另有 **16 個原 execution-key 回歸與 6 個 assisted-intake**
+測試通過。第一次新增測試的 9 個 fixture API 拼字錯誤也保存原紀錄，已在上述補測修正通過。
 
 ## 實際限制
 

@@ -1565,6 +1565,16 @@ def register_plan_tools(server: Any) -> None:
             execution_schedule: list[dict[str, Any]] = []
             dataset_ok, _, dataset_entry = ensure_dataset(project=project)
             dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
+            clinical_source_pin = None
+            if clinical_entries:
+                from ._shared.target_trial_replay import source_identity
+
+                try:
+                    if dataset is None:
+                        raise ValueError("The exact clinical dataset is required before locking.")
+                    clinical_source_pin = source_identity(dataset_entry)
+                except (ValueError, TypeError, KeyError, OSError) as error:
+                    return fmt_error(f"Clinical source review failed: {error}")
             target_trial_pin = None
             if clinical_entries and clinical_spec.family == "target_trial":
                 from rde.infrastructure.clinical.target_trial_source import (
@@ -1790,6 +1800,8 @@ def register_plan_tools(server: Any) -> None:
             }
             if target_trial_pin is not None:
                 plan["target_trial_source_check"] = target_trial_pin
+            if clinical_source_pin is not None:
+                plan["clinical_source_identity"] = clinical_source_pin
             from rde.interface.mcp.research_execution import preserve_execution_binding
 
             plan = preserve_execution_binding(project, plan)

@@ -709,14 +709,18 @@ def family_declarations():
             [clinical, SPEC_TYPES[identifier][0].replace(".", "/") + ".py"],
         )
         families[-1]["contract_refs"][-1] = "src/" + families[-1]["contract_refs"][-1]
+        families[-1]["contract_refs"] += [
+            "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
+            "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+            "src/rde/infrastructure/adapters/dataframe_lineage.py",
+            "src/rde/interface/mcp/runtime.py",
+        ]
         if identifier == "target_trial":
             families[-1]["bindings"].insert(0, binding("get_target_trial_contract"))
             families[-1]["contract_refs"] += [
                 "src/rde/infrastructure/clinical/target_trial_contract.py",
                 "src/rde/infrastructure/clinical/target_trial_source.py",
                 "src/rde/infrastructure/clinical/weighting.py",
-                "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-                "src/rde/interface/mcp/runtime.py",
             ]
     add(
         "prediction",

@@ -72,6 +72,13 @@ from rde.infrastructure.clinical.target_trial_source import (
     validate_target_trial_source,
     target_trial_source_contract,
 )
+from ._shared.clinical_artifacts import (
+    CONTRACT as ARTIFACT_CONTRACT,
+    inventory_path,
+    seal_inventory,
+    verify_inventory,
+)
+from ._shared.target_trial_replay import source_identity
 
 
 def planned_clinical_spec(entry):
@@ -172,9 +179,12 @@ def verify_imputation_derived(record, root: Path):
 def verify_clinical_artifacts(record, root: Path):
     artifacts = record.get("artifacts", [])
     result = record.get("result", {})
-    if not artifacts or digest(
-        {k: v for k, v in result.items() if k != "receipt_sha256"}
-    ) != result.get("receipt_sha256"):
+    if (
+        not verify_inventory(record, root)
+        or not artifacts
+        or digest({k: v for k, v in result.items() if k != "receipt_sha256"})
+        != result.get("receipt_sha256")
+    ):
         return False
     if result.get("spec", {}).get("family") == "imputation" and not verify_imputation_derived(
         record, root
@@ -252,6 +262,7 @@ def register_clinical_tools(server: Any):
                 return json.dumps(
                     {
                         **target_trial_preflight(spec, check, artifact),
+                        "source_identity": source_identity(entry),
                         "source_sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest(),
                         "sheet": source.sheet_name,
                     },
@@ -296,6 +307,7 @@ def register_clinical_tools(server: Any):
                 return json.dumps(
                     {
                         **preflight(entry.dataframe, spec),
+                        "source_identity": source_identity(entry),
                         "source_sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest(),
                         "sheet": source.sheet_name,
                     },
@@ -306,6 +318,7 @@ def register_clinical_tools(server: Any):
             return json.dumps(
                 dict(
                     schema="clinical-preflight-v1",
+                    source_identity=source_identity(entry),
                     spec_sha256=digest(spec.to_dict()),
                     dataframe_sha256=frame_hash,
                     source_sha256=hashlib.sha256(source.file_path.read_bytes()).hexdigest(),
@@ -461,6 +474,13 @@ def register_clinical_tools(server: Any):
                         "TTE_LOCKED_SOURCE_CHECK: source validation or its implementation differs from the exact locked plan; review a new version."
                     )
             parameters["variables"] = spec.variables()
+            locked = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+            if "clinical_source_identity" in locked and locked[
+                "clinical_source_identity"
+            ] != source_identity(entry):
+                raise ValueError(
+                    "CLINICAL_LOCKED_SOURCE: source differs from the approved plan; review a new version."
+                )
             frame_hash = (
                 prepare_matching(entry.dataframe, spec)
                 if isinstance(spec, MatchingSpec)
@@ -495,6 +515,7 @@ def register_clinical_tools(server: Any):
                 path=str(metadata.file_path),
                 sha256=hashlib.sha256(metadata.file_path.read_bytes()).hexdigest(),
                 sheet=metadata.sheet_name,
+                identity=source_identity(entry),
                 **({"privacy": metadata.privacy} if metadata.privacy else {}),
             )
             filename = f"clinical_study_{digest(dataset_id)[:16]}.json"
@@ -505,10 +526,25 @@ def register_clinical_tools(server: Any):
                 raise ValueError(
                     "CLINICAL_REPLAY_INCOMPLETE: the original live clinical evidence is missing or incomplete; refusing to refit or rebuild it from an invocation snapshot."
                 )
+            if previous and previous.get("artifact_contract") != ARTIFACT_CONTRACT:
+                raise ValueError(
+                    "LEGACY_CLINICAL_INVENTORY: original evidence remains read-only; create an explicit new study rather than retroactively sealing it."
+                )
+            if (
+                previous
+                and not previous.get("artifacts")
+                and inventory_path(previous, project.output_dir).exists()
+            ):
+                raise ValueError(
+                    "CLINICAL_INVENTORY_INCOMPLETE: a sealed presentation cannot become a pending renderer job; refusing to rebuild evidence."
+                )
             if previous and (
                 previous["result"]["spec_sha256"] != digest(spec.to_dict())
                 or previous["result"]["dataframe_sha256"] != frame_hash
-                or any(previous.get("source", {}).get(k) != source[k] for k in ["sha256", "sheet"])
+                or any(
+                    previous.get("source", {}).get(k) != source[k]
+                    for k in ["sha256", "sheet", "identity"]
+                )
             ):
                 raise ValueError(
                     "Saved clinical evidence has different source/specification. Create an explicit new analysis branch instead of replacing it."
@@ -623,6 +659,7 @@ def register_clinical_tools(server: Any):
             if (
                 not metadata.file_path.is_file()
                 or hashlib.sha256(metadata.file_path.read_bytes()).hexdigest() != source["sha256"]
+                or source_identity(entry) != source["identity"]
             ):
                 raise ValueError(
                     "Clinical source file changed during execution; saved partial evidence cannot complete this plan."
@@ -638,7 +675,12 @@ def register_clinical_tools(server: Any):
                         "TTE_SOURCE_CHANGED: prepared source evidence changed during execution."
                     )
             record = dict(
-                dataset_id=dataset_id, run_id=run_id, source=source, result=result, artifacts=[]
+                dataset_id=dataset_id,
+                run_id=run_id,
+                source=source,
+                result=result,
+                artifacts=[],
+                artifact_contract=ARTIFACT_CONTRACT,
             )
             if isinstance(spec, TargetTrialSpec):
                 record["target_trial_source_artifact"] = target_artifact
@@ -670,10 +712,11 @@ def register_clinical_tools(server: Any):
                 .get("files", {"png": image["path"]})
                 .values()
             ]
+            table_paths = tables(result, table_dir, prefix)
             paths = [
                 report,
                 *([project.output_dir / target_artifact["path"]] if target_artifact else []),
-                *tables(result, table_dir, prefix),
+                *table_paths,
                 *figure_paths,
                 *[
                     project.output_dir / item["path"]
@@ -688,6 +731,15 @@ def register_clinical_tools(server: Any):
                 for p in paths
             ]
             record["figures"] = images
+            record["artifact_roles"] = {
+                "report": [report.relative_to(project.output_dir).as_posix()],
+                "tables": [p.relative_to(project.output_dir).as_posix() for p in table_paths],
+                "figures": [p.relative_to(project.output_dir).as_posix() for p in figure_paths],
+                "derived": [a["path"] for a in record.get("derived_artifacts", [])],
+                "source": [target_artifact["path"]] if target_artifact else [],
+            }
+            record["artifact_manifest"] = seal_inventory(record, project.output_dir)
+            record["artifacts"].append(record["artifact_manifest"])
             for image in images:
                 _upsert_visualization_manifest(
                     project,
