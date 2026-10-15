@@ -548,7 +548,61 @@ class AutonomousEDAPlanner:
         *,
         include_advanced: bool = True,
         max_analyses: int | None = None,
+        evidence_policy: bool = False,
     ) -> PlanMethodologyReview:
+        if evidence_policy:
+            from rde.domain.services.generic_evidence_policy import plan_requirements
+
+            requirements = plan_requirements(
+                analyses,
+                [
+                    {"name": v.name, "variable_type": v.variable_type.value, "n_unique": v.n_unique}
+                    for v in dataset.variables
+                ],
+            )
+            if requirements is None:
+                raise ValueError(
+                    "This exact plan is outside the finite generic OLS evidence policy"
+                )
+            families = tuple(str(a.get("analysis_type") or a.get("type")) for a in analyses)
+            count = len(requirements["models"]) + len(requirements["comparisons"])
+            checks = (
+                ReviewCheck(
+                    name="exact_model_and_figure_evidence_contract",
+                    status="pass" if requirements["eligible"] else "missing",
+                    detail="Require every approved figure, exact denominators, model estimates/intervals and saved residual diagnostics. Six figures are a recommendation only.",
+                    satisfied_by=(requirements["policy_sha256"],),
+                ),
+            )
+            return PlanMethodologyReview(
+                status="pass" if requirements["eligible"] else "needs_override",
+                recommended_analysis_floor=count,
+                academic_analysis_target=count,
+                production_analysis_target=count,
+                completeness_tier="production_ready"
+                if requirements["eligible"]
+                else "underpowered",
+                candidate_pool_size=len(analyses),
+                requested_analysis_budget=len(analyses),
+                soft_analysis_budget=len(analyses),
+                draft_analysis_count=len(analyses),
+                final_analysis_count=len(analyses),
+                coverage_before=("exact_ols_evidence",),
+                coverage_after=("exact_ols_evidence",),
+                draft_families=families,
+                final_families=families,
+                complexity_signals={
+                    "evidence_policy": requirements["schema"],
+                    "policy_sha256": requirements["policy_sha256"],
+                },
+                checks=checks,
+                repair_actions=(),
+                warnings=tuple(
+                    requirements["errors"]
+                    + requirements["recommendations"]
+                    + requirements["limitations"]
+                ),
+            )
         analysis_vars = [
             variable
             for variable in dataset.variables

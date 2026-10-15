@@ -17,6 +17,9 @@ from rde.interface.mcp.tools._shared.clinical_scope import ensure_legacy_analysi
 
 
 def _inference_policy(project, alpha=None, missing_strategy=None, multiple_comparison_method=None):
+    from ._shared.generic_evidence import ensure_current
+
+    ensure_current(project)
     from rde.infrastructure.persistence.artifact_store import ArtifactStore
     from rde.application.pipeline import PipelinePhase
     from rde.domain.services.analysis_policy import validate_policy
@@ -39,6 +42,12 @@ def _inference_policy(project, alpha=None, missing_strategy=None, multiple_compa
     validate_policy(
         policy["alpha"], policy["missing_strategy"], policy["multiple_comparison_method"]
     )
+    if plan.get("generic_evidence_contract") is not None and any(
+        policy[key] != plan[key] for key in policy
+    ):
+        raise ValueError(
+            "GENERIC_POLICY_SCOPE: caller settings differ from the exact approved plan."
+        )
     return policy
 
 
@@ -1628,6 +1637,10 @@ def register_analysis_tools(server: Any) -> None:
                 "\n".join(lines),
             )
 
+            from ._shared.generic_evidence import seal_output
+
+            seal_output(project, [json_path, md_path], identity={"comparison": json_filename})
+
             # H-009
             _auto_log_decision(
                 "compare_groups",
@@ -2068,6 +2081,26 @@ def register_analysis_tools(server: Any) -> None:
             confidence_level = 1 - policy["alpha"] if confidence_level is None else confidence_level
             if not 0 < confidence_level < 1:
                 raise ValueError("confidence_level must be strictly between 0 and 1.")
+            from ._shared.generic_evidence import ensure_model_call
+
+            ensure_model_call(
+                project,
+                analysis_type=analysis_type,
+                target_variable=target_variable,
+                covariates=covariates,
+                confidence_level=confidence_level,
+                overrides={
+                    "vendor_options": vendor_options,
+                    "clinical_options": clinical_options,
+                    "subject_variable": subject_variable,
+                    "group_variable": group_variable,
+                    "time_variable": time_variable,
+                    "score_variable": score_variable,
+                    "endpoint": endpoint,
+                    "test_type": test_type,
+                    "problem_type": problem_type,
+                },
+            )
 
             config: dict = {
                 "variables": [],

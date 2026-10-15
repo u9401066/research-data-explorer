@@ -39,6 +39,46 @@ def validate_replay(project, tool, arguments, saved):
             if isinstance(item, dict) and item.get("type") == "run_clinical_study"
         ]
         if not candidates:
+            if (
+                arguments.get("confirm") is False
+                or arguments.get("expected_review_sha256") is not None
+            ):
+                from .generic_evidence import preflight, validate_locked
+
+                store = ArtifactStore(project.artifacts_dir)
+                ok, message, entry = ensure_dataset(project=project)
+                if not ok:
+                    raise ValueError("GENERIC_REPLAY_SOURCE: " + message)
+                if arguments.get("confirm") is False:
+                    current = preflight(
+                        project,
+                        entry,
+                        arguments["analyses"],
+                        alpha=arguments.get("alpha", 0.05),
+                        missing_strategy=arguments.get("missing_strategy", "listwise"),
+                        multiple_comparison_method=arguments.get(
+                            "multiple_comparison_method", "bonferroni"
+                        ),
+                    )
+                    if current != saved.data:
+                        raise ValueError(
+                            "GENERIC_REPLAY_SOURCE: exact readonly review source or contract changed"
+                        )
+                else:
+                    validate_locked(store)
+                    plan_path = store.get_path(
+                        PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml"
+                    )
+                    snapshots = [
+                        ref
+                        for ref in saved.artifacts
+                        if ref.relative_path.endswith("/analysis_plan.yaml")
+                    ]
+                    if (
+                        len(snapshots) != 1
+                        or hashlib.sha256(plan_path.read_bytes()).hexdigest() != snapshots[0].sha256
+                    ):
+                        raise ValueError("GENERIC_REPLAY_PLAN: original locked plan changed")
             return
         if len(candidates) != 1:
             raise ValueError("CLINICAL_REPLAY_PLAN: one exact clinical study is required")

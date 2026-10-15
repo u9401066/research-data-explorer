@@ -1603,6 +1603,7 @@ def test_report_readiness_flags_missing_medical_analysis_depth(tmp_path: Path) -
         PipelinePhase.CONCEPT_ALIGNMENT,
         "variable_roles.json",
         {
+            "confirmed": True,
             "outcome": ["Creatinine_normalized", "NGAL_normalized"],
             "group": ["drug_code"],
             "covariates": ["Age", "Sex_1_2"],
@@ -1679,6 +1680,7 @@ def test_report_readiness_accepts_completed_medical_analysis_depth(tmp_path: Pat
         PipelinePhase.CONCEPT_ALIGNMENT,
         "variable_roles.json",
         {
+            "confirmed": True,
             "outcome": ["outcome"],
             "group": ["treatment"],
             "covariates": ["age", "severity"],

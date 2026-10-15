@@ -167,7 +167,7 @@
     },
     {
       "path": "src/rde/domain/services/autonomous_eda_planner.py",
-      "sha256": "3c666599193379cce56a619ea05c129862f2537c9048a18cd9eba2a175f135e3"
+      "sha256": "d849b5c1798d4df0c006286628c7271d10ad1aeaf7271ec5c7412d1e8fbabeca"
     },
     {
       "path": "src/rde/domain/services/collinearity_checker.py",
@@ -184,6 +184,10 @@
     {
       "path": "src/rde/domain/services/exploration_branch_evaluator.py",
       "sha256": "f898dfb7a3087ac0d2c00b1eeefbc2e7c57c2166e518eb8420bd4cc2f866d894"
+    },
+    {
+      "path": "src/rde/domain/services/generic_evidence_policy.py",
+      "sha256": "a9f7dd7dea87075b33bbad92fd6719d2a8de72890d6dac5b59d646f055895ee1"
     },
     {
       "path": "src/rde/domain/services/numeric_plausibility.py",
@@ -714,6 +718,10 @@
       "sha256": "c73b091b98a9f217ee723b34dc34c6c8e78426d3a50ce2c0581094f979c6e52f"
     },
     {
+      "path": "src/rde/interface/mcp/tools/_shared/generic_evidence.py",
+      "sha256": "6a8f8deeef38c6c1d1dc32435f405f9acd98dc6a198a3d0214253f170b975902"
+    },
+    {
       "path": "src/rde/interface/mcp/tools/_shared/numeric_summary.py",
       "sha256": "01ae0fb7dd4888c5ed68cb36c44ce58b6b5e7a79c1a42a51a0c1b1e2f11e473a"
     },
@@ -731,7 +739,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-      "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+      "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/tool_logging.py",
@@ -739,7 +747,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/analysis_tools.py",
-      "sha256": "2701f20b0bb4af4fa10a45212dbec65e33daabd85d52560edcfe51ce615e0b41"
+      "sha256": "381d694745a5d260c2d0d6d07e3312999531ab7aabc95f88e0d83ed16af44aa4"
     },
     {
       "path": "src/rde/interface/mcp/tools/audit_tools.py",
@@ -775,7 +783,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "c50b247523aa6372398e32cb3d997bbec4248d7bb9c2194f273daed67bd82b52"
+      "sha256": "5c773ad36be1bd26889e2e1d59413cbbcbe7aa4b7034977bc815b7da75eb19dc"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -799,7 +807,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "60ed276c1061d82a09a04b15e3d94b7fd54b24ce65029bc94bb05b34573665dd"
+      "sha256": "e2ac30de10216923da2b2d4d8c7875ef8cda6ec2ea07fbef86b8f5db31bbb28e"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -2791,7 +2799,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/analysis_tools.py",
-          "sha256": "2701f20b0bb4af4fa10a45212dbec65e33daabd85d52560edcfe51ce615e0b41"
+          "sha256": "381d694745a5d260c2d0d6d07e3312999531ab7aabc95f88e0d83ed16af44aa4"
         }
       ]
     },
@@ -3001,7 +3009,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/analysis_tools.py",
-          "sha256": "2701f20b0bb4af4fa10a45212dbec65e33daabd85d52560edcfe51ce615e0b41"
+          "sha256": "381d694745a5d260c2d0d6d07e3312999531ab7aabc95f88e0d83ed16af44aa4"
         },
         {
           "path": "src/rde/infrastructure/adapters/scipy_engine.py",
@@ -3323,7 +3331,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -3599,7 +3607,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -3900,7 +3908,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -4199,7 +4207,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -4447,7 +4455,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -4695,7 +4703,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -4943,7 +4951,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -5269,7 +5277,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -5594,7 +5602,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -5920,7 +5928,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -6265,7 +6273,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -7242,7 +7250,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -7655,7 +7663,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -7964,7 +7972,7 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
-          "sha256": "03820324258618050bc8b52011a974ae6b105d72ea7d3f1fc4e395f120479f61"
+          "sha256": "18669399aa016b4df0ce9ae57cee80641191d56172c00d127d62c9fdb10e7df4"
         },
         {
           "path": "src/rde/infrastructure/adapters/dataframe_lineage.py",
@@ -10771,7 +10779,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "60ed276c1061d82a09a04b15e3d94b7fd54b24ce65029bc94bb05b34573665dd"
+          "sha256": "e2ac30de10216923da2b2d4d8c7875ef8cda6ec2ea07fbef86b8f5db31bbb28e"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -10792,5 +10800,5 @@
       ]
     }
   ],
-  "catalog_sha256": "7ce5663938df9bb3413fd069304de6c98de9f98509cb72e50f803f08ffb8d1d0"
+  "catalog_sha256": "ea006476d1304a329e387f6414b9c997693ef9790ba72b1501609c45c5f77b25"
 }

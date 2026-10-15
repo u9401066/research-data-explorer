@@ -1112,9 +1112,29 @@ def register_report_tools(server: Any) -> None:
 
             output_dir = project.output_dir / "figures"
             output_path = output_dir / output_filename
-            if clinical_descriptive and output_path.exists():
+            from ._shared.generic_evidence import ensure_current
+            from rde.infrastructure.persistence.artifact_store import ArtifactStore
+
+            current_plan = (
+                ArtifactStore(project.artifacts_dir).load(
+                    PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml"
+                )
+                or {}
+            )
+            exact_generic = current_plan.get("generic_evidence_contract") is not None
+            if exact_generic:
+                ensure_current(project)
+                if include_tests or subject_variable is not None:
+                    raise ValueError(
+                        "Finite-policy supplemental plots are descriptive and unpaired; use the exact approved inference tools."
+                    )
+            if (clinical_descriptive or exact_generic) and (
+                output_path.exists() or output_path.is_symlink()
+            ):
                 raise ValueError(
                     "Descriptive-only figures cannot replace existing clinical evidence; choose a new output_filename."
+                    if clinical_descriptive
+                    else "Descriptive-only figures cannot replace existing approved generic evidence; choose a new output_filename."
                 )
             output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1136,7 +1156,7 @@ def register_report_tools(server: Any) -> None:
                 "include_tests": include_tests,
                 "missing_strategy": policy["missing_strategy"],
             }
-            if clinical_descriptive:
+            if clinical_descriptive or exact_generic:
                 kwargs.update(show_trend=False, apply_plausibility=False)
             if subject_variable is not None:
                 if plot_type not in {"paired", "line"}:
@@ -1199,7 +1219,7 @@ def register_report_tools(server: Any) -> None:
                     **kwargs,
                     **display_scope,
                 },
-                retain_history=clinical_descriptive,
+                retain_history=clinical_descriptive or exact_generic,
             )
             relative_result_path = _figure_manifest_output_path(project, result_path) or result_path
 
@@ -3572,6 +3592,10 @@ def _evaluate_report_readiness(
         )
 
     normalized_results = dict(results or {})
+    if plan.get("generic_evidence_contract") is not None:
+        from ._shared.generic_evidence import deliverables as exact_deliverables
+
+        normalized_results["deliverables"] = exact_deliverables(store)
     persisted_results = store.load(PipelinePhase.COLLECT_RESULTS, "results_summary.json")
     if isinstance(persisted_results, dict):
         for key in (
@@ -3771,6 +3795,10 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
 
     schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {}
     plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+    if isinstance(plan, dict) and plan.get("generic_evidence_contract") is not None:
+        from ._shared.generic_evidence import evaluate as exact_depth
+
+        return exact_depth(store)
     roles = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {}
     decisions = _as_list(store.load(PipelinePhase.EXECUTE_EXPLORATION, "decision_log.jsonl"))
     experiments = _as_list(store.load(PipelinePhase.EXECUTE_EXPLORATION, "experiment_ledger.jsonl"))
@@ -3784,7 +3812,7 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
     variables = schema.get("variables") if isinstance(schema, dict) else []
     variables = variables if isinstance(variables, list) else []
     analyses = plan.get("analyses") if isinstance(plan, dict) else []
-    analyses = analyses if isinstance(analyses, list) else []
+    analyses = analyses if isinstance(analyses, list) and plan.get("locked") is True else []
     if not variables and not analyses:
         return {
             "ready": True,
@@ -3799,17 +3827,6 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
         for item in variables
         if isinstance(item, dict) and item.get("name")
     }
-    numeric = [
-        name
-        for name, item in variable_index.items()
-        if str(item.get("variable_type", "")).lower() in {"continuous", "numeric", "integer"}
-    ]
-    categorical = [
-        name
-        for name, item in variable_index.items()
-        if str(item.get("variable_type", "")).lower()
-        in {"binary", "boolean", "categorical", "factor", "ordinal"}
-    ]
     role_outcomes = _readiness_role_values(roles, ("outcome", "target", "dependent", "endpoint"))
     role_groups = _readiness_role_values(roles, ("group", "treatment", "exposure"))
     role_covariates = _readiness_role_values(
@@ -3831,43 +3848,20 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
         )
     )
     plan_groups = [
-        str(analysis[key])
+        value
         for analysis in substantive_analyses
-        for key in ("group_variable", "group_var")
-        if analysis.get(key)
+        for value in _readiness_analysis_values(analysis, ("group_variable", "group_var"))
     ]
+    plan_covariates = [
+        value
+        for analysis in substantive_analyses
+        for value in _readiness_analysis_values(analysis, ("covariates", "predictors"))
+    ]
+    # Roles are research definitions, not properties inferred from column names,
+    # all variables touched by a plot, or whatever remains in the schema.
     outcome_vars = list(dict.fromkeys(role_outcomes + plan_outcomes))
     group_vars = list(dict.fromkeys(role_groups + plan_groups))
-    if not outcome_vars:
-        outcome_vars = [
-            name
-            for name in numeric + categorical
-            if any(
-                token in name.lower()
-                for token in (
-                    "outcome",
-                    "event",
-                    "death",
-                    "mortality",
-                    "aki",
-                    "renal",
-                    "creatinine",
-                    "ngal",
-                    "cystatin",
-                )
-            )
-        ]
-    if not group_vars:
-        group_vars = [
-            name
-            for name in categorical
-            if any(token in name.lower() for token in ("group", "treat", "arm", "exposure"))
-        ]
-    covariates = [
-        name
-        for name in list(dict.fromkeys(role_covariates + numeric + categorical))
-        if name not in set(outcome_vars + group_vars)
-    ]
+    covariates = list(dict.fromkeys(role_covariates + plan_covariates))
     actions = {str(item.get("action") or item.get("tool_used") or "") for item in decisions}
     experiment_types = {
         str(item.get("experiment_type") or "")
@@ -4002,7 +3996,16 @@ def _evaluate_analysis_depth(results: dict[str, Any], store: Any) -> dict[str, A
         "missing_requirements": missing,
         "outcome_variables": outcome_vars,
         "group_variables": group_vars,
-        "covariates": covariates[:10],
+        "covariates": covariates,
+        "role_evidence": {
+            "confirmed_alignment": isinstance(roles, dict) and roles.get("confirmed") is True,
+            "locked_plan": isinstance(plan, dict) and plan.get("locked") is True,
+            "unassigned_variables": [
+                name
+                for name in variable_index
+                if name not in set(outcome_vars + group_vars + covariates)
+            ],
+        },
         "summary": f"{len(checks) - len(missing)}/{len(checks)} depth checks passed",
     }
 
@@ -4015,47 +4018,59 @@ def _as_list(value: Any) -> list[Any]:
     return [value]
 
 
+def _readiness_named_variables(raw: Any) -> list[str]:
+    values = raw if isinstance(raw, list) else [raw]
+    return [value for value in values if isinstance(value, str) and value.strip()]
+
+
 def _readiness_role_values(roles: dict[str, Any], role_names: tuple[str, ...]) -> list[str]:
-    if not isinstance(roles, dict):
+    if not isinstance(roles, dict) or roles.get("confirmed") is not True:
         return []
-    values: list[str] = []
-    for key, raw in roles.items():
-        normalized_key = str(key).lower()
-        key_matches = any(role_name in normalized_key for role_name in role_names)
-        if key_matches:
-            if isinstance(raw, list):
-                values.extend(str(item) for item in raw)
-            elif isinstance(raw, dict):
-                values.extend(str(item) for item in raw.values() if item)
-            elif raw:
-                values.append(str(raw))
-        if isinstance(raw, dict):
-            for variable_name, role_value in raw.items():
-                role_text = str(role_value).strip().lower()
-                if any(role_name in role_text for role_name in role_names):
-                    values.append(str(variable_name))
-        if (
-            isinstance(raw, str)
-            and not key_matches
-            and len(raw) <= 40
-            and any(role_name in raw.lower() for role_name in role_names)
-        ):
-            values.append(str(key))
+    # align_concept writes both canonical role lists and a variable->role map.
+    # Match whole role tokens; prose such as "not an outcome" grants no role.
+    accepted = {name for role in role_names for name in (role, role + "s")}
+    values = [
+        value
+        for key, raw in roles.items()
+        if str(key).strip().lower() in accepted
+        for value in _readiness_named_variables(raw)
+    ]
+    assignments = roles.get("variable_roles")
+    if isinstance(assignments, dict):
+        values.extend(
+            name
+            for name, role in assignments.items()
+            if isinstance(name, str) and isinstance(role, str) and role.strip().lower() in accepted
+        )
     return list(dict.fromkeys(values))
+
+
+def _readiness_analysis_values(analysis: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
+    # Read named bindings from the locked entry and its executable arguments.
+    # Generic `variables` is intentionally not an outcome/predictor binding.
+    arguments = analysis.get("execution_arguments")
+    sources = [analysis] + ([arguments] if isinstance(arguments, dict) else [])
+    return list(
+        dict.fromkeys(
+            value
+            for source in sources
+            for key in keys
+            for value in _readiness_named_variables(source.get(key))
+        )
+    )
 
 
 def _readiness_analysis_outcomes(analysis: dict[str, Any]) -> list[str]:
-    values: list[str] = []
-    for key in ("variables", "outcome_variables", "targets"):
-        raw = analysis.get(key)
-        if isinstance(raw, list):
-            values.extend(str(item) for item in raw)
-        elif raw:
-            values.append(str(raw))
-    for key in ("target_variable", "outcome", "dependent_variable"):
-        if analysis.get(key):
-            values.append(str(analysis[key]))
-    return list(dict.fromkeys(values))
+    values = _readiness_analysis_values(
+        analysis,
+        ("outcome_variables", "targets", "target_variable", "outcome", "dependent_variable"),
+    )
+    method = str(analysis.get("type") or analysis.get("analysis_type") or "").lower()
+    if not values and method == "compare_groups":
+        # This tool's declared variables are the compared outcomes. Other
+        # methods (including correlation, plots and regression) differ.
+        values = _readiness_named_variables(analysis.get("variables"))
+    return values
 
 
 def _readiness_unique_count(variable: Any) -> int | None:
@@ -4719,6 +4734,17 @@ def _upsert_visualization_manifest(
             "execution_arguments": execution_arguments,
         }
     )
+    from ._shared.generic_evidence import seal_output
+    from rde.domain.services.generic_evidence_policy import figure_binding
+
+    seal_output(
+        project,
+        [Path(result_path)],
+        identity={
+            "figure": str(Path(result_path).resolve().relative_to(project.output_dir.resolve()))
+        },
+        binding=figure_binding(updated[-1]),
+    )
     store.save(PipelinePhase.EXECUTE_EXPLORATION, "visualization_manifest.json", updated)
 
 
@@ -4777,6 +4803,11 @@ def _summarize_publication_deliverables(project: Any, store: Any) -> dict[str, A
 
     if repeated_plan(store) is not None:
         return repeated_deliverables(project, store)
+
+    if plan.get("generic_evidence_contract") is not None:
+        from ._shared.generic_evidence import deliverables as exact_deliverables
+
+        return exact_deliverables(store)
 
     valid_entries = [
         entry

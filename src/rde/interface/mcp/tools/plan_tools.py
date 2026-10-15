@@ -1180,6 +1180,7 @@ def register_plan_tools(server: Any) -> None:
         multiple_comparison_method: str = "bonferroni",
         allow_methodology_override: bool = False,
         confirm: bool = False,
+        expected_review_sha256: str | None = None,
     ) -> str:
         """註冊分析計畫（Phase 6 — Plan Registration）。
 
@@ -1193,7 +1194,8 @@ def register_plan_tools(server: Any) -> None:
             missing_strategy: 缺失值處理策略: listwise（預設）、pairwise；不隱含補值
             multiple_comparison_method: 同次結果比較家族校正: bonferroni（預設）、holm、fdr (BH)；單一 weighting 契約必須 none
             allow_methodology_override: 若 plan 明顯低於方法學最低覆蓋要求，是否仍強制允許鎖定（預設 false）
-            confirm: 是否確認並鎖定計畫，必須設為 true 才會鎖定（預設 false）
+            confirm: false 回傳有限 OLS/兩組配套的唯讀 exact review；true 才會鎖定
+            expected_review_sha256: 新證據契約必須傳入 readonly review 的 portable SHA；重新核對相同來源內容、角色、計畫與政策後才鎖定。未傳沿用舊通用契約，不能當新政策的 fallback
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -1216,16 +1218,31 @@ def register_plan_tools(server: Any) -> None:
             },
         )
 
-        if not confirm:
-            return fmt_error(
-                "Phase 5 需要明確用戶確認才能鎖定分析計畫。",
-                suggestion="以 `confirm=true` 重新呼叫 register_analysis_plan()。",
-            )
-
         ok, msg, project = ensure_project_context(project_id)
         if not ok:
             return fmt_error(msg)
         assert project is not None
+
+        if not confirm:
+            from ._shared.generic_evidence import preflight
+
+            dataset_ok, dataset_msg, dataset_entry = ensure_dataset(project=project)
+            if not dataset_ok:
+                return fmt_error(dataset_msg)
+            try:
+                return json.dumps(
+                    preflight(
+                        project,
+                        dataset_entry,
+                        analyses,
+                        alpha=alpha,
+                        missing_strategy=missing_strategy,
+                        multiple_comparison_method=multiple_comparison_method,
+                    ),
+                    ensure_ascii=False,
+                )
+            except (ValueError, TypeError, KeyError, OSError) as error:
+                return fmt_error(f"Exact plan review failed: {error}")
 
         try:
             from datetime import datetime
@@ -1565,6 +1582,39 @@ def register_plan_tools(server: Any) -> None:
             execution_schedule: list[dict[str, Any]] = []
             dataset_ok, _, dataset_entry = ensure_dataset(project=project)
             dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
+            generic_review = None
+            if expected_review_sha256 is not None:
+                if (
+                    clinical_entries
+                    or prediction_only
+                    or repeated_contract is not None
+                    or descriptive_spec is not None
+                ):
+                    return fmt_error(
+                        "The finite generic evidence review cannot replace a typed family contract"
+                    )
+                from ._shared.generic_evidence import preflight
+
+                if not dataset_ok:
+                    return fmt_error(
+                        "An exact loaded dataset is required for generic evidence approval"
+                    )
+                generic_review = preflight(
+                    project,
+                    dataset_entry,
+                    analyses,
+                    alpha=alpha,
+                    missing_strategy=missing_strategy,
+                    multiple_comparison_method=multiple_comparison_method,
+                )
+                if not generic_review["can_lock"]:
+                    return fmt_error(
+                        "Generic evidence review cannot lock", "\n".join(generic_review["errors"])
+                    )
+                if generic_review["review_sha256"] != expected_review_sha256:
+                    return fmt_error(
+                        "GENERIC_REVIEW_STALE: source content, schema, roles, exact plan or evidence policy differs from the approved review"
+                    )
             clinical_source_pin = None
             if clinical_entries:
                 from ._shared.target_trial_replay import source_identity
@@ -1633,6 +1683,7 @@ def register_plan_tools(server: Any) -> None:
                     analyses,
                     include_advanced=True,
                     max_analyses=_planned_count(analyses),
+                    evidence_policy=generic_review is not None,
                 )
                 if review.status == "needs_override" and not allow_methodology_override:
                     proposal = planner.propose(
@@ -1798,6 +1849,10 @@ def register_plan_tools(server: Any) -> None:
                 "created_at": datetime.now().isoformat(),
                 "locked": True,
             }
+            if generic_review is not None:
+                from ._shared.generic_evidence import freeze_review
+
+                plan["generic_evidence_contract"] = freeze_review(project, generic_review)
             if target_trial_pin is not None:
                 plan["target_trial_source_check"] = target_trial_pin
             if clinical_source_pin is not None:
