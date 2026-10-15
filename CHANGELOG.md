@@ -22,6 +22,10 @@ The Python package and VS Code extension share the release version.
 - Produce source-bound native reports, DOCX and English SVG/PDF/300 dpi PNG/TIFF figures with Chinese explanations. Gaussian MI coefficients retain outcome-unit meaning even for binary predictors; matching/TTE reports preserve canonical treatment/outcome roles and cannot replace missing inference with empirical group contrasts.
 - Synchronize 78-tool editor/guide inventories and `/advanced` TTE source discovery; update six EDA/report skills with live-contract routing and precise method boundaries. Native catalog coverage is 25 families, distinct from live-model or published-article reproduction.
 
+- Add read-only exact-plan review and a shared, versioned evidence policy for bounded independent two-group/OLS plans. Six figures are a recommendation within this policy; approved figures, model diagnostics, exact denominators, estimates and confidence intervals are required. Rank-only plans without the relevant effect interval must be revised, not relabeled as OLS inference; other methods retain their own contracts.
+- Derive analysis-depth roles from confirmed roles and explicit locked model targets/covariates. Descriptive variable lists and unassigned columns no longer become invented outcomes or covariates.
+- Replay approved TTE prepared sources through the exact saved privacy transformation while retaining original typed rows, eligibility and trace evidence. Save both raw and research-view fingerprints; saved-policy loading and restart reject missing privacy keys without creating replacement keys or directories.
+
 ### Release verification
 
 - Keep Python, VSIX and npm root lock metadata at 0.6.0. See `docs/release-0.6.0-validation.md` for actual local verification, optional-engine/platform limits and the separate Workbench acceptance boundary. Historical QA records remain unchanged; no publication is inferred from local packaging.

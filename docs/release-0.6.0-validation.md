@@ -87,6 +87,51 @@ caption／data，MI 完整資料及 TTE source check／protocol 都須與原清�
 及 renderer recovery 的成功紀錄保留。另有 **16 個原 execution-key 回歸與 6 個 assisted-intake**
 測試通過。第一次新增測試的 9 個 fixture API 拼字錯誤也保存原紀錄，已在上述補測修正通過。
 
+## 有界 OLS 證據政策與隱私視圖重播
+
+[一般 OLS 證據政策](generic-evidence-policy.md)讓計畫審查與報告 readiness 共用同一個
+版本化規則。`register_analysis_plan(confirm=false)` 可唯讀審查精確計畫，回傳是否適用、
+能否鎖定及缺件；不展開或修改計畫。Portable pin 固定來源內容、schema、確認角色、完整分析
+與政策；跨合法執行目錄保留原始及本地 lineage，不能藉新資料集 ID 改掉方法。
+
+此有限政策將六張圖降為建議，仍要求每個核准圖、模型必要診斷、分母、效果與信賴區間。
+純 rank 比較缺少對應 effect CI 時必須修訂，不能借用另一個 mean/OLS 的 CI。
+OLS 加入未知方法須修訂；純描述、其他舊方法及 typed clinical 家族保留各自契約。
+報告角色只取確認角色與鎖定模型的明確 target/covariates，不把描述欄位列表都當 outcome，
+也不把剩餘未指派欄位推定為 covariates。
+
+TTE source replay 現在核對完整 typed release 經保存 privacy policy 轉換後的研究視圖。
+每個欄位、值、列序與 dtype 均須完全相符，原始 trace／納排集合照原來源重算；不忽略保護欄位。
+Source-check 同時保存 raw 與 analysis frame 指紋，treatment／outcome／baseline predictor／index
+不能被 privacy 變值。已保存規則的 loader 與重啟若缺少金鑰直接拒絕，不生成新金鑰或父目錄；
+放回原金鑰後可驗證既有成果而不重新估計。新真 MCP 測試涵蓋連續／二元結果、重啟、
+來源及 privacy 漂移、完整原始 bundle 不變，以及 raw/research-view weighting 結果完全一致。
+
+## 最終原生發布關卡
+
+固定執行來源為 `a3e21088bd32bc44e293898ff01f07a99332bc34`；目前 catalog SHA 為：
+`6d15570f26f3ec500b560d8fa4f606639d91cc83c80961a7920d3fa09b28b55d`。
+後續只更新本紀錄與 changelog 的文件 commit，不改 runtime、catalog 或已固定的模型驗收來源。
+
+| 來源與範圍 | 實際結果 |
+| --- | --- |
+| `6ffa1d86` 完整非 vendor 基線 | 1,782 passed、0 failed、0 skipped、5 vendor deselected |
+| `08413d2` 完整非 vendor 執行 | 731 passed、0 failed 後因低磁碟保護中止；不是完整通過 |
+| privacy 最後修正的六檔回歸 | 151 passed、1 舊錯誤訊息 fixture 失敗；原紀錄保留 |
+| 更新該 fixture 後 focused | 75 passed、0 failed；另有獨立 8 項 privacy/restart 與相同重現腳本紅→綠 |
+| `a3e21088` 完整非 vendor 發布測試 | **1,816 passed、0 failed、0 skipped、5 vendor deselected；1098.26 秒** |
+| 最終 extension／封裝 | 41 tests passed；lint、install-shape、VSIX validate、適用 pre-commit hooks 全通過且無自動改檔 |
+
+上述 fixture 原本把「不存在的 key」預期成「key changed」；新正確行為是「key is missing」
+且不建檔，測試同步增加不存在的斷言。完整測試使用既有授權 Arial 字型與固定 Python 環境，
+沒有安裝依賴、重建候選環境或變更正式研究；成功案例只清理各自的測試暫存，失敗與歷史 QA 保留。
+最終執行未觸發 disk guard 或 ENOSPC。
+
+最終 wheel、sdist、VSIX 的 **207 個 runtime Python／JSON 檔案集合及每檔 bytes** 均與上述
+來源一致。由 wheel 安裝到隔離目錄後，真 stdio MCP 回報 **0.6.0、78 tools**，五個新家族的
+完整 schema 及 catalog SHA 均核對一致。這些工程驗證不取代正在分開進行的 Workbench／Qwen
+實機研究、因果識別假設、研究定義審查或正式發布。
+
 ## 實際限制
 
 - 本機驗證使用 Python 3.12.12／Node 24.21.0；不冒稱重跑 CI 的 Python 3.11／Node 22，
