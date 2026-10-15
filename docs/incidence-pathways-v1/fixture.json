@@ -1,0 +1,48 @@
+{
+  "schema": "incidence-pathways-synthetic-oracle-fixture-v1",
+  "time": {"origin": "2025-01-01T00:00:00Z", "tick_seconds": 86400, "interval": "[start,end)", "source_period": [-10, 15]},
+  "incidence": {
+    "window": [0, 10], "washout": 5, "point": 2,
+    "people": [
+      ["P1", null], ["P2", null], ["P3", null], ["P4", null],
+      ["P5", 7], ["P6", null], ["P7", null], ["P8", null], ["P9", null]
+    ],
+    "coverage": [
+      ["c1", "P1", -5, 10, "complete"],
+      ["c2a", "P2", -5, 6, "complete"], ["c2b", "P2", 8, 10, "complete"],
+      ["c3", "P3", -5, 10, "complete"], ["c4", "P4", -2, 10, "complete"],
+      ["c5", "P5", -5, 10, "complete"], ["c6", "P6", -5, 10, "complete"],
+      ["c7", "P7", -5, 10, "unknown"], ["c8", "P8", -5, 10, "complete"],
+      ["c9a", "P9", -5, 2, "complete"], ["c9b", "P9", -3, 1, "complete"],
+      ["c9c", "P9", 2, 10, "complete"]
+    ],
+    "events": [
+      ["e11", "P1", 4], ["e12", "P1", 6], ["e13", "P1", 10],
+      ["e21", "P2", 6], ["e22", "P2", 9], ["e31", "P3", -1],
+      ["e32", "P3", 5], ["e41", "P4", 7], ["e51", "P5", 7],
+      ["e61", "P6", 0], ["e71", "P7", 2], ["e91", "P9", 10]
+    ],
+    "conditions": [
+      ["s11", "P1", 4, 8], ["s12", "P1", 6, 9], ["s21", "P2", 6, 10],
+      ["s31", "P3", -1, 3], ["s32", "P3", 5, 6], ["s41", "P4", 7, 8],
+      ["s51", "P5", 7, 9], ["s61", "P6", 0, 10], ["s71", "P7", 2, 3]
+    ]
+  },
+  "pathways": {
+    "window": [0, 10], "grace": 1,
+    "people": [["T1", null], ["T2", null], ["T3", null], ["T4", 6], ["T5", null], ["T6", null]],
+    "coverage": [
+      ["pc1", "T1", 0, 10, "complete"], ["pc2", "T2", 0, 7, "complete"],
+      ["pc3", "T3", 0, 10, "complete"], ["pc4", "T4", 0, 10, "complete"],
+      ["pc5a", "T5", 0, 3, "complete"], ["pc5b", "T5", 5, 10, "complete"],
+      ["pc6", "T6", 0, 10, "unknown"]
+    ],
+    "exposures": [
+      ["x11", "T1", "A", 0, 3], ["x12", "T1", "A", 4, 6], ["x13", "T1", "B", 5, 8],
+      ["x21", "T2", "A", 1, 4], ["x22", "T2", "B", 4, 9],
+      ["x41", "T4", "A", -1, 2], ["x42", "T4", "A", 5, 9],
+      ["x51", "T5", "A", 0, 8], ["x52", "T5", "B", 5, 7],
+      ["x61", "T6", "A", 0, 4]
+    ]
+  }
+}

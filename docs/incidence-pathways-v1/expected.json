@@ -1,0 +1,30 @@
+{
+  "authorship": "Hand-enumerated expectations fixed before SQL oracle execution; synthetic, not a TriNetX export.",
+  "incidence": {
+    "population": 9, "eligible": ["P1", "P2", "P5", "P8", "P9"],
+    "excluded": {"P3": "prior_or_index_case", "P4": "insufficient_washout", "P6": "prior_or_index_case", "P7": "unknown_coverage"},
+    "person_days": {"P1": 4, "P2": 6, "P5": 7, "P8": 10, "P9": 10},
+    "first_event_ids": ["e11"], "events": 1, "person_days_total": 37,
+    "incidence_rate_fraction_per_day": [1, 37], "incidence_proportion": null,
+    "risk_unavailable_reasons": ["death_before_horizon", "observation_gap_before_horizon"],
+    "full_followup_subset": {"people": ["P1", "P8", "P9"], "events": 1, "person_days": 24, "risk_fraction": [1, 3]},
+    "point": {"people": ["P1", "P2", "P3", "P4", "P5", "P6", "P8", "P9"], "cases": ["P3", "P6"], "fraction": [2, 8]},
+    "period": {"people": ["P1", "P3", "P4", "P5", "P6", "P8", "P9"], "cases": ["P1", "P3", "P4", "P6"], "fraction": [4, 7]},
+    "event_dispositions": {"e11": "incident", "e12": "repeat_after_first", "e13": "at_or_after_censor", "e21": "at_or_after_censor", "e22": "at_or_after_censor", "e31": "ineligible_person", "e32": "ineligible_person", "e41": "ineligible_person", "e51": "at_or_after_censor", "e61": "ineligible_person", "e71": "ineligible_person", "e91": "at_or_after_censor"}
+  },
+  "pathways": {
+    "population": 6, "people": ["T1", "T2", "T3", "T4", "T5"], "excluded": ["T6"],
+    "episodes": [
+      ["T1", 1, 0, 5, "A"], ["T1", 2, 5, 6, "A+B"], ["T1", 3, 6, 8, "B"], ["T1", 4, 8, 10, "NONE"],
+      ["T2", 1, 0, 1, "NONE"], ["T2", 2, 1, 4, "A"], ["T2", 3, 4, 7, "B"],
+      ["T3", 1, 0, 10, "NONE"], ["T4", 1, 0, 2, "A"], ["T4", 2, 2, 5, "NONE"], ["T4", 3, 5, 6, "A"],
+      ["T5", 1, 0, 3, "A"]
+    ],
+    "terminals": {"T1": "administrative_end", "T2": "coverage_end", "T3": "administrative_end", "T4": "death", "T5": "coverage_end"},
+    "step_denominators": {"1": 5, "2": 3, "3": 3, "4": 1},
+    "state_duration_days": {"A": 14, "A+B": 1, "B": 5, "NONE": 16},
+    "person_days": 36, "raw_drug_days": {"A": 14, "B": 6}, "era_drug_days": {"A": 15, "B": 6},
+    "users": {"A": 4, "B": 2}, "bridge": [["T1", "A", 3, 4, "x11", "x12"]],
+    "transition_counts": [[1,"A","A+B",1],[1,"A","END:coverage_end",1],[1,"A","NONE",1],[1,"NONE","A",1],[1,"NONE","END:administrative_end",1],[2,"A","B",1],[2,"A+B","B",1],[2,"NONE","A",1],[3,"A","END:death",1],[3,"B","END:coverage_end",1],[3,"B","NONE",1],[4,"NONE","END:administrative_end",1]]
+  }
+}

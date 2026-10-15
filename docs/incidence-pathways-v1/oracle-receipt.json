@@ -1,0 +1,714 @@
+{
+  "schema": "incidence-pathways-contract-oracle-receipt-v1",
+  "scope": "Synthetic SQL definitions + package CI boundary checks only; no native MCP implementation, TriNetX numerical equivalence, or clinical validation.",
+  "baseline": "6c620bb62223a20e6eab97e1c96e5f5542e7c8f6",
+  "source_sha256": {
+    "CONTRACT.md": "7a4a8f788746aaf3a9afcefcd75c637a0ef61306dfadbc96cf3ca2de2023df2c",
+    "fixture.json": "8da2caebd5acb9372b629796cd5468907a5d43d2bb405c5c40e123a8aa3948e7",
+    "expected.json": "ce358cfe2ed7c557bed3a11170d7bb551c5e91da2ad46a698dec2dc8a28469f3",
+    "oracle.py": "c3a40b29365ef255755b2eac912b234263f28a902e84b7603f590c33689d4ab2"
+  },
+  "reviewed_rde_source_sha256": {
+    "src/rde/domain/models/preparation.py": "47adc2836e736758a94effdadcf0c84cf3bb2d346e1fb19de727ee10b86c106c",
+    "src/rde/infrastructure/preparation/sources.py": "c3bfad2b48b3af2a4550d4c972c20909cb53e26c943b623c7e449bc3c8c751c6",
+    "src/rde/infrastructure/preparation/engine.py": "9d3317b57541e5c1d5cf0cc9d4c035444d0068bce4e07de9ff0b02b78cf1512c",
+    "src/rde/infrastructure/preparation/aggregation.py": "8a83ee3b357f867e4eb2b781bc9e8e227b16d9687db71f65cfa087e01634824d",
+    "src/rde/infrastructure/preparation/workflow.py": "37145ec9e5a390cde0fa29a8f8c00b7aaa9197fa8f36a66d7aa32fbe77f11486",
+    "src/rde/infrastructure/preparation/portable.py": "4452fbcf5d94c9c3a4d91d2beaeb259c11947081b91006e55311b9162a7bb768",
+    "pyproject.toml": "f0e6a9523f3c3409090d55cb7047011120d395f3faded799af3291c812d4abd0"
+  },
+  "sqlite": "3.50.4",
+  "checks": [
+    "incidence.population",
+    "incidence.eligible",
+    "incidence.excluded",
+    "incidence.person_days",
+    "incidence.first_event_ids",
+    "incidence.events",
+    "incidence.person_days_total",
+    "incidence.incidence_rate_fraction_per_day",
+    "incidence.incidence_proportion",
+    "incidence.risk_unavailable_reasons",
+    "incidence.full_followup_subset",
+    "incidence.point",
+    "incidence.period",
+    "incidence.event_dispositions",
+    "incidence.permutation_0",
+    "incidence.trace_permutation_0",
+    "incidence.permutation_1",
+    "incidence.trace_permutation_1",
+    "incidence.permutation_2",
+    "incidence.trace_permutation_2",
+    "incidence.permutation_3",
+    "incidence.trace_permutation_3",
+    "incidence.permutation_4",
+    "incidence.trace_permutation_4",
+    "pathway transition mass conservation",
+    "pathway person-time partition",
+    "pathways.population",
+    "pathways.people",
+    "pathways.excluded",
+    "pathways.episodes",
+    "pathways.terminals",
+    "pathways.step_denominators",
+    "pathways.state_duration_days",
+    "pathways.person_days",
+    "pathways.raw_drug_days",
+    "pathways.era_drug_days",
+    "pathways.users",
+    "pathways.bridge",
+    "pathways.transition_counts",
+    "pathway transition mass conservation",
+    "pathway person-time partition",
+    "pathways.permutation_0",
+    "pathways.trace_permutation_0",
+    "pathway transition mass conservation",
+    "pathway person-time partition",
+    "pathways.permutation_1",
+    "pathways.trace_permutation_1",
+    "pathway transition mass conservation",
+    "pathway person-time partition",
+    "pathways.permutation_2",
+    "pathways.trace_permutation_2",
+    "pathway transition mass conservation",
+    "pathway person-time partition",
+    "pathways.permutation_3",
+    "pathways.trace_permutation_3",
+    "pathway transition mass conservation",
+    "pathway person-time partition",
+    "pathways.permutation_4",
+    "pathways.trace_permutation_4",
+    "duplicate person",
+    "duplicate event",
+    "orphan event",
+    "negative coverage",
+    "zero exposure interval",
+    "unmapped drug",
+    "Poisson 0/37 lower",
+    "Poisson 0/37 upper",
+    "Poisson 1/37 lower",
+    "Poisson 1/37 upper",
+    "Poisson 5/100 lower",
+    "Poisson 5/100 upper",
+    "Wilson 0/8 lower",
+    "Wilson 0/8 upper",
+    "Wilson 2/8 lower",
+    "Wilson 2/8 upper",
+    "Wilson 4/7 lower",
+    "Wilson 4/7 upper",
+    "Wilson 8/8 lower",
+    "Wilson 8/8 upper"
+  ],
+  "check_count": 79,
+  "observed": {
+    "incidence": {
+      "population": 9,
+      "eligible": [
+        "P1",
+        "P2",
+        "P5",
+        "P8",
+        "P9"
+      ],
+      "excluded": {
+        "P3": "prior_or_index_case",
+        "P4": "insufficient_washout",
+        "P6": "prior_or_index_case",
+        "P7": "unknown_coverage"
+      },
+      "person_days": {
+        "P1": 4,
+        "P2": 6,
+        "P5": 7,
+        "P8": 10,
+        "P9": 10
+      },
+      "first_event_ids": [
+        "e11"
+      ],
+      "events": 1,
+      "person_days_total": 37,
+      "incidence_rate_fraction_per_day": [
+        1,
+        37
+      ],
+      "incidence_proportion": null,
+      "risk_unavailable_reasons": [
+        "death_before_horizon",
+        "observation_gap_before_horizon"
+      ],
+      "full_followup_subset": {
+        "people": [
+          "P1",
+          "P8",
+          "P9"
+        ],
+        "events": 1,
+        "person_days": 24,
+        "risk_fraction": [
+          1,
+          3
+        ]
+      },
+      "point": {
+        "people": [
+          "P1",
+          "P2",
+          "P3",
+          "P4",
+          "P5",
+          "P6",
+          "P8",
+          "P9"
+        ],
+        "cases": [
+          "P3",
+          "P6"
+        ],
+        "fraction": [
+          2,
+          8
+        ]
+      },
+      "period": {
+        "people": [
+          "P1",
+          "P3",
+          "P4",
+          "P5",
+          "P6",
+          "P8",
+          "P9"
+        ],
+        "cases": [
+          "P1",
+          "P3",
+          "P4",
+          "P6"
+        ],
+        "fraction": [
+          4,
+          7
+        ]
+      },
+      "event_dispositions": {
+        "e11": "incident",
+        "e12": "repeat_after_first",
+        "e13": "at_or_after_censor",
+        "e21": "at_or_after_censor",
+        "e22": "at_or_after_censor",
+        "e31": "ineligible_person",
+        "e32": "ineligible_person",
+        "e41": "ineligible_person",
+        "e51": "at_or_after_censor",
+        "e61": "ineligible_person",
+        "e71": "ineligible_person",
+        "e91": "at_or_after_censor"
+      }
+    },
+    "pathways": {
+      "population": 6,
+      "people": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "excluded": [
+        "T6"
+      ],
+      "episodes": [
+        [
+          "T1",
+          1,
+          0,
+          5,
+          "A"
+        ],
+        [
+          "T1",
+          2,
+          5,
+          6,
+          "A+B"
+        ],
+        [
+          "T1",
+          3,
+          6,
+          8,
+          "B"
+        ],
+        [
+          "T1",
+          4,
+          8,
+          10,
+          "NONE"
+        ],
+        [
+          "T2",
+          1,
+          0,
+          1,
+          "NONE"
+        ],
+        [
+          "T2",
+          2,
+          1,
+          4,
+          "A"
+        ],
+        [
+          "T2",
+          3,
+          4,
+          7,
+          "B"
+        ],
+        [
+          "T3",
+          1,
+          0,
+          10,
+          "NONE"
+        ],
+        [
+          "T4",
+          1,
+          0,
+          2,
+          "A"
+        ],
+        [
+          "T4",
+          2,
+          2,
+          5,
+          "NONE"
+        ],
+        [
+          "T4",
+          3,
+          5,
+          6,
+          "A"
+        ],
+        [
+          "T5",
+          1,
+          0,
+          3,
+          "A"
+        ]
+      ],
+      "terminals": {
+        "T1": "administrative_end",
+        "T2": "coverage_end",
+        "T3": "administrative_end",
+        "T4": "death",
+        "T5": "coverage_end"
+      },
+      "step_denominators": {
+        "1": 5,
+        "2": 3,
+        "3": 3,
+        "4": 1
+      },
+      "state_duration_days": {
+        "A": 14,
+        "A+B": 1,
+        "B": 5,
+        "NONE": 16
+      },
+      "person_days": 36,
+      "raw_drug_days": {
+        "A": 14,
+        "B": 6
+      },
+      "era_drug_days": {
+        "A": 15,
+        "B": 6
+      },
+      "users": {
+        "A": 4,
+        "B": 2
+      },
+      "bridge": [
+        [
+          "T1",
+          "A",
+          3,
+          4,
+          "x11",
+          "x12"
+        ]
+      ],
+      "transition_counts": [
+        [
+          1,
+          "A",
+          "A+B",
+          1
+        ],
+        [
+          1,
+          "A",
+          "END:coverage_end",
+          1
+        ],
+        [
+          1,
+          "A",
+          "NONE",
+          1
+        ],
+        [
+          1,
+          "NONE",
+          "A",
+          1
+        ],
+        [
+          1,
+          "NONE",
+          "END:administrative_end",
+          1
+        ],
+        [
+          2,
+          "A",
+          "B",
+          1
+        ],
+        [
+          2,
+          "A+B",
+          "B",
+          1
+        ],
+        [
+          2,
+          "NONE",
+          "A",
+          1
+        ],
+        [
+          3,
+          "A",
+          "END:death",
+          1
+        ],
+        [
+          3,
+          "B",
+          "END:coverage_end",
+          1
+        ],
+        [
+          3,
+          "B",
+          "NONE",
+          1
+        ],
+        [
+          4,
+          "NONE",
+          "END:administrative_end",
+          1
+        ]
+      ]
+    }
+  },
+  "trace": {
+    "incidence": [
+      [
+        "P1",
+        -5,
+        10,
+        10,
+        "administrative_end",
+        4,
+        4
+      ],
+      [
+        "P2",
+        -5,
+        6,
+        6,
+        "coverage_end",
+        null,
+        6
+      ],
+      [
+        "P5",
+        -5,
+        10,
+        7,
+        "death",
+        null,
+        7
+      ],
+      [
+        "P8",
+        -5,
+        10,
+        10,
+        "administrative_end",
+        null,
+        10
+      ],
+      [
+        "P9",
+        -5,
+        10,
+        10,
+        "administrative_end",
+        null,
+        10
+      ]
+    ],
+    "pathways": [
+      {
+        "person": "T1",
+        "step": 1,
+        "interval": [
+          0,
+          5
+        ],
+        "state": "A",
+        "direct_exposure_ids": [
+          "x11",
+          "x12"
+        ],
+        "era_dependency_ids": [
+          "x11",
+          "x12"
+        ]
+      },
+      {
+        "person": "T1",
+        "step": 2,
+        "interval": [
+          5,
+          6
+        ],
+        "state": "A+B",
+        "direct_exposure_ids": [
+          "x12",
+          "x13"
+        ],
+        "era_dependency_ids": [
+          "x11",
+          "x12",
+          "x13"
+        ]
+      },
+      {
+        "person": "T1",
+        "step": 3,
+        "interval": [
+          6,
+          8
+        ],
+        "state": "B",
+        "direct_exposure_ids": [
+          "x13"
+        ],
+        "era_dependency_ids": [
+          "x13"
+        ]
+      },
+      {
+        "person": "T1",
+        "step": 4,
+        "interval": [
+          8,
+          10
+        ],
+        "state": "NONE",
+        "direct_exposure_ids": [],
+        "era_dependency_ids": []
+      },
+      {
+        "person": "T2",
+        "step": 1,
+        "interval": [
+          0,
+          1
+        ],
+        "state": "NONE",
+        "direct_exposure_ids": [],
+        "era_dependency_ids": []
+      },
+      {
+        "person": "T2",
+        "step": 2,
+        "interval": [
+          1,
+          4
+        ],
+        "state": "A",
+        "direct_exposure_ids": [
+          "x21"
+        ],
+        "era_dependency_ids": [
+          "x21"
+        ]
+      },
+      {
+        "person": "T2",
+        "step": 3,
+        "interval": [
+          4,
+          7
+        ],
+        "state": "B",
+        "direct_exposure_ids": [
+          "x22"
+        ],
+        "era_dependency_ids": [
+          "x22"
+        ]
+      },
+      {
+        "person": "T3",
+        "step": 1,
+        "interval": [
+          0,
+          10
+        ],
+        "state": "NONE",
+        "direct_exposure_ids": [],
+        "era_dependency_ids": []
+      },
+      {
+        "person": "T4",
+        "step": 1,
+        "interval": [
+          0,
+          2
+        ],
+        "state": "A",
+        "direct_exposure_ids": [
+          "x41"
+        ],
+        "era_dependency_ids": [
+          "x41"
+        ]
+      },
+      {
+        "person": "T4",
+        "step": 2,
+        "interval": [
+          2,
+          5
+        ],
+        "state": "NONE",
+        "direct_exposure_ids": [],
+        "era_dependency_ids": []
+      },
+      {
+        "person": "T4",
+        "step": 3,
+        "interval": [
+          5,
+          6
+        ],
+        "state": "A",
+        "direct_exposure_ids": [
+          "x42"
+        ],
+        "era_dependency_ids": [
+          "x42"
+        ]
+      },
+      {
+        "person": "T5",
+        "step": 1,
+        "interval": [
+          0,
+          3
+        ],
+        "state": "A",
+        "direct_exposure_ids": [
+          "x51"
+        ],
+        "era_dependency_ids": [
+          "x51"
+        ]
+      }
+    ]
+  },
+  "package": {
+    "statsmodels": "0.15.0",
+    "scipy": "1.16.3",
+    "checks": [
+      {
+        "kind": "poisson_exact_c",
+        "count": 0,
+        "exposure_days": 37,
+        "ci": [
+          0.0,
+          0.09969944470578206
+        ]
+      },
+      {
+        "kind": "poisson_exact_c",
+        "count": 1,
+        "exposure_days": 37,
+        "ci": [
+          0.0006842650806564831,
+          0.1505849565118621
+        ]
+      },
+      {
+        "kind": "poisson_exact_c",
+        "count": 5,
+        "exposure_days": 100,
+        "ci": [
+          0.016234863901184206,
+          0.1166833207932267
+        ]
+      },
+      {
+        "kind": "wilson",
+        "count": 0,
+        "n": 8,
+        "ci": [
+          0.0,
+          0.32440756488388034
+        ]
+      },
+      {
+        "kind": "wilson",
+        "count": 2,
+        "n": 8,
+        "ci": [
+          0.071479212752109,
+          0.5907245696898311
+        ]
+      },
+      {
+        "kind": "wilson",
+        "count": 4,
+        "n": 7,
+        "ci": [
+          0.2504583645276572,
+          0.8417801447485302
+        ]
+      },
+      {
+        "kind": "wilson",
+        "count": 8,
+        "n": 8,
+        "ci": [
+          0.6755924351161198,
+          1.0
+        ]
+      }
+    ]
+  }
+}
