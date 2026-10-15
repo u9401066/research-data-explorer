@@ -2682,7 +2682,7 @@ def _figure_interpretation_harness_entry(
         clinical_role = (
             "Rubin-pooled coefficients and pointwise uncertainty",
             "The panel uses saved coefficients and unadjusted asymptotic normal Wald intervals, combining within-imputation and between-imputation variation.",
-            "No Barnard-Rubin small-sample correction is claimed. Log-odds coefficients are not risk differences, coefficients on different scales do not rank importance, and pooling does not validate MAR or causal interpretation.",
+            "No Barnard-Rubin small-sample correction is claimed. Interpret coefficients on the saved outcome-model scale; a binary predictor does not determine the model link. Coefficients on different scales do not rank importance, and pooling does not validate MAR or causal interpretation.",
             "Report the saved model scale, pooled coefficients, intervals and actual multiplicity policy without increasing the independent sample size.",
             "Review completed-dataset fits, pooling covariance and the complete-case comparison; changing the analysis population is not an MNAR sensitivity analysis.",
         )

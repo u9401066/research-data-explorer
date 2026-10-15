@@ -8,6 +8,21 @@ from .fixed_publication import blocks, flow_table, render
 from .report import cell, number
 
 
+def _model_scale(result):
+    """The outcome model, never a predictor's binary coding, determines the scale."""
+    if result["spec"]["distribution"] == "binomial":
+        return (
+            "二元結果 logistic 模型的預測變項係數為條件 log-odds；連續預測變項每增加一個來源單位，或二元預測變項編碼 1 相對 0，在其他模型預測變項固定下比較。exp 後為條件 OR（截距為參照 log-odds，exp 後為參照 odds），不是邊際 OR、風險比或風險差。",
+            "The binary-outcome logistic model reports conditional log-odds coefficients: a continuous predictor per one source unit or a binary predictor coded 1 versus 0, holding the other model predictors fixed. Exponentiating predictor coefficients gives conditional odds ratios, not marginal odds ratios, risk ratios or risk differences. The intercept is reference log-odds with all model predictors set to zero.",
+            "Pooled conditional log-odds coefficient",
+        )
+    return (
+        f"連續結果 Gaussian OLS 模型的係數以結果 {cell(result['spec']['outcome'])} 的原始單位（{cell(result['spec']['outcome_unit'])}）表示。連續預測變項每增加一個來源單位，或二元預測變項編碼 1 相對 0，在其他模型預測變項固定下的係數是條件平均差，不是邊際平均差或因果效果；截距為所有模型預測變項取 0 時的參照平均數。",
+        "The continuous-outcome Gaussian OLS model uses original outcome units (see the source-context mapping). Predictor coefficients are conditional mean differences for a continuous predictor per one source unit or a binary predictor coded 1 versus 0, holding the other model predictors fixed; they are not marginal effects or causal effects. The intercept is the reference mean with all model predictors set to zero.",
+        "Pooled coefficient (original outcome units)",
+    )
+
+
 def flow(result):
     ledger = result["case_ledger"]
     return [
@@ -98,7 +113,9 @@ def markdown(result):
         "",
         "### Rubin 合併估計與不確定性",
         "",
-        "每份資料各自估計相同模型，再合併參數與完整 covariance；區間及 p 值為逐項未校正的漸近常態 Wald，沒有 Barnard–Rubin 小樣本自由度。Binary 係數是 log-odds，exp 後為條件 OR（截距為參照 odds），不是風險比。",
+        "每份資料各自估計相同模型，再合併參數與完整 covariance；區間及 p 值為逐項未校正的漸近常態 Wald，沒有 Barnard–Rubin 小樣本自由度。",
+        _model_scale(result)[0],
+        "",
         "| 參數 | 係數 | SE | 係數區間下限 | 上限 | p | within variance | between variance |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
@@ -209,18 +226,17 @@ def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", e
             ax.axvline(0, linestyle="dashed", color="#777777", linewidth=0.7)
             ax.set_yticks(range(len(rows)), [labels.get(r["column"], "Intercept") for r in rows])
             ax.invert_yaxis()
-            ax.set_xlabel(
-                "Pooled log-odds coefficient"
-                if result["spec"]["distribution"] == "binomial"
-                else "Pooled coefficient (original model scale)"
-            )
+            scale_zh, scale_en, axis_label = _model_scale(result)
+            ax.set_xlabel(axis_label)
             save(
                 fig,
                 f"effects_{key}",
                 "Rubin pooled coefficients and uncertainty.",
                 source
-                + f"Points and bars are saved coefficients and pointwise unadjusted {result['spec']['confidence_level']:.1%} asymptotic normal Wald intervals. Covariance is U_bar + (1+1/m) B from statsmodels MICE.combine. No Barnard-Rubin correction, robust covariance or multiplicity adjustment. Predictor scales differ; coefficient magnitude does not rank importance. Binary values are log-odds coefficients, not risk differences.",
-                "合併係數與區間來自保存收據；沒有小樣本自由度或多重校正，也不按係數大小比較重要性。",
+                + f"Points and bars are saved coefficients and pointwise unadjusted {result['spec']['confidence_level']:.1%} asymptotic normal Wald intervals. Covariance is U_bar + (1+1/m) B from statsmodels MICE.combine. No Barnard-Rubin correction, robust covariance or multiplicity adjustment. Predictor scales differ; coefficient magnitude does not rank importance. "
+                + scale_en,
+                "合併係數與區間來自保存收據；沒有小樣本自由度或多重校正，也不按係數大小比較重要性。"
+                + scale_zh,
                 rows,
             )
         traces = result["diagnostics"]["chain_traces"]
