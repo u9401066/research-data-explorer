@@ -45,6 +45,7 @@ SPEC_TYPES = {
     "regression": ("rde.infrastructure.clinical.regression_contract", "RegressionSpec"),
     "weighting": ("rde.infrastructure.clinical.weighting_contract", "WeightingSpec"),
     "matching": ("rde.infrastructure.clinical.matching", "MatchingSpec"),
+    "target_trial": ("rde.infrastructure.clinical.target_trial_study", "TargetTrialSpec"),
     "longitudinal": (
         "rde.infrastructure.clinical.longitudinal_contract",
         "LongitudinalSpec",
@@ -597,6 +598,41 @@ def family_declarations():
             ["只支援明示觀察隊列與可測基線混雜；不能修復未測量混雜或 positivity 缺口。"],
         ),
         (
+            "target_trial",
+            "model",
+            "基線目標試驗模擬",
+            "核准多表來源能否支持明訂的基線點處置比較？",
+            [
+                (
+                    "baseline_point_weighting",
+                    "固定完整追蹤的基線點處置加權",
+                    {"family": "target_trial"},
+                )
+            ],
+            [
+                (
+                    "weighting",
+                    "完整加權規格",
+                    "沿用既有 ATE／ATT／ATO 與二元／連續結果；不改數值核心",
+                ),
+                (
+                    "protocol",
+                    "來源綁定的八項試驗定義",
+                    "以核准 preparation、全部 trace 與實際時間／coverage 欄位核對；不能以 boolean 批准",
+                ),
+            ],
+            [
+                "完整來源與納排帳冊",
+                "八項 protocol 定義",
+                "個案流程圖",
+                "原加權效果／平衡／有效樣本量與獨立數值收據",
+            ],
+            [
+                "僅一人一個 time zero、基線點處置、完整固定 horizon；通過 eligibility 後不得額外刪除 missing 個案。",
+                "不支援時變／動態／持續策略、grace period、CCW、失訪、競爭事件、多次入組、加權存活或 MI；來源核對不證明因果識別。",
+            ],
+        ),
+        (
             "longitudinal",
             "model",
             "縱向模型",
@@ -673,6 +709,15 @@ def family_declarations():
             [clinical, SPEC_TYPES[identifier][0].replace(".", "/") + ".py"],
         )
         families[-1]["contract_refs"][-1] = "src/" + families[-1]["contract_refs"][-1]
+        if identifier == "target_trial":
+            families[-1]["bindings"].insert(0, binding("get_target_trial_contract"))
+            families[-1]["contract_refs"] += [
+                "src/rde/infrastructure/clinical/target_trial_contract.py",
+                "src/rde/infrastructure/clinical/target_trial_source.py",
+                "src/rde/infrastructure/clinical/weighting.py",
+                "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+                "src/rde/interface/mcp/runtime.py",
+            ]
     add(
         "prediction",
         "model",
@@ -906,6 +951,7 @@ def family_declarations():
         "imputation",
         "weighting",
         "matching",
+        "target_trial",
         "longitudinal",
         "survival",
         "prediction",

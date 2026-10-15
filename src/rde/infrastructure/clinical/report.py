@@ -20,6 +20,10 @@ def markdown(result: dict) -> str:
         from .matching_report import markdown as family_markdown
 
         return family_markdown(result)
+    if result["spec"]["family"] == "target_trial":
+        from .target_trial_report import markdown as family_markdown
+
+        return family_markdown(result)
     if result["spec"]["family"] == "noninferiority":
         from .noninferiority_report import markdown as family_markdown
 
@@ -232,6 +236,8 @@ def markdown(result: dict) -> str:
 def figures(result: dict, directory: Path, prefix: str):
     if result["spec"]["family"] == "matching":
         from .matching_report import figures as publication_figures
+    elif result["spec"]["family"] == "target_trial":
+        from .target_trial_report import figures as publication_figures
     elif result["spec"]["family"] == "noninferiority":
         from .noninferiority_report import figures as publication_figures
     elif result["spec"]["family"] == "imputation":
@@ -258,6 +264,10 @@ def figures(result: dict, directory: Path, prefix: str):
 def tables(result: dict, directory: Path, prefix: str):
     if result["spec"]["family"] == "matching":
         from .matching_report import tables as family_tables
+
+        return family_tables(result, directory, prefix)
+    if result["spec"]["family"] == "target_trial":
+        from .target_trial_report import tables as family_tables
 
         return family_tables(result, directory, prefix)
     if result["spec"]["family"] == "noninferiority":

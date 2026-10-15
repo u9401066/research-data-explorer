@@ -59,6 +59,19 @@ from rde.infrastructure.clinical.noninferiority_contract import (
 )
 from rde.infrastructure.clinical.matching import MatchingSpec, matching_preflight, prepare_matching
 from rde.interface.mcp.tools.prediction_tools import atomic_json
+from rde.infrastructure.clinical.target_trial_study import (
+    TargetTrialSpec,
+    persist_source_check,
+    target_trial_preflight,
+    run_target_trial,
+    verify_target_trial_result,
+    verify_target_trial_artifacts,
+    verify_source_artifact,
+)
+from rde.infrastructure.clinical.target_trial_source import (
+    validate_target_trial_source,
+    target_trial_source_contract,
+)
 
 
 def planned_clinical_spec(entry):
@@ -69,6 +82,8 @@ def planned_clinical_spec(entry):
 def parse_clinical_spec(options):
     if isinstance(options, dict) and options.get("family") == "matching":
         return MatchingSpec.parse(options)
+    if isinstance(options, dict) and options.get("family") == "target_trial":
+        return TargetTrialSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "noninferiority":
         return NoninferioritySpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "imputation":
@@ -165,6 +180,10 @@ def verify_clinical_artifacts(record, root: Path):
         record, root
     ):
         return False
+    if result.get("spec", {}).get("family") == "target_trial" and not verify_target_trial_artifacts(
+        record, root
+    ):
+        return False
     for item in [*artifacts, *record.get("derived_artifacts", [])]:
         path = (root / item["path"]).resolve()
         if (
@@ -178,8 +197,36 @@ def verify_clinical_artifacts(record, root: Path):
 
 def register_clinical_tools(server: Any):
     @server.tool()
+    def get_target_trial_contract(
+        dataset_id: str, weighting_options: dict[str, Any] | None = None
+    ) -> str:
+        """取得核准資料的基線TTE完整typed schema、原生binding、prep規則與來源欄名；不回原始個案、不核准或估計。
+
+        weighting_options 可提供完整原 weighting 規格，回傳正規化 weighting 與 Python canonical SHA，
+        供 protocol.analysis.weighting_spec_sha256 使用；不可自行猜來源hash或研究定義。
+        完成 protocol 後仍須 inspect_clinical_study、註冊鎖定計畫及正式run。
+        """
+        from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
+
+        ok, message, project, entry = ensure_phase_ready(
+            PipelinePhase.CONCEPT_ALIGNMENT, dataset_id=dataset_id, require_dataset=True
+        )
+        if not ok:
+            return fmt_error(message)
+        try:
+            result = target_trial_source_contract(project, entry.dataset.metadata)
+            if weighting_options is not None:
+                weighting = WeightingSpec.parse(weighting_options)
+                result.update(
+                    weighting=weighting.to_dict(), weighting_spec_sha256=digest(weighting.to_dict())
+                )
+            return json.dumps(result, ensure_ascii=False, allow_nan=False)
+        except (ValueError, TypeError, KeyError, OSError) as error:
+            return fmt_error(str(error))
+
+    @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對配對／獨立比較／生存／診斷／一致性／縱向／迴歸／加權／多重插補／分層／非劣性角色、受試者與個案分母；不估計模型或 p 值。"""
+        """計畫前核對臨床角色與分母；不估計模型或 p 值。target_trial 必須完整 weighting 與 typed protocol，核對已核准多表來源／所有個案時序，保存完整 source-check artifact。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -192,6 +239,25 @@ def register_clinical_tools(server: Any):
             source = entry.dataset.metadata
             if not source or not source.file_path.is_file():
                 raise ValueError("The clinical source file is required.")
+            if isinstance(spec, TargetTrialSpec):
+                check = validate_target_trial_source(
+                    _project, source, entry.dataframe, spec.weighting, spec.protocol
+                )
+                store = ArtifactStore(_project.artifacts_dir)
+                artifact = persist_source_check(
+                    check,
+                    store.get_path(PipelinePhase.CONCEPT_ALIGNMENT, "unused").parent,
+                    _project.output_dir,
+                )
+                return json.dumps(
+                    {
+                        **target_trial_preflight(spec, check, artifact),
+                        "source_sha256": hashlib.sha256(source.file_path.read_bytes()).hexdigest(),
+                        "sheet": source.sheet_name,
+                    },
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
             if isinstance(
                 spec,
                 (
@@ -265,13 +331,17 @@ def register_clinical_tools(server: Any):
                 ensure_ascii=False,
                 allow_nan=False,
             )
-        except (ValueError, TypeError, KeyError) as error:
+        except (ValueError, TypeError, KeyError, OSError) as error:
             return fmt_error(str(error))
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
         """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting、comparison、repeated、imputation、stratified、noninferiority。
 
+        target_trial={family:target_trial,weighting:{完整原weighting規格},protocol:{完整rde-baseline-target-trial-v1}}。
+        僅一人一個基線點處置、固定完整horizon，核對核准bundle/release/完整trace/時序/全部eligible。
+        cached reuse之前再次驗證來源與鎖定protocol；不支援時變/動態/失訪/CCW，不可退回普通weighting。
+        頂層missing_strategy=listwise與multiplicity=none；額外驗證沒有任何eligible分析缺失排除。
         imputation 僅固定 continuous/binary PMM 與 gaussian/binomial 加法分析；須讀取完整 typed 規格。
         內層 columns 明列原始欄位、代碼、unit、impute 與 predictors，m/burn_in/between/k_pmm/seed 固定。
         頂層 missing_strategy=multiple_imputation、multiplicity=none；全部完成CSV與模型保存，原觀察格不變。
@@ -351,17 +421,51 @@ def register_clinical_tools(server: Any):
         parameters = {"dataset_id": dataset_id, "clinical_options": clinical_options}
         attempt = None
         derived_directory = None
+        target_check = None
+        target_artifact = None
         try:
             spec = parse_clinical_spec(clinical_options)
+            if isinstance(spec, TargetTrialSpec):
+                attempt = store.get_path(
+                    PipelinePhase.EXECUTE_EXPLORATION,
+                    f"clinical_attempt_{uuid.uuid4().hex[:16]}.json",
+                )
+                atomic_json(
+                    attempt,
+                    {
+                        "status": "started",
+                        "dataset_id": dataset_id,
+                        "spec_sha256": digest(spec.to_dict()),
+                        "family": "target_trial",
+                    },
+                )
             plan = clinical_plan(store)
             if plan is None or planned_clinical_spec(plan).to_dict() != spec.to_dict():
                 raise ValueError(
                     "Clinical options must exactly match the single locked study plan."
                 )
+            if isinstance(spec, TargetTrialSpec):
+                target_check = validate_target_trial_source(
+                    project, entry.dataset.metadata, entry.dataframe, spec.weighting, spec.protocol
+                )
+                locked = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+                pin = locked.get("target_trial_source_check", {})
+                if (
+                    locked.get("locked") is not True
+                    or pin.get("receipt_sha256") != target_check["receipt_sha256"]
+                    or not verify_source_artifact(
+                        pin.get("artifact", {}), project.output_dir, target_check
+                    )
+                ):
+                    raise ValueError(
+                        "TTE_LOCKED_SOURCE_CHECK: source validation or its implementation differs from the exact locked plan; review a new version."
+                    )
             parameters["variables"] = spec.variables()
             frame_hash = (
                 prepare_matching(entry.dataframe, spec)
                 if isinstance(spec, MatchingSpec)
+                else (None, None, target_check["weighting_preflight"]["dataframe_sha256"])
+                if isinstance(spec, TargetTrialSpec)
                 else prepare_noninferiority(entry.dataframe, spec)
                 if isinstance(spec, NoninferioritySpec)
                 else prepare_imputation(entry.dataframe, spec)
@@ -394,6 +498,12 @@ def register_clinical_tools(server: Any):
             )
             filename = f"clinical_study_{digest(dataset_id)[:16]}.json"
             previous = store.load(PipelinePhase.EXECUTE_EXPLORATION, filename)
+            from rde.interface.mcp.runtime import CLINICAL_REPLAY_ONLY
+
+            if CLINICAL_REPLAY_ONLY.get() and (not previous or not previous.get("artifacts")):
+                raise ValueError(
+                    "CLINICAL_REPLAY_INCOMPLETE: the original live clinical evidence is missing or incomplete; refusing to refit or rebuild it from an invocation snapshot."
+                )
             if previous and (
                 previous["result"]["spec_sha256"] != digest(spec.to_dict())
                 or previous["result"]["dataframe_sha256"] != frame_hash
@@ -406,6 +516,22 @@ def register_clinical_tools(server: Any):
                 {k: v for k, v in previous["result"].items() if k != "receipt_sha256"}
             ) != previous["result"].get("receipt_sha256"):
                 raise ValueError("Saved clinical numerical evidence failed integrity checks.")
+            if (
+                previous
+                and isinstance(spec, TargetTrialSpec)
+                and (
+                    not verify_target_trial_result(previous["result"])
+                    or previous["result"]["source_check"] != target_check
+                    or not verify_source_artifact(
+                        previous.get("target_trial_source_artifact", {}),
+                        project.output_dir,
+                        target_check,
+                    )
+                )
+            ):
+                raise ValueError(
+                    "TTE_REUSE_SOURCE: saved protocol/source/numerical links differ; refusing to refit or relabel evidence."
+                )
             if previous and isinstance(spec, ImputationSpec):
                 if not verify_imputation_derived(previous, project.output_dir):
                     raise ValueError(
@@ -423,9 +549,29 @@ def register_clinical_tools(server: Any):
                     f"Saved declared analysis population n={previous['result']['n']}.",
                     artifacts=[filename],
                 )
+                if isinstance(spec, TargetTrialSpec):
+                    atomic_json(
+                        attempt,
+                        {
+                            "status": "reused",
+                            "dataset_id": dataset_id,
+                            "source_check_sha256": target_check["receipt_sha256"],
+                            "numerical_receipt_sha256": previous["result"]["receipt_sha256"],
+                        },
+                    )
                 return markdown(previous["result"]) + "\n已取回保存結果；本次沒有重新估計模型。\n"
+            if isinstance(spec, TargetTrialSpec):
+                target_artifact = (
+                    previous["target_trial_source_artifact"]
+                    if previous
+                    else persist_source_check(
+                        target_check,
+                        store.get_path(PipelinePhase.EXECUTE_EXPLORATION, "unused").parent,
+                        project.output_dir,
+                    )
+                )
             run_id = previous["run_id"] if previous else uuid.uuid4().hex[:16]
-            attempt = store.get_path(
+            attempt = attempt or store.get_path(
                 PipelinePhase.EXECUTE_EXPLORATION, f"clinical_attempt_{run_id}.json"
             )
             derived_directory = (
@@ -450,6 +596,8 @@ def register_clinical_tools(server: Any):
                 else (
                     run_matching(entry.dataframe, spec)
                     if isinstance(spec, MatchingSpec)
+                    else run_target_trial(entry.dataframe, spec, target_check)
+                    if isinstance(spec, TargetTrialSpec)
                     else run_noninferiority(entry.dataframe, spec)
                     if isinstance(spec, NoninferioritySpec)
                     else run_imputation(entry.dataframe, spec, derived_directory)
@@ -478,9 +626,21 @@ def register_clinical_tools(server: Any):
                 raise ValueError(
                     "Clinical source file changed during execution; saved partial evidence cannot complete this plan."
                 )
+            if isinstance(spec, TargetTrialSpec):
+                if (
+                    validate_target_trial_source(
+                        project, metadata, entry.dataframe, spec.weighting, spec.protocol
+                    )
+                    != target_check
+                ):
+                    raise ValueError(
+                        "TTE_SOURCE_CHANGED: prepared source evidence changed during execution."
+                    )
             record = dict(
                 dataset_id=dataset_id, run_id=run_id, source=source, result=result, artifacts=[]
             )
+            if isinstance(spec, TargetTrialSpec):
+                record["target_trial_source_artifact"] = target_artifact
             if isinstance(spec, ImputationSpec):
                 record["derived_artifacts"] = (
                     previous["derived_artifacts"]
@@ -511,6 +671,7 @@ def register_clinical_tools(server: Any):
             ]
             paths = [
                 report,
+                *([project.output_dir / target_artifact["path"]] if target_artifact else []),
                 *tables(result, table_dir, prefix),
                 *figure_paths,
                 *[
@@ -545,6 +706,22 @@ def register_clinical_tools(server: Any):
             )
             return markdown(result) + f"\n**數值收據：** `{final}`\n"
         except Exception as error:
+            if target_check is not None or (
+                attempt and isinstance(locals().get("spec"), TargetTrialSpec)
+            ):
+                atomic_json(
+                    attempt,
+                    {
+                        "status": "failed",
+                        "dataset_id": dataset_id,
+                        "family": "target_trial",
+                        "error": str(error),
+                        "source_check_sha256": target_check["receipt_sha256"]
+                        if target_check
+                        else None,
+                        "source_artifact": target_artifact,
+                    },
+                )
             failure_artifacts = [attempt.name] if attempt and attempt.is_file() else []
             if derived_directory and derived_directory.is_dir():
                 failure_artifacts += [

@@ -2242,6 +2242,8 @@ def _formal_key_findings(results: dict | None) -> str:
     if results.get("clinical_studies"):
         if any(r.get("family") == "matching" for r in results["clinical_studies"]):
             return "已完成預先鎖定的1:1無放回傾向分數配對與配對群聚近似推論。效果僅針對保留的matched-treated族群；請核對完整個案、配對排除、原始欄位與模型基底平衡及重疊，不把結果外推為原全體ATT。"
+        if any(r.get("family") == "target_trial" for r in results["clinical_studies"]):
+            return "已完成鎖定的基線點處置 target-trial protocol、核准多表來源與全部 eligible 個案核對，並沿用原有 propensity weighting。完整來源／時序／分母與數值收據分開保存；計算完成不證明因果識別，未知追蹤不當陰性，沒有時變或失訪校正。"
         if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
             study = next(
                 r for r in results["clinical_studies"] if r.get("family") == "noninferiority"
@@ -2347,6 +2349,8 @@ def _formal_conclusions(
     if results and results.get("clinical_studies"):
         if any(r.get("family") == "matching" for r in results["clinical_studies"]):
             return "配對後均差或事件機率差使用treatment-only OLS、pair-cluster CR1及G−1自由度。仍需核對交換性、未測量混雜及剩餘不平衡；SMD通過或計算完成不證明因果效果。"
+        if any(r.get("family") == "target_trial" for r in results["clinical_studies"]):
+            return "結果限於事先指定的基線點處置、完整固定追蹤、相同 eligible 個案與 ATE／ATT／ATO 目標。來源核對不證明來源真實、無未測量混雜或 positivity；不適用持續策略、grace period、失訪／競爭事件校正、時變處置或 clone–censor–weight。"
         if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
             return "非劣性推論限於預定 margin、方向、單側 alpha 與共同完整個案。須以單側下限嚴格高於 −margin 且單側檢定通過共同判定，界值等號不通過；未通過 NI 也不等於已證明劣效。margin 的臨床依據、assay sensitivity、constancy、缺失機制與 ITT／PP 成員資格仍需獨立審閱。觀察性比較不能直接宣稱因果治療非劣性。"
         if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
@@ -2446,6 +2450,8 @@ def _build_interpretation_discussion(
     if results and results.get("clinical_studies"):
         if any(r.get("family") == "matching" for r in results["clinical_studies"]):
             return "完整個案與caliper排除會改變目標族群；估計PS的不確定性未獲完整精確校正。少量配對或稀疏discordant pairs的推論需審閱；不支援放回、多對一、生存結果或依p值調整配對。"
+        if any(r.get("family") == "target_trial" for r in results["clinical_studies"]):
+            return "## 基線目標試驗結果解讀\n\n先核對八項 protocol、完整來源與基線納排、assignment＝time zero、共變項可得時間與 outcome coverage，再解讀未改動的加權差異及 joint sandwich。無額外完整個案排除不等於缺失機制已驗證；平衡、收斂或顯著性也不證明 exchangeability。所有來源、protocol 與數值版本固定，修訂須新計畫而非覆寫原成果。"
         if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
             return "## 非劣性結果解讀\n\n先核對原始尺度、處置與對照代碼、改善方向、預定 margin 及臨床依據，再讀單側 alpha、均差與單側下限。圖中箭頭代表無界上限，不是雙側 CI；等號或數值界值不通過。計算完成、未能證明非劣性與非劣性成立是不同狀態；NI 陰性不得改寫為 superiority、等效或劣效證明。完整個案不驗證 ITT／PP，失訪、介入依從性、研究設計與 margin 可轉用性仍需審閱。"
         if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
@@ -2643,7 +2649,15 @@ def _figure_interpretation_harness_entry(
     variables_text = ", ".join(variables) if variables else "unspecified variables"
 
     clinical_role = None
-    if plot in {
+    if plot == "clinical_target_trial_flow":
+        clinical_role = (
+            "Source-verified baseline target-trial population flow",
+            "The panel records every original root subject, prespecified baseline exclusions, prepared eligible subjects and the exact unchanged weighting population.",
+            "The retained source coverage and timing checks do not prove complete hospital exports, exchangeability, positivity, consistency or causal identification.",
+            "Report the frozen root and eligible denominators and zero additional analysis exclusions; do not relabel this baseline point-treatment contrast as a sustained or dynamic strategy.",
+            "Review all source-check rows, the approved preparation, the eight-part protocol and the separately linked original weighting receipt before interpreting the estimate.",
+        )
+    elif plot in {
         "clinical_imputation_flow",
         "clinical_stratified_flow",
         "clinical_noninferiority_flow",

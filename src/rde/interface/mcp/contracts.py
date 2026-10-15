@@ -169,11 +169,16 @@ CONTRACTS = {
         "exact locked clinical options + readiness + evidence reuse guard",
         "case ledger, clinical estimates, diagnostics, figures, tables and decision",
     ),
+    "get_target_trial_contract": ToolContract(
+        "3",
+        "schema and exact server-imported approved preparation bundle",
+        "read-only typed protocol schema, source binding and column metadata; no patient rows",
+        read_only=True,
+    ),
     "inspect_clinical_study": ToolContract(
         "3",
         "schema and loaded dataset",
-        "read-only clinical coding, longitudinal roles, design rank and eligibility counts",
-        read_only=True,
+        "clinical coding, design and eligibility checks; target_trial retains immutable source-check evidence",
     ),
     "get_publication_presets": ToolContract(
         "all",

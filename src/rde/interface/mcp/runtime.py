@@ -1,6 +1,7 @@
 """Protocol boundary: SDK v2 concurrency, effect hints and machine-readable errors."""
 
 from functools import wraps
+from contextvars import ContextVar
 from inspect import signature, Parameter
 from threading import RLock
 from typing import get_type_hints
@@ -22,6 +23,8 @@ from rde.interface.mcp.results import (
 # The application registry is process-global; the lock must be too. Sync v2
 # handlers run on worker threads. Do not lock the event loop while they execute.
 STATE_LOCK = RLock()
+# Internal only: durable invocation replay must not refit or rebuild clinical evidence.
+CLINICAL_REPLAY_ONLY = ContextVar("rde_clinical_replay_only", default=False)
 
 
 class RDEServer(MCPServer):
@@ -45,6 +48,25 @@ class RDEServer(MCPServer):
                         try:
                             operation_dir, saved = begin(project, execution_key, name, arguments)
                             if saved is not None:
+                                if saved.status == "ok" and name == "run_clinical_study":
+                                    token = CLINICAL_REPLAY_ONLY.set(True)
+                                    try:
+                                        value = fn(*call_args, **call_kwargs)
+                                    finally:
+                                        CLINICAL_REPLAY_ONLY.reset(token)
+                                    if isinstance(value, ToolFailure):
+                                        return make_result(
+                                            name, value, project, fingerprints(project)
+                                        )
+                                elif saved.status == "ok" and name in {
+                                    "inspect_clinical_study",
+                                    "register_analysis_plan",
+                                }:
+                                    from rde.interface.mcp.tools._shared.target_trial_replay import (
+                                        validate_replay,
+                                    )
+
+                                    validate_replay(project, name, arguments, saved)
                                 return saved
                         except (ValueError, OSError, KeyError) as error:
                             return RdeResult(

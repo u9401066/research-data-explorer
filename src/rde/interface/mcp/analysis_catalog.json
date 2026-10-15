@@ -407,7 +407,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/report.py",
-      "sha256": "3f580d6c954dd6547bbb81fd45491e99874fc2d52840cd575d566474360728ba"
+      "sha256": "ace4f0acaea363615c7cc44343d69c1eb875d8991dc83acbff271f65c7a4b05d"
     },
     {
       "path": "src/rde/infrastructure/clinical/sample_size.py",
@@ -440,6 +440,22 @@
     {
       "path": "src/rde/infrastructure/clinical/survival_publication.py",
       "sha256": "b9176eaf72c8562838cc9fd69b0c0d2ef516d23943ad143f289d51ac705fe213"
+    },
+    {
+      "path": "src/rde/infrastructure/clinical/target_trial_contract.py",
+      "sha256": "9e92f8791c7c1f09fccc90335fc8948c6628b62df91e14857660947494681aad"
+    },
+    {
+      "path": "src/rde/infrastructure/clinical/target_trial_report.py",
+      "sha256": "055debb992b6016366971c6cc15affbdb063f622cfd855bcbd645ba08c4e893f"
+    },
+    {
+      "path": "src/rde/infrastructure/clinical/target_trial_source.py",
+      "sha256": "6a1b82386783346ece8af97931eda312682eac2b1870f5918e71669c4dc936b8"
+    },
+    {
+      "path": "src/rde/infrastructure/clinical/target_trial_study.py",
+      "sha256": "979d545dc2170e3cc92357b2e87c282bc19ead81533fa97f476d13eb43dcf420"
     },
     {
       "path": "src/rde/infrastructure/clinical/weighting.py",
@@ -623,7 +639,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "efa546f3d4317804571555a1dd6bbeee7bcd7bf990d26eefbedc23706101fc3c"
+      "sha256": "aae04442f61c503a4c6bb38d9eaf8793dc94fe0a431e1362928ec5f2b8e17a3d"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -631,7 +647,7 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "58f1342303a15b110f998026f826fb07a854235a32b3962a38ab3dab9b68a064"
+      "sha256": "7fefc6350479c2d8862b5b5d59917d3614ce85b8235fde4b93221a906657ba2a"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
@@ -651,7 +667,7 @@
     },
     {
       "path": "src/rde/interface/mcp/runtime.py",
-      "sha256": "bfd1c7c96966cc96fef420d3aca38fa69b8c5db0e8c8c27fae96e86bb3af7625"
+      "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
     },
     {
       "path": "src/rde/interface/mcp/server.py",
@@ -679,7 +695,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_readiness.py",
-      "sha256": "be1dba65abaa77621de77f401afe9e27f1160008adcdb85b9367dada2e5612ea"
+      "sha256": "04e372a832da8461c22ae632c5114455b01f50e5d089f85c6462e24ae9824d90"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_scope.py",
@@ -706,6 +722,10 @@
       "sha256": "9e93e092bc6bfcdb1ba5e56a236e9ca17bdf7a460ed36dab0e2c82fa43468290"
     },
     {
+      "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+      "sha256": "f5da0cf8f07c78d4e07b9a2c056689050c48d59e4b09a23a3e7ef2cec68d675d"
+    },
+    {
       "path": "src/rde/interface/mcp/tools/_shared/tool_logging.py",
       "sha256": "2b9f4123658a55e32603f8379bca34500312083a4fa2ac5f8cd6dd84a721424a"
     },
@@ -719,15 +739,15 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/branch_tools.py",
-      "sha256": "045a6781355e0fdf4b7e3e60f79330be8e42065d1bc7fb6e8eafde637dd65f03"
+      "sha256": "d1b24312ebac7c30f2c7b52f322d0c1a88d5ffaf4b7b6248c3ea71481e89765b"
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_proposal.py",
-      "sha256": "e8e45d58e6c66057a02cc8873633dc4f69d57b1d6d79ac4e35fa1437fc923098"
+      "sha256": "5c7da01c192f2057e84194e5f490b54390017bd073a3b66f1a446a05b3826b17"
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-      "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+      "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
     },
     {
       "path": "src/rde/interface/mcp/tools/descriptive_tools.py",
@@ -747,7 +767,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "392ee6097b3b7ef0f6ba3ba7e099c3f009cb2d59e4e5a72aa0f93071f8c5a5c7"
+      "sha256": "7af001ac4379975cdbb5530fc3bb63d0b27fee420869a9f722e44a1b5120ac14"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -767,11 +787,11 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
-      "sha256": "2d4906ade81888764b4b6ef3494669fa9469444cd45fb6e2f79801a81da368d7"
+      "sha256": "777c2c062590bb5657a03cf3afe6519db0032f547082341ff3d0a9c4dce7f3ad"
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "0bf98951787da858ad6629c67602dd7b398767c973f47df489c82349b71f93e2"
+      "sha256": "252f0a5c0fa67881cb4f9c5fd54c7a1c509e0e53eba4c14f31dcd71ad46a38b3"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -836,6 +856,7 @@
         "imputation",
         "weighting",
         "matching",
+        "target_trial",
         "longitudinal",
         "survival",
         "prediction",
@@ -3060,6 +3081,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -3248,7 +3281,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/comparison_contract.py",
@@ -3349,6 +3382,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -3492,7 +3537,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/stratified_contract.py",
@@ -3599,6 +3644,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -3761,7 +3818,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/noninferiority_contract.py",
@@ -3858,6 +3915,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -4028,7 +4097,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/repeated_contract.py",
@@ -4115,6 +4184,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -4244,7 +4325,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4331,6 +4412,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -4460,7 +4553,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4547,6 +4640,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -4676,7 +4781,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4801,6 +4906,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -4970,7 +5087,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/regression_contract.py",
@@ -5084,6 +5201,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -5263,7 +5392,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/imputation_contract.py",
@@ -5369,6 +5498,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -5557,7 +5698,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/weighting_contract.py",
@@ -5666,6 +5807,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -5870,11 +6023,990 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/matching.py",
           "sha256": "17c50e397a78462b89c84a87c01785e947cff3fa5565f0ae9d1bfcba507c53f6"
+        }
+      ]
+    },
+    {
+      "id": "target_trial",
+      "group_id": "model",
+      "title": "基線目標試驗模擬",
+      "question": "核准多表來源能否支持明訂的基線點處置比較？",
+      "summary": "先 inspect 實際資料與編碼，再按核准規格執行完整研究。",
+      "methods": [
+        {
+          "id": "baseline_point_weighting",
+          "label": "固定完整追蹤的基線點處置加權",
+          "execution_kind": "native",
+          "selector": {
+            "family": "target_trial"
+          }
+        }
+      ],
+      "execution": {
+        "kind": "native",
+        "availability": "not_probed",
+        "requirements": [
+          "完整選項須納入核准且鎖定的計畫，通過 readiness；來源與清理版本固定。",
+          "研究設計、時間、分析單位與代碼須有來源；未知不自動當成已確認。"
+        ]
+      },
+      "bindings": [
+        {
+          "tool": "get_target_trial_contract"
+        },
+        {
+          "tool": "inspect_clinical_study",
+          "argument": "clinical_options",
+          "selector": {
+            "family": "target_trial"
+          }
+        },
+        {
+          "tool": "run_clinical_study",
+          "argument": "clinical_options",
+          "selector": {
+            "family": "target_trial"
+          }
+        }
+      ],
+      "input_roles": [
+        {
+          "id": "weighting",
+          "label": "完整加權規格",
+          "requirement": "沿用既有 ATE／ATT／ATO 與二元／連續結果；不改數值核心"
+        },
+        {
+          "id": "protocol",
+          "label": "來源綁定的八項試驗定義",
+          "requirement": "以核准 preparation、全部 trace 與實際時間／coverage 欄位核對；不能以 boolean 批准"
+        }
+      ],
+      "outputs": [
+        "完整來源與納排帳冊",
+        "八項 protocol 定義",
+        "個案流程圖",
+        "原加權效果／平衡／有效樣本量與獨立數值收據"
+      ],
+      "requirements": [
+        "完整選項須納入核准且鎖定的計畫，通過 readiness；來源與清理版本固定。",
+        "研究設計、時間、分析單位與代碼須有來源；未知不自動當成已確認。"
+      ],
+      "limitations": [
+        "僅一人一個 time zero、基線點處置、完整固定 horizon；通過 eligibility 後不得額外刪除 missing 個案。",
+        "不支援時變／動態／持續策略、grace period、CCW、失訪、競爭事件、多次入組、加權存活或 MI；來源核對不證明因果識別。"
+      ],
+      "contract_refs": [
+        "src/rde/interface/mcp/tools/clinical_tools.py",
+        "src/rde/infrastructure/clinical/target_trial_study.py",
+        "src/rde/infrastructure/clinical/target_trial_contract.py",
+        "src/rde/infrastructure/clinical/target_trial_source.py",
+        "src/rde/infrastructure/clinical/weighting.py",
+        "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+        "src/rde/interface/mcp/runtime.py"
+      ],
+      "tool_input_schemas": {
+        "get_target_trial_contract": {
+          "properties": {
+            "dataset_id": {
+              "title": "Dataset Id",
+              "type": "string"
+            },
+            "weighting_options": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Weighting Options"
+            }
+          },
+          "required": [
+            "dataset_id"
+          ],
+          "title": "get_target_trial_contractArguments",
+          "type": "object"
+        },
+        "inspect_clinical_study": {
+          "properties": {
+            "dataset_id": {
+              "title": "Dataset Id",
+              "type": "string"
+            },
+            "clinical_options": {
+              "additionalProperties": true,
+              "title": "Clinical Options",
+              "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
+            }
+          },
+          "required": [
+            "dataset_id",
+            "clinical_options"
+          ],
+          "title": "inspect_clinical_studyArguments",
+          "type": "object"
+        },
+        "run_clinical_study": {
+          "properties": {
+            "dataset_id": {
+              "title": "Dataset Id",
+              "type": "string"
+            },
+            "clinical_options": {
+              "additionalProperties": true,
+              "title": "Clinical Options",
+              "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
+            }
+          },
+          "required": [
+            "dataset_id",
+            "clinical_options"
+          ],
+          "title": "run_clinical_studyArguments",
+          "type": "object"
+        }
+      },
+      "schema_scope": "rde.infrastructure.clinical.target_trial_study.TargetTrialSpec.parse; structural types only; native parse/validate also required",
+      "options_schema": {
+        "$defs": {
+          "Analysis": {
+            "additionalProperties": false,
+            "properties": {
+              "weighting_spec_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Weighting Spec Sha256",
+                "type": "string"
+              },
+              "population_policy": {
+                "const": "all_prepared_eligible_no_further_exclusion",
+                "title": "Population Policy",
+                "type": "string"
+              },
+              "missing_policy": {
+                "const": "reject_any_missing_analysis_role",
+                "title": "Missing Policy",
+                "type": "string"
+              },
+              "consistency_basis": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Consistency Basis",
+                "type": "string"
+              },
+              "exchangeability_basis_and_limitations": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Exchangeability Basis And Limitations",
+                "type": "string"
+              },
+              "positivity_basis_and_limitations": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Positivity Basis And Limitations",
+                "type": "string"
+              }
+            },
+            "required": [
+              "weighting_spec_sha256",
+              "population_policy",
+              "missing_policy",
+              "consistency_basis",
+              "exchangeability_basis_and_limitations",
+              "positivity_basis_and_limitations"
+            ],
+            "title": "Analysis",
+            "type": "object"
+          },
+          "Assignment": {
+            "additionalProperties": false,
+            "properties": {
+              "hypothetical_trial": {
+                "const": "random_assignment_at_time_zero",
+                "title": "Hypothetical Trial",
+                "type": "string"
+              },
+              "observational_mapping": {
+                "const": "recorded_treatment_at_time_zero",
+                "title": "Observational Mapping",
+                "type": "string"
+              },
+              "selection_basis": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Selection Basis",
+                "type": "string"
+              },
+              "confounder_selection_basis": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Confounder Selection Basis",
+                "type": "string"
+              }
+            },
+            "required": [
+              "hypothetical_trial",
+              "observational_mapping",
+              "selection_basis",
+              "confounder_selection_basis"
+            ],
+            "title": "Assignment",
+            "type": "object"
+          },
+          "Eligibility": {
+            "additionalProperties": false,
+            "properties": {
+              "definition": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Definition",
+                "type": "string"
+              },
+              "rule_ids": {
+                "items": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "minItems": 1,
+                "title": "Rule Ids",
+                "type": "array"
+              },
+              "fields": {
+                "items": {
+                  "$ref": "#/$defs/TimedField"
+                },
+                "maxItems": 50,
+                "minItems": 1,
+                "title": "Fields",
+                "type": "array"
+              },
+              "missing_policy": {
+                "const": "only_prespecified_baseline_eligibility_rules",
+                "title": "Missing Policy",
+                "type": "string"
+              }
+            },
+            "required": [
+              "definition",
+              "rule_ids",
+              "fields",
+              "missing_policy"
+            ],
+            "title": "Eligibility",
+            "type": "object"
+          },
+          "Estimand": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "ATE",
+                  "ATT",
+                  "ATO"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "contrast": {
+                "const": "baseline_level_1_minus_level_0",
+                "title": "Contrast",
+                "type": "string"
+              },
+              "target_population": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Target Population",
+                "type": "string"
+              },
+              "interpretation": {
+                "const": "baseline_point_treatment_effect",
+                "title": "Interpretation",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "contrast",
+              "target_population",
+              "interpretation"
+            ],
+            "title": "Estimand",
+            "type": "object"
+          },
+          "FollowUp": {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "const": "complete_fixed_horizon",
+                "title": "Mode",
+                "type": "string"
+              },
+              "horizon_days": {
+                "exclusiveMinimum": 0,
+                "maximum": 3650,
+                "title": "Horizon Days",
+                "type": "integer"
+              },
+              "coverage_start_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Coverage Start Column",
+                "type": "string"
+              },
+              "coverage_end_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Coverage End Column",
+                "type": "string"
+              },
+              "export_status_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Export Status Column",
+                "type": "string"
+              },
+              "complete_export_value": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Complete Export Value",
+                "type": "string"
+              },
+              "intercurrent_status_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Intercurrent Status Column",
+                "type": "string"
+              },
+              "no_intercurrent_value": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "No Intercurrent Value",
+                "type": "string"
+              },
+              "intercurrent_policy": {
+                "const": "reject_any_recorded_intercurrent_event",
+                "title": "Intercurrent Policy",
+                "type": "string"
+              },
+              "definition": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Definition",
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "horizon_days",
+              "coverage_start_column",
+              "coverage_end_column",
+              "export_status_column",
+              "complete_export_value",
+              "intercurrent_status_column",
+              "no_intercurrent_value",
+              "intercurrent_policy",
+              "definition"
+            ],
+            "title": "FollowUp",
+            "type": "object"
+          },
+          "Outcome": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "binary",
+                  "continuous"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Column",
+                "type": "string"
+              },
+              "relation_id": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Relation Id",
+                "type": "string"
+              },
+              "assessment_start_days": {
+                "maximum": 3650,
+                "minimum": 0,
+                "title": "Assessment Start Days",
+                "type": "integer"
+              },
+              "assessment_end_days": {
+                "exclusiveMinimum": 0,
+                "maximum": 3650,
+                "title": "Assessment End Days",
+                "type": "integer"
+              },
+              "bounds": {
+                "enum": [
+                  "both",
+                  "right"
+                ],
+                "title": "Bounds",
+                "type": "string"
+              },
+              "unit": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Unit",
+                "type": "string"
+              },
+              "definition": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Definition",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "column",
+              "relation_id",
+              "assessment_start_days",
+              "assessment_end_days",
+              "bounds",
+              "unit",
+              "definition"
+            ],
+            "title": "Outcome",
+            "type": "object"
+          },
+          "PreparedBinding": {
+            "additionalProperties": false,
+            "properties": {
+              "preparation_id": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Preparation Id",
+                "type": "string"
+              },
+              "preparation_project_id": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Preparation Project Id",
+                "type": "string"
+              },
+              "bundle_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Bundle Sha256",
+                "type": "string"
+              },
+              "release_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Release Sha256",
+                "type": "string"
+              },
+              "plan_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Plan Sha256",
+                "type": "string"
+              },
+              "approval_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Approval Sha256",
+                "type": "string"
+              },
+              "review_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Review Sha256",
+                "type": "string"
+              },
+              "source_set_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Source Set Sha256",
+                "type": "string"
+              },
+              "specification_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Specification Sha256",
+                "type": "string"
+              },
+              "files_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Files Sha256",
+                "type": "string"
+              },
+              "inventory_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Inventory Sha256",
+                "type": "string"
+              },
+              "dataset_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Dataset Sha256",
+                "type": "string"
+              },
+              "schema_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Schema Sha256",
+                "type": "string"
+              },
+              "typed_rows_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Typed Rows Sha256",
+                "type": "string"
+              },
+              "trace_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Trace Sha256",
+                "type": "string"
+              },
+              "validation_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Validation Sha256",
+                "type": "string"
+              },
+              "exceptions_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Exceptions Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "preparation_id",
+              "preparation_project_id",
+              "bundle_sha256",
+              "release_sha256",
+              "plan_sha256",
+              "approval_sha256",
+              "review_sha256",
+              "source_set_sha256",
+              "specification_sha256",
+              "files_sha256",
+              "inventory_sha256",
+              "dataset_sha256",
+              "schema_sha256",
+              "typed_rows_sha256",
+              "trace_sha256",
+              "validation_sha256",
+              "exceptions_sha256"
+            ],
+            "title": "PreparedBinding",
+            "type": "object"
+          },
+          "TargetTrialProtocol": {
+            "additionalProperties": false,
+            "properties": {
+              "schema_version": {
+                "const": "rde-baseline-target-trial-v1",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "binding": {
+                "$ref": "#/$defs/PreparedBinding"
+              },
+              "eligibility": {
+                "$ref": "#/$defs/Eligibility"
+              },
+              "time_zero": {
+                "$ref": "#/$defs/TimeZero"
+              },
+              "treatment": {
+                "$ref": "#/$defs/Treatment"
+              },
+              "assignment": {
+                "$ref": "#/$defs/Assignment"
+              },
+              "followup": {
+                "$ref": "#/$defs/FollowUp"
+              },
+              "outcome": {
+                "$ref": "#/$defs/Outcome"
+              },
+              "estimand": {
+                "$ref": "#/$defs/Estimand"
+              },
+              "baseline": {
+                "items": {
+                  "$ref": "#/$defs/TimedField"
+                },
+                "maxItems": 12,
+                "minItems": 1,
+                "title": "Baseline",
+                "type": "array"
+              },
+              "analysis": {
+                "$ref": "#/$defs/Analysis"
+              }
+            },
+            "required": [
+              "schema_version",
+              "binding",
+              "eligibility",
+              "time_zero",
+              "treatment",
+              "assignment",
+              "followup",
+              "outcome",
+              "estimand",
+              "baseline",
+              "analysis"
+            ],
+            "title": "TargetTrialProtocol",
+            "type": "object"
+          },
+          "TimeZero": {
+            "additionalProperties": false,
+            "properties": {
+              "index_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Index Column",
+                "type": "string"
+              },
+              "timezone": {
+                "const": "UTC",
+                "title": "Timezone",
+                "type": "string"
+              },
+              "selection": {
+                "const": "one_prespecified_root_record_per_person",
+                "title": "Selection",
+                "type": "string"
+              },
+              "subject_column": {
+                "const": "_rde_subject_id",
+                "title": "Subject Column",
+                "type": "string"
+              },
+              "definition": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Definition",
+                "type": "string"
+              }
+            },
+            "required": [
+              "index_column",
+              "timezone",
+              "selection",
+              "subject_column",
+              "definition"
+            ],
+            "title": "TimeZero",
+            "type": "object"
+          },
+          "TimedField": {
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Column",
+                "type": "string"
+              },
+              "source_id": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Source Id",
+                "type": "string"
+              },
+              "event_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Event Column",
+                "type": "string"
+              },
+              "available_column": {
+                "maxLength": 160,
+                "minLength": 1,
+                "title": "Available Column",
+                "type": "string"
+              },
+              "definition": {
+                "maxLength": 3000,
+                "minLength": 10,
+                "title": "Definition",
+                "type": "string"
+              }
+            },
+            "required": [
+              "column",
+              "source_id",
+              "event_column",
+              "available_column",
+              "definition"
+            ],
+            "title": "TimedField",
+            "type": "object"
+          },
+          "Treatment": {
+            "additionalProperties": false,
+            "properties": {
+              "strategy": {
+                "const": "baseline_point_treatment",
+                "title": "Strategy",
+                "type": "string"
+              },
+              "field": {
+                "$ref": "#/$defs/TimedField"
+              },
+              "levels": {
+                "items": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "title": "Levels",
+                "type": "array"
+              },
+              "definitions": {
+                "items": {
+                  "maxLength": 3000,
+                  "minLength": 10,
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "title": "Definitions",
+                "type": "array"
+              }
+            },
+            "required": [
+              "strategy",
+              "field",
+              "levels",
+              "definitions"
+            ],
+            "title": "Treatment",
+            "type": "object"
+          },
+          "WeightingSpec": {
+            "properties": {
+              "treatment": {
+                "title": "Treatment",
+                "type": "string"
+              },
+              "treatment_levels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Treatment Levels",
+                "type": "array"
+              },
+              "treatment_definition": {
+                "title": "Treatment Definition",
+                "type": "string"
+              },
+              "outcome": {
+                "title": "Outcome",
+                "type": "string"
+              },
+              "outcome_type": {
+                "title": "Outcome Type",
+                "type": "string"
+              },
+              "outcome_unit": {
+                "title": "Outcome Unit",
+                "type": "string"
+              },
+              "outcome_definition": {
+                "title": "Outcome Definition",
+                "type": "string"
+              },
+              "time_origin": {
+                "title": "Time Origin",
+                "type": "string"
+              },
+              "outcome_window": {
+                "title": "Outcome Window",
+                "type": "string"
+              },
+              "study_design": {
+                "title": "Study Design",
+                "type": "string"
+              },
+              "context": {
+                "title": "Context",
+                "type": "string"
+              },
+              "estimand": {
+                "title": "Estimand",
+                "type": "string"
+              },
+              "independent_rows": {
+                "title": "Independent Rows",
+                "type": "boolean"
+              },
+              "pretreatment_covariates": {
+                "title": "Pretreatment Covariates",
+                "type": "boolean"
+              },
+              "covariates": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Covariates",
+                "type": "array"
+              },
+              "family": {
+                "default": "weighting",
+                "title": "Family",
+                "type": "string"
+              },
+              "subject": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Subject"
+              },
+              "outcome_levels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Outcome Levels",
+                "type": "array"
+              },
+              "interactions": {
+                "items": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "title": "Interactions",
+                "type": "array"
+              },
+              "confidence_level": {
+                "default": 0.95,
+                "title": "Confidence Level",
+                "type": "number"
+              },
+              "cohort_filter": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cohort Filter"
+              }
+            },
+            "required": [
+              "treatment",
+              "treatment_levels",
+              "treatment_definition",
+              "outcome",
+              "outcome_type",
+              "outcome_unit",
+              "outcome_definition",
+              "time_origin",
+              "outcome_window",
+              "study_design",
+              "context",
+              "estimand",
+              "independent_rows",
+              "pretreatment_covariates",
+              "covariates"
+            ],
+            "title": "WeightingSpec",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "weighting": {
+            "$ref": "#/$defs/WeightingSpec"
+          },
+          "protocol": {
+            "$ref": "#/$defs/TargetTrialProtocol"
+          },
+          "family": {
+            "default": "target_trial",
+            "title": "Family",
+            "type": "string"
+          }
+        },
+        "required": [
+          "weighting",
+          "protocol"
+        ],
+        "title": "TargetTrialSpec",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "contract_sources": [
+        {
+          "path": "src/rde/interface/mcp/tools/clinical_tools.py",
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
+        },
+        {
+          "path": "src/rde/infrastructure/clinical/target_trial_study.py",
+          "sha256": "979d545dc2170e3cc92357b2e87c282bc19ead81533fa97f476d13eb43dcf420"
+        },
+        {
+          "path": "src/rde/infrastructure/clinical/target_trial_contract.py",
+          "sha256": "9e92f8791c7c1f09fccc90335fc8948c6628b62df91e14857660947494681aad"
+        },
+        {
+          "path": "src/rde/infrastructure/clinical/target_trial_source.py",
+          "sha256": "6a1b82386783346ece8af97931eda312682eac2b1870f5918e71669c4dc936b8"
+        },
+        {
+          "path": "src/rde/infrastructure/clinical/weighting.py",
+          "sha256": "aa57d51eec20a1529e0b13e2784ef0b30790367ddadabd62609269bc5dae9d51"
+        },
+        {
+          "path": "src/rde/interface/mcp/tools/_shared/target_trial_replay.py",
+          "sha256": "f5da0cf8f07c78d4e07b9a2c056689050c48d59e4b09a23a3e7ef2cec68d675d"
+        },
+        {
+          "path": "src/rde/interface/mcp/runtime.py",
+          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
         }
       ]
     },
@@ -5973,6 +7105,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -6239,7 +7383,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/longitudinal_contract.py",
@@ -6345,6 +7489,18 @@
               "additionalProperties": true,
               "title": "Clinical Options",
               "type": "object"
+            },
+            "execution_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Key"
             }
           },
           "required": [
@@ -6516,7 +7672,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "821a0858f155a86f67e94cf22d15afef4d3199b98596218581a30d8fb5436fdc"
+          "sha256": "e50455838c0a09e251769b11f278a19e50c41ee2de0163e5397f23e07cc99069"
         },
         {
           "path": "src/rde/infrastructure/clinical/survival.py",
@@ -8615,7 +9771,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/branch_tools.py",
-          "sha256": "045a6781355e0fdf4b7e3e60f79330be8e42065d1bc7fb6e8eafde637dd65f03"
+          "sha256": "d1b24312ebac7c30f2c7b52f322d0c1a88d5ffaf4b7b6248c3ea71481e89765b"
         }
       ]
     },
@@ -9319,7 +10475,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "0bf98951787da858ad6629c67602dd7b398767c973f47df489c82349b71f93e2"
+          "sha256": "252f0a5c0fa67881cb4f9c5fd54c7a1c509e0e53eba4c14f31dcd71ad46a38b3"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -9335,10 +10491,10 @@
         },
         {
           "path": "src/rde/interface/mcp/tools/publication_tools.py",
-          "sha256": "2d4906ade81888764b4b6ef3494669fa9469444cd45fb6e2f79801a81da368d7"
+          "sha256": "777c2c062590bb5657a03cf3afe6519db0032f547082341ff3d0a9c4dce7f3ad"
         }
       ]
     }
   ],
-  "catalog_sha256": "22abdb568546dcda2c97ff0516ef7d8bba28e4a5a63aadb2f4710d96a1274158"
+  "catalog_sha256": "8397aabc6c10729c00c908548002b8cb1912da8c4061df3592162a43ad804b88"
 }

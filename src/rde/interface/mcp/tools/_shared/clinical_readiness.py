@@ -16,6 +16,12 @@ def required_figures(result):
         from rde.infrastructure.clinical.matching_report import required_figures as family_figures
 
         return family_figures(result)
+    if result["spec"]["family"] == "target_trial":
+        from rde.infrastructure.clinical.target_trial_report import (
+            required_figures as family_figures,
+        )
+
+        return family_figures(result)
     if result["spec"]["family"] == "noninferiority":
         from rde.infrastructure.clinical.noninferiority_report import (
             required_figures as family_figures,
@@ -200,8 +206,11 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
                 for c in result.get("contrasts", [])
             )
         )
-    elif spec["family"] == "weighting":
-        points = result.get("points", [])
+    elif spec["family"] in {"weighting", "target_trial"}:
+        weighted = (
+            result.get("weighting_result", {}) if spec["family"] == "target_trial" else result
+        )
+        points = weighted.get("points", [])
         shared_cases = (
             bool(included)
             and [p["data_row"] for p in points] == list(range(1, ledger.get("input_rows", 0) + 1))
@@ -225,6 +234,42 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             sum(row) for row in result["table"]
         ) == result.get("n")
     check("shared_case_set", shared_cases, ["case_ledger", "family-specific counts"])
+    if spec["family"] == "target_trial":
+        from rde.application.session import get_session
+        from rde.infrastructure.clinical.target_trial_study import (
+            verify_target_trial_result,
+            verify_source_artifact,
+        )
+        from rde.infrastructure.clinical.target_trial_source import validate_target_trial_source
+
+        frozen_ok = verify_target_trial_result(result)
+        current_ok = False
+        try:
+            study = planned_clinical_spec(clinical_plan(store))
+            project = get_session().get_project(plan["project_id"])
+            entry = get_session().get_dataset_entry(records[0]["dataset_id"])
+            current = validate_target_trial_source(
+                project, entry.dataset.metadata, entry.dataframe, study.weighting, study.protocol
+            )
+            pin = plan.get("target_trial_source_check", {})
+            current_ok = (
+                records[0]["dataset_id"] in project.dataset_ids
+                and current == result.get("source_check")
+                and pin.get("receipt_sha256") == current["receipt_sha256"]
+                and verify_source_artifact(pin.get("artifact", {}), root, current)
+            )
+        except (ValueError, TypeError, KeyError, OSError, IndexError):
+            current_ok = False
+        check(
+            "target_trial_full_source_protocol_and_population",
+            frozen_ok and current_ok,
+            [
+                "locked protocol",
+                "complete prepared source closure",
+                "source_check",
+                "weighting_result",
+            ],
+        )
     if spec["family"] == "imputation":
         p = len(spec["predictors"]) + 1
         check(
@@ -366,21 +411,25 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
                 "multiplicity",
             ],
         )
-    if spec["family"] == "weighting":
-        joint = result.get("joint_estimation", {})
-        count = len(result.get("propensity_terms", [])) + 2
-        groups = result.get("diagnostics", {}).get("groups", [])
+    if spec["family"] in {"weighting", "target_trial"}:
+        weighted = (
+            result.get("weighting_result", {}) if spec["family"] == "target_trial" else result
+        )
+        weighting_spec = spec["weighting"] if spec["family"] == "target_trial" else spec
+        joint = weighted.get("joint_estimation", {})
+        count = len(weighted.get("propensity_terms", [])) + 2
+        groups = weighted.get("diagnostics", {}).get("groups", [])
         check(
             "weighting_model_and_joint_uncertainty",
-            result.get("model", {}).get("converged") is True
+            weighted.get("model", {}).get("converged") is True
             and len(joint.get("parameters", [])) == count
             and len(joint.get("parameter_order", [])) == count
             and all(
                 len(joint.get(key, [])) == count and all(len(row) == count for row in joint[key])
                 for key in ["bread", "meat", "covariance"]
             )
-            and result.get("effect", {}).get("estimand") == spec["estimand"]
-            and result.get("effect", {}).get("standard_error", 0) > 0
+            and weighted.get("effect", {}).get("estimand") == weighting_spec["estimand"]
+            and weighted.get("effect", {}).get("standard_error", 0) > 0
             and len(groups) == 2
             and sum(group["n"] for group in groups) == result.get("n"),
             ["model", "joint_estimation", "effect", "diagnostics"],
@@ -417,7 +466,13 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         and all(
             set(figure.get("publication", {}).get("files", {}))
             == {"png", "pdf", "svg", "tiff", "caption", "data"}
-            and figure["publication"].get("source_receipt_sha256") == result.get("receipt_sha256")
+            and figure["publication"].get("source_receipt_sha256")
+            == (
+                result.get("weighting_receipt_sha256")
+                if spec["family"] == "target_trial"
+                and figure["plot_type"].startswith("clinical_weighting_")
+                else result.get("receipt_sha256")
+            )
             and figure["publication"].get("text_outside_canvas") == []
             and figure["publication"].get("raster_dpi") == 300
             for figure in figures
@@ -436,6 +491,8 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         heading = (
             "傾向分數配對與配對群聚推論"
             if spec["family"] == "matching"
+            else "基線目標試驗模擬"
+            if spec["family"] == "target_trial"
             else "獨立兩組均差非劣性分析"
             if spec["family"] == "noninferiority"
             else "標準多重插補與缺失資料分析"

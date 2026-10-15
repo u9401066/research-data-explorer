@@ -94,6 +94,10 @@ def propose_clinical_plan(project, entry, pipeline, store, options, *, confirm):
         warnings.append(
             "固定 caliper 的 1:1 不放回最佳配對；目標為成功配對處置者，非原全體 ATT。配對群集 CR1 近似推論未宣稱完整校正估計傾向分數不確定性；保存所有未配對、平衡與品質限制。"
         )
+    elif spec.get("family") == "target_trial":
+        warnings.append(
+            "僅來源綁定的基線點處置、單一 time zero、完整固定追蹤與原有 ATE／ATT／ATO 加權。鎖定及執行前須核對完整核准 preparation、全部個案時序與 eligible 集合；不得額外刪除缺失個案。提案不驗證因果識別，不支援動態／持續策略、時變處置、失訪校正或 CCW。"
+        )
     schedule = [
         dict(
             order=1,

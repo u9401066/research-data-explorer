@@ -1289,7 +1289,8 @@ def register_plan_tools(server: Any) -> None:
                     alpha,
                     missing_strategy,
                     multiple_comparison_method,
-                    single_contrast=clinical_family in {"weighting", "stratified", "matching"}
+                    single_contrast=clinical_family
+                    in {"weighting", "stratified", "matching", "target_trial"}
                     or descriptive_spec is not None,
                 )
 
@@ -1527,7 +1528,14 @@ def register_plan_tools(server: Any) -> None:
                         if clinical_spec.family in {"comparison", "repeated"}
                         else "none"
                         if clinical_spec.family
-                        in {"weighting", "stratified", "imputation", "noninferiority", "matching"}
+                        in {
+                            "weighting",
+                            "stratified",
+                            "imputation",
+                            "noninferiority",
+                            "matching",
+                            "target_trial",
+                        }
                         else "holm"
                     )
                     if clinical_spec.family == "noninferiority" and (
@@ -1557,6 +1565,36 @@ def register_plan_tools(server: Any) -> None:
             execution_schedule: list[dict[str, Any]] = []
             dataset_ok, _, dataset_entry = ensure_dataset(project=project)
             dataset = dataset_entry.dataset if dataset_ok and dataset_entry is not None else None
+            target_trial_pin = None
+            if clinical_entries and clinical_spec.family == "target_trial":
+                from rde.infrastructure.clinical.target_trial_source import (
+                    validate_target_trial_source,
+                )
+                from rde.infrastructure.clinical.target_trial_study import persist_source_check
+
+                if dataset is None:
+                    return fmt_error(
+                        "TTE_PREPARED_REQUIRED: the exact imported prepared dataset is required before locking."
+                    )
+                try:
+                    source_check = validate_target_trial_source(
+                        project,
+                        dataset.metadata,
+                        dataset_entry.dataframe,
+                        clinical_spec.weighting,
+                        clinical_spec.protocol,
+                    )
+                    artifact = persist_source_check(
+                        source_check,
+                        store.get_path(PipelinePhase.PLAN_REGISTRATION, "unused").parent,
+                        project.output_dir,
+                    )
+                    target_trial_pin = {
+                        "receipt_sha256": source_check["receipt_sha256"],
+                        "artifact": artifact,
+                    }
+                except (ValueError, TypeError, KeyError, OSError) as error:
+                    return fmt_error(f"Target-trial source review failed: {error}")
             planner = None
             auto_expanded_labels: list[str] = []
             if (
@@ -1750,6 +1788,8 @@ def register_plan_tools(server: Any) -> None:
                 "created_at": datetime.now().isoformat(),
                 "locked": True,
             }
+            if target_trial_pin is not None:
+                plan["target_trial_source_check"] = target_trial_pin
             from rde.interface.mcp.research_execution import preserve_execution_binding
 
             plan = preserve_execution_binding(project, plan)
