@@ -687,11 +687,11 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/advanced_study.py",
-      "sha256": "241e246fc9c80ad22d4791d92093d7f3c7cea2be267a5cca983e324399ce8a63"
+      "sha256": "387d2fdf42983ebb768dc1fb7b647033e451197d301fe89dabe482ee3cff9da4"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/branch_publication.py",
-      "sha256": "ce862cf8b616ca76429ade8afe4d0a0feb0c5087a3647749c5c5be63922cdf6b"
+      "sha256": "e796f1a3384f5a5eceab88f608e05146b8ae5bbfc5ac5dbf96e5a0e67de89a80"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
@@ -755,7 +755,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-      "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+      "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
     },
     {
       "path": "src/rde/interface/mcp/tools/descriptive_tools.py",
@@ -3311,7 +3311,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/comparison_contract.py",
@@ -3587,7 +3587,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/stratified_contract.py",
@@ -3888,7 +3888,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/noninferiority_contract.py",
@@ -4187,7 +4187,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/repeated_contract.py",
@@ -4435,7 +4435,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4683,7 +4683,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -4931,7 +4931,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/measurement.py",
@@ -5257,7 +5257,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/regression_contract.py",
@@ -5582,7 +5582,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/imputation_contract.py",
@@ -5908,7 +5908,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/weighting_contract.py",
@@ -6253,7 +6253,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/matching.py",
@@ -7230,7 +7230,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/target_trial_study.py",
@@ -7643,7 +7643,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/longitudinal_contract.py",
@@ -7952,7 +7952,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/clinical_tools.py",
-          "sha256": "524d155c6a80a8433e0f8c00e7eafe3f217a4ce83eb8f6254cee41c3c37e491d"
+          "sha256": "e9b89cf4cd60e13886723f190e8381ab50cea715003314f9556e8d1b2da69ff7"
         },
         {
           "path": "src/rde/infrastructure/clinical/survival.py",
@@ -10792,5 +10792,5 @@
       ]
     }
   ],
-  "catalog_sha256": "503e5eac1dd8d511c322ec05f32f228097f4521f383590971b2ec58a017e6b22"
+  "catalog_sha256": "7ce5663938df9bb3413fd069304de6c98de9f98509cb72e50f803f08ffb8d1d0"
 }

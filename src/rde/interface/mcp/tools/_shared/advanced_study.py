@@ -160,7 +160,7 @@ def save_advanced_study(
 def advanced_study_source(project, study_artifact, expected_record_sha256):
     """Verify all saved inputs and figures without loading data or executing models."""
     from rde.interface.mcp.tools._shared.branch_publication import _verify_figures
-    from rde.interface.mcp.tools.clinical_tools import verify_clinical_artifacts
+    from rde.interface.mcp.tools.clinical_tools import verify_numerical_artifacts
     from rde.interface.mcp.tools.publication_tools import file_hash
 
     if not re.fullmatch(r"advanced_study_[a-f0-9]{16}\.json", study_artifact):
@@ -195,7 +195,7 @@ def advanced_study_source(project, study_artifact, expected_record_sha256):
         or raw.get("dataset_id") != record["dataset_id"]
         or raw.get("config") != record["config"]
         or raw.get("source") != record["engine"]
-        or not verify_clinical_artifacts(record, root)
+        or not verify_numerical_artifacts(record, root)
     ):
         raise ValueError("Advanced study identity or complete numerical evidence differs.")
     paths = {a["path"] for a in record["artifacts"]}

@@ -6,7 +6,10 @@ import re
 from rde.application.pipeline import PipelinePhase
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
 from rde.infrastructure.prediction.splits import digest
-from rde.interface.mcp.tools.clinical_tools import verify_clinical_artifacts
+from rde.interface.mcp.tools.clinical_tools import (
+    verify_clinical_artifacts,
+    verify_numerical_artifacts,
+)
 
 
 def branch_publication_source(project, branch_id, experiment_id, expected_record_sha256):
@@ -106,7 +109,7 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
             record.get("schema") != "advanced-branch-evidence-v1"
             or binding.get("dataset_id") != record["dataset_id"]
             or result != publication_result(record)
-            or not verify_clinical_artifacts({**record, "result": result}, root)
+            or not verify_numerical_artifacts({**record, "result": result}, root)
         ):
             raise ValueError(
                 "Generic branch publication does not match its complete numerical evidence."
@@ -174,7 +177,7 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
         )
         or spec.get("covariates") != contract.get("covariates")
         or not verify_clinical_artifacts(primary, root)
-        or not verify_clinical_artifacts({**record, "result": result}, root)
+        or not verify_numerical_artifacts({**record, "result": result}, root)
     ):
         raise ValueError(
             "Branch numerical evidence or its fixed primary population failed verification."

@@ -176,23 +176,18 @@ def verify_imputation_derived(record, root: Path):
         return False
 
 
-def verify_clinical_artifacts(record, root: Path):
+def verify_numerical_artifacts(record, root: Path):
+    """Verify retained numerical/file hashes, without asserting a clinical contract.
+
+    Generic advanced studies and exploratory branch wrappers have their own
+    identity/source/figure contracts. This shared primitive must not promote
+    them to complete typed clinical studies.
+    """
     artifacts = record.get("artifacts", [])
     result = record.get("result", {})
-    if (
-        not verify_inventory(record, root)
-        or not artifacts
-        or digest({k: v for k, v in result.items() if k != "receipt_sha256"})
-        != result.get("receipt_sha256")
-    ):
-        return False
-    if result.get("spec", {}).get("family") == "imputation" and not verify_imputation_derived(
-        record, root
-    ):
-        return False
-    if result.get("spec", {}).get("family") == "target_trial" and not verify_target_trial_artifacts(
-        record, root
-    ):
+    if not artifacts or digest(
+        {k: v for k, v in result.items() if k != "receipt_sha256"}
+    ) != result.get("receipt_sha256"):
         return False
     for item in [*artifacts, *record.get("derived_artifacts", [])]:
         path = (root / item["path"]).resolve()
@@ -202,6 +197,18 @@ def verify_clinical_artifacts(record, root: Path):
             or hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]
         ):
             return False
+    return True
+
+
+def verify_clinical_artifacts(record, root: Path):
+    """Require a complete sealed typed-clinical inventory, including family evidence."""
+    if not verify_inventory(record, root) or not verify_numerical_artifacts(record, root):
+        return False
+    family = record.get("result", {}).get("spec", {}).get("family")
+    if family == "imputation" and not verify_imputation_derived(record, root):
+        return False
+    if family == "target_trial" and not verify_target_trial_artifacts(record, root):
+        return False
     return True
 
 
