@@ -29,6 +29,26 @@ Phase 8 的報告組裝工作流，包括品質檢查、敏感資訊清除、匯
 
 核對 `scope`、`target_tier`、未通過項目與適用性；`descriptive_only` 等範圍完成不等於一般 production／投稿就緒。描述性研究不為補齊通用 Table 1 或圖數配額新增分析，缺少真實報告仍屬失敗。字母評級、DOCX／PDF 匯出成功及 `completed` 都不能替代科學解讀或實際版面檢查。保留計畫、資料版本與執行來源，說明真實納排、估計、不確定性與限制；沒有圖像像素不能聲稱看圖。
 
+## Typed clinical 研究：探索契約、鎖定與報告
+
+本節只引導選用原生工具，不授予執行權限；既有確認／宿主授權仍適用。網站的研究 plugin 由 Workbench 載入，不能假設網站會讀取編輯器 SKILL。
+
+1. 先查 live `get_analysis_catalog(family=目標家族, detail=true)`，完整讀取工具 schema、來源角色與不支援變體；方法名稱相近不能代換。用 `inspect_clinical_study(dataset_id, clinical_options)` 核對完整規格、來源 hash、人口 ledger、阻擋與限制。Preflight 不等於核准或方法有效性的認證。
+2. 以同一份完整 `clinical_options` 呼叫 `propose_analysis_plan(..., clinical_options=..., confirm=false)`，核對 proposal 的唯一 `run_clinical_study` bundle。依既有授權審閱後，用相同規格確認 proposal，再 `register_analysis_plan(..., confirm=true)`；不要讓通用 greedy 候選替換或擴增這份指定分析。頂層 missing／alpha／multiplicity 必須符合 live family 契約，不能靠舊分析／清理工具繞過。
+3. 通過 readiness 後，`run_clinical_study` 必須使用已鎖定的完整規格及來源版本。修改 margin、caliper、插補設定、時間窗或角色須修訂並核准新計畫。這些新家族的 branch／autoresearch 尚未提供可執行契約；不可用舊分支改變研究方法。
+
+| 家族 | 本版可選範圍與不可代換的界線 |
+| --- | --- |
+| `imputation` | 獨立個案、連續／二元 PMM；conditional OLS／Binomial GLM 都從觀察 donor 抽值，Gaussian／binomial 分析模型及 Rubin covariance、漸近 Wald。不是 Bernoulli logreg draws、Barnard–Rubin 小樣本推論、MNAR／多層／存活 MI；完整個案比較不能證明 MAR。 |
+| `stratified` | 二元 treatment／outcome 的預指定 2×2 分層 CMH、共同 MH OR 與同質性診斷。不是精確／廣義 CMH、多層模型、配對或分層非劣性；不依結果刪層。 |
+| `noninferiority` | 獨立兩組連續終點的 `welch_mean`，預指定原單位 margin、方向、族群與單側 alpha。不能替代二元、存活、配對非劣性或等效性；完整個案不自動代表 ITT／PP。 |
+| `matching` | `optimal_1to1_logit_caliper`，1:1 無放回；`matched_treated` 族群，pair-cluster CR1 t 近似推論。丟失 treated 後不宣稱原全體 ATT，不能冒稱 estimated-PS 的完整不確定性已校正。 |
+| `target_trial` | 基線單次 treatment、每人單一 time-zero、固定且完整追蹤，沿用既有 weighting 估計。先呼叫 `get_target_trial_contract` 取得已核准 preparation 的精確 binding，再以可追溯來源完成 protocol 並 inspect；不得自行填造 binding、用 boolean 取代來源證據，或以普通 weighting 冒稱 TTE。時變／動態策略、CCW、失訪／不完整追蹤與多 index 均不在本版範圍。 |
+
+執行或以相同 `execution_key` 重取，都要讀取來源與全部 artifact hash 的驗證結果。缺 JSON／CSV／圖或來源改變必須保留失敗證據，不能把重新估計當成修復快取。`collect_results`／`assemble_report`／出版圖使用本次凍結收據；重繪只改呈現，不重新插補、配對或估計。
+
+報告須保留原始、排除及實際分析分母：MI 的 m 份資料不是 n×m 人；matching 的配對前完整人口不等於最終配對人口；TTE 的來源核對不證明無未測量混雜。Gaussian 模型的 binary predictor 係數仍是 outcome 原單位均差，只有 binomial 模型係數是 log-odds，不能因 predictor 是二元就轉成 OR。NI 的完成狀態不等於通過非劣性，須讀其 margin、單側下限與 decision。平衡／收斂圖、readiness、匯出成功均不能替代研究定義與科學審閱。
+
 ## 報告結構 (H-005 必備章節)
 
 ```markdown

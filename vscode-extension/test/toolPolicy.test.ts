@@ -72,6 +72,24 @@ describe('toolPolicy', () => {
         }
     });
 
+    it('keeps target-trial source discovery, preflight and execution available in advanced chat', () => {
+        const available = [
+            'get_analysis_catalog',
+            'data_preparation',
+            'get_target_trial_contract',
+            'inspect_clinical_study',
+            'propose_analysis_plan',
+            'register_analysis_plan',
+            'run_clinical_study',
+        ];
+        const filtered = filterRdeTools(
+            [...available, 'runCommands'].map(name => ({ name })),
+            tool => toolGroupIncludes(TOOL_GROUPS.advanced, tool.name),
+        ).map(tool => tool.name);
+
+        expect(filtered).toEqual(available);
+    });
+
     it('keeps governed workflow commands bootstrapped through readiness prerequisites', () => {
         const prerequisiteTools = [
             'init_project',

@@ -86,6 +86,7 @@
       "run_clinical_study",
       "run_descriptive_study",
       "inspect_clinical_study",
+      "get_target_trial_contract",
       "get_publication_presets",
       "render_publication_figures",
       "render_branch_publication",
