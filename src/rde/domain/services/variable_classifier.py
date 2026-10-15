@@ -203,7 +203,19 @@ class VariableClassifier:
         """Hook H-004: flag name-based and value-level PII signals."""
         reasons: list[str] = []
         name_lower = name.lower().replace("_", "").replace("-", "").replace(" ", "")
-        if any(pattern in name_lower for pattern in PII_PATTERNS):
+        # Labels of drugs/tests/variables are not person names. Value-level
+        # checks below still apply; never exempt an entire column from scanning.
+        technical_name = bool(
+            re.search(
+                r"(?:drug|medication|test|assay|variable|column|file|procedure)[_ -]?name$",
+                name,
+                re.I,
+            )
+        )
+        if any(
+            pattern.replace("_", "") in name_lower and not (pattern == "name" and technical_name)
+            for pattern in PII_PATTERNS
+        ):
             reasons.append("name_pattern")
 
         valid = [

@@ -352,6 +352,8 @@ def register_discovery_tools(server: Any) -> None:
         allow_pii: bool = False,
         sheet_name: str | None = None,
         prepared_source: dict | None = None,
+        pii_policy: str = "block",
+        privacy: dict | None = None,
     ) -> str:
         """執行完整收件流程（Phase 1 orchestration）。
 
@@ -361,6 +363,8 @@ def register_discovery_tools(server: Any) -> None:
         Args:
             directory: 原始資料目錄路徑，如 "data/rawdata"（預設: data/rawdata）
             project_id: 專案 ID，用於關聯 intake artifact（可選，如已呼叫 init_project）
+            pii_policy: block（預設）或 pseudonymize；後者自動建立穩定研究代碼，保留原始來源及臨床日期並記錄限制。
+            privacy: 已保存的原始來源綁定處理規格；重跑須用同一規格與私密研究金鑰。
             allow_pii: 是否允許載入含疑似 PII 的資料（預設 false，需明確設為 true 才放行 H-004）
             sheet_name: 明確選取 Excel 工作表；收件紀錄會保存此選擇供 session 恢復使用。
             prepared_source: 已核准資料的 bundle_path、bundle_sha256、release_sha256；驗證完整來源包並原樣載入，不再次猜測欄名、型別或缺值。
@@ -397,6 +401,11 @@ def register_discovery_tools(server: Any) -> None:
                 ok_project, project_msg, _ = ensure_project_context(project_id)
                 if not ok_project:
                     return fmt_error(project_msg)
+
+            if pii_policy not in {"block", "pseudonymize"} or (
+                privacy is not None and pii_policy != "pseudonymize"
+            ):
+                return fmt_error("Invalid privacy policy.", code="INVALID_PRIVACY_POLICY")
 
             # Step 1: Scan
             loader = PandasLoader()
@@ -447,12 +456,18 @@ def register_discovery_tools(server: Any) -> None:
                 file_size_bytes=path.stat().st_size,
                 sheet_name=sheet_name,
                 preparation=preparation,
+                privacy=privacy,
             )
             dataset = Dataset(metadata=metadata)
             source_identity = _source_identity(path, sheet_name)
             df, variables, row_count, report = loader.load(metadata)
             if _source_identity(path, sheet_name) != source_identity:
                 return fmt_error("讀取期間來源檔案已改變，請重新收件。", code="SOURCE_CHANGED")
+            if pii_policy == "pseudonymize" and privacy is None:
+                from rde.infrastructure.adapters.privacy import propose_privacy, apply_privacy
+
+                metadata.privacy = propose_privacy(df, source_identity["sha256"])
+                df, variables = apply_privacy(df, variables, metadata.privacy, source_path=path)
             dataset.mark_loaded(variables, row_count)
             normalization = report.as_dict()
             dataset.tags["normalization_report"] = normalization
@@ -463,7 +478,9 @@ def register_discovery_tools(server: Any) -> None:
             )
 
             # Step 3: PII check (H-004)
-            pii_vars = [v.name for v in variables if v.is_pii_suspect]
+            pii_vars = [
+                v.name for v in variables if v.is_pii_suspect and not v.extra.get("privacy_action")
+            ]
             pii_allowed, pii_error, pii_detail, pii_warning = _pii_gate_message(
                 pii_vars,
                 allow_pii=allow_pii,
@@ -494,6 +511,7 @@ def register_discovery_tools(server: Any) -> None:
                 "normalization": normalization,
                 "raw_data_coverage": raw_coverage,
                 "pii_suspects": pii_vars,
+                **({"privacy": metadata.privacy} if metadata.privacy else {}),
                 "rejections": [
                     {"file": f.file_name, "reason": f.rejection_reason} for f in rejected_files
                 ],
@@ -506,6 +524,20 @@ def register_discovery_tools(server: Any) -> None:
             ok, _, project = ensure_project_context(project_id)
             if ok and project is not None:
                 store = ArtifactStore(project.artifacts_dir)
+                if metadata.privacy:
+                    store.save(
+                        PipelinePhase.DATA_INTAKE,
+                        "privacy_receipt.json",
+                        {
+                            **metadata.privacy,
+                            "rows": row_count,
+                            "columns_count": len(variables),
+                            "original_source": source_identity,
+                        },
+                    )
+                    store.save(
+                        PipelinePhase.DATA_INTAKE, "research_view.csv", df.to_csv(index=False)
+                    )
                 store.save(PipelinePhase.DATA_INTAKE, "intake_report.json", intake_report)
                 store.save(PipelinePhase.DATA_INTAKE, "raw_data_coverage.json", raw_coverage)
                 store.save(
@@ -639,6 +671,9 @@ def register_discovery_tools(server: Any) -> None:
                     n_total=len(df),
                     sample_values=samples,
                 )
+                from rde.infrastructure.adapters.privacy import protected_variable
+
+                new_var = protected_variable(v, new_var)
                 new_var.n_missing = int(col.isna().sum())
                 new_var.role = v.role  # preserve user-set role
 
@@ -654,6 +689,7 @@ def register_discovery_tools(server: Any) -> None:
                 "row_count": ds.row_count,
                 "column_count": len(ds.variables),
                 "variables": [],
+                **({"privacy": ds.metadata.privacy} if ds.metadata and ds.metadata.privacy else {}),
                 "created_at": datetime.now().isoformat(),
             }
 
@@ -670,6 +706,11 @@ def register_discovery_tools(server: Any) -> None:
                     "missing_rate": missing_rate,
                     "n_unique": v.n_unique,
                     "is_pii_suspect": v.is_pii_suspect,
+                    **(
+                        {"privacy_action": v.extra["privacy_action"]}
+                        if v.extra.get("privacy_action")
+                        else {}
+                    ),
                 }
 
                 # Add descriptive stats only for numeric measurement variables.

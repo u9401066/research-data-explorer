@@ -185,6 +185,7 @@ def bind_source(project, entry):
             "name": "PreparedSourceLoader" if metadata.preparation else "PandasLoader",
             "pandas": pd.__version__,
             "normalization": normalization.as_dict(),
+            **({"privacy": metadata.privacy} if metadata.privacy else {}),
             **(
                 {
                     "preparation": {

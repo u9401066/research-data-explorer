@@ -130,7 +130,11 @@ CONTRACTS = {
     "log_deviation": ToolContract("all", "project exists", "append deviation"),
     "scan_data_folder": ToolContract("1", "supported local files", "file metadata", True),
     "load_dataset": ToolContract("1", "format/size/PII", "session dataset"),
-    "run_intake": ToolContract("1", "format/size/PII", "intake and datasets"),
+    "run_intake": ToolContract(
+        "1",
+        "format/size/PII or explicit pseudonymize policy",
+        "intake, source-bound research privacy view and receipts; original source retained",
+    ),
     "build_schema": ToolContract("2", "intake + dataset scope", "schema and roles"),
     "profile_dataset": ToolContract("2", "dataset exists", "profile artifacts"),
     "assess_quality": ToolContract("2", "dataset exists", "quality artifacts"),

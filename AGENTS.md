@@ -199,7 +199,7 @@ RDE 透過 Anti-Corruption Layer (`AutomlGateway`) 呼叫。
 - ⛔ **Artifact Gate**：前一 Phase 的 artifacts 必須存在才能進入下一 Phase
 - ⛔ **Decision Logging**：Phase 8 每個分析操作自動寫入 decision_log.jsonl
 - ⛔ **User Confirmation**：Phase 3 (概念對齊) 和 Phase 4 (創意發想) 和 Phase 5 (計畫完整性審查) 和 Phase 6 (計畫) 必須用戶確認
-- ⛔ **PII Default Block**：`load_dataset()` / `run_intake()` 遇到疑似 PII 時預設拒絕，僅可用 `allow_pii=true` 明確覆蓋
+- ⛔ **PII Default Block**：`load_dataset()` / `run_intake()` 遇到疑似 PII 時預設拒絕，host 可用 `run_intake(pii_policy="pseudonymize")` 自動轉為研究代碼與保存處理收據。相同研究共用私密金鑰；原檔、缺失與重複關係保留，出生日期與模糊數字訊號保留並提示核對，不宣稱完全匿名；重跑沿用 `privacy` 規格。`allow_pii=true` 是另外的原始值放行，不等於這個自動處理流程
 
 ### Standard Flow（完整 13-Phase）
 
