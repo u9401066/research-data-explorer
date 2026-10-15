@@ -75,7 +75,11 @@ class MatplotlibVisualizer(VisualizationPort):
             )
             if df[variables].dropna().empty:
                 raise ValueError("重複量測圖沒有共同完整個案。")
-        cleaned_df, plausibility_findings = apply_numeric_plausibility_filters(df, variables)
+        if kwargs.pop("apply_plausibility", True):
+            cleaned_df, plausibility_findings = apply_numeric_plausibility_filters(df, variables)
+        else:
+            # Typed clinical source views must retain original observed values.
+            cleaned_df, plausibility_findings = df.copy(), []
         for finding in plausibility_findings:
             self._plausibility_notes_by_variable.setdefault(finding.variable_name, []).append(
                 finding.annotation_line()
@@ -593,7 +597,7 @@ class MatplotlibVisualizer(VisualizationPort):
         else:
             ax.scatter(plot_df[x_var], plot_df[y_var], alpha=0.7, color="#4C78A8")
         numeric = df[[x_var, y_var]].apply(pd.to_numeric, errors="coerce").dropna()
-        if len(numeric) >= 2:
+        if kwargs.get("show_trend", True) and len(numeric) >= 2:
             slope, intercept = np.polyfit(numeric[x_var], numeric[y_var], 1)
             x_line = np.linspace(float(numeric[x_var].min()), float(numeric[x_var].max()), 100)
             ax.plot(x_line, slope * x_line + intercept, color="darkorange", linewidth=1.5)

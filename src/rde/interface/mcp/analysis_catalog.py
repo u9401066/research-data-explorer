@@ -32,6 +32,9 @@ GROUPS = [
 SPEC_TYPES = {
     "sample_size": ("rde.domain.models.sample_size", "SampleSizeSpec"),
     "comparison": ("rde.infrastructure.clinical.comparison_contract", "ComparisonSpec"),
+    "stratified": ("rde.infrastructure.clinical.stratified_contract", "StratifiedSpec"),
+    "imputation": ("rde.infrastructure.clinical.imputation_contract", "ImputationSpec"),
+    "noninferiority": ("rde.infrastructure.clinical.noninferiority_contract", "NoninferioritySpec"),
     "repeated": ("rde.infrastructure.clinical.repeated_contract", "RepeatedSpec"),
     "diagnostic_accuracy": (
         "rde.infrastructure.clinical.measurement",
@@ -366,6 +369,88 @@ def family_declarations():
     )
 
     clinical_rows = [
+        (
+            "noninferiority",
+            "compare",
+            "連續結果非劣性",
+            "依事前臨床margin，處置是否未比參照差超過可接受界限？",
+            [("welch_mean", "Welch 連續結果非劣性", {"method": "welch_mean"})],
+            [
+                ("subject", "獨立個案", "唯一非空且每人一列"),
+                ("treatment", "處置", "[參照,處置] 原碼與研究定義"),
+                ("outcome", "連續結果", "原始單位、時間窗與臨床方向"),
+                ("margin", "非劣性界值", "正margin、原單位及事前臨床依據，不依結果挑選"),
+                ("population_definition", "分析族群", "由來源明確定義，工具不驗證ITT／PP資格"),
+            ],
+            [
+                "共同完整個案與分組摘要",
+                "benefit difference／Welch單側檢定",
+                "單側信賴下限及NI結論",
+                "完整限制及英文投稿圖",
+            ],
+            [
+                "alpha為單側；confidence_level=1-alpha表示單側下限。計算完成不代表非劣性成立。",
+                "不顯著優效不代表非劣性，NI未通過也不等於證明劣效。",
+                "不支援二元、存活、配對、群集、調整模型、多終點或期中NI；不自動替換估計器。",
+                "margin、assay sensitivity/constancy、ITT/PP及因果解讀仍須臨床核對。",
+            ],
+        ),
+        (
+            "stratified",
+            "compare",
+            "分層二元比較",
+            "控制事前指定分層後，二元處置與結果是否相關？",
+            [("cmh", "Cochran–Mantel–Haenszel 與 common OR", {})],
+            [
+                ("subject", "獨立個案", "唯一非空識別；同人多列不可當獨立"),
+                ("treatment", "處置", "[參照,處置] 原碼與研究定義"),
+                ("outcome", "二元結果", "[非事件,事件] 原碼、時間窗與研究定義"),
+                ("strata", "分層", "完整 2–50 層，不能事後刪除空層或零格"),
+            ],
+            [
+                "逐列納排與各層 2×2 表",
+                "單一 CMH 假說",
+                "MH common OR／RBG CI",
+                "Tarone–Breslow–Day 診斷",
+                "英文向量圖及完整報告",
+            ],
+            [
+                "每人一列，共享完整個案；零邊際／空層拒絕，不加0.5。",
+                "漸近 CMH 不作連續性校正；沒有 exact CMH、RR／RD 或分層 logistic。",
+                "同質性未顯著或無法估計不證明同質；OR 不能直接稱因果療效。",
+            ],
+        ),
+        (
+            "imputation",
+            "model",
+            "多重插補與合併迴歸",
+            "保留可插補個案後，固定迴歸的估計與不確定性如何？",
+            [
+                ("pmm_gaussian", "PMM＋OLS＋Rubin 合併", {"distribution": "gaussian"}),
+                ("pmm_binomial", "PMM＋logistic＋Rubin 合併", {"distribution": "binomial"}),
+            ],
+            [
+                ("subject", "獨立個案", "唯一非空；單層資料，n不乘插補份數"),
+                ("columns", "插補規格", "連續／二元原碼、單位、可插補與條件預測因子逐欄明訂"),
+                ("predictors", "分析因素", "固定加法 OLS/logistic 1–12 項"),
+                ("missingness_basis", "缺失依據", "不由缺失比例推定MAR或把結構性缺失當可插補"),
+            ],
+            [
+                "原始分母與可插補格追溯",
+                "每份完成資料 CSV、seed 與 hash",
+                "逐份模型與 Rubin 完整 covariance",
+                "逐項 Wald 估計",
+                "缺失／鏈診斷與完整個案比較",
+                "英文向量圖及完整報告",
+            ],
+            [
+                "statsmodels PMM：二元也採觀察 donor，不是 Bernoulli draws。",
+                "Rubin 合併採漸近 normal Wald、逐項未校正；沒有 Barnard–Rubin 小樣本修正。",
+                "沒有 MNAR/NARFCS、多層、序位、survival-specific MI 或任意模型合併。",
+                "原始觀察格不改；分離、未收斂或不完整 m 明確失敗，不退回單次補值。",
+                "traces與完整個案比較不能證明MAR、收斂或MNAR穩健。",
+            ],
+        ),
         (
             "comparison",
             "compare",
@@ -773,11 +858,14 @@ def family_declarations():
         "descriptive",
         "association",
         "comparison",
+        "stratified",
+        "noninferiority",
         "repeated",
         "diagnostic_accuracy",
         "bland_altman",
         "cohens_kappa",
         "regression",
+        "imputation",
         "weighting",
         "longitudinal",
         "survival",

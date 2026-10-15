@@ -1,5 +1,7 @@
 """Check clinical study evidence without substituting generic EDA method counts."""
 
+import math
+
 from rde.application.pipeline import PipelinePhase
 from rde.interface.mcp.tools.clinical_tools import (
     clinical_plan,
@@ -10,6 +12,20 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def required_figures(result):
+    if result["spec"]["family"] == "noninferiority":
+        from rde.infrastructure.clinical.noninferiority_report import (
+            required_figures as family_figures,
+        )
+
+        return family_figures(result)
+    if result["spec"]["family"] == "imputation":
+        from rde.infrastructure.clinical.imputation_report import required_figures as family_figures
+
+        return family_figures(result)
+    if result["spec"]["family"] == "stratified":
+        from rde.infrastructure.clinical.stratified_report import required_figures as family_figures
+
+        return family_figures(result)
     if result["spec"]["family"] == "repeated":
         from rde.infrastructure.clinical.repeated_report import required_figures as repeated_figures
 
@@ -81,7 +97,9 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         [r["artifact"] for r in records],
     )
     ledger = result.get("case_ledger", {})
-    included = ledger.get("complete_data_rows", [])
+    included = ledger.get(
+        "included_data_rows" if spec["family"] == "imputation" else "complete_data_rows", []
+    )
     excluded = (
         ledger.get("filter_excluded_data_rows", [])
         + ledger.get("missing_excluded_data_rows", [])
@@ -94,7 +112,54 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         and sorted(included + excluded) == list(range(1, ledger.get("input_rows", 0) + 1)),
         ["case_ledger"],
     )
-    if spec["family"] == "survival":
+    if spec["family"] == "imputation":
+        models = result.get("fit_receipts", [])
+        imputed = ledger.get("imputed_data_rows", [])
+        original_complete = ledger.get("original_complete_data_rows", [])
+        shared_cases = (
+            bool(included)
+            and len(models) == spec["m"] == result.get("m")
+            and all(
+                model.get("n") == len(included) and model.get("observed_cells_unchanged") is True
+                for model in models
+            )
+            and len(result.get("completed_datasets", [])) == spec["m"]
+            and sorted(imputed + original_complete) == included
+            and not set(imputed) & set(original_complete)
+            and sorted(ledger.get("sampling_data_rows", [])) == included
+            and result.get("observed_cells_unchanged") is True
+        )
+    elif spec["family"] == "noninferiority":
+        points, groups = result.get("observations", []), result.get("groups", [])
+        shared_cases = (
+            bool(included)
+            and [p.get("data_row") for p in points] == included
+            and [g.get("label") for g in groups] == spec["treatment_levels"]
+            and [g.get("role") for g in groups] == ["control", "treatment"]
+            and sum(g.get("n", 0) for g in groups) == result.get("n")
+            and all(
+                g.get("data_rows")
+                == [p["data_row"] for p in points if p.get("treatment") == g["label"]]
+                and g.get("n") == len(g.get("data_rows", []))
+                for g in groups
+            )
+        )
+    elif spec["family"] == "stratified":
+        shared_cases = (
+            bool(included)
+            and [row.get("label") for row in result.get("strata", [])] == spec["strata_levels"]
+            and sorted(
+                row for stratum in result.get("strata", []) for row in stratum.get("data_rows", [])
+            )
+            == included
+            and [row.get("data_row") for row in result.get("observations", [])] == included
+            and all(
+                sum(sum(row) for row in stratum["table"]) == stratum["n"]
+                for stratum in result.get("strata", [])
+            )
+            and not any(stratum.get("blocking_reasons") for stratum in result.get("strata", []))
+        )
+    elif spec["family"] == "survival":
         strata = result.get("strata", [])
         shared_cases = (
             bool(strata)
@@ -151,6 +216,95 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
             sum(row) for row in result["table"]
         ) == result.get("n")
     check("shared_case_set", shared_cases, ["case_ledger", "family-specific counts"])
+    if spec["family"] == "imputation":
+        p = len(spec["predictors"]) + 1
+        check(
+            "imputation_full_models_and_rubin_covariance",
+            len(result.get("coefficients", [])) == p
+            and all(
+                len(result.get(key, [])) == p and all(len(row) == p for row in result[key])
+                for key in ["covariance", "within_covariance", "between_covariance"]
+            )
+            and all(
+                len(model.get("coefficients", [])) == p and model.get("converged") is True
+                for model in result.get("fit_receipts", [])
+            )
+            and result.get("diagnostics", {}).get("chain_traces")
+            and result.get("artifact_manifest")
+            and records[0].get("derived_artifacts"),
+            [
+                "fit_receipts",
+                "covariance",
+                "completed_datasets",
+                "chain_traces",
+                "derived_artifacts",
+            ],
+        )
+    if spec["family"] == "stratified":
+        effect = result.get("common_odds_ratio", {})
+        check(
+            "stratified_prespecified_cmh_and_honest_or_boundary",
+            result.get("cmh", {}).get("status") == "estimated"
+            and result.get("multiplicity", {}).get("members") == ["cmh_association"]
+            and effect.get("status") in {"estimated", "boundary"}
+            and effect.get("ci_status") in {"estimated", "not_estimable"},
+            ["strata", "cmh", "common_odds_ratio", "equal_odds"],
+        )
+    if spec["family"] == "noninferiority":
+        inference = result.get("noninferiority", {})
+        finite = all(
+            type(inference.get(key)) in {int, float} and math.isfinite(inference[key])
+            for key in [
+                "p_value",
+                "benefit_difference",
+                "standard_error",
+                "degrees_of_freedom",
+                "critical_statistic",
+                "lower_confidence_bound",
+                "statistic",
+            ]
+        )
+        boundary = inference.get("numerical_boundary", {}).get("at_boundary")
+        passed = (
+            not boundary
+            and finite
+            and inference["p_value"] < spec["one_sided_alpha"]
+            and inference["lower_confidence_bound"] > -spec["margin"]
+        )
+        decision = (
+            "boundary_not_demonstrated"
+            if boundary
+            else ("noninferiority_demonstrated" if passed else "noninferiority_not_demonstrated")
+        )
+        check(
+            "noninferiority_one_sided_bound_and_honest_decision",
+            finite
+            and inference["standard_error"] > 0
+            and inference["degrees_of_freedom"] > 0
+            and 0 <= inference["p_value"] <= 1
+            and inference.get("confidence_sidedness") == "one_sided_lower"
+            and inference.get("confidence_level") == spec["confidence_level"]
+            and inference.get("one_sided_alpha") == spec["one_sided_alpha"]
+            and math.isclose(spec["confidence_level"], 1 - spec["one_sided_alpha"], abs_tol=1e-12)
+            and inference.get("upper_confidence_bound") is None
+            and inference.get("upper_bound_kind") == "unbounded"
+            and inference.get("null_boundary") == -spec["margin"]
+            and inference.get("direction") == spec["direction"]
+            and type(boundary) is bool
+            and inference.get("passed") is passed
+            and inference.get("decision") == decision
+            and inference.get("numerical_boundary", {}).get("equality_passes") is False
+            and math.isclose(
+                inference["lower_confidence_bound"],
+                inference["benefit_difference"]
+                - inference["critical_statistic"] * inference["standard_error"],
+                rel_tol=1e-10,
+                abs_tol=1e-12,
+            )
+            and result.get("multiplicity", {}).get("members") == ["prespecified_noninferiority"]
+            and [h.get("reject_null") for h in result.get("hypotheses", [])] == [passed],
+            ["noninferiority", "hypotheses", "multiplicity"],
+        )
     cox = result.get("cox")
     if spec["family"] == "survival" and spec.get("covariates"):
         check(
@@ -263,7 +417,13 @@ def clinical_readiness(store, *, data_quality, require_report_generation=True):
         from rde.infrastructure.clinical.measurement_report import TITLES
 
         heading = (
-            "配對與重複量測"
+            "獨立兩組均差非劣性分析"
+            if spec["family"] == "noninferiority"
+            else "標準多重插補與缺失資料分析"
+            if spec["family"] == "imputation"
+            else "分層二元比較：CMH 與共同勝算比"
+            if spec["family"] == "stratified"
+            else "配對與重複量測"
             if spec["family"] == "repeated"
             else "獨立組比較"
             if spec["family"] == "comparison"

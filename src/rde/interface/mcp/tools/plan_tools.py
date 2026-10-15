@@ -6,6 +6,7 @@ All tools return markdown strings.
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from rde.domain.models.variable import VariableRole
@@ -1225,22 +1226,49 @@ def register_plan_tools(server: Any) -> None:
                 return fmt_error(
                     "Descriptive concept scope requires a descriptive-only plan; revise the concept before inference"
                 )
-            single_weighting = (
+            single_clinical = (
                 isinstance(analyses, list)
                 and len(analyses) == 1
                 and isinstance(analyses[0], dict)
                 and analyses[0].get("type") == "run_clinical_study"
                 and isinstance(analyses[0].get("execution_arguments"), dict)
                 and isinstance(analyses[0]["execution_arguments"].get("clinical_options"), dict)
-                and analyses[0]["execution_arguments"]["clinical_options"].get("family")
-                == "weighting"
             )
-            validate_policy(
-                alpha,
-                missing_strategy,
-                multiple_comparison_method,
-                single_contrast=single_weighting or descriptive_spec is not None,
+            clinical_family = (
+                analyses[0]["execution_arguments"]["clinical_options"].get("family")
+                if single_clinical
+                else None
             )
+            if clinical_family == "imputation":
+                # This policy is restricted to the one fully typed clinical bundle;
+                # generic EDA must never interpret this as implicit cleaning.
+                if (
+                    not math.isfinite(alpha)
+                    or not 0 < alpha < 1
+                    or missing_strategy != "multiple_imputation"
+                    or multiple_comparison_method != "none"
+                ):
+                    raise ValueError(
+                        "Imputation clinical plans require explicit multiple_imputation and multiplicity=none; alpha must be finite in (0,1)."
+                    )
+            elif clinical_family == "noninferiority":
+                if (
+                    not math.isfinite(alpha)
+                    or not 0 < alpha < 0.5
+                    or missing_strategy != "listwise"
+                    or multiple_comparison_method != "none"
+                ):
+                    raise ValueError(
+                        "Noninferiority plans require single one-sided alpha in (0,.5), missing_strategy=listwise and multiplicity=none; no two-sided interval policy substitution."
+                    )
+            else:
+                validate_policy(
+                    alpha,
+                    missing_strategy,
+                    multiple_comparison_method,
+                    single_contrast=clinical_family in {"weighting", "stratified"}
+                    or descriptive_spec is not None,
+                )
 
             session = get_session()
             pipeline = session.get_pipeline(project.id)
@@ -1457,16 +1485,29 @@ def register_plan_tools(server: Any) -> None:
                         clinical_spec.multiplicity
                         if clinical_spec.family in {"comparison", "repeated"}
                         else "none"
-                        if clinical_spec.family == "weighting"
+                        if clinical_spec.family
+                        in {"weighting", "stratified", "imputation", "noninferiority"}
                         else "holm"
+                    )
+                    if clinical_spec.family == "noninferiority" and (
+                        abs(alpha - clinical_spec.one_sided_alpha) > 1e-12
+                        or abs(clinical_spec.confidence_level - (1 - alpha)) > 1e-12
+                    ):
+                        raise ValueError(
+                            "Noninferiority requires top alpha=one_sided_alpha=1-confidence_level; confidence_level is a ONE-SIDED lower bound, never a two-sided interval setting."
+                        )
+                    clinical_missing = (
+                        "multiple_imputation"
+                        if clinical_spec.family == "imputation"
+                        else "listwise"
                     )
                     if (
                         abs(alpha - (1 - clinical_spec.confidence_level)) > 1e-12
-                        or missing_strategy != "listwise"
+                        or missing_strategy != clinical_missing
                         or multiple_comparison_method != clinical_multiplicity
                     ):
                         raise ValueError(
-                            f"Clinical studies require matching alpha, listwise cases and the {clinical_multiplicity} plan setting; weighting has one unadjusted contrast and comparison/measurement intervals remain pointwise and unadjusted."
+                            f"Clinical studies require matching alpha, {clinical_missing} cases and the {clinical_multiplicity} plan setting; family-specific uncertainty remains explicit."
                         )
                 except (ValueError, TypeError, KeyError) as error:
                     return fmt_error(f"Invalid clinical specification: {error}")

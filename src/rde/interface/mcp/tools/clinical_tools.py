@@ -42,6 +42,21 @@ from rde.infrastructure.clinical.repeated_contract import (
     repeated_preflight,
     prepare_repeated,
 )
+from rde.infrastructure.clinical.imputation_contract import (
+    ImputationSpec,
+    imputation_preflight,
+    prepare_imputation,
+)
+from rde.infrastructure.clinical.stratified_contract import (
+    StratifiedSpec,
+    stratified_preflight,
+    prepare_stratified,
+)
+from rde.infrastructure.clinical.noninferiority_contract import (
+    NoninferioritySpec,
+    noninferiority_preflight,
+    prepare_noninferiority,
+)
 from rde.interface.mcp.tools.prediction_tools import atomic_json
 
 
@@ -51,6 +66,12 @@ def planned_clinical_spec(entry):
 
 
 def parse_clinical_spec(options):
+    if isinstance(options, dict) and options.get("family") == "noninferiority":
+        return NoninferioritySpec.parse(options)
+    if isinstance(options, dict) and options.get("family") == "imputation":
+        return ImputationSpec.parse(options)
+    if isinstance(options, dict) and options.get("family") == "stratified":
+        return StratifiedSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "repeated":
         return RepeatedSpec.parse(options)
     if isinstance(options, dict) and options.get("family") == "comparison":
@@ -90,6 +111,46 @@ def clinical_records(store):
     return records
 
 
+def verify_imputation_derived(record, root: Path):
+    """Require the whole kernel inventory, including its matching result.json."""
+    try:
+        result = record["result"]
+        inventory = record.get("derived_artifacts", [])
+        expected = result.get("artifact_files", [])
+        if not inventory or not expected:
+            return False
+        paths = [(root / item["path"]).resolve() for item in inventory]
+        if len({p.parent for p in paths}) != 1 or len(set(paths)) != len(paths):
+            return False
+        directory = paths[0].parent
+        listed = {path.name: item for path, item in zip(paths, inventory, strict=True)}
+        expected_names = [item["path"] for item in expected]
+        if len(set(expected_names)) != len(expected_names) or set(listed) != {
+            *expected_names,
+            "result.json",
+        }:
+            return False
+        for path, item in zip(paths, inventory, strict=True):
+            if (
+                not path.is_relative_to(root.resolve())
+                or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]
+            ):
+                return False
+        for item in expected:
+            if Path(item["path"]).name != item["path"]:
+                return False
+            path = directory / item["path"]
+            if (
+                listed[item["path"]]["sha256"] != item["sha256"]
+                or path.stat().st_size != item["bytes"]
+            ):
+                return False
+        return json.loads((directory / "result.json").read_text(encoding="utf-8")) == result
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
 def verify_clinical_artifacts(record, root: Path):
     artifacts = record.get("artifacts", [])
     result = record.get("result", {})
@@ -97,7 +158,11 @@ def verify_clinical_artifacts(record, root: Path):
         {k: v for k, v in result.items() if k != "receipt_sha256"}
     ) != result.get("receipt_sha256"):
         return False
-    for item in artifacts:
+    if result.get("spec", {}).get("family") == "imputation" and not verify_imputation_derived(
+        record, root
+    ):
+        return False
+    for item in [*artifacts, *record.get("derived_artifacts", [])]:
         path = (root / item["path"]).resolve()
         if (
             not path.is_relative_to(root.resolve())
@@ -111,7 +176,7 @@ def verify_clinical_artifacts(record, root: Path):
 def register_clinical_tools(server: Any):
     @server.tool()
     def inspect_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """計畫審閱前核對配對／獨立比較／生存／診斷／一致性／縱向／迴歸／加權角色、受試者與個案分母；不估計模型或 p 值。"""
+        """計畫審閱前核對配對／獨立比較／生存／診斷／一致性／縱向／迴歸／加權／多重插補／分層／非劣性角色、受試者與個案分母；不估計模型或 p 值。"""
         from rde.interface.mcp.tools._shared import ensure_phase_ready, fmt_error
 
         ok, message, _project, entry = ensure_phase_ready(
@@ -127,6 +192,9 @@ def register_clinical_tools(server: Any):
             if isinstance(
                 spec,
                 (
+                    NoninferioritySpec,
+                    ImputationSpec,
+                    StratifiedSpec,
                     RepeatedSpec,
                     ComparisonSpec,
                     MeasurementSpec,
@@ -136,7 +204,13 @@ def register_clinical_tools(server: Any):
                 ),
             ):
                 preflight = (
-                    repeated_preflight
+                    noninferiority_preflight
+                    if isinstance(spec, NoninferioritySpec)
+                    else imputation_preflight
+                    if isinstance(spec, ImputationSpec)
+                    else stratified_preflight
+                    if isinstance(spec, StratifiedSpec)
+                    else repeated_preflight
                     if isinstance(spec, RepeatedSpec)
                     else comparison_preflight
                     if isinstance(spec, ComparisonSpec)
@@ -191,7 +265,19 @@ def register_clinical_tools(server: Any):
 
     @server.tool()
     def run_clinical_study(dataset_id: str, clinical_options: dict[str, Any]) -> str:
-        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting、comparison、repeated。
+        """執行鎖定的臨床研究：survival、diagnostic_accuracy、bland_altman、cohens_kappa、longitudinal、regression、weighting、comparison、repeated、imputation、stratified、noninferiority。
+
+        imputation 僅固定 continuous/binary PMM 與 gaussian/binomial 加法分析；須讀取完整 typed 規格。
+        內層 columns 明列原始欄位、代碼、unit、impute 與 predictors，m/burn_in/between/k_pmm/seed 固定。
+        頂層 missing_strategy=multiple_imputation、multiplicity=none；全部完成CSV與模型保存，原觀察格不變。
+        Rubin covariance 配逐項漸近常態Wald；不冒稱Barnard-Rubin、MNAR或NARFCS。
+        noninferiority 只允許 method=welch_mean，subject 必填、treatment_levels=[control,treatment]、
+        outcome/outcome_unit/window/definition、direction=higher_is_better/lower_is_better、margin>0、
+        margin_scale=outcome_unit、margin_basis、population_definition；內層complete_case，頂層listwise/none。
+        confidence_level 是單側下限且=1-one_sided_alpha；top alpha 必須相同。binary NI 不支援且不得替換方法。
+        NI未通過也是已完成的計算，讀取noninferiority.decision，不以completed推定非劣性。
+        stratified 為事先固定 binary 原碼與 strata_levels 的CMH/MH OR；內層missing_strategy=complete_case，
+        頂層listwise及multiplicity=none。禁止刪除空層、加0.5或用合併表代替；邊界OR與不可估CI明列。
 
         repeated 必須 subject、measurements=[{column,label}]（2..8 時點）、contrasts=[[first,second]]（1..28 明確方向），
         outcome_name、outcome_unit、outcome_definition、context、independent_subjects=true、same_outcome=true。
@@ -243,6 +329,9 @@ def register_clinical_tools(server: Any):
         from rde.infrastructure.clinical.weighting import run_weighting
         from rde.infrastructure.clinical.comparison import run_comparison
         from rde.infrastructure.clinical.repeated import run_repeated
+        from rde.infrastructure.clinical.imputation import run_imputation
+        from rde.infrastructure.clinical.stratified import run_stratified
+        from rde.infrastructure.clinical.noninferiority import run_noninferiority
         from rde.infrastructure.clinical.report import figures, markdown, tables
 
         ok, message, project, entry = ensure_phase_ready(
@@ -253,6 +342,7 @@ def register_clinical_tools(server: Any):
         store = ArtifactStore(project.artifacts_dir)
         parameters = {"dataset_id": dataset_id, "clinical_options": clinical_options}
         attempt = None
+        derived_directory = None
         try:
             spec = parse_clinical_spec(clinical_options)
             plan = clinical_plan(store)
@@ -262,7 +352,13 @@ def register_clinical_tools(server: Any):
                 )
             parameters["variables"] = spec.variables()
             frame_hash = (
-                prepare_repeated(entry.dataframe, spec)
+                prepare_noninferiority(entry.dataframe, spec)
+                if isinstance(spec, NoninferioritySpec)
+                else prepare_imputation(entry.dataframe, spec)
+                if isinstance(spec, ImputationSpec)
+                else prepare_stratified(entry.dataframe, spec)
+                if isinstance(spec, StratifiedSpec)
+                else prepare_repeated(entry.dataframe, spec)
                 if isinstance(spec, RepeatedSpec)
                 else prepare_comparison(entry.dataframe, spec)
                 if isinstance(spec, ComparisonSpec)
@@ -300,6 +396,11 @@ def register_clinical_tools(server: Any):
                 {k: v for k, v in previous["result"].items() if k != "receipt_sha256"}
             ) != previous["result"].get("receipt_sha256"):
                 raise ValueError("Saved clinical numerical evidence failed integrity checks.")
+            if previous and isinstance(spec, ImputationSpec):
+                if not verify_imputation_derived(previous, project.output_dir):
+                    raise ValueError(
+                        "Saved imputation derived inventory failed integrity checks; refusing to refit."
+                    )
             if previous and previous.get("artifacts"):
                 if not verify_clinical_artifacts(previous, project.output_dir):
                     raise ValueError(
@@ -309,7 +410,7 @@ def register_clinical_tools(server: Any):
                     "run_clinical_study",
                     parameters,
                     "Reuse the verified locked clinical study without refitting.",
-                    f"Saved complete-case n={previous['result']['n']}.",
+                    f"Saved declared analysis population n={previous['result']['n']}.",
                     artifacts=[filename],
                 )
                 return markdown(previous["result"]) + "\n已取回保存結果；本次沒有重新估計模型。\n"
@@ -317,11 +418,33 @@ def register_clinical_tools(server: Any):
             attempt = store.get_path(
                 PipelinePhase.EXECUTE_EXPLORATION, f"clinical_attempt_{run_id}.json"
             )
+            derived_directory = (
+                store.get_path(PipelinePhase.EXECUTE_EXPLORATION, f"imputation_{run_id}")
+                if isinstance(spec, ImputationSpec)
+                else None
+            )
+            if not previous:
+                atomic_json(
+                    attempt,
+                    {
+                        "status": "started",
+                        "dataset_id": dataset_id,
+                        "run_id": run_id,
+                        "source": source,
+                        "spec_sha256": digest(spec.to_dict()),
+                    },
+                )
             result = (
                 previous["result"]
                 if previous
                 else (
-                    run_repeated(entry.dataframe, spec)
+                    run_noninferiority(entry.dataframe, spec)
+                    if isinstance(spec, NoninferioritySpec)
+                    else run_imputation(entry.dataframe, spec, derived_directory)
+                    if isinstance(spec, ImputationSpec)
+                    else run_stratified(entry.dataframe, spec)
+                    if isinstance(spec, StratifiedSpec)
+                    else run_repeated(entry.dataframe, spec)
                     if isinstance(spec, RepeatedSpec)
                     else run_comparison(entry.dataframe, spec)
                     if isinstance(spec, ComparisonSpec)
@@ -336,9 +459,29 @@ def register_clinical_tools(server: Any):
                     else run_survival(entry.dataframe, spec)
                 )
             )
+            if (
+                not metadata.file_path.is_file()
+                or hashlib.sha256(metadata.file_path.read_bytes()).hexdigest() != source["sha256"]
+            ):
+                raise ValueError(
+                    "Clinical source file changed during execution; saved partial evidence cannot complete this plan."
+                )
             record = dict(
                 dataset_id=dataset_id, run_id=run_id, source=source, result=result, artifacts=[]
             )
+            if isinstance(spec, ImputationSpec):
+                record["derived_artifacts"] = (
+                    previous["derived_artifacts"]
+                    if previous
+                    else [
+                        {
+                            "path": str(path.relative_to(project.output_dir)),
+                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                        }
+                        for path in sorted(derived_directory.rglob("*"))
+                        if path.is_file()
+                    ]
+                )
             # Persist numbers before visualization; a renderer failure never erases the estimate.
             atomic_json(attempt, record)
             final = store.get_path(PipelinePhase.EXECUTE_EXPLORATION, filename)
@@ -354,7 +497,15 @@ def register_clinical_tools(server: Any):
                 .get("files", {"png": image["path"]})
                 .values()
             ]
-            paths = [report, *tables(result, table_dir, prefix), *figure_paths]
+            paths = [
+                report,
+                *tables(result, table_dir, prefix),
+                *figure_paths,
+                *[
+                    project.output_dir / item["path"]
+                    for item in record.get("derived_artifacts", [])
+                ],
+            ]
             record["artifacts"] = [
                 dict(
                     path=str(p.relative_to(project.output_dir)),
@@ -376,12 +527,19 @@ def register_clinical_tools(server: Any):
             _auto_log_decision(
                 "run_clinical_study",
                 parameters,
-                "Prespecified clinical study with exact source coding and declared complete-case populations.",
+                "Prespecified clinical study with exact source coding and family-specific missing-data population.",
                 f"family={spec.family}; n={result['n']}; no automatic clinical validity or causal promotion.",
                 artifacts=[filename, *[a["path"] for a in record["artifacts"]]],
             )
             return markdown(result) + f"\n**數值收據：** `{final}`\n"
         except Exception as error:
+            failure_artifacts = [attempt.name] if attempt and attempt.is_file() else []
+            if derived_directory and derived_directory.is_dir():
+                failure_artifacts += [
+                    str(path.relative_to(project.output_dir))
+                    for path in sorted(derived_directory.rglob("*"))
+                    if path.is_file()
+                ]
             get_session().get_logger(project.id).log_decision(
                 phase=PipelinePhase.EXECUTE_EXPLORATION.value,
                 action="run_clinical_study_failed",
@@ -389,7 +547,7 @@ def register_clinical_tools(server: Any):
                 parameters={**parameters, "execution_status": "failed"},
                 rationale="Keep failure evidence without completing plan coverage.",
                 result_summary=str(error),
-                artifacts=[attempt.name] if attempt and attempt.is_file() else [],
+                artifacts=failure_artifacts,
             )
             log_tool_error("run_clinical_study", error)
             return fmt_error(str(error))

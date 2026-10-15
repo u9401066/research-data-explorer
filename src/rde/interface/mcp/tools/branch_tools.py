@@ -124,6 +124,10 @@ def register_branch_tools(server: Any) -> None:
             return fmt_error(msg)
         assert store is not None
 
+        blocker = _clinical_exploration_blocker(store)
+        if blocker:
+            return fmt_error(blocker, code="CLINICAL_EXPLORATION_UNSUPPORTED")
+
         try:
             schema = store.load(PipelinePhase.SCHEMA_REGISTRY, "schema.json") or {}
             plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
@@ -578,7 +582,9 @@ def register_branch_tools(server: Any) -> None:
             "discard_branch",
             {"project_id": project_id, "branch_id": branch_id, "reason": reason},
         )
-        ok, msg, project, store = _governed_phase8_context(project_id)
+        ok, msg, project, store = _governed_phase8_context(
+            project_id, require_exploration_contract=False
+        )
         if not ok:
             return fmt_error(msg)
         assert project is not None
@@ -904,6 +910,7 @@ def register_branch_tools(server: Any) -> None:
             status = _autoresearch_status_payload(store)
             if not status.get("run_id"):
                 return "# Autoresearch Status\n\nNo autoresearch run has been started."
+            blocker = _clinical_exploration_blocker(store) or status.get("current_blocker")
             _save_autoresearch_progress(store, str(status["run_id"]), "status_checked")
             return "\n".join(
                 [
@@ -915,7 +922,7 @@ def register_branch_tools(server: Any) -> None:
                     f"- recorded_only: {status['recorded_count']}",
                     f"- failed: {status['failed_count']}",
                     f"- budget_remaining: {status['budget_remaining']}",
-                    f"- current_blocker: {status.get('current_blocker') or 'none'}",
+                    f"- current_blocker: {blocker or 'none'}",
                 ]
             )
         except Exception as exc:
@@ -927,7 +934,9 @@ def register_branch_tools(server: Any) -> None:
         """Stop the latest durable autoresearch run and write a stop decision."""
 
         log_tool_call("stop_autoresearch_run", {"project_id": project_id, "reason": reason})
-        ok, msg, project, store = _governed_phase8_context(project_id)
+        ok, msg, project, store = _governed_phase8_context(
+            project_id, require_exploration_contract=False
+        )
         if not ok:
             return fmt_error(msg)
         assert project is not None
@@ -1257,8 +1266,38 @@ def _phase8_context(
     return True, "ready", project, store
 
 
+def _clinical_exploration_blocker(store: ArtifactStore) -> str | None:
+    """Read the current locked plan, never a caller/queue's claimed family.
+
+    These fixed study bundles have no validated exploratory contract yet. In
+    particular, a raw-frame branch cannot substitute complete cases for MI or
+    an ordinary superiority test for the prespecified noninferiority contrast.
+    Historical queues remain readable/stoppable; nothing rewrites their models.
+    """
+    plan = store.load(PipelinePhase.PLAN_REGISTRATION, "analysis_plan.yaml") or {}
+    if not isinstance(plan, dict) or plan.get("locked") is not True:
+        return None
+    for entry in plan.get("analyses", []):
+        if not isinstance(entry, dict) or entry.get("type") != "run_clinical_study":
+            continue
+        arguments = entry.get("execution_arguments")
+        options = arguments.get("clinical_options") if isinstance(arguments, dict) else None
+        family = options.get("family") if isinstance(options, dict) else None
+        if family in {"imputation", "stratified", "noninferiority"}:
+            return (
+                f"CLINICAL_EXPLORATION_UNSUPPORTED: The locked {family} study has no "
+                "validated branch/autoresearch contract. Execute its exact approved "
+                "run_clinical_study bundle, or revise and review a separate supported "
+                "study. Raw-data fallback, changed missingness/population, or substitute "
+                "tests cannot continue this queue; existing evidence is retained."
+            )
+    return None
+
+
 def _governed_phase8_context(
     project_id: str | None,
+    *,
+    require_exploration_contract: bool = True,
 ) -> tuple[bool, str, Any | None, ArtifactStore | None]:
     ok, msg, project, store = _phase8_context(project_id)
     if project is not None and store is not None:
@@ -1279,6 +1318,10 @@ def _governed_phase8_context(
 
     if not ok or project is None or store is None:
         return ok, msg, project, store
+
+    blocker = _clinical_exploration_blocker(store) if require_exploration_contract else None
+    if blocker:
+        return False, blocker, project, store
 
     return True, "ready", project, store
 
@@ -1876,6 +1919,10 @@ def _execute_autoresearch_next_task(
     lease_owner: str,
     lease_seconds: int,
 ) -> dict[str, Any]:
+    # A restored queue or direct worker must recheck before leasing/writing work.
+    blocker = _clinical_exploration_blocker(store)
+    if blocker:
+        return {"ok": False, "message": blocker}
     status = _autoresearch_status_payload(store)
     if not status.get("run_id") or status.get("status") != "running":
         return {"ok": False, "message": "No running autoresearch run."}
@@ -2350,6 +2397,17 @@ def _execute_autoresearch_analysis_contract(
     experiment_id: str,
     variables: list[str],
 ) -> dict[str, Any]:
+    # Defense at the numerical dispatch boundary, including already leased work.
+    blocker = _clinical_exploration_blocker(store)
+    if blocker:
+        return {
+            "executed": False,
+            "status": "failed",
+            "artifacts": [],
+            "metrics": {},
+            "error": blocker,
+            "result_summary": blocker,
+        }
     contract = dict(task.get("analysis_contract") or {})
     if not contract:
         return {

@@ -1024,6 +1024,7 @@ def register_report_tools(server: Any) -> None:
         對 histogram / boxplot / scatter / bar / violin / heatmap / line / paired 會自動附加摘要統計；
         圖表預設僅描述資料；include_tests=true 才加入未校正的探索性檢定。
         heatmap 遵照 missing_strategy 或鎖定計畫的共同／成對完整策略。
+        正式 clinical 計畫只允許描述原始可觀察資料；不附檢定、不配回歸線、不過濾合理性或補值，不能取代鎖定成果。
         圖表儲存在專案的 figures/ 目錄，報告和 handoff 時自動嵌入。
 
         Args:
@@ -1060,6 +1061,20 @@ def register_report_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        from rde.interface.mcp.tools._shared.clinical_scope import (
+            ensure_legacy_analysis_allowed,
+            has_clinical_bundle,
+        )
+
+        try:
+            clinical_descriptive = has_clinical_bundle(project)
+        except Exception as error:
+            return fmt_error(f"[CLINICAL_PLAN_SCOPE] Cannot verify visualization scope: {error}")
+        if clinical_descriptive and include_tests:
+            _, reason = ensure_legacy_analysis_allowed(
+                project, "create_visualization(include_tests=true)"
+            )
+            return fmt_error(reason)
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -1087,17 +1102,33 @@ def register_report_tools(server: Any) -> None:
             output_filename = _safe_visualization_filename(output_filename)
 
             output_dir = project.output_dir / "figures"
-            output_dir.mkdir(parents=True, exist_ok=True)
             output_path = output_dir / output_filename
+            if clinical_descriptive and output_path.exists():
+                raise ValueError(
+                    "Descriptive-only figures cannot replace existing clinical evidence; choose a new output_filename."
+                )
+            output_dir.mkdir(parents=True, exist_ok=True)
 
             viz = MatplotlibVisualizer()
             from rde.interface.mcp.tools.analysis_tools import _inference_policy
 
-            policy = _inference_policy(project, missing_strategy=missing_strategy)
+            if clinical_descriptive:
+                # These are original observed-data views, not the MI completed
+                # population or a new test governed by clinical alpha/multiplicity.
+                display_missing = missing_strategy or "listwise"
+                if display_missing not in {"listwise", "pairwise"}:
+                    raise ValueError(
+                        "Descriptive heatmap missing_strategy must be explicit listwise or pairwise; no imputation."
+                    )
+                policy = {"missing_strategy": display_missing}
+            else:
+                policy = _inference_policy(project, missing_strategy=missing_strategy)
             kwargs = {
                 "include_tests": include_tests,
                 "missing_strategy": policy["missing_strategy"],
             }
+            if clinical_descriptive:
+                kwargs.update(show_trend=False, apply_plausibility=False)
             if subject_variable is not None:
                 if plot_type not in {"paired", "line"}:
                     raise ValueError("subject_variable 僅適用配對／時間序列圖。")
@@ -1125,6 +1156,27 @@ def register_report_tools(server: Any) -> None:
                 **kwargs,
             )
             stats_summary = viz.last_annotation_summary
+            display_scope = {}
+            if clinical_descriptive:
+                displayed_variables = list(
+                    dict.fromkeys([*variables, *([group_var] if group_var else [])])
+                )
+                display_scope = {
+                    "descriptive_only": True,
+                    "replaces_clinical_result": False,
+                    "source_view": "original_observed_data_not_imputed_or_filtered",
+                    "input_rows": len(entry.dataframe),
+                    "missing_by_variable": {
+                        name: int(entry.dataframe[name].isna().sum())
+                        for name in displayed_variables
+                        if name in entry.dataframe
+                    },
+                }
+                stats_summary = (
+                    f"Descriptive only; original input rows={len(entry.dataframe)}; missing={display_scope['missing_by_variable']}; "
+                    "no imputation, plausibility filtering, fitted trend or hypothesis test. "
+                    "Does not replace the locked clinical result. " + (stats_summary or "")
+                )
             _upsert_visualization_manifest(
                 project,
                 plot_type=plot_type,
@@ -1132,7 +1184,13 @@ def register_report_tools(server: Any) -> None:
                 result_path=result_path,
                 group_var=group_var,
                 stats_summary=stats_summary,
-                execution_arguments={"plot_type": plot_type, "variables": variables, **kwargs},
+                execution_arguments={
+                    "plot_type": plot_type,
+                    "variables": variables,
+                    **kwargs,
+                    **display_scope,
+                },
+                retain_history=clinical_descriptive,
             )
             relative_result_path = _figure_manifest_output_path(project, result_path) or result_path
 
@@ -1149,6 +1207,7 @@ def register_report_tools(server: Any) -> None:
                     "labels": labels,
                     "ylabel": ylabel,
                     "missing_strategy": policy["missing_strategy"],
+                    **display_scope,
                 },
                 "生成視覺化圖表",
                 (
@@ -2038,6 +2097,11 @@ def _clinical_summaries(store: Any) -> list[dict]:
             family=r["result"]["spec"]["family"],
             receipt_sha256=r["result"]["receipt_sha256"],
             summary_markdown=markdown(r["result"]),
+            **(
+                {"noninferiority_decision": r["result"]["noninferiority"]["decision"]}
+                if r["result"]["spec"]["family"] == "noninferiority"
+                else {}
+            ),
         )
         for r in clinical_records(store)
     ]
@@ -2158,6 +2222,24 @@ def _formal_key_findings(results: dict | None) -> str:
     if not isinstance(results, dict):
         return "目前沒有可彙整的正式結果。"
     if results.get("clinical_studies"):
+        if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
+            study = next(
+                r for r in results["clinical_studies"] if r.get("family") == "noninferiority"
+            )
+            decision = {
+                "noninferiority_demonstrated": "保存數值支持預先指定界值下的非劣性。",
+                "noninferiority_not_demonstrated": "保存數值未能證明非劣性。",
+                "boundary_not_demonstrated": "保存數值位於決策界值，不宣稱非劣性。",
+            }.get(study.get("noninferiority_decision"), "非劣性結論須核對下方保存的數值收據。")
+            return (
+                "已完成鎖定的獨立兩組 Welch 均差非劣性計算。"
+                + decision
+                + "請核對原始單位、改善方向、預先指定 margin 與來源依據、共同完整個案及單側下限；計算完成不等於非劣性成立，superiority 未顯著也不是 NI 證據。"
+            )
+        if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
+            return "已依鎖定設定產生多份完成資料、逐份配適指定模型並依 Rubin 規則彙整估計與不確定性。m 份資料代表同一批受試者的插補不確定性，分析人數不乘以 m；原始觀察值及缺失身份仍保留。應同時核對來源缺失、插補範圍、每份模型與鏈軌跡；計算完成或診斷圖不證明 MAR 假設或鏈已收斂。"
+        if any(r.get("family") == "stratified" for r in results["clinical_studies"]):
+            return "已完成預先指定分層的 CMH 檢定與 Mantel–Haenszel 共同勝算比。每層 2×2 原始格數、缺失排除、共同 OR 區間與異質性診斷均保留；未合併稀疏層或加入 0.5。共同 OR 不是風險比或因果效果；異質性未顯著不證明效果同質，邊界或不可估診斷也不改寫為零寬區間。"
         if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
             return "本次按鎖定的受試者與量測欄位估計配對差異。共同時點摘要、每對比較與可選 Friedman 各自保留明確分母；全部計畫比較均呈現，不依整體 p 篩選。請同時檢視效果量、逐項區間、完整家族校正 p 與缺失情形。"
         if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
@@ -2243,6 +2325,12 @@ def _formal_conclusions(
         return "描述限於本次來源的資料列；不同識別碼不等於獨立病人。逐欄保留缺失，沒有陰性補值、刪除重複列或檢定。推論需要依報告未解事項另訂研究定義與方法，再修訂／追加並審閱計畫。"
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
+            return "非劣性推論限於預定 margin、方向、單側 alpha 與共同完整個案。須以單側下限嚴格高於 −margin 且單側檢定通過共同判定，界值等號不通過；未通過 NI 也不等於已證明劣效。margin 的臨床依據、assay sensitivity、constancy、缺失機制與 ITT／PP 成員資格仍需獨立審閱。觀察性比較不能直接宣稱因果治療非劣性。"
+        if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
+            return "多重插補依指定條件模型、缺失範圍與分析模型解讀。Rubin 規則納入組內與插補間變異；增加完成資料份數不增加獨立樣本數。MAR／模型相容性及不可忽略缺失的敏感度未由軟體驗證，診斷軌跡不等於收斂證明。不得把插補值當成新觀察事實，或以插補後顯著性確認缺失機制。"
+        if any(r.get("family") == "stratified" for r in results["clinical_studies"]):
+            return "分層結果限於宣告層、處置／事件原碼與共同完整個案。MH 共同 OR 是跨層彙整勝算比，不是風險比、風險差或已排除混雜的因果效果。CMH 與區間採不同漸近程序，稀疏格與效果異質性仍需審閱；診斷未顯著或不可估都不能證明共同效果假設成立。"
         if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
             return "配對變化不直接代表治療因果效果。配對秩效果量不是中位數差，Kendall W 不是結果變異的解釋比例；逐項區間與校正 p 是不同的推論，未達門檻不代表等效。"
         if any(r.get("family") == "comparison" for r in results["clinical_studies"]):
@@ -2334,6 +2422,12 @@ def _build_interpretation_discussion(
         return "描述限於本次來源的資料列；不同識別碼不等於獨立病人。逐欄保留缺失，沒有陰性補值、刪除重複列或檢定。推論需要依報告未解事項另訂研究定義與方法，再修訂／追加並審閱計畫。"
 
     if results and results.get("clinical_studies"):
+        if any(r.get("family") == "noninferiority" for r in results["clinical_studies"]):
+            return "## 非劣性結果解讀\n\n先核對原始尺度、處置與對照代碼、改善方向、預定 margin 及臨床依據，再讀單側 alpha、均差與單側下限。圖中箭頭代表無界上限，不是雙側 CI；等號或數值界值不通過。計算完成、未能證明非劣性與非劣性成立是不同狀態；NI 陰性不得改寫為 superiority、等效或劣效證明。完整個案不驗證 ITT／PP，失訪、介入依從性、研究設計與 margin 可轉用性仍需審閱。"
+        if any(r.get("family") == "imputation" for r in results["clinical_studies"]):
+            return "## 多重插補結果解讀\n\n先核對原始缺失比例、各角色允許的插補範圍、保留觀察值與每份完成資料，再讀逐份模型、Rubin pooled 係數及插補間變異。全部 m 份資料屬於同一來源族群，n 不乘以 m；完成資料是有來源的衍生版本，不覆蓋原始檔。鏈軌跡供診斷，不證明收斂或 MAR，軟體執行成功也不驗證抽樣、模型正確性或 MNAR 敏感度。不能依 p 值選擇插補份數或刪除不利的完成資料。"
+        if any(r.get("family") == "stratified" for r in results["clinical_studies"]):
+            return "## 分層 CMH 與共同 OR 結果解讀\n\n先核對每層原始 2×2 格數、處置／事件方向與納排，再解讀 CMH 與 MH 共同 OR、區間及異質性診斷。沒有默默刪層、合併稀疏層或加 0.5；零或無限 OR 與不可估區間保留原狀。共同 OR 不是 RR 或因果效果，異質性診斷不作為是否呈現主要結果的門檻，未顯著不等於同質性已證明。"
         if any(r.get("family") == "repeated" for r in results["clinical_studies"]):
             return "## 配對與重複量測結果解讀\n\n先核對受試者身份、同一結果／單位、每項第一時點減第二時點的方向，再讀共同描述與每對分析的實際 n。每項對比均在計畫中固定，不依整體 p 決定是否呈現。BCa 重抽樣保持完整受試者向量；零差、退化與無法估計區間都明示，不能把缺失或無法估計換成零寬區間。配對秩效果量不是獨立組優勢機率或中位數差；人內變化不證明療效。"
         if any(r.get("family") == "comparison" for r in results["clinical_studies"]):

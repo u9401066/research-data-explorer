@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from rde.interface.mcp.tools._shared.clinical_scope import ensure_legacy_analysis_allowed
+
 
 def _inference_policy(project, alpha=None, missing_strategy=None, multiple_comparison_method=None):
     from rde.infrastructure.persistence.artifact_store import ArtifactStore
@@ -1172,9 +1174,11 @@ def register_analysis_tools(server: Any) -> None:
                     f"{i}. **[{a.action_type.value}]** {a.description}\n   理由: {a.rationale}\n"
                 )
 
+            cleaning_allowed, _ = ensure_legacy_analysis_allowed(project, "apply_cleaning")
             lines.append(
-                "\n**下一步:** 使用 `apply_cleaning(dataset_id, approved_indices=[0,1,...])` "
-                "執行核准的清理動作。"
+                "\n**下一步:** 使用 `apply_cleaning(dataset_id, approved_indices=[0,1,...])` 執行核准的清理動作。"
+                if cleaning_allowed
+                else "\n目前臨床計畫已固定資料與方法；以上僅是品質建議，不能在此計畫先單次補值或改動來源。需另立資料版本並修訂審閱計畫，再進行新研究。"
             )
 
             return "\n".join(lines)
@@ -1220,6 +1224,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "apply_cleaning")
+        if not ok:
+            return fmt_error(msg)
 
         if entry.cleaning_plan is None:
             return fmt_error("請先執行 `suggest_cleaning()` 取得清理建議。")
@@ -1297,6 +1304,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "analyze_variable")
+        if not ok:
+            return fmt_error(msg)
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -1394,7 +1404,7 @@ def register_analysis_tools(server: Any) -> None:
 
         自動應用: S-001 (常態性 → 有母數/無母數), S-002 (多重比較),
         S-008 (樣本平衡), S-009 (effect size), S-010 (power)。H-009 自動記錄。
-        若操作不在已鎖定計畫中，自動偵測偏離並記錄 (S-011)。
+        單一正式 clinical study 計畫不允許此入口，執行前拒絕；一般探索流程沿用 S-011 偏離紀錄。
 
         Args:
             dataset_id: 資料集 ID
@@ -1432,6 +1442,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "compare_groups")
+        if not ok:
+            return fmt_error(msg)
 
         try:
             from dataclasses import replace
@@ -1682,6 +1695,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "correlation_matrix")
+        if not ok:
+            return fmt_error(msg)
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -1835,6 +1851,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "generate_table_one")
+        if not ok:
+            return fmt_error(msg)
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -2034,6 +2053,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "run_advanced_analysis")
+        if not ok:
+            return fmt_error(msg)
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
@@ -2325,6 +2347,9 @@ def register_analysis_tools(server: Any) -> None:
             return fmt_error(msg)
         assert project is not None
         assert entry is not None
+        ok, msg = ensure_legacy_analysis_allowed(project, "run_repeated_measures")
+        if not ok:
+            return fmt_error(msg)
         ok, msg = ensure_minimum_sample_size(entry)
         if not ok:
             return fmt_error(msg)
