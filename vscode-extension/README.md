@@ -11,7 +11,7 @@ Agents remain free to propose hypotheses and challenge assumptions. RDE provides
 - Seven local clinical methods: risk estimates, diagnostic accuracy, exact McNemar, Bland–Altman, Cohen's kappa, GEE and random-intercept mixed models.
 - Paired comparisons match subject IDs and report analyzed/excluded cases. Plan coverage counts successful required analyses rather than reruns.
 - Agent-authored autoresearch proposals retain baseline contracts and branch artifacts. Failed and recorded-only tasks are distinguished from completed analyses; significance is not a promotion criterion.
-- Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. 77 tools share executable contracts.
+- Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. 78 tools share executable contracts.
 
 ![Agent proposals, branch execution and researcher review](https://raw.githubusercontent.com/u9401066/research-data-explorer/main/vscode-extension/resources/autoresearch.png)
 

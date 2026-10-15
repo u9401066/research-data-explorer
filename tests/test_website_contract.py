@@ -1,6 +1,7 @@
 """Static website contracts complement the desktop/mobile browser checks."""
 
 from html.parser import HTMLParser
+import json
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
@@ -41,8 +42,15 @@ def test_homepage_local_assets_and_anchors_exist():
 def test_guide_inventory_covers_every_registered_tool():
     guide = (DOCS / "guide.html").read_text(encoding="utf-8")
     inventory = guide.split("const verifiedTools = [", 1)[1].split("];", 1)[0]
-    for tool in CONTRACTS:
-        assert re.search(rf"\b{tool}\b", inventory), tool
+    rows = json.loads(f"[{inventory}]")
+    tools = []
+    for module, count, names in rows:
+        declared = re.split(r"\s*[,·]\s*", names)
+        assert len(declared) == count, module
+        tools.extend(declared)
+    assert len(tools) == len(set(tools)), "Duplicate guide tool entries"
+    assert set(tools) == set(CONTRACTS)
+    assert sum(count for _, count, _ in rows) == len(CONTRACTS)
     assert "lists 49 expected" not in guide
     assert 'href="index.html"' in guide
 
