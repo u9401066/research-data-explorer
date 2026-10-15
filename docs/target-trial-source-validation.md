@@ -74,6 +74,18 @@ immutable-fact 宣告，不在此有限 v1 內。
 
 ## 核准 bundle 與完整來源集合
 
+Prepared intake 可以保存原始 typed release，同時向分析提供已去識別化的研究視圖。
+驗證器以同一份保存的 privacy policy、來源 SHA 與 key ID 重現轉換，再逐欄、逐列、逐 dtype
+精確比對完整分析 frame；不能忽略 `_rde_subject_id` 等保護欄位，也不能直接拿 pseudonym
+與原始 subject ID 比較。唯讀驗證不建立或替換缺失的私密金鑰。
+
+原始 source、typed rows、trace、納排與 eligible unit set 仍依原始 preparation 重算；
+完整 ordered frame 等式保存 raw unit 與研究視圖之間的對應。Source-check 收據的
+`research_view` 保存 privacy pin、raw／analysis frame 指紋，沒有私密金鑰內容。
+Privacy 轉換不得改動 treatment、outcome、propensity covariates 或 index；subject pseudonym
+只改身份表示，不是改研究定義。來源、政策、金鑰、列序、dtype 或任一儲存值變更都須拒絕重用。
+舊 source-check implementation pin 不會自動升級，歷史成果保持原樣。
+
 只接受目前 project 自己的 `metadata.preparation`，資料夾必須精確位於
 `artifacts/data_preparation/imports/<bundle SHA>`。匯入時的 ZIP SHA 已由原生
 `portable.import_bundle` 核對；此處再次核對 server-owned intake、完整解封閉包與 release。
@@ -90,7 +102,7 @@ validation、exceptions 的 SHA。核准 review 保留 reviewer、kind、實際 
 1. 來源 byte／row／column identity 與核准規則；完整 analysis rows、trace、exceptions、issues。
 2. 全部 validation 與 cohort-flow 分母。重算值必須與保存值完全相同。
 3. 所有 root record 皆在 trace，subject 唯一；included 與 baseline-excluded 個案分開列出。
-4. 當前 DataFrame 的所有欄、值、型別與行序必須等於完整 typed release。
+4. 當前 DataFrame 的所有欄、值、型別與行序必須等於完整 typed release 套用相同保存 privacy 規則後的研究視圖；未去識別化時就是原始 typed frame。
 5. 每個 included unit 的來源時間、coverage、處置、基線、outcome contributors。
 6. 原生 weighting 的 complete-data row IDs 必須是全部 release rows，missing／filter exclusion 均為空；
    同時比較完整 unit-ID 集合，不能只檢查相同 n。

@@ -26,14 +26,23 @@ _DIRECT_KEY = re.compile(
 _DATE = re.compile(r"(?:birthday|birthdate|date.?of.?birth|dob|出生|生日)", re.I)
 
 
-def _key():
+def _key(*, create=True):
     target = os.environ.get("RDE_PRIVACY_KEY_FILE")
     if not target:
         target = str(Path(os.environ.get("RDE_WORKSPACE", ".")) / ".research-privacy.key")
     path = Path(target)
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not create and not path.is_file():
+        raise ValueError(
+            "Research privacy key is missing; read-only replay cannot create identities."
+        )
+    if create:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Atomic publish: another worker must never read an empty/partial new key.
     if not path.exists():
+        if not create:
+            raise ValueError(
+                "Research privacy key is missing; read-only replay cannot create identities."
+            )
         pending = path.with_name(path.name + "." + secrets.token_hex(12))
         try:
             with pending.open("xb") as stream:
@@ -111,10 +120,10 @@ def propose_privacy(frame, source_sha256):
     }
 
 
-def apply_privacy(frame, variables, privacy, *, source_path):
+def apply_privacy(frame, variables, privacy, *, source_path, allow_key_creation=False):
     if not privacy:
         return frame, variables
-    key = _key()
+    key = _key(create=allow_key_creation)
     if privacy.get("policy") != POLICY or privacy.get("key_id") != hashlib.sha256(key).hexdigest():
         raise ValueError(
             "Research privacy policy/key changed; refusing to silently change saved identities."

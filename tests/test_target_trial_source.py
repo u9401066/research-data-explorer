@@ -727,6 +727,8 @@ def test_receipt_binds_validator_implementation_without_private_paths(tmp_path):
         "regression_contract.py",
         "survival.py",
         "measurement.py",
+        "privacy.py",
+        "dataframe_lineage.py",
     }
     for value in receipt["implementation"]["files"].values():
         assert len(value) == 64

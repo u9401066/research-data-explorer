@@ -40,7 +40,7 @@ def call(name, args, *, error=None):
     return text
 
 
-def native_fixture(tmp_path, *, outcome="binary", mutate=None):
+def native_fixture(tmp_path, *, outcome="binary", mutate=None, pii_policy="block"):
     c = case(tmp_path, outcome=outcome, mutate=mutate)
     raw = tmp_path / "native-intake"
     raw.mkdir()
@@ -60,6 +60,7 @@ def native_fixture(tmp_path, *, outcome="binary", mutate=None):
         {
             "directory": str(raw),
             "project_id": project.id,
+            "pii_policy": pii_policy,
             "prepared_source": {
                 "bundle_path": c.bundle["path"],
                 "bundle_sha256": c.bundle["sha256"],
@@ -440,7 +441,10 @@ def test_cached_run_never_heals_missing_source_receipts(tmp_path, monkeypatch, d
     )
 
 
-def test_restart_recovers_exact_prepared_sources_and_reuses_without_fitting(tmp_path, monkeypatch):
+@pytest.mark.parametrize("pii_policy", ["block", "pseudonymize"])
+def test_restart_recovers_exact_prepared_sources_and_reuses_without_fitting(
+    tmp_path, monkeypatch, pii_policy
+):
     import rde.application.session as session_module
     from rde.infrastructure.persistence import (
         FileSystemProjectRepository,
@@ -448,7 +452,7 @@ def test_restart_recovers_exact_prepared_sources_and_reuses_without_fitting(tmp_
     )
     from rde.infrastructure.clinical import weighting
 
-    project, store, dataset, frame, spec = native_fixture(tmp_path)
+    project, store, dataset, frame, spec = native_fixture(tmp_path, pii_policy=pii_policy)
     lock(project, spec)
     arguments = {**args(dataset, spec), "execution_key": "d" * 64}
     first = call("run_clinical_study", arguments)

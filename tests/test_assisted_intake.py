@@ -56,8 +56,9 @@ def test_research_codes_keep_nulls_duplicates_cross_table_links_and_source(tmp_p
         PandasLoader().load(meta)
     path.write_bytes(raw)
     monkeypatch.setenv("RDE_PRIVACY_KEY_FILE", str(tmp_path / "other-key"))
-    with pytest.raises(ValueError, match="key changed"):
+    with pytest.raises(ValueError, match="key is missing"):
         PandasLoader().load(meta)
+    assert not (tmp_path / "other-key").exists()
 
 
 def test_full_scan_retains_dates_and_clinical_measurements(tmp_path, monkeypatch):

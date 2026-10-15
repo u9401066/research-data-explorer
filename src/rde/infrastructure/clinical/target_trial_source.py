@@ -14,6 +14,7 @@ import pandas as pd
 from rde.domain.models.preparation import Review, Source, Specification
 from rde.infrastructure.evidence.workflow import safe_path
 from rde.infrastructure.preparation import engine, portable, sources, workflow as w
+from rde.infrastructure.adapters import dataframe_lineage, privacy
 from . import measurement, regression_contract, survival, target_trial_contract, weighting_contract
 from .survival import digest, level
 from .target_trial_contract import PreparedBinding, TargetTrialProtocol
@@ -35,6 +36,8 @@ def implementation():
             "regression_contract.py": sources.file_hash(Path(regression_contract.__file__)),
             "survival.py": sources.file_hash(Path(survival.__file__)),
             "measurement.py": sources.file_hash(Path(measurement.__file__)),
+            "privacy.py": sources.file_hash(Path(privacy.__file__)),
+            "dataframe_lineage.py": sources.file_hash(Path(dataframe_lineage.__file__)),
         },
         "dependencies": {name: version(name) for name in ("numpy", "pandas", "statsmodels")},
         "preparation": w.implementation(),
@@ -200,14 +203,29 @@ def _replay(folder, plan, metadata, dataframe):
         "TTE_PREPARATION_IMPLEMENTATION",
         "Review/release with the current preparation implementation before target-trial validation",
     )
-    prepared, _, _, _ = portable.load_prepared(metadata)
+    prepared, variables, _, _ = portable.load_prepared(metadata)
+    # The loader exposes a research view while the sealed preparation/trace
+    # retains original typed values. Reproduce that same pinned transformation;
+    # never drop protected identifiers or compare only a convenient subset.
+    try:
+        expected_view, _ = privacy.apply_privacy(
+            prepared,
+            variables,
+            metadata.privacy,
+            source_path=metadata.file_path,
+            allow_key_creation=False,
+        )
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        raise ValueError(
+            f"TTE_PRIVACY_VIEW: saved research privacy cannot be reproduced: {error}"
+        ) from error
     try:
         pd.testing.assert_frame_equal(
-            dataframe.reset_index(drop=True), prepared, check_dtype=True, check_exact=True
+            dataframe.reset_index(drop=True), expected_view, check_dtype=True, check_exact=True
         )
     except AssertionError as error:
         raise ValueError(
-            "TTE_DATAFRAME_CHANGED: all current columns/rows must equal the exact typed release"
+            "TTE_DATAFRAME_CHANGED: all current columns/rows must equal the exact typed release under its saved research privacy view"
         ) from error
     tables = {}
     for snapshot in plan["source_snapshots"]:
@@ -244,7 +262,15 @@ def _replay(folder, plan, metadata, dataframe):
         "TTE_REVIEW_UNITS",
         "Review must reference this full trace",
     )
-    return specification, tables, result
+    view = {
+        "schema": "rde-prepared-research-view-v1",
+        "privacy": metadata.privacy,
+        "privacy_sha256": sources.digest(metadata.privacy),
+        "raw_typed_frame": dataframe_lineage.frame_record(prepared),
+        "analysis_frame": dataframe_lineage.frame_record(expected_view),
+        "identity_mapping": "Exact ordered full-frame replay of the saved privacy transformation; raw preparation and trace identities remain unchanged.",
+    }
+    return specification, tables, result, prepared, view
 
 
 def _time(value):
@@ -503,7 +529,20 @@ def validate_target_trial_source(project, metadata, dataframe, weighting_spec, p
         "TTE_STALE_BINDING",
         "Every approved preparation/release/source/trace hash must match the protocol",
     )
-    preparation, tables, result = _replay(folder, plan, metadata, dataframe)
+    protected_roles = {
+        weighting_spec.treatment,
+        weighting_spec.outcome,
+        protocol.time_zero.index_column,
+        *(c["column"] for c in weighting_spec.covariates),
+    }
+    for action in (metadata.privacy or {}).get("columns", []):
+        require(
+            action.get("column") not in protected_roles
+            or action.get("action") in {"retain_clinical_date", "retain_ambiguous_signal"},
+            "TTE_PRIVACY_ANALYSIS_ROLE",
+            "Privacy transformations cannot change treatment, outcome, baseline predictors or index definitions; subject pseudonyms are identity mappings, not new analysis values",
+        )
+    preparation, tables, result, raw_typed, view = _replay(folder, plan, metadata, dataframe)
     relation = _recipe_scope(preparation, protocol, weighting_spec)
     root = tables[preparation.unit.source_id]
     require(
@@ -656,7 +695,10 @@ def validate_target_trial_source(project, metadata, dataframe, weighting_spec, p
     included = [r["unit_id"] for r in rows if r["included"]]
     excluded = [r["unit_id"] for r in rows if not r["included"]]
     require(
-        set(included) == set(dataframe["_rde_unit_id"]) and len(included) == len(dataframe),
+        set(included) == set(raw_typed["_rde_unit_id"])
+        and len(included) == len(dataframe)
+        and dataframe["_rde_unit_id"].notna().all()
+        and dataframe["_rde_unit_id"].is_unique,
         "TTE_ELIGIBLE_SET",
         "The exact eligible unit set, not merely n, must equal the analysis dataset",
     )
@@ -670,6 +712,7 @@ def validate_target_trial_source(project, metadata, dataframe, weighting_spec, p
         "weighting_spec_sha256": digest(weighting_spec.to_dict()),
         "weighting_spec": weighting_spec.to_dict(),
         "binding": binding.model_dump(),
+        "research_view": view,
         "source_bindings": [
             {"id": t.source.id, "sha256": t.source.sha256, "bytes": t.source.bytes}
             for t in tables.values()

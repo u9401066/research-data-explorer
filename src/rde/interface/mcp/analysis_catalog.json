@@ -267,7 +267,7 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/privacy.py",
-      "sha256": "817f00f3feb15990368b47496a4ed2436be2988f0852c023cbbae0641132d241"
+      "sha256": "e46d0d6a507f13f817b45633b18652b8fdd115e4b0fcb72f0e67e785dccbff53"
     },
     {
       "path": "src/rde/infrastructure/adapters/scipy_engine.py",
@@ -459,7 +459,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/target_trial_source.py",
-      "sha256": "6a1b82386783346ece8af97931eda312682eac2b1870f5918e71669c4dc936b8"
+      "sha256": "f057e3ba0ffaa160d8dae8621fd355f79fd259b2337759824b6fa603e440dd1f"
     },
     {
       "path": "src/rde/infrastructure/clinical/target_trial_study.py",
@@ -7266,7 +7266,7 @@
         },
         {
           "path": "src/rde/infrastructure/clinical/target_trial_source.py",
-          "sha256": "6a1b82386783346ece8af97931eda312682eac2b1870f5918e71669c4dc936b8"
+          "sha256": "f057e3ba0ffaa160d8dae8621fd355f79fd259b2337759824b6fa603e440dd1f"
         },
         {
           "path": "src/rde/infrastructure/clinical/weighting.py",
@@ -10800,5 +10800,5 @@
       ]
     }
   ],
-  "catalog_sha256": "ea006476d1304a329e387f6414b9c997693ef9790ba72b1501609c45c5f77b25"
+  "catalog_sha256": "6d15570f26f3ec500b560d8fa4f606639d91cc83c80961a7920d3fa09b28b55d"
 }
