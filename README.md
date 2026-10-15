@@ -32,6 +32,10 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
+The **0.5.4 integration candidate** adds native [Data Aggregation](docs/DATA_AGGREGATION.md), explicit unit-rule discovery, source-bound descriptive figures and approved-plan/preparation evidence in reports. Current native validation: **1,311 passed, 76 skipped, 5 optional vendor tests deselected**, plus 40 extension tests and release-payload checks. Workbench integration and final release acceptance are tracked separately; these counts do not establish clinical validity or a published release.
+
+The following baseline records retain their original scope.
+
 Version 0.5.2 adds [typed Canvas transitions](docs/canvas-workflow.md). Baseline 0.5.1 verification on 2026-10-12: **1,085 Python tests passed,
 81 explicitly skipped**; Ruff, 40 extension tests and the wheel/sdist/VSIX payload
 audit passed. The live inventory contains **77 tools across 17 modules**.
@@ -46,13 +50,13 @@ completed RDE analysis and an autoresearch branch with the same fixed data versi
 and preserved all 392 primary artifact hashes while browsers disconnected.
 Synthetic engineering validation does not establish real clinical linkage validity.
 
-On the development branch, [Data Aggregation](docs/DATA_AGGREGATION.md) makes that
+The 0.5.4 native [Data Aggregation](docs/DATA_AGGREGATION.md) contract makes that
 preparation workflow discoverable through ten native methods and immutable typed
 compose/patch/read/preview/diff operations. Agents can correct a specific relation,
 window or feature and inspect exact denominators/source members instead of generating
 custom code or repeatedly replacing the whole recipe. Preview readiness does not
-authorize release or establish clinical validation; this description is not a new
-published-release announcement.
+authorize a prepared-data release or establish clinical validation. Software
+publication status and exact tags are recorded in GitHub Releases.
 
 Historical version 0.5.0 verification on 2026-10-01: **595 Python tests passed**,
 including real Arial exports for four journal presets across eight study variants;

@@ -8,6 +8,10 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 
 ![從研究設計、個案帳本、效果量與不確定性，到可審查結論](docs/assets/evidence-chain.svg)
 
+## 0.5.4 整合候選：原生資料聚合與研究證據
+
+同一個 RDE MCP 內建具型別 Data Aggregation、明確單位映射契約、固定研究計畫與資料準備版本的報告，以及可重算的描述性圖表。原生完整回歸為 **1,311 passed／76 skipped／5 optional vendor deselected**；擴充套件 40 項及發布封裝核對通過。平台真 Qwen 案例、最終發布與臨床效度分開判定，不能從工程測試推定已正式發布。
+
 ## 0.5.3：依研究問題查找能力
 
 先讀 [分析能力目錄](docs/analysis-catalog.md)，或呼叫 `get_analysis_catalog()`：六大類、二十項研究／流程能力，列出資料需求、產出、限制及真正派送入口。無需先上傳資料。指定 `family` 取得完整結構規格，核准、來源與方法語意仍由原生驗證檢查。
@@ -16,11 +20,11 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 
 平台將這份目錄呈現為 SVG／PNG 能力圖及可搜尋清單。CLEF 只協助選大類；Agent 仍需讀取所選方法契約、核對研究事實與來源，才可在授權範圍執行。
 
-## 多表資料準備與原生聚合（開發分支）
+## 多表資料準備與原生聚合（0.5.4 原生契約）
 
 原始多表先走 [Data Preparation](docs/DATA_PREPARATION.md)，確認分析單位、關聯、族群與時間窗，再發布可追溯的分析資料集。[Data Aggregation](docs/DATA_AGGREGATION.md) 在同一個 `data_preparation` MCP 內提供十種原生方法、不可變候選版本、typed compose／局部 patch／read／preview／diff，以及逐步分母和逐值來源。Agent 先讀實際 schema 與方法契約，再修正被診斷定位的規則，不需要自行寫聚合程式或反覆重造整份規格。
 
-預覽成功只表示可進入草案流程；仍須審閱、核准、發布與 prepared intake。自動技術核對保留 `clinical_validation="not_performed"`，不代表人工／臨床驗證或完整研究完成。這是開發分支能力說明，並非新正式版本發布公告。
+預覽成功只表示可進入草案流程；仍須審閱、核准、發布與 prepared intake。自動技術核對保留 `clinical_validation="not_performed"`，不代表人工／臨床驗證或完整研究完成。軟體發布狀態與精確版本標籤另見 GitHub Releases。
 
 ## 臨床研究能力與可信度
 
@@ -50,9 +54,9 @@ Audit 通過僅代表已實作的流程檢查通過，不保證研究設計無�
 
 當 governance、phase 編號、release 驗證證據、no-Docker 行為或 Codex/VSIX 啟動方式改變時，請同步更新以上文件、[CHANGELOG.md](CHANGELOG.md) 與 `memory-bank/`。
 
-## 目前真實程式碼快照
+## 歷史版本驗證紀錄
 
-0.5.3 本輪完整 Python 核心回歸：1,153 passed、76 skipped、5 optional vendor tests deselected；extension 40 tests 通過。新增能力宣告與派送驗證不代表本輪重新臨床驗證每個方法。
+歷史 0.5.3 完整 Python 核心回歸：1,153 passed、76 skipped、5 optional vendor tests deselected；extension 40 tests 通過。該輪能力宣告與派送驗證不代表重新臨床驗證每個方法；0.5.4 結果見頁首。
 
 歷史 0.5.0 本機驗證：411 項 Python 測試通過（6 項明確跳過）、40 項 extension
 測試通過、50 個 MCP tools 契約檢查通過、桌面／手機 Chromium QA 通過。

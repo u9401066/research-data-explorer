@@ -1,4 +1,12 @@
-# Progress (Updated: 2026-09-16)
+# Progress
+
+## 2026-10-14 — 0.5.4 native aggregation integration candidate
+
+- Native `data_preparation` now exposes ten aggregation methods and immutable compose/patch/read/preview/diff operations; existing review, approval and release gates remain separate. Explicit unit mappings are discoverable without changing computation.
+- Reports preserve exact approved research definitions, preparation sources, denominators and native descriptive figures. Technical review remains `clinical_validation=not_performed`.
+- Native validation: 1,311 passed, 76 skipped, 5 optional vendor deselected; 40 extension tests and release packaging checks passed. Actual Workbench/Qwen studies and final publication are separate pending gates.
+- The older dated entries below are historical; their candidate status is not the current release status.
+
 
 ## 2026-10-14 — 0.5.3 capability discovery release candidate
 

@@ -6,9 +6,10 @@ patient, encounter or event. It does not require another MCP server, generated
 Python/SQL, or a second aggregation engine. Candidate preview and preparation
 draft execute the same native preparation engine.
 
-This document describes the implementation on the development branch. It does
-not announce a published release. A successful preview is not a released dataset,
-an approved research plan, a completed analysis, or clinical validation.
+This document describes the native 0.5.4 contract. Publication status and exact
+release assets are recorded in GitHub Releases, independently of a deployed host.
+A successful preview is not a released dataset, an approved research plan,
+a completed analysis, or clinical validation.
 
 ## Discover before composing
 

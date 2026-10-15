@@ -2,16 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-The first synchronized repository and VS Code extension release is planned as 0.1.0.
+The Python package and VS Code extension share the release version.
 
-## [Unreleased]
+## [0.5.4] - 2026-10-14
+
+### Approved research definitions and report rendering
 
 - Render Markdown escapes as literal punctuation in Word and PDF/HTML text without interpreting escaped emphasis markers or altering inline/fenced code. Retain original research statements and numerical receipts unchanged.
 - Interpret native survival figures by their recorded plot type and retained caption: distinguish population flow, cumulative incidence, Kaplan–Meier curves, risk counts, Cox estimates and PH diagnostics. Unmapped figures no longer receive guessed visual or inferential claims from their first variable.
 - Preserve the exact approved research definitions, unverified assumptions, limitations and original researcher coding statements across catalog and execution projects. `research_plan(bind_execution)` verifies sealed plan/approval files, source identity and locked methods, saving immutable report evidence and a separate required-binding marker. Assembled and DOCX/PDF reports reverify this evidence; missing or changed records fail closed without refitting or rewriting historical results.
 - Bind report provenance to the execution context and distinguish researcher statements from clinical validation. Read native variable-role envelopes correctly so metadata keys are not presented as study variables in the abstract.
-
-## [0.5.4] - 2026-10-14
 
 ### Complete descriptive figures
 
@@ -26,6 +26,7 @@ The first synchronized repository and VS Code extension release is planned as 0.
 
 ### Native data aggregation
 
+- Expose existing explicit-unit requirements in native JSON schemas and precise rule diagnostics, including identity conversions when source and target units match. Validation and computation semantics are unchanged; a declared conversion does not establish scientific correctness.
 - Make all ten existing aggregation methods discoverable with input, window, missing-value, tie, cardinality and lineage rules. Distinguish whole-window `unique` from timestamp-based `first`/`last`; no new statistical engine or executable Python/SQL is introduced.
 - Add immutable, source-bound candidate revisions and typed compose, local patch, read, preview and diff operations inside `data_preparation`. Stable relation/feature targets, exact base hashes, atomic validation, replay guards and restart-safe evidence prevent unrelated rules from being rewritten.
 - Preserve precise rule/stage diagnostics and occurrence counts, including conflicting values and invalid lookup methods. Retain hash-pinned preview pages, exact cell source members and before/after outcome counts. Published drafts use the same evaluation, review and release gates; technical readiness never establishes clinical truth.

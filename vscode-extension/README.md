@@ -11,7 +11,7 @@ Agents remain free to propose hypotheses and challenge assumptions. RDE provides
 - Seven local clinical methods: risk estimates, diagnostic accuracy, exact McNemar, Bland–Altman, Cohen's kappa, GEE and random-intercept mixed models.
 - Paired comparisons match subject IDs and report analyzed/excluded cases. Plan coverage counts successful required analyses rather than reruns.
 - Agent-authored autoresearch proposals retain baseline contracts and branch artifacts. Failed and recorded-only tasks are distinguished from completed analyses; significance is not a promotion criterion.
-- Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. Fifty tools share executable contracts.
+- Official MCP SDK v2 provides structured tool results, annotations, workflow resources and prompts. 77 tools share executable contracts.
 
 ![Agent proposals, branch execution and researcher review](https://raw.githubusercontent.com/u9401066/research-data-explorer/main/vscode-extension/resources/autoresearch.png)
 
@@ -38,6 +38,7 @@ Keep these documents aligned when changing phase gates, Codex MCP setup, no-Dock
 
 ## Features
 
+- **Native Data Aggregation** — inspect source schemas, compose and locally revise typed rules, compare versions and review row/value provenance through the existing `data_preparation` MCP tool. Preview is separate from approval, release and clinical validation.
 - 🔍 **13-Phase Auditable EDA Pipeline** — 結構化、可審計的探索性資料分析
 - 📊 **77 MCP Tools** — 資料載入、greedy plan ideation、YOLO exploration branches、UX harness、描述統計、分組比較、Table 1、進階分析
 - 🧪 **local-lite + optional automl-stat-mcp** — no-Docker adjusted models / ROC / power, with optional heavy delegation
