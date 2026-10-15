@@ -311,7 +311,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/imputation_report.py",
-      "sha256": "eeebffb43889e33ca24cdd5c494a02e34310d191bea4a3ab9b094c2d1a80f5e4"
+      "sha256": "fd5a0a4167c60c4a56fd8d38ec85c5e71ee7472ac69f09a2b7fffe800aa8ae68"
     },
     {
       "path": "src/rde/infrastructure/clinical/longitudinal.py",
@@ -791,7 +791,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "252f0a5c0fa67881cb4f9c5fd54c7a1c509e0e53eba4c14f31dcd71ad46a38b3"
+      "sha256": "6a3b4d53782208b748465ab23f78bd2d7a17c947969997f803145bd91cf33bc4"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -10475,7 +10475,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "252f0a5c0fa67881cb4f9c5fd54c7a1c509e0e53eba4c14f31dcd71ad46a38b3"
+          "sha256": "6a3b4d53782208b748465ab23f78bd2d7a17c947969997f803145bd91cf33bc4"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -10496,5 +10496,5 @@
       ]
     }
   ],
-  "catalog_sha256": "8397aabc6c10729c00c908548002b8cb1912da8c4061df3592162a43ad804b88"
+  "catalog_sha256": "e3f27f46b31683bfeec7ab6d115a05783ec6e3c64fe1c28f5aea9aba5cb31d9b"
 }
