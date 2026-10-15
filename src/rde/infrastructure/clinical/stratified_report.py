@@ -123,9 +123,9 @@ def tables(result, directory: Path, prefix):
 def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", edition=None):
     spec, effect = result["spec"], result["common_odds_ratio"]
     source = (
-        f"Study context: {spec['context']}. n={result['n']} shared complete independent subjects. Treatment T0={spec['treatment_levels'][0]!r}, T1={spec['treatment_levels'][1]!r}; outcome Y0={spec['outcome_levels'][0]!r}, Y1={spec['outcome_levels'][1]!r}. "
-        + "; ".join(f"S{i+1}={r['label']!r}" for i, r in enumerate(result["strata"]))
-        + ". "
+        f"n={result['n']} shared complete independent subjects. T0 denotes the reference treatment and T1 the comparison treatment; Y1 denotes the event and Y0 the other declared outcome code. "
+        "Treatment, outcome and stratum aliases map to exact original codes in the accompanying source context. "
+        "Review the separately retained original-language study definitions before manuscript submission. "
     )
 
     def draw(new, save):
@@ -213,4 +213,17 @@ def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", e
             [effect],
         )
 
-    return render(result, directory, prefix, "stratified", draw, preset_id, edition)
+    return render(
+        result,
+        directory,
+        prefix,
+        "stratified",
+        draw,
+        preset_id,
+        edition,
+        {
+            "treatment_aliases": dict(zip(["T0", "T1"], spec["treatment_levels"], strict=True)),
+            "outcome_aliases": dict(zip(["Y0", "Y1"], spec["outcome_levels"], strict=True)),
+            "stratum_aliases": {f"S{i+1}": row["label"] for i, row in enumerate(result["strata"])},
+        },
+    )

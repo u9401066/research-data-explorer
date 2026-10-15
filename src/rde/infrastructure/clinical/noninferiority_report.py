@@ -123,9 +123,9 @@ def tables(result, directory: Path, prefix):
 def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", edition=None):
     spec, inference = result["spec"], result["noninferiority"]
     source = (
-        f"Study context: {spec['context']}. n={result['n']} shared complete independent subjects. "
-        f"T0 (control)={spec['treatment_levels'][0]!r}; T1 (treatment)={spec['treatment_levels'][1]!r}. "
-        f"Outcome: {spec['outcome_definition']}; window: {spec['outcome_window']}; unit: {spec['outcome_unit']}. "
+        f"n={result['n']} shared complete independent subjects. T0 denotes the prespecified control and T1 the treatment. "
+        "Original treatment codes, outcome definition, time window, outcome unit and margin basis are retained in the separate source context. "
+        "Review those original-language definitions before manuscript submission. "
     )
 
     def draw(new, save):
@@ -189,7 +189,7 @@ def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", e
             source
             + f"Saved Welch mean NI inference. Direction={spec['direction']}; benefit difference={estimate:.6g}, "
             f"one-sided {spec['confidence_level']:.1%} lower bound={lower:.6g}, upper bound=+infinity. "
-            f"Margin={margin:.6g} in original outcome units; basis: {spec['margin_basis']}. "
+            f"Margin={margin:.6g} in original outcome units; its prespecified basis is retained verbatim in the separate source context. "
             f"One-sided alpha={spec['one_sided_alpha']:.6g}; one-sided p={inference['p_value']:.6g}. "
             f"{DECISIONS[inference['decision']][1]}. Arrow indicates the unbounded confidence set, not a finite upper endpoint. "
             "Equality at the NI boundary does not pass. Completion does not imply NI success; failure to demonstrate NI does not prove inferiority. No two-sided CI or superiority-p substitution."
@@ -203,4 +203,13 @@ def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", e
             [effect_row(result)],
         )
 
-    return render(result, directory, prefix, "noninferiority", draw, preset_id, edition)
+    return render(
+        result,
+        directory,
+        prefix,
+        "noninferiority",
+        draw,
+        preset_id,
+        edition,
+        {"treatment_aliases": dict(zip(["T0", "T1"], spec["treatment_levels"], strict=True))},
+    )

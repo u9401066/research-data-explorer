@@ -299,7 +299,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/fixed_publication.py",
-      "sha256": "02f36b9e1fcc4c7120c7c70d24337485b9fb905d8669137ee8965e605dfdc1e3"
+      "sha256": "2f13c9d673dfc92b67b06e49f2eae3f4912ce6a548848ea894f89e2af4bdfd75"
     },
     {
       "path": "src/rde/infrastructure/clinical/imputation.py",
@@ -311,7 +311,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/imputation_report.py",
-      "sha256": "ce867f3d6d152d1436f0c2b1b9744104e3e9233d0c9637075c41e1c2652704fb"
+      "sha256": "eeebffb43889e33ca24cdd5c494a02e34310d191bea4a3ab9b094c2d1a80f5e4"
     },
     {
       "path": "src/rde/infrastructure/clinical/longitudinal.py",
@@ -351,7 +351,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/noninferiority_report.py",
-      "sha256": "ba876341189f97e8d7f9978eb0d4ae2b1c9cca07f09d69168ea996d136e64ff3"
+      "sha256": "f4b7bcb2f58bb9e78d5e915de07f357d23ef03f87d462a6a205db985cc77910d"
     },
     {
       "path": "src/rde/infrastructure/clinical/regression.py",
@@ -419,7 +419,7 @@
     },
     {
       "path": "src/rde/infrastructure/clinical/stratified_report.py",
-      "sha256": "28f9b75064826a4997e83775f85b4657eec5474b716240eb00e299b790db1be9"
+      "sha256": "5ad02a343daabd6cbc83d334c58adf3d077b953779abf1daa4862ac7641e2b8c"
     },
     {
       "path": "src/rde/infrastructure/clinical/survival.py",
@@ -755,7 +755,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "4f3adf615fc57d8c92a11e6041142f61fccfce78e7f8ddfcf9d7816bf710017e"
+      "sha256": "041f9c8d503e285209f6143337a2b8663be4715aa755f592bcbc0f8603d1fa58"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -8989,7 +8989,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "4f3adf615fc57d8c92a11e6041142f61fccfce78e7f8ddfcf9d7816bf710017e"
+          "sha256": "041f9c8d503e285209f6143337a2b8663be4715aa755f592bcbc0f8603d1fa58"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -9010,5 +9010,5 @@
       ]
     }
   ],
-  "catalog_sha256": "a073ca3cb7df06255f5b3cb8856cddb6712fbbf8428ce487856a03c07cc231cc"
+  "catalog_sha256": "9b0ea0f3300eb1e53773208a74156de8c26ca7c202a652c13868231306c5b8bf"
 }

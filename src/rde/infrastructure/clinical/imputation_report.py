@@ -167,9 +167,9 @@ def tables(result, directory: Path, prefix):
 def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", edition=None):
     labels = {column["column"]: f"V{i+1}" for i, column in enumerate(result["spec"]["columns"])}
     source = (
-        f"Study context: {result['spec']['context']}. n={result['n']} independent subjects; m={result['m']} completed datasets of the same subjects. "
-        + "; ".join(f"{v}={k!r}" for k, v in labels.items())
-        + ". "
+        f"n={result['n']} independent subjects; m={result['m']} completed datasets of the same subjects. "
+        "Variable aliases identify original columns in the accompanying source-context mapping. "
+        "Review the separately retained original-language study definitions before manuscript submission. "
     )
 
     def draw(new, save):
@@ -246,4 +246,16 @@ def figures(result, directory, prefix, preset_id="journal-neutral-english-v1", e
                 data,
             )
 
-    return render(result, directory, prefix, "imputation", draw, preset_id, edition)
+    return render(
+        result,
+        directory,
+        prefix,
+        "imputation",
+        draw,
+        preset_id,
+        edition,
+        {
+            "variable_aliases": {alias: column for column, alias in labels.items()},
+            "column_definitions": result["spec"]["columns"],
+        },
+    )

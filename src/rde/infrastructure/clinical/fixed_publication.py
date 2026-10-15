@@ -1,11 +1,12 @@
 """Small publication scaffolding for frozen clinical receipts; no estimation."""
 
+import json
 from pathlib import Path
 
 from rde.infrastructure.visualization.publication import publication_style, save_publication_figure
 
 
-def render(result, directory, prefix, family, draw, preset_id, edition):
+def render(result, directory, prefix, family, draw, preset_id, edition, source_context=None):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -39,6 +40,32 @@ def render(result, directory, prefix, family, draw, preset_id, edition):
                 receipt_sha256=result["receipt_sha256"],
                 required_caption=caption,
             )
+            # User-authored source definitions are evidence, not an English
+            # translation. Retain them separately from the submission caption.
+            context = {
+                key: result["spec"][key]
+                for key in [
+                    "context",
+                    "population_definition",
+                    "treatment_definition",
+                    "outcome_definition",
+                    "outcome_window",
+                    "outcome_unit",
+                    "margin_basis",
+                    "missingness_basis",
+                    "imputation_scope",
+                ]
+                if key in result["spec"]
+            }
+            context.update(source_context or {})
+            publication["source_context"] = context
+            with Path(publication["files"]["caption"]).open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "\n## 研究原文情境／Source context (original language)\n\n"
+                    "以下保留原始研究定義與代碼；不屬於英文圖說，也未自動翻譯或驗證。\n\n```json\n"
+                    + json.dumps(context, ensure_ascii=False, indent=2)
+                    + "\n```\n"
+                )
             records.append(
                 {
                     "path": publication["files"]["png"],

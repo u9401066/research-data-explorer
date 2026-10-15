@@ -301,6 +301,11 @@ def _build_formal_research_report(
     table_payload = (
         {"headers": table_rows[0], "rows": table_rows[1:]} if len(table_rows) >= 2 else None
     )
+    baseline_not_required = (
+        not table_one
+        and isinstance(results, dict)
+        and (results.get("deliverables") or {}).get("table_one_required") is False
+    )
 
     report = EDAReport(
         id=f"{project.id}_formal_research_report",
@@ -351,9 +356,13 @@ def _build_formal_research_report(
     report.add_section(
         ReportSection(
             section_id="baseline_table",
-            title="Table 1. Baseline Characteristics",
+            title="研究人口與契約內描述"
+            if baseline_not_required
+            else "Table 1. Baseline Characteristics",
             content="此描述性階段沒有治療組比較或基線表；逐欄分母與分布見描述性報告。"
             if results and results.get("descriptive_studies")
+            else "本核准研究契約不另外產生 Table 1；分析人口、納排及契約要求的描述見下方統計分析摘要。這不表示基線平衡或組間可比性已獲證明。"
+            if baseline_not_required
             else _interpret_table_one(table_one, schema),
             tables=[table_payload] if table_payload else [],
             order=4,
@@ -658,7 +667,7 @@ def register_report_tools(server: Any) -> None:
                 )
 
             lines.append(
-                f"- **Table 1:** {'不適用於預測驗證' if deliverables.get('table_one_required') is False else '✅' if deliverables.get('table_one_present') else '❌'}"
+                f"- **Table 1:** {'不適用於此核准研究契約' if deliverables.get('table_one_required') is False else '✅' if deliverables.get('table_one_present') else '❌'}"
             )
             lines.append(
                 f"- **粗分析圖:** {deliverables['descriptive_figures']}/{deliverables['required_descriptive_figures']}"
@@ -1930,6 +1939,15 @@ def _formal_abstract(
             )
             + "已完成描述性研究範圍，未執行推論或假定獨立樣本；未核實的臨床定義與限制仍需分別審閱。"
         )
+    if results and results.get("clinical_studies"):
+        question = _extract_research_question(concept_alignment)
+        return (
+            (f"研究問題：{question}\n\n" if question else "")
+            + "本報告呈現已登錄並鎖定之臨床研究契約的保存結果；分析範圍與解讀依核准的方法及資料版本。\n\n"
+            + (preparation_abstract(prepared) + "\n\n" if prepared else "")
+            + _formal_key_findings(results)
+            + "\n\n計算完成不等於臨床假設成立、因果效果或外部驗證；研究設計、方法假設及適用限制仍須與各方法數值收據共同審閱。"
+        )
     loaded_file = (intake or {}).get("loaded_file", "study dataset")
     normalization = (intake or {}).get("normalization") if isinstance(intake, dict) else {}
     loaded_sheet = (
@@ -2619,7 +2637,67 @@ def _figure_interpretation_harness_entry(
     variables_text = ", ".join(variables) if variables else "unspecified variables"
 
     clinical_role = None
-    if plot == "clinical_participant_flow":
+    if plot in {
+        "clinical_imputation_flow",
+        "clinical_stratified_flow",
+        "clinical_noninferiority_flow",
+    }:
+        clinical_role = (
+            "Prespecified clinical analysis-population flow",
+            "The panel records original source counts, stated exclusions and retained subjects for the saved study contract. Imputed datasets, when applicable, contain the same subjects rather than additional independent people.",
+            "Retained counts do not establish representativeness, independence, baseline balance or verified ITT/per-protocol membership.",
+            "Report the saved denominators and exclusion stages for this exact analysis population; never multiply the subject count by the number of imputations.",
+            "Read the case ledger, source identity and declared population; keep the original missingness and exclusion reasons visible.",
+        )
+    elif re.fullmatch(r"clinical_imputation_missing_\d+", plot):
+        clinical_role = (
+            "Prespecified missing-cell and imputation counts",
+            "Bars count cells imputed per completed dataset among retained subjects; source-cohort missingness before exclusions is recorded separately.",
+            "A zero imputation count does not establish complete source data, MAR, or absence of structural missingness.",
+            "Report missingness and permitted imputation by role using the saved source mapping and denominator.",
+            "Review the original missingness ledger, nonimputable exclusions and approved imputation scope; do not infer the missingness mechanism from this display.",
+        )
+    elif re.fullmatch(r"clinical_imputation_effects_\d+", plot):
+        clinical_role = (
+            "Rubin-pooled coefficients and pointwise uncertainty",
+            "The panel uses saved coefficients and unadjusted asymptotic normal Wald intervals, combining within-imputation and between-imputation variation.",
+            "No Barnard-Rubin small-sample correction is claimed. Log-odds coefficients are not risk differences, coefficients on different scales do not rank importance, and pooling does not validate MAR or causal interpretation.",
+            "Report the saved model scale, pooled coefficients, intervals and actual multiplicity policy without increasing the independent sample size.",
+            "Review completed-dataset fits, pooling covariance and the complete-case comparison; changing the analysis population is not an MNAR sensitivity analysis.",
+        )
+    elif re.fullmatch(r"clinical_imputation_traces_\d+", plot):
+        clinical_role = (
+            "Single-chain imputation process diagnostic",
+            "The panel records imputed means by cycle and the prespecified burn-in boundary; the downloadable data retain additional trace summaries.",
+            "A visually stable trace or completed iterations do not prove convergence, MAR, model compatibility or unbiased inference; no independent-chain diagnostic is claimed.",
+            "Describe only the saved single-chain process and its configured cycles.",
+            "Review the full saved traces and model assumptions; do not choose completed datasets or iteration counts by favorable significance.",
+        )
+    elif re.fullmatch(r"clinical_stratified_tables_\d+", plot):
+        clinical_role = (
+            "Original binary counts within prespecified strata",
+            "Each row preserves the four observed cells in the declared treatment and outcome order, with the stratum denominator.",
+            "Sparse or zero cells can limit asymptotic inference. Strata are not merged, dropped or given a 0.5 correction, and these counts alone do not establish causality.",
+            "Report the original stratum counts and source-code mapping together with the saved CMH/MH analysis.",
+            "Review expected counts, missing-role exclusions and declared strata before interpreting the common odds ratio.",
+        )
+    elif plot == "clinical_stratified_effect":
+        clinical_role = (
+            "Mantel-Haenszel common odds ratio and pointwise interval",
+            "The point and interval use the saved common odds ratio for the declared event and treatment direction; zero or infinite boundaries and unavailable intervals remain explicit.",
+            "The common OR is not a risk ratio, risk difference or causal effect. CMH and the OR interval use different asymptotic procedures; a nonsignificant or unavailable equal-odds diagnostic does not prove homogeneity.",
+            "Report the saved common OR, interval method and CMH result without substituting an interval crossing rule for the primary test.",
+            "Read each stratum table and the Breslow-Day/Tarone diagnostic; retain all prespecified strata and do not gate reporting on heterogeneity significance.",
+        )
+    elif plot == "clinical_noninferiority_effect":
+        clinical_role = (
+            "Welch mean noninferiority with one-sided uncertainty",
+            "The point is the saved benefit-oriented mean difference; the marker is its one-sided lower confidence bound and the arrow extends toward an unbounded upper endpoint. The reference line is minus the prespecified margin.",
+            "This is not a two-sided interval. Equality at the NI boundary does not pass; a nonsignificant superiority test is not NI evidence. Failure to demonstrate NI does not prove inferiority, and complete cases do not verify ITT/per-protocol membership.",
+            "Report the exact saved NI decision, one-sided alpha, lower bound and margin on the original outcome scale. Calculation completion alone does not establish NI.",
+            "Review the original margin basis, outcome direction, population and missingness; require the saved one-sided test and strict lower-bound criterion to agree.",
+        )
+    elif plot == "clinical_participant_flow":
         clinical_role = (
             "Analysis-population inclusion and exclusion",
             "The native participant-flow panel records the included population and stated exclusion stages. It is not an outcome or treatment-effect plot.",
