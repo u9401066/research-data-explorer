@@ -619,7 +619,7 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "58bdf1212a9328d239a779bd4814c6869df7d24dbba434815c13bbf5876ec13c"
+      "sha256": "58f1342303a15b110f998026f826fb07a854235a32b3962a38ab3dab9b68a064"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
@@ -710,6 +710,10 @@
       "sha256": "27b47286ee2bed315bce889d882f577b3192d6a0a78eb172120b3ef4aca9dfa9"
     },
     {
+      "path": "src/rde/interface/mcp/tools/clinical_proposal.py",
+      "sha256": "43b8aaf2c047892588425e8dc0d30794435fbe9f5b110cb9ceebd0888d8e9424"
+    },
+    {
       "path": "src/rde/interface/mcp/tools/clinical_tools.py",
       "sha256": "b4ddb8da31abe8726ad329dbb9dc615edd35b36bda62531e7e7c241fb511dc58"
     },
@@ -731,7 +735,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/plan_tools.py",
-      "sha256": "0b36825917a65a5fab6f511b4b8a524feeeb5ba5b59b2f9cf6d4cb09394d0dfc"
+      "sha256": "fcaed7644bc1092bebfe39c2bf8050c8ccb1ee77cd4bf42b7725936317cc3943"
     },
     {
       "path": "src/rde/interface/mcp/tools/prediction_tools.py",
@@ -9010,5 +9014,5 @@
       ]
     }
   ],
-  "catalog_sha256": "9b0ea0f3300eb1e53773208a74156de8c26ca7c202a652c13868231306c5b8bf"
+  "catalog_sha256": "e77ad32871c0080866dd95fc4c45e0a19e2d0f4a9e4a39cce36274894af65700"
 }

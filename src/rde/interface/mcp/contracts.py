@@ -136,7 +136,7 @@ CONTRACTS = {
     "assess_quality": ToolContract("2", "dataset exists", "quality artifacts"),
     "align_concept": ToolContract("3", "schema + human confirmation", "concept and roles"),
     "propose_analysis_plan": ToolContract(
-        "4", "confirmed concept; draft then confirm", "draft plan"
+        "4", "confirmed concept; draft then confirm; optional exact clinical_options", "draft plan"
     ),
     "register_analysis_plan": ToolContract("5-6", "review + human confirmation", "locked plan"),
     "check_readiness": ToolContract("7", "locked plan + prior artifacts", "readiness"),

@@ -133,6 +133,13 @@ phase_controls:
     confirmation_sequence: draft_then_user_review_then_confirm
     next_phase_unblocked_only_when_confirmed: true
     strategy: greedy_coverage_under_budget
+    typed_clinical_options:
+      parser: same_as_inspect_clinical_study_and_run_clinical_study
+      strategy: prespecified_clinical_contract
+      scope: one_complete_study_no_greedy_expansion
+      confirmation: exact_existing_draft_dataset_question_and_clinical_options
+      registration: same_confirmed_clinical_options_and_all_role_variables
+      does_not_establish: [source_validity, sample_size_adequacy, completed_analysis, clinical_validation]
     includes_internal_review_and_repair: true
     review_may_expand_soft_budget: true
     does_not_lock_plan: true

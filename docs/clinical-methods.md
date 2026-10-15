@@ -7,6 +7,26 @@ No AutoML service, Docker, or patient-data upload is needed.
 Agents remain free to propose methods outside this catalog and document additional
 analyses. The catalog reduces routine coding, not scientific discretion.
 
+## Exact proposals for prespecified clinical studies
+
+After confirmed concept alignment, send the complete `clinical_options` from
+`inspect_clinical_study` to `propose_analysis_plan(confirm=false)`. This uses
+the same strict family parser and presents one `run_clinical_study` bundle,
+its exact role/settings definitions, and unverified assumptions. Read that
+proposal, then call `propose_analysis_plan(confirm=true, clinical_options=...)`
+with the same settings and dataset. Registration must retain that confirmed
+contract; changing the NI margin/direction, MI model/seed, CMH arm order, or
+other settings requires a new draft and review. It does not insert baseline
+tests, cleaning, extra model families, or label a study underpowered from the
+number of analysis steps. Actual source/precondition and result diagnostics
+remain separate required checks; proposal confirmation does not establish
+sample-size adequacy, successful execution or clinical validity.
+
+Without `clinical_options`, the existing general EDA greedy proposal and its
+explicit soft-budget expansion remain available. The historical Phase 4
+artifact filenames are retained; inspect their `strategy` and complete
+`plan_blueprint` rather than inferring the method from the filename.
+
 ## Prespecified independent comparisons
 
 The new `family="comparison"` study fixes the group order, planned contrasts, outcome definition and primary effect before estimation. It supplies Welch mean-difference, BCa rank-biserial and binary proportion/conditional-odds intervals with complete planned-family p-value adjustment and immutable publication editions. See the [comparison contract and verification](independent-comparison-study.md). RDE MCP development validation is complete; Workbench integration and deployment remain pending. Existing `compare_groups` receipts are unchanged.

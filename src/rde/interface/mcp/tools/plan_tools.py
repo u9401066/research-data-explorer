@@ -869,6 +869,7 @@ def register_plan_tools(server: Any) -> None:
         include_advanced: bool = True,
         include_visualizations: bool = True,
         confirm: bool = False,
+        clinical_options: dict[str, Any] | None = None,
     ) -> str:
         """產生 greedy autonomous EDA 候選計畫（Phase 4 — Creative Ideation）。
 
@@ -876,7 +877,9 @@ def register_plan_tools(server: Any) -> None:
         用 deterministic greedy heuristic 產生一份「可直接送入 Phase 5」的
         blueprint，協助 agent 更自主地驅動 EDA。
 
-        此工具包含內部 methodology review + repair，會先產生 draft，再補足缺失的分析家族。
+        提供 clinical_options 時，使用既有臨床契約解析器保留一個完整指定研究，
+        不擴增探索方法；confirm=true 必須重送同一份完整設定並核對既存 draft。
+        未提供 clinical_options 時包含內部 methodology review + repair，再補足缺失的分析家族。
         `max_analyses` 是初始 greedy budget，不是硬性上限；若 review 認為應保留延伸 EDA 路線，
         planner 會產生 soft-budget expansion 與 Phase 8 execution schedule。
         另外可用 `enrich_rounds` 讓 planner 在 reviewed blueprint 後再多跑幾輪 enrich，
@@ -890,6 +893,7 @@ def register_plan_tools(server: Any) -> None:
             enrich_rounds: reviewed blueprint 後的 enrich 輪數，1 表示只做單輪 review/repair（預設 1）
             include_advanced: 是否納入 regression / ROC / learning-curve 等進階候選（預設 true）
             include_visualizations: 是否同時產生可納入 plan 的 visualization bundle（預設 true）
+            clinical_options: 可選完整 inspect_clinical_study/run_clinical_study 契約；指定時 greedy 參數不擴增範圍
         """
         from rde.interface.mcp.tools._shared import (
             log_tool_call,
@@ -938,6 +942,25 @@ def register_plan_tools(server: Any) -> None:
             session = get_session()
             pipeline = session.get_pipeline(project.id)
             store = ArtifactStore(project.artifacts_dir)
+
+            from rde.interface.mcp.tools.clinical_proposal import STRATEGY, propose_clinical_plan
+
+            saved_proposal = store.load(
+                PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json"
+            )
+            if clinical_options is not None or (
+                confirm
+                and isinstance(saved_proposal, dict)
+                and saved_proposal.get("strategy") == STRATEGY
+            ):
+                scope = store.load(PipelinePhase.CONCEPT_ALIGNMENT, "variable_roles.json") or {}
+                if scope.get("analysis_scope") == "descriptive":
+                    return fmt_error("Descriptive concept scope cannot propose clinical inference.")
+                content = propose_clinical_plan(
+                    project, entry, pipeline, store, clinical_options, confirm=confirm
+                )
+                log_tool_result("propose_analysis_plan", "prespecified clinical contract")
+                return content
 
             if confirm:
                 proposal_dict = store.load(
@@ -1146,7 +1169,7 @@ def register_plan_tools(server: Any) -> None:
 
         except Exception as e:
             log_tool_error("propose_analysis_plan", e)
-            return fmt_error(f"greedy 計畫提案失敗: {e}")
+            return fmt_error(f"計畫提案失敗: {e}")
 
     @server.tool()
     def register_analysis_plan(
@@ -1278,6 +1301,24 @@ def register_plan_tools(server: Any) -> None:
                 return fmt_error(
                     "分析計畫已鎖定 (H-007)，無法修改。",
                     suggestion="偏離計畫請使用 `log_deviation()`。",
+                )
+
+            from rde.interface.mcp.tools.clinical_proposal import check_registered_clinical_proposal
+
+            phase4_proposal = store.load(
+                PipelinePhase.CREATIVE_IDEATION, "greedy_analysis_candidates.json"
+            )
+            if (
+                isinstance(phase4_proposal, dict)
+                and phase4_proposal.get("strategy") == "prespecified_clinical_contract"
+            ):
+                proposal_dataset_ok, _, proposal_dataset = ensure_dataset(project=project)
+                check_registered_clinical_proposal(
+                    phase4_proposal,
+                    analyses,
+                    dataset_id=proposal_dataset.dataset.id
+                    if proposal_dataset_ok and proposal_dataset is not None
+                    else None,
                 )
 
             can_review_plan, review_gate_reason = pipeline.can_execute(
@@ -1643,7 +1684,7 @@ def register_plan_tools(server: Any) -> None:
                         analysis_label="run_clinical_study",
                         variables=clinical_entries[0]["variables"],
                         depends_on=[],
-                        rationale="Exact clinical definitions and shared complete cases; no automatic method expansion.",
+                        rationale="Exact clinical definitions and family-specific population/missing-data policy; no automatic method expansion.",
                     )
                 ]
                 script_content = "# Execute run_clinical_study through RDE MCP with the locked clinical_options.\n"
