@@ -1,7 +1,36 @@
 # RDE 0.6.0：原生契約與發布驗證
 
-本文件記錄發布前工程驗證，不代表已上傳 GitHub／Marketplace、部署 Workbench，
-或證明 Qwen 正確解讀每篇論文。發布狀態以 [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases) 為準。
+本文件記錄發布前驗收，不代表部署、市場可取得或所有研究均已通過。部署與發布實績見 [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases) 的精確提交、資產與收據；各市場須分別記錄 publish step 與公開可見結果。
+
+## 2026-10-19 完整報告：發布前驗收
+
+固定來源 `0832b70fb70161b4cf25e7391f46d43cd543e762`，catalog `3433a3f11e23c94d35c003cf839c9916ee73a2f0f5d208135f56b18088fe46a2`；此處記錄 0.6.0 已驗行為來源，最終純文件提交另保留差異。下文早期提交與測試保留原始範圍，不能代替本次全量結果。
+
+- generic 報告保留實際圖檔子目錄，完整列入主 OLS 及預先指定敏感度的係數、CI、p 與分母；摘要僅使用核准且已執行的研究角色，不將未採用的 `mortality` 欄位當結論。Table 1 是否要求／已產出依本計畫契約，不把「政策非一律必需」顯示成不適用。
+- 圖解區分單變數分布、分組、相關與模型診斷；不從 p 值推論效果強度，不由未定義 SD 斷定單人組，也不憑空提出合併類別或人體測量冗餘的建議。未知圖形保留原 caption 並明示解讀範圍。僅改報告投影與顯示格式，未重算估計或更動檢定閾值。
+- 真保存成果的先紅後綠回歸及後續 91 項圖解回歸通過（2 項會重新估計的測試明確未執行）。原 215 成果 SHA 保持；重組的獨立 DOCX 為 `ef206bdd65b4f8184a62e4be2ede82009f509becfa76186a87b7b842fd8bdc24`，包含 16 張實圖及 12 表。真正平台預覽的全部 22 段桌面及手機 fit 已實看，fit／100% 幾何有瀏覽器核對。這不是 Word 分頁認證，也沒有把原正式報告 FAIL 改成 PASS。
+- 舊 pair 的 generic v4 主／敏感度各 n=160、104 項獨立數值與最終解讀核對通過；原 browser FAIL 保留，未完成的下載／手機流程沒有補稱成功。新版配對 Qwen v5 的獨立終態與完整報告驗收另見下表；工程重組不能替代它。
+
+| 本次發布關卡 | 狀態 |
+| --- | --- |
+| `0832b70` 完整原生測試 | 1,844 passed、0 failed、0 skipped、5 optional vendor deselected；另 41 項 extension 測試通過，舊 1,816 項仍只屬歷史版本 |
+| `0832b70` 封裝與安裝 | 9 項命令 exit 0；wheel／sdist／VSIX 的 208 個 runtime 檔比對，實裝 wheel 真 stdio MCP 0.6.0／78 tools／25 families 通過 |
+| 配對模型／平台 | 真 Qwen 在 `40411b6`／`0832b70` 完成 20/20 步驟／分支，631 項獨立終態核對；原 Canvas 狀態 FAIL 保留。WB `f75a9ad` 全量 1,557 passed／111 opt-in skipped，並對同成果只讀核對 19/19 子項名稱、身份與狀態；不稱新模型重跑。 |
+| 部署／市場發布 | 本文件保留發布前驗收；實際配對建置、部署／還原收據及各市場 publish step、公開可見狀態見 [v0.6.0 Release](https://github.com/u9401066/research-data-explorer/releases/tag/v0.6.0)。 |
+
+最終收據另核對 666 份追蹤來源、95 份正式 Python 套件 metadata、兩份忽略追蹤的 lock 與原 215 份研究成果保持。原生 full 收據 SHA `dfffd28f26d6f9675d7630cab77bdfa3f6b6c0ab65cf5eefd9aafb0b63f104c8`；原始 log 與逐案結果仍在。
+
+本次封裝沒有安裝或升級正式依賴；重用既有離線環境。package 通過不等於完整原生測試或市場發布。私有收據為 `method-resume-20261015/native-report-final-20261019/package/receipt.json`、`package-byte-receipt.json`、`installed-mcp.json`；報告工程驗收為 `report-interpretation-fix-20261019/docx-preview/root-visual-review.json`。v5 獨立終態審查收據 SHA `4d01d8306972ebe6f54954b993920e28ce617440aea0a8ff0aceb0ae411163b7`、證據索引 `method-resume-20261015/generic-v5-independent-review-20261019/review-final.json`；最終文件提交的 archive README 與 source bytes 另核，不能把 0832 的舊包稱為已含新 README。
+
+### 配對 v5 的實際接受範圍
+
+真 Qwen 以 34 分 33.93 秒完成一份計畫、一次主分析與一個預指定敏感度，沒有人工追加指令或重跑估計。主報告 50,196 與分支報告 1,691 UTF-16 單位共 6 頁均完整讀完，數值／來源／終態核對 631 項通過。12 筆請求皆 HTTP 200，input 518,625／output 37,662／total 556,287 tokens，0 缺失、失敗、取消、重試或壓縮；最大 input 68,203，不能外推為 128K 滿窗壓測。
+
+分析 215 份成果與全研究 289 份實際 HTTP 下載皆核對 SHA。新版原生 DOCX 的 16 圖／12 表、完整兩組係數表、34 段桌面與手機預覽，以及 5 張圖 PDF 的 5 頁已實看；不宣稱 Microsoft Word 分頁或臨床有效性。原 WB `40411b6` 的 19 個 generic 子項因 summary path 遮蔽而顯示 needs_review；`dfb01e2` 對同研究副本的只讀 19/19 驗證保持原成果與用量，0 新模型／0 新分析。`f75a9ad` 已另核對 19 個精確步驟名稱、同 plan／run／step／owner 序號與手機作用範圍；敏感度計算完成後仍待研究審閱，不自動提升為主要結論。這些唯讀修正不改寫原失敗。
+
+實際圖文與 Canvas 收據 SHA `a90432c2582f62f33a7e94fc250d0f03da72c210a55510c2b0746396a506c62c`；模型／數值與圖文驗收來自本次 v5，不借用 v4 重組成果。
+
+根層發布前接受收據 SHA `81661eb1401423849fe0ea9742feabadea5e76fc8f61b946fbb3a4c3ff36cb7f`（`root-final-research-acceptance-20261019.json`）；卡片名稱與 settled 分支審查 SHA `4aa95dc48f64f26f3c97106eb232a701328258d7f9fc59db8a9ee450b8f96193`（`generic-component-labels-20261019/review-final.json`）。這些收據接受所記錄的研究／UI 範圍，不代表正式部署或發布。
 
 ## 本版範圍
 

@@ -36,6 +36,8 @@ Version **0.6.0** adds five bounded native clinical families to the existing dat
 
 These methods retain population ledgers, immutable numerical receipts, source-bound tables/figures and report/replay checks. Matching targets the retained matched-treated population with approximate pair-cluster inference; TTE requires approved preparation evidence and complete fixed follow-up. Neither name implies unrestricted ATT estimation, dynamic-treatment TTE, validated clinical assumptions or reproduction of published articles. Full scope and release-check boundaries are recorded in [0.6.0 native validation](docs/release-0.6.0-validation.md). Workbench/Qwen study acceptance is separate. The authoritative publication record and downloadable assets remain [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases).
 
+The 2026-10-19 report changes keep nested figure paths and complete main/sensitivity coefficient tables, derive interpretation from approved roles, and distinguish planned Table 1 evidence from a generic policy requirement. A separately regenerated saved-evidence DOCX passed platform visual review without rerunning the model or replacing the original failed report. The native suite is sealed at 1,844 passed, zero failed/skipped and five optional vendor tests deselected. The paired Qwen v5 completed its primary analysis and prespecified sensitivity branch; numerical, full-report and subsequent saved-study UI checks were accepted for the recorded synthetic scope. The [pre-release acceptance record](docs/release-0.6.0-validation.md) keeps the actual model runtime, later Workbench Canvas fixes and original failures distinct. Deployment and publication evidence belongs to the release record; package checks alone do not establish study or public availability.
+
 The following baseline records retain their original scope.
 
 Version 0.5.2 adds [typed Canvas transitions](docs/canvas-workflow.md). Baseline 0.5.1 verification on 2026-10-12: **1,085 Python tests passed,
@@ -176,7 +178,7 @@ local font configuration and the source-preserving MCP contract.
 [Paired and repeated studies](docs/paired-repeated-study.md) now retain explicit
 within-person contrasts, paired effect intervals and subject resampling receipts.
 Real MCP, public Orthodont data, independent R references and journal editions have
-been verified; the corresponding Workbench form and production rollout are pending.
+been verified. Workbench has a typed paired/repeated form; UI and deployment acceptance remain specific to the Workbench version and its recorded evidence, rather than being implied by native tests.
 
 | Phase | Purpose | Representative tool/artifact |
 | --- | --- | --- |
@@ -260,7 +262,7 @@ python3 -m rde
 
 VSIX users do not need Docker to complete the governed EDA path. RDE can run standard statistics plus local-lite adjusted models, ROC/AUC, basic power analysis, Kaplan-Meier summaries, and lightweight propensity scoring through Python dependencies bundled with the project.
 
-Start automl-stat-mcp only when you need heavier vendor workflows, such as full propensity matching/weighting, deeper survival workflows, or AutoML training jobs.
+The bounded native matching, weighting and survival families have their own Python contracts; they do not require the vendor merely because they concern propensity scores or survival. Start automl-stat-mcp for explicitly selected vendor/AutoML workflows. Its presence does not establish support for an unsupported estimator or authorize a different method; check the exact catalog binding and realized receipt.
 
 ```bash
 cd vendor/automl-stat-mcp
@@ -324,9 +326,9 @@ For a fully constrained run:
 3. `build_schema`
 4. `profile_dataset`
 5. `align_concept(confirm=true)`
-6. `propose_analysis_plan(confirm=false)` to create the greedy blueprint/review artifacts
+6. `propose_analysis_plan(confirm=false)` to review a candidate; supply complete `clinical_options` for a typed clinical study rather than expanding it as generic EDA
 7. `propose_analysis_plan(confirm=true)` after user review
-8. `register_analysis_plan(confirm=true)`
+8. For the bounded generic OLS policy, first read `register_analysis_plan(confirm=false)` and its applicability/errors; lock the same passing contract with `confirm=true, expected_review_sha256=...`. Typed families use their own exact contract
 9. `check_readiness`
 10. phase-8 analysis tools
 11. `collect_results`
@@ -348,11 +350,11 @@ This is the point where a research question becomes an auditable analysis contra
 - the outcome type: continuous, binary, categorical, time-to-event, or repeated-measures
 - adjustment covariates, subgroup variables, exclusion fields, and time-axis columns
 
-`propose_analysis_plan(confirm=false)` should then generate the greedy blueprint/review artifacts for user review. After the user confirms that creative ideation output, `propose_analysis_plan(confirm=true)` records Phase 4 as confirmed.
+`propose_analysis_plan(confirm=false)` creates a candidate for review. With complete `clinical_options`, it preserves that one typed study and its requirements; without them, the legacy general-EDA path produces a broader blueprint. After review, `propose_analysis_plan(confirm=true)` records Phase 4 confirmation. Neither mode independently establishes clinical appropriateness.
 
-If you want the agent to drive EDA more autonomously, Phase 4 no longer behaves as a bare greedy sorter. It now produces a draft candidate set, runs an internal methodology review / repair pass, expands beyond the initial budget when that preserves promising EDA branches, and then emits a reviewed blueprint plus a visualization bundle and Phase 8 execution schedule that can be passed into `register_analysis_plan(confirm=true)`. The point is not to bypass human confirmation; the point is to make autonomous ideation itself auditable, repairable, and lockable.
+For the legacy general-EDA path without `clinical_options`, Phase 4 can produce a broader candidate set, review and repair it, and expand the initial proposal budget before presenting a blueprint, figures and execution schedule for confirmation. This is pre-lock ideation, not permission to execute every candidate. Register the reviewed subset under the applicable contract below. This expansion does not apply to a typed clinical proposal, change a locked plan, or authorize unsupported methods or branches.
 
-`register_analysis_plan(confirm=true)` now also performs a methodology gate before lock. If the submitted plan is obviously under-scoped for the detected data structure, for example trying to stop after only a couple of analyses even though the dataset supports grouped comparisons, association screening, and adjusted modeling, Phase 5 now first auto-expands the plan with optional exploratory branches. Only if the reviewed plan is still too thin does it block the lock and push the agent back toward `propose_analysis_plan(confirm=false)`, unless `allow_methodology_override=true` is set explicitly. When the plan is locked in Phase 6, the repo also persists an execution schedule artifact so Phase 8 can follow the reviewed ordering instead of improvising from scratch.
+Plan registration distinguishes contracts. For [bounded generic OLS evidence](docs/generic-evidence-policy.md), `confirm=false` is a read-only review of the exact proposed analyses, source, roles and settings: inspect `applicable`, `requires_revision` or `outside_policy`, and lock only the same passing portable review SHA. Six figures are an editorial recommendation, not a statistical requirement. Pure description stays in its own contract; mixing OLS with unsupported methods requires revision. Typed clinical, descriptive and prediction studies also retain their own requirements. The older unpinned general-EDA path can propose additional exploratory branches; its override option is not a fallback for a failed pinned or typed contract, nor proof of report readiness. A locked plan retains its execution schedule for Phase 8.
 
 Typical analysis options to place in the Phase 4 plan:
 
@@ -444,8 +446,8 @@ RDE is not designed to exhaustively run every statistical method in the library.
 
 At the moment, method coverage is best understood in layers:
 
-- the Phase 8 user-facing layer exposes 6 main analysis entrypoints plus 1 visualization entrypoint: `compare_groups`, `analyze_variable`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures`, and `create_visualization`
-- the Phase 4 analysis plan schema currently allows 16 analysis types
+- legacy general-analysis entrypoints include `compare_groups`, `analyze_variable`, `correlation_matrix`, `generate_table_one`, `run_advanced_analysis`, `run_repeated_measures` and `create_visualization`; typed clinical, descriptive and prediction studies use their dedicated entrypoints
+- plan entry types and exact executable methods are different layers: read the current catalog method bindings and the registration schema rather than treating an old type count as method coverage
 - the local Scipy/tableone/local-lite layer declares core and no-Docker advanced capabilities in the manifest
 - the optional delegated automl layer declares heavy advanced capabilities in the manifest
 
@@ -460,33 +462,54 @@ More importantly, the agent does not automatically run every possible method bec
 
 So the issue is not that the agent cannot think of more methods. It is that governed execution intentionally refuses to treat “the agent can imagine it” as sufficient justification to run it.
 
-### What to Borrow From `autoresearch`
+### Implemented bounded exploration and pre-lock ideation
 
-The concept is worth borrowing, but the code should not be transplanted directly.
+RDE already implements durable branch exploration and an application-level
+`autoresearch` queue. The host agent supplies hypotheses and explicit analysis
+contracts; RDE records and executes supported contracts under a confirmed,
+locked Phase 8 plan and its readiness gate. This is an adaptation of bounded
+experimentation, not an arbitrary-code or self-modifying research runtime.
 
-What is useful from `karpathy/autoresearch`:
+- `open_exploration_branch`, `run_branch_experiment` and `evaluate_branch`
+  retain branch identity, experiment artifacts and review decisions.
+- `start_autoresearch_run` accepts `agent_proposals` and optional built-in
+  suggestions, deduplicates identical contracts, and persists candidates,
+  task/event history and task, branch, failure and time budgets.
+  `run_autoresearch_next_task` or `run_autoresearch_queue` advances the queue;
+  `get_autoresearch_status`, `stop_autoresearch_run` and
+  `resume_autoresearch_run` expose its lifecycle.
+- Each run pins schema, locked-plan and variable-role hashes plus the effective
+  dataset versions: source identity, frame and cleaning lineage. Execution and
+  resume recheck these baselines. Changed or missing baselines require a new
+  reviewed run; previous evidence stays intact. Source-less inputs remain
+  explicitly marked unavailable rather than acquiring verified source identity.
+- Unsupported executors and idea-only work are **recorded, not executed**.
+  Recorded, completed and failed task counts remain distinct; a completed queue
+  does not prove completed analyses or a publication-ready study.
+- Results do not automatically alter the primary plan or become confirmatory
+  conclusions. `promote_branch_to_plan_amendment(confirm=true)` requires a fresh
+  persisted branch audit, complete evidence and explicit confirmation. A small
+  p-value or a high organizational score is not an acceptance criterion.
 
-- a lightweight “program” layer that describes what kinds of candidates the agent should explore
-- generating candidate directions first, then explicitly keeping or discarding them
-- treating the agent’s ideation loop as an evolving asset instead of a one-off prompt
+Scope remains explicit: locked `imputation`, `stratified`, `noninferiority`,
+`matching` and `target_trial` studies have **no validated branch/autoresearch
+contract**. Their queues cannot start, resume or execute through a substitute
+raw-data analysis; historical evidence remains readable and active queues can
+be stopped. A descriptive-only plan likewise does not authorize inferential
+branches. Use the exact approved study bundle, or separately revise and review
+an appropriate supported plan.
 
-What should not be copied directly into RDE:
+Pre-lock ideation is separate: the legacy general-EDA Phase 3–4 flow can propose
+analyses, figures and sensitivity checks before the reviewed subset is registered
+and locked. Typed clinical proposals retain their own exact requirements; neither
+ideation nor the durable queue silently extends a typed contract. Use one writer
+per project: queue leases are not distributed locks, and the time budget prevents
+starting another task after expiry rather than preempting an in-flight fit.
+See [autoresearch design and evidence boundaries](docs/autoresearch-design.md).
 
-- autoresearch optimizes under a fixed experiment budget toward a single improvement metric, while RDE is a multi-objective system constrained by methodological fit, interpretability, audit trail requirements, PII handling, and plan lock
-- RDE cannot replace methodology with “run everything and keep whatever looks best"
-- biomedical and EDA workflows are not a good fit for an unbounded self-modifying experiment loop
+## Historical validation: 0.4.14
 
-The more suitable adaptation would be a bounded pre-lock candidate-analysis generator:
-
-- it would live between Phase 3 and Phase 4
-- it could help expand candidate analyses, figures, and sensitivity checks
-- but the final approved subset would still have to be written back into `analysis_plan.yaml` and locked with `confirm=true`
-
-If this idea is adopted in the repo, the README should describe it explicitly as an RDE analysis-ideation layer inspired by `autoresearch`, not as a direct transplant of the original autonomous experiment loop.
-
-## Validation Status
-
-The current repository has been validated in six ways for the 0.4.14 release:
+The following six validation records belong to release 0.4.14. They do not replace the current 0.6.0 checks linked above:
 
 1. Unit and integration tests
    - Run focused contract and harness suites with `python -m pytest ...`
