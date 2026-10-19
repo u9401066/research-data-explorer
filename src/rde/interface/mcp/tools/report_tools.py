@@ -2624,18 +2624,18 @@ def _interpret_table_one(table_one: str | None, schema: dict | None) -> str:
         lines.append(f"- Table 1 includes {variable_count} interpretable variable rows.")
     if nan_cells:
         lines.append(
-            "- Several group cells have undefined standard deviations (`nan`), which is a practical "
-            "signal that some groups contain a single observation. Group-level comparisons should "
-            "therefore be treated as descriptive unless sparse levels are collapsed or new samples "
-            "are added."
+            "- Some cells have undefined standard deviations (`nan`). Check the saved nonmissing "
+            "counts and calculation notes before interpreting them; this display alone does not "
+            "identify the cause or justify changing the approved groups."
         )
     if notes:
         lines.append(
             "- Source table notes: " + "; ".join(note.lstrip("- ").strip() for note in notes[:3])
         )
     lines.append(
-        "- Recommendation: report medians/IQRs alongside means/SDs, preserve the sparse-code warning, "
-        "and avoid interpreting non-significant sparse-group contrasts as evidence of equivalence."
+        "- Recommendation: report the saved denominators, missingness and summaries appropriate "
+        "to each variable. Review any recorded sparse-cell warnings without changing the approved "
+        "group definitions; nonsignificant comparisons do not establish equivalence."
     )
     return "\n".join(lines)
 
@@ -2865,14 +2865,23 @@ def _figure_interpretation_harness_entry(
             "For manuscript reporting, pair this with median/IQR and consider log or rank-based "
             "analysis if the distribution is skewed."
         )
+    elif plot in {"boxplot", "violin", "bar"} and not group_var.strip():
+        evidence_role = "Univariate distribution description"
+        visual_read = (
+            f"The panel describes the observed distribution of {primary}. "
+            "No separate grouping variable is recorded."
+        )
+        statistical_support = stats_summary or "No descriptive summary is attached to this figure."
+        validity_caveat = "Category frequencies or a univariate distribution are not an outcome comparison or a treatment-effect estimate."
+        reportable_claim = f"Describe only the saved distribution and denominator for {primary}."
+        next_analysis = "Check the saved counts, missingness and category definitions against the approved plan; do not infer a new contrast from this panel."
+        p_text, p_value, sparse_groups = "No group-test interpretation is generated.", None, []
     elif plot in {"boxplot", "violin", "bar"}:
         comparator = f" across {group_var}" if group_var else ""
         if p_value is None:
             signal = "The figure is descriptive; no usable inferential p-value is available."
-        elif p_value < 0.05:
-            signal = f"The displayed contrast is an exploratory candidate signal ({p_text})."
         else:
-            signal = f"The figure does not show strong statistical evidence of a group difference ({p_text})."
+            signal = f"A test annotation is saved ({p_text}); interpret it with the approved test, alpha and multiplicity policy."
         sparse = (
             f" Sparse cells are present ({'; '.join(sparse_groups)}), so visual differences may be unstable."
             if sparse_groups
@@ -2893,16 +2902,15 @@ def _figure_interpretation_harness_entry(
             "but this figure alone does not establish equivalence or causal effect."
         )
         next_analysis = (
-            "Collapse sparse groups or prespecify a scientifically meaningful binary contrast "
-            "before using this figure as evidence."
+            "Review the saved group counts, missingness and test assumptions using the approved "
+            "group definitions. Any changed contrast or merged category requires a separately "
+            "reviewed plan; the figure does not authorize that change."
         )
     elif plot == "scatter":
         if p_value is None:
             signal = "This is a model/association diagnostic without a directly reported p-value."
-        elif p_value < 0.05:
-            signal = f"The association is a candidate signal ({p_text}) and needs multiplicity-aware review."
         else:
-            signal = f"The observed association is weak or statistically uncertain ({p_text})."
+            signal = f"A test annotation is saved ({p_text}); its p-value alone does not describe association strength."
         evidence_role = "Crude association screening"
         visual_read = (
             f"The scatter plot evaluates the relationship among {variables_text}. {signal}"
@@ -2913,25 +2921,23 @@ def _figure_interpretation_harness_entry(
         validity_caveat = "Crude associations can be driven by leverage points, scale, missingness, or confounding."
         reportable_claim = f"The figure supports only a hypothesis-generating association review for {variables_text}."
         next_analysis = (
-            "Use this to guide adjusted modeling rather than as a standalone conclusion; inspect leverage "
-            "points because the cohort is small."
+            "Check the saved sample size, missingness, scale and influence diagnostics before "
+            "interpreting a pattern. Any adjusted model must follow the approved analysis plan."
         )
     elif plot == "heatmap":
-        evidence_role = "Covariate structure and collinearity check"
+        evidence_role = "Saved matrix description"
         visual_read = (
-            "The heatmap summarizes covariate structure and potential collinearity before modeling. "
-            f"It should be read with the readiness warning: {stats_summary or 'correlation structure review'}."
+            f"The heatmap displays the saved matrix for {variables_text}. "
+            "Read its measure, scale and denominators from the saved caption and numerical receipt."
         )
         statistical_support = (
             stats_summary or "No pairwise statistic summary is attached to this heatmap."
         )
         validity_caveat = "Correlation structure is not an effect estimate and should not be treated as endpoint evidence."
-        reportable_claim = (
-            "The heatmap supports model-building caution, especially around redundant covariates."
-        )
+        reportable_claim = "Describe the recorded matrix values; the plot type alone does not establish covariate redundancy."
         next_analysis = (
-            "Avoid putting highly redundant anthropometric variables into the same small-sample model "
-            "unless the model is explicitly sensitivity-oriented."
+            "If the saved correlations or model diagnostics raise collinearity concerns, review them "
+            "against the approved covariate rationale. Do not remove variables based only on this display."
         )
     elif "propensity" in plot:
         evidence_role = "Propensity/balance diagnostic"
@@ -2951,7 +2957,7 @@ def _figure_interpretation_harness_entry(
             "table before presenting any adjusted treatment contrast."
         )
     else:
-        evidence_role = "Saved figure context; interpretation type not mapped"
+        evidence_role = "Saved original caption; researcher review required"
         visual_read = "The manifest identifies this saved figure, but its plot type has no structured interpretation here. Its visual pattern, direction and inferential meaning have not been inferred from a filename or variable list."
         statistical_support = (
             stats_summary or "No statistical annotation is attached to this figure."
@@ -2959,6 +2965,7 @@ def _figure_interpretation_harness_entry(
         validity_caveat = "The retained caption is evidence to review, not an independent visual or scientific validation of the figure."
         reportable_claim = "No additional result claim is generated for this unmapped plot type."
         next_analysis = "Review the exact saved caption, numerical receipt and figure against the approved question before using it in a conclusion."
+        p_text, p_value, sparse_groups = "See the saved caption/receipt.", None, []
 
     return {
         "figure_no": figure_no,
@@ -2978,6 +2985,11 @@ def _figure_interpretation_harness_entry(
 
 
 def _render_figure_harness_bullets(harness: dict[str, Any]) -> list[str]:
+    if harness["evidence_role"] == "Saved original caption; researcher review required":
+        return [
+            f"- **Saved original caption — researcher review required:** {harness['statistical_support']}",
+            f"- **Review limitation:** {harness['validity_caveat']}",
+        ]
     return [
         f"- **Evidence role:** {harness['evidence_role']}",
         f"- **Visual read:** {harness['visual_read']}",
@@ -3104,8 +3116,9 @@ def _interpret_advanced_models(store: Any, *, include_artifact_refs: bool = True
                 + "."
             )
         elif p_values:
+            alpha_text = f"{float(result.get('inference_policy', {}).get('alpha', 0.05)):.6g}"
             interpretation = (
-                f"`{analysis_type}` for `{target}` did not identify covariates below alpha={result.get('inference_policy', {}).get('alpha', 0.05)} (unadjusted coefficient p-values)"
+                f"`{analysis_type}` for `{target}` did not identify covariates below alpha={alpha_text} (unadjusted coefficient p-values)"
                 f"{fit_text}; this is not evidence of equivalence or absence of an effect."
             )
         else:
