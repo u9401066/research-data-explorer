@@ -811,7 +811,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "222df731946759978a3bd6abd822bb07af1db88fef7dad3eab95592e4f187c39"
+      "sha256": "c8f72bc2736da1074db0f930c2de89265a0ad02072cbbd7c4f390a4d99da7401"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -10783,7 +10783,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "222df731946759978a3bd6abd822bb07af1db88fef7dad3eab95592e4f187c39"
+          "sha256": "c8f72bc2736da1074db0f930c2de89265a0ad02072cbbd7c4f390a4d99da7401"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -10804,5 +10804,5 @@
       ]
     }
   ],
-  "catalog_sha256": "be41eabde03b404308b499d096500433f834205b26c8939f816a1b41b9c36ebd"
+  "catalog_sha256": "3433a3f11e23c94d35c003cf839c9916ee73a2f0f5d208135f56b18088fe46a2"
 }
