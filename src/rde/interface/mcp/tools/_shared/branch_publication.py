@@ -13,6 +13,23 @@ from rde.interface.mcp.tools.clinical_tools import (
 
 
 def branch_publication_source(project, branch_id, experiment_id, expected_record_sha256):
+    return _branch_source(
+        project, branch_id, experiment_id, expected_record_sha256, require_figures=True
+    )
+
+
+def branch_report_source(project, branch_id, experiment_id, expected_record_sha256):
+    """Verify saved numerical evidence; text reports need not request new figures.
+
+    Existing figures still undergo the full publication-bundle checks. This does
+    not grant a figure-edition contract to a branch that produced no figures.
+    """
+    return _branch_source(
+        project, branch_id, experiment_id, expected_record_sha256, require_figures=False
+    )
+
+
+def _branch_source(project, branch_id, experiment_id, expected_record_sha256, *, require_figures):
     from rde.interface.mcp.tools.publication_tools import file_hash
 
     if not re.fullmatch(r"br_[a-f0-9]{10}", branch_id) or not re.fullmatch(
@@ -103,19 +120,29 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
     if generic:
         from rde.infrastructure.adapters.dataframe_lineage import verify_source_binding
 
-        result = record.get("publication_result")
+        # This validates the complete saved model/risk receipt and case set,
+        # even when the executed contract did not request publication figures.
+        # The projection is in memory only; it does not create a figure receipt.
+        result = publication_result(record)
         binding = record["input_evidence"]["source_binding"]
         if (
             record.get("schema") != "advanced-branch-evidence-v1"
             or binding.get("dataset_id") != record["dataset_id"]
-            or result != publication_result(record)
-            or not verify_numerical_artifacts({**record, "result": result}, root)
         ):
             raise ValueError(
                 "Generic branch publication does not match its complete numerical evidence."
             )
+        has_publication = any(
+            key in record for key in ("publication_result", "figures", "artifacts")
+        )
+        if has_publication and (
+            record.get("publication_result") != result
+            or not verify_numerical_artifacts({**record, "result": result}, root)
+        ):
+            raise ValueError("Saved branch publication bundle differs from its numerical evidence.")
         verify_source_binding(binding, root)
-        _verify_figures(record, result, confined)
+        if require_figures or has_publication:
+            _verify_figures(record, result, confined)
         return source, {
             **record,
             "result": result,
@@ -182,7 +209,8 @@ def branch_publication_source(project, branch_id, experiment_id, expected_record
         raise ValueError(
             "Branch numerical evidence or its fixed primary population failed verification."
         )
-    _verify_figures(record, result, confined)
+    if require_figures or record.get("figures"):
+        _verify_figures(record, result, confined)
     return source, {
         **record,
         "result": result,

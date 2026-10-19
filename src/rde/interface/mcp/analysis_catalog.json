@@ -255,7 +255,7 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/docx_exporter.py",
-      "sha256": "62c51e44bb05f28fb6c8dd70f0fd46c454daf5019d8ea53ab698b98663f4a1d0"
+      "sha256": "262909c592891ea96ca203725583f2621e3f4b938499ff2ba22218d207f46dde"
     },
     {
       "path": "src/rde/infrastructure/adapters/markdown_renderer.py",
@@ -695,7 +695,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/branch_publication.py",
-      "sha256": "e796f1a3384f5a5eceab88f608e05146b8ae5bbfc5ac5dbf96e5a0e67de89a80"
+      "sha256": "6ec64ff0747268db8bc997adcfc7d99b9b3013df9f06e9f58e80d71ea8481feb"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/clinical_artifacts.py",
@@ -720,6 +720,10 @@
     {
       "path": "src/rde/interface/mcp/tools/_shared/generic_evidence.py",
       "sha256": "6a8f8deeef38c6c1d1dc32435f405f9acd98dc6a198a3d0214253f170b975902"
+    },
+    {
+      "path": "src/rde/interface/mcp/tools/_shared/generic_report.py",
+      "sha256": "a91765632901556d9c774f82ed8af8fb28246b9109b854abb8d3fc0e0dd627ed"
     },
     {
       "path": "src/rde/interface/mcp/tools/_shared/numeric_summary.py",
@@ -807,7 +811,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/report_tools.py",
-      "sha256": "e2ac30de10216923da2b2d4d8c7875ef8cda6ec2ea07fbef86b8f5db31bbb28e"
+      "sha256": "222df731946759978a3bd6abd822bb07af1db88fef7dad3eab95592e4f187c39"
     },
     {
       "path": "src/rde/interface/mcp/tools/sample_size_tools.py",
@@ -10779,7 +10783,7 @@
       "contract_sources": [
         {
           "path": "src/rde/interface/mcp/tools/report_tools.py",
-          "sha256": "e2ac30de10216923da2b2d4d8c7875ef8cda6ec2ea07fbef86b8f5db31bbb28e"
+          "sha256": "222df731946759978a3bd6abd822bb07af1db88fef7dad3eab95592e4f187c39"
         },
         {
           "path": "src/rde/infrastructure/preparation/reporting.py",
@@ -10787,7 +10791,7 @@
         },
         {
           "path": "src/rde/infrastructure/adapters/docx_exporter.py",
-          "sha256": "62c51e44bb05f28fb6c8dd70f0fd46c454daf5019d8ea53ab698b98663f4a1d0"
+          "sha256": "262909c592891ea96ca203725583f2621e3f4b938499ff2ba22218d207f46dde"
         },
         {
           "path": "src/rde/interface/mcp/tools/audit_tools.py",
@@ -10800,5 +10804,5 @@
       ]
     }
   ],
-  "catalog_sha256": "6d15570f26f3ec500b560d8fa4f606639d91cc83c80961a7920d3fa09b28b55d"
+  "catalog_sha256": "be41eabde03b404308b499d096500433f834205b26c8939f816a1b41b9c36ebd"
 }

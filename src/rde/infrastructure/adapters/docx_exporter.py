@@ -727,14 +727,20 @@ class DocxExporter(DocumentExporterPort):
         if not target:
             return None
         candidate = Path(target)
-        if candidate.is_absolute():
-            return candidate
         if figures_dir is None:
-            return candidate
-        direct = figures_dir / candidate
-        if direct.exists():
-            return direct
-        return figures_dir / candidate.name
+            return candidate if candidate.is_file() else None
+        root = figures_dir.resolve()
+        # Reports live in artifacts/phase_10_report_assembly. Preserve the
+        # entire figure-relative path; a same-named sibling is not a substitute.
+        parts = candidate.parts
+        if parts[:3] == ("..", "..", "figures"):
+            candidate = Path(*parts[3:])
+        elif parts[:1] == ("figures",):
+            candidate = Path(*parts[1:])
+        resolved = (root / candidate).resolve()
+        if not resolved.is_relative_to(root) or not resolved.is_file():
+            return None
+        return resolved
 
     @staticmethod
     def _figure_to_html(fig_path: Path, caption: str) -> str:

@@ -84,7 +84,7 @@ def test_repeated_report_keeps_findings_and_readiness_in_their_sections() -> Non
     assert "**分析總數:** 1" in analyses
     assert "**完整度目標:** repeated-wide-v1" in analyses
     assert "**最終報告就緒:** 是" in analyses
-    assert "**Table 1:** 不適用於此核准研究契約" in analyses
+    assert "**Table 1:** 本契約不要求；未產生" in analyses
     assert "**粗分析圖:** 1/1" in analyses
     assert "**細分析圖:** 0/0" in analyses
 

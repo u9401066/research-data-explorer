@@ -15,6 +15,7 @@ The Python package and VS Code extension share the release version.
 
 ### Exact plans, replay and reporting
 
+- Include complete saved general-model coefficient, uncertainty and case tables plus source-verified numerical-only sensitivity branches in formal reports. Preserve nested figure paths in DOCX exports; distinguish an optional Table 1 from a present table, and keep unused schema columns outside the confirmed research focus. Report regeneration verifies retained evidence without refitting or altering old studies.
 - Preserve full typed clinical options through inspect, proposal confirmation, plan registration, execution and reporting. Legacy analysis/cleaning and unsupported autoresearch entries cannot bypass locked method/missingness/multiplicity rules.
 - Revalidate current sources and every frozen numerical/table/figure artifact before execution-key replay. Cached results cannot silently refit, repair missing artifacts or adopt a new specification.
 - Bind every clinical inspection and newly registered plan to original source bytes plus the complete loaded frame, sheet, parser format and privacy provenance. Cached inspection/registration cannot return an old success after source or locked-plan changes. Preserve the formal assisted-intake source-protection fixes.

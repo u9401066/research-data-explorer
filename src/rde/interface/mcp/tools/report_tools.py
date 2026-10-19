@@ -838,7 +838,16 @@ def register_report_tools(server: Any) -> None:
                     artifacts["statistical_analyses"] = "[Quick Explore — No formal analysis plan]"
                     artifacts["key_findings"] = "[Quick Explore — Review individual analyses]"
 
-            sensitivity_artifacts = _load_phase6_markdown_bundle(store, "sensitivity_analysis")
+            from rde.interface.mcp.tools._shared.generic_report import branch_reports_markdown
+
+            sensitivity_artifacts = "\n\n".join(
+                text
+                for text in (
+                    _load_phase6_markdown_bundle(store, "sensitivity_analysis"),
+                    branch_reports_markdown(project, store),
+                )
+                if text
+            )
             if sensitivity_artifacts:
                 artifacts["sensitivity_analysis"] = sensitivity_artifacts
 
@@ -1772,7 +1781,7 @@ def _format_analyses(results: dict | None) -> str:
     if deliverables:
         lines.extend(
             [
-                f"**Table 1:** {'不適用於此核准研究契約' if deliverables.get('table_one_required') is False else '已提供' if deliverables.get('table_one_present') else '缺少'}",
+                f"**Table 1:** {'已提供' if deliverables.get('table_one_present') else '本契約不要求；未產生' if deliverables.get('table_one_required') is False else '缺少'}",
                 f"**粗分析圖:** {deliverables.get('descriptive_figures', 0)}/{deliverables.get('required_descriptive_figures', MIN_DESCRIPTIVE_FIGURES)}",
                 f"**細分析圖:** {deliverables.get('analytical_figures', 0)}/{deliverables.get('required_analytical_figures', MIN_ANALYTICAL_FIGURES)}",
             ]
@@ -1922,6 +1931,10 @@ def _select_focus_variables(
     for name in _flatten_variable_roles(variable_roles):
         if name and name not in selected:
             selected.append(name)
+    # Confirmed study roles define scope. Do not fill unused slots with schema
+    # columns or exploratory signals and present them as selected findings.
+    if selected:
+        return selected[:limit]
     if isinstance(results, dict):
         for item in results.get("publishable_items") or results.get("candidate_findings") or []:
             if not isinstance(item, dict):
@@ -2339,10 +2352,20 @@ def _formal_statistical_summary(project: Any, store: Any, results: dict | None) 
             f"分析性圖表 {deliverables.get('analytical_figures', 0)} 張。"
         )
     lines.append(_comparison_results_markdown(results))
-    model_text = _interpret_advanced_models(store, include_artifact_refs=False)
+    from rde.interface.mcp.tools._shared.generic_report import (
+        branch_reports_markdown,
+        primary_reports_markdown,
+    )
+
+    model_text = primary_reports_markdown(project, store) or _interpret_advanced_models(
+        store, include_artifact_refs=False
+    )
     if model_text:
         lines.append("調整模型摘要：")
         lines.append(model_text)
+    branches = branch_reports_markdown(project, store)
+    if branches:
+        lines.append("## 敏感度與探索分支\n\n" + branches)
     entries = _resolved_visualization_manifest_entries(project, store)
     p_candidates = []
     for entry in entries:
@@ -2433,7 +2456,12 @@ def _formal_figure_gallery(project: Any, store: Any) -> str:
             continue
         figure_no += 1
         figure_path = Path(str(entry["output_path"]))
-        relative = f"../../figures/{figure_path.name}"
+        relative = (
+            "../../figures/"
+            + figure_path.resolve()
+            .relative_to((project.output_dir / "figures").resolve())
+            .as_posix()
+        )
         plot_type = str(entry.get("plot_type") or "figure")
         variables = [str(value) for value in entry.get("variables", [])]
         variables_text = ", ".join(variables) if variables else "unspecified variables"
