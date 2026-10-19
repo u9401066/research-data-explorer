@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from shutil import copyfile
 
+from rde.infrastructure.persistence.durability import sync_existing_file
 from rde.interface.mcp.research_plans import digest, read_sealed, write_once
 from rde.interface.mcp.results import RdeResult, artifact_reference
 
@@ -60,10 +61,7 @@ def finish(project, directory, result):
         target = directory / "artifacts" / ref.relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         copyfile(source, target)
-        with target.open("rb") as stream:
-            import os
-
-            os.fsync(stream.fileno())
+        sync_existing_file(target)
         snapshot = artifact_reference(
             project, target.relative_to(project.output_dir).as_posix(), target
         )

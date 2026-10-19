@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The Python package and VS Code extension share the release version.
 
+## [0.6.1] - 2026-10-19
+
+### Windows persistence
+
+- Preserve immutable plan/execution receipts on Windows without unsupported directory fsync; flush copied artifacts through writable, non-truncating handles. POSIX error handling stays strict.
+- Add native Windows CI for Unicode sealed writes, immutable replay and byte-preserving artifact flush. Directory power-loss durability is not claimed equivalent across platforms.
+- Regenerate the current source catalog; research methods, approvals and historical results remain unchanged. See [Windows persistence](docs/windows-persistence.md).
+
 ## [0.6.0] - 2026-10-15
 
 ### Bounded native clinical methods

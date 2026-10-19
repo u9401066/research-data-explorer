@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from rde.application.pipeline import PipelinePhase
 from rde.infrastructure.persistence.artifact_store import ArtifactStore
+from rde.infrastructure.persistence.durability import sync_directory
 from rde.interface.mcp.research_plans import (
     canonical_id,
     digest,
@@ -52,11 +53,7 @@ def _bytes_once(path, data):
             stream.flush()
             os.fsync(stream.fileno())
         os.link(temporary, path)
-        fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -116,11 +113,7 @@ def _pin_required_binding(project, required):
         if _regular(path).read_bytes() != before:
             raise ValueError("Execution plan changed while binding")
         os.replace(temporary, path)
-        fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
 

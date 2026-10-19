@@ -550,6 +550,10 @@
       "sha256": "28e7887b9d551aedd446d33d03a3248d0e1e2f262a3da2248925a2263ee65aa0"
     },
     {
+      "path": "src/rde/infrastructure/persistence/durability.py",
+      "sha256": "b8777ae81f78b9583fdf37787e0ae10641221d86a1be41f2eab7147eac1029ff"
+    },
+    {
       "path": "src/rde/infrastructure/prediction/__init__.py",
       "sha256": "56181dac5bb1972d48af378006c7b04e911b577991ece02888c732adcf4951ed"
     },
@@ -659,15 +663,15 @@
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
-      "sha256": "3e3eb5b622a070b22019fe88b7cadbc93cc2bfb17b316c321d4b50ed60489326"
+      "sha256": "31eb562bc807e4c8237e54dc55b7919274a6ef3fa979b3dd74d619a8b51e4a42"
     },
     {
       "path": "src/rde/interface/mcp/research_execution.py",
-      "sha256": "5e1cbe0af9c3b5725c1636105fdc1b86fc5baf44cce2726dd0f08114a180c863"
+      "sha256": "168f18e86f4dddd603f315555be71cd52300ac2d99cb8e5da6a32bf88bff9b35"
     },
     {
       "path": "src/rde/interface/mcp/research_plans.py",
-      "sha256": "ef8f99a623db17cbf47c87c029c86a251286339419d3050c04ff57df403c4eee"
+      "sha256": "885ab67a60036c41dc0d96cf3377cb300c6e5c1962f729ebd9da7e5bfcd7c3be"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
@@ -10804,5 +10808,5 @@
       ]
     }
   ],
-  "catalog_sha256": "3433a3f11e23c94d35c003cf839c9916ee73a2f0f5d208135f56b18088fe46a2"
+  "catalog_sha256": "1d98863a97871320009a6595d55ca3d7b1db504253ba30774d3bf7685e960646"
 }

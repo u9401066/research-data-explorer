@@ -14,6 +14,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from rde.infrastructure.persistence.durability import sync_directory
+
 
 def digest(value):
     return hashlib.sha256(
@@ -100,11 +102,7 @@ def write_once(path, payload):
             out.flush()
             os.fsync(out.fileno())
         os.link(temporary, path)
-        fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
     return record
