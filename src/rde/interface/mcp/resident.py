@@ -12,6 +12,7 @@ from rde.infrastructure.adapters.dataframe_lineage import dataset_version
 from rde.interface.mcp.action_review import digest, review
 from rde.interface.mcp.research_plans import read_sealed, write_once
 from rde.interface.mcp.results import artifact_reference
+from rde.interface.mcp.resident_bindings import edited_blocks, expand
 
 ACTIONS = ("data_quality", "group_estimates", "distribution")
 SECTIONS = ("研究問題與資料", "方法與分母", "主要結果", "資料品質與替代解釋", "限制與可重現性")
@@ -90,7 +91,10 @@ def scope_diagnostics(text, scope):
     out = []
     for match in re.finditer(r"[^。！？\n；]+", text):
         clause = match.group().strip()
-        if re.search(r"未|無法|不(?:應|宜|足|能|明|確定)|是否|若|缺乏|假設|避免|難以", clause):
+        if re.search(
+            r"未|無法|(?:並|而|亦)?非隨機|不是|並不|不(?:應|宜|足|能|明|確定)|是否|若|缺乏|假設|避免|難以",
+            clause,
+        ):
             continue
         unsupported = any(
             term in clause and term not in approved
@@ -314,6 +318,7 @@ def run(project, entry, scope, op, turn, attempt, response):
     if op == "assemble":
         chapters = []
         dispositions = []
+        authorship = []
         for i, title in enumerate(SECTIONS):
             attempts = sorted(folder.glob(f"section-{i}-*.json"))
             if not attempts:
@@ -321,18 +326,30 @@ def run(project, entry, scope, op, turn, attempt, response):
             record = read_sealed(attempts[-1])["payload"]
             chapters.append("## " + title + "\n\n" + record["text"])
             dispositions.append(record["issues"])
+            authorship.append(
+                {
+                    "title": title,
+                    "attempt": record.get("attempt", int(attempts[-1].stem.split("-")[-1])),
+                    "source": record.get("author_source", record["text"]),
+                    "replacements": record.get("replacements", []),
+                    "edit_applied": record.get("edit_applied", False),
+                }
+            )
         return {
             "status": "withheld" if any(dispositions) else "independent_review_required",
             "issues": dispositions,
             "manuscript": "\n\n".join(chapters),
+            "authorship": authorship,
             "cards": card_index(project, folder),
             "source": scope["source"],
             "question": scope["question"],
         }
-    if turn not in range(len(SECTIONS)) or attempt not in (1, 2):
+    if turn not in range(len(SECTIONS)) or attempt not in (1, 2, 3):
         raise ValueError("INVALID_CHAPTER")
-    if attempt == 2:
-        previous = read_sealed(folder / f"section-{turn}-1.json")["payload"]
+    if attempt > 1:
+        previous = read_sealed(folder / f"section-{turn}-{attempt-1}.json")["payload"]
+        previous.setdefault("author_source", previous["text"])
+        previous.setdefault("diagnostics", [])
         if not previous["issues"]:
             raise ValueError("CHAPTER_ALREADY_VERIFIED")
     if op == "draft":
@@ -358,6 +375,12 @@ def run(project, entry, scope, op, turn, attempt, response):
             "每個推測須指出何種尚未取得的資料才能檢查。觀測列數、隨機抽樣和隨機分派是不同條件。"
             "重現資訊應指出欄位、有效分母、計算順序和資料字典。網址寫成 Markdown 連結，使用來源所給的完整 URL。"
         )
+        prompt += (
+            "\n請自行選擇要引用的 RDE 證據。主要結果章可在獨立段落輸入 {{group_table}} 以插入核准欄位的原生結果表。"
+            "正文要使用數值時，單獨寫證據卡的代號，例如 {{R1.1}}，工具會排入你選擇的數值與索引。"
+            "引用資料字典寫 {{source}}。每個分析判斷及段落都由你撰寫，工具只排版所選欄位。"
+            "請用段落說明問題、觀察及邊界，避免宣稱取得工具未計算的檢定、介入機制或病人層級因果效果。"
+        )
         if attempt == 2:
             prompt += (
                 "\n重新撰寫本章。下列原文片段有審核問題，需核對、刪去或自行改寫。請勿將回饋貼進正文。"
@@ -366,10 +389,52 @@ def run(project, entry, scope, op, turn, attempt, response):
                     ensure_ascii=False,
                 )
             )
+        if attempt == 3:
+            blocks = re.split(r"\n\s*\n", previous["author_source"].strip())
+            prompt += (
+                "\n最後一次為逐段修改。只輸出 JSON，格式為 "
+                + '{"edits":[{"block":0,"text":"你改寫的完整段落"}]}'
+                + (
+                    "。block 是下列原文的零起始索引。只修改有問題的段落，可用空字串刪除無根據的段落。"
+                    "含結果數表的段落可替換為 {{group_table}}。其他段落會逐字保留。\n"
+                )
+                + json.dumps(
+                    {
+                        "blocks": list(enumerate(blocks)),
+                        "issues": previous["issues"],
+                        "locations": previous["diagnostics"][:18],
+                    },
+                    ensure_ascii=False,
+                )
+            )
         return {"prompt": prompt, "status": "draft"}
-    checked = section_review(project.id, response, card_index(project, folder), turn, scope["unit"])
-    design = scope_diagnostics(response, scope)
+    author_source = response
+    edit_issue = None
+    if attempt == 3:
+        try:
+            author_source = edited_blocks(previous["author_source"], response)
+        except (ValueError, TypeError):
+            author_source, edit_issue = previous["author_source"], "INVALID_EDIT_SET"
+    cards = card_index(project, folder)
+    rendered, replacements = expand(author_source, cards, scope)
+    checked = section_review(project.id, rendered, cards, turn, scope["unit"])
+    if edit_issue:
+        checked["issues"].append(edit_issue)
+    if re.search(r"\{\{[^{}]+\}\}", rendered):
+        checked["issues"].append("UNKNOWN_FIELD_BINDING")
+    design = scope_diagnostics(rendered, scope)
     checked["issues"] = list(dict.fromkeys(checked["issues"] + [item["issue"] for item in design]))
     checked["diagnostics"].extend(design)
-    write_once(folder / f"section-{turn}-{attempt}.json", {"text": response, **checked})
+    write_once(
+        folder / f"section-{turn}-{attempt}.json",
+        {
+            "text": rendered,
+            "attempt": attempt,
+            "author_source": author_source,
+            "response": response,
+            "replacements": replacements,
+            "edit_applied": attempt == 3 and not edit_issue,
+            **checked,
+        },
+    )
     return {"status": "repair" if checked["issues"] else "observed", **checked}

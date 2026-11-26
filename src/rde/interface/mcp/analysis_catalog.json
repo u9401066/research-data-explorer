@@ -683,7 +683,11 @@
     },
     {
       "path": "src/rde/interface/mcp/resident.py",
-      "sha256": "026d210ba447f2e12027b5ea842c3d7d4fa4a623889fe6f0144d9dbfd4a12d68"
+      "sha256": "6fafa5d146890b66c064ba92dcedd7e5b136fdc13bf4f04c54b99b8428820637"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_bindings.py",
+      "sha256": "d3d544888645ce6036f4619ca32a407085ef7216108e1abd9dbc7f1be9afa8ec"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
@@ -10820,5 +10824,5 @@
       ]
     }
   ],
-  "catalog_sha256": "b4f03c69f673851eb49bca255aa88c95cd43e731fcd40ecbfcf5cb017a60f2ef"
+  "catalog_sha256": "fc536af88444d2a8a1a00ae528362543c57e91aa6ab47f0e5ec5365a4c25a8c9"
 }
