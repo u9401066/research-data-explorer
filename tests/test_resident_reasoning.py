@@ -552,3 +552,48 @@ def test_number_repair_offers_options_and_locates_author_value_without_editing_i
     assert repair["author_span"] == {"start": start, "end": start + 4, "quote": "4.15"}
     assert repair["previous_text"] == sentence_slices(author)[1]
     assert [c["id"] for c in repair["evidence_candidates"]] == ["R3.4", "R3.8"]
+
+
+def test_external_reason_preserves_reviewers_terminal_whitespace():
+    def h(s):
+        return hashlib.sha256(s.encode()).hexdigest()
+
+    author = "核對資料欄位。"
+    raw_author = '{"prose":"核對資料欄位。"}'
+    reason = "請對照核准欄名再說明。 "
+    raw_review = json.dumps(
+        {
+            "findings": [
+                {
+                    "sentence": 0,
+                    "issue": "scope",
+                    "reason": reason,
+                    "claim": "資料欄位",
+                    "basis": "scope.group_column",
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )
+    diagnosis = {"issue": "scope", "quote": author, "repair": reason}
+    envelope = {
+        "source_sha256": "a" * 64,
+        "response_sha256": h(raw_author),
+        "author_source_sha256": h(author),
+        "reviewer_response": raw_review,
+        "reviewer_response_sha256": h(raw_review),
+        "reviewer": "fixture",
+        "verdict": "repair",
+        "diagnostics": [diagnosis],
+    }
+    draft = {"source_scope": {"group_column": "batch"}, "editorial_slices_version": 1}
+    result = validate_external(envelope, "a" * 64, raw_author, author, draft=draft)
+    assert result[0]["repair"] == reason
+    with pytest.raises(ValueError, match="EXTERNAL_FINDING_REASON_MISMATCH"):
+        validate_external(
+            dict(envelope, diagnostics=[dict(diagnosis, repair=reason.strip())]),
+            "a" * 64,
+            raw_author,
+            author,
+            draft=draft,
+        )

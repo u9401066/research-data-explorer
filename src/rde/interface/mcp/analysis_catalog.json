@@ -711,7 +711,7 @@
     },
     {
       "path": "src/rde/interface/mcp/resident_protocol_v3.py",
-      "sha256": "7ddbf9108381c3a6aa191561481be7a26bc645fabc8bcb1cfe992086309039bf"
+      "sha256": "bca84d3b3ad16c55b6df36f08ceeb277cf49331fa821c862037fccd517ed7a1a"
     },
     {
       "path": "src/rde/interface/mcp/resident_reasoning.py",
@@ -10860,5 +10860,5 @@
       ]
     }
   ],
-  "catalog_sha256": "29fc4bbe54d1ac80705cd91a1a4923ffff67e271daf0e876fc5c3eac0119f0f1"
+  "catalog_sha256": "4db0cf8a95db93b989df65e1e6e08e6fed7194bbc4046041af5c8f3ee7f40226"
 }

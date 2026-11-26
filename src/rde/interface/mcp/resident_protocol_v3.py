@@ -742,9 +742,10 @@ def validate_external(value, source, response, author, *, draft=None):
             or not 0 <= f["sentence"] < len(sentences)
             or d["quote"] not in sentences[f["sentence"]]
             or d["issue"] != f["issue"]
-            or d["repair"] != f["reason"]
         ):
             raise ValueError("EXTERNAL_FINDING_QUOTE_MISMATCH")
+        if d["repair"] != f["reason"]:
+            raise ValueError("EXTERNAL_FINDING_REASON_MISMATCH")
         if "claim" in f:
             claim, basis = f["claim"], f["basis"]
             if d["quote"] != sentences[f["sentence"]]:
