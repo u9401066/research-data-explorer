@@ -122,7 +122,8 @@ adverse finding ends the sequence. An acceptance covers every nonempty slice.
 Native replay checks the raw review JSON, digest, source sentence and final verdict.
 Other paragraph sizes still receive whole-draft feedback and native size validation.
 
-Each allowed statistical field has a separate `evidence_receipts` entry containing
+Drafts declaring `authored_evidence_version=1` give each allowed statistical
+field a separate `evidence_receipts` entry containing
 its artifact, digest and JSON pointer. An author can state a raw numeric value
 without an inline card by selecting the uniquely matching statistic, group, unit,
 direction and precision. The paragraph keeps the author's original characters

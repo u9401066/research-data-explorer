@@ -1168,6 +1168,7 @@ def paragraph_v3(
             "mode": "author_json" if fresh else "sentence_edit",
             "editorial_basis_version": 1,
             "editorial_slices_version": 1,
+            "authored_evidence_version": 1,
             "focus": focus,
             "source_scope": source,
             "researcher_request": scope["question"],

@@ -448,6 +448,8 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
         check_request(draft)
         assert draft["editorial_basis_version"] == 1
         assert draft["editorial_slices_version"] == 1
+        assert draft["authored_evidence_version"] == 1
+        assert draft["evidence_receipts"].keys() == draft["editor_evidence"].keys()
         assert draft["source_scope"]["method_definitions"]["iqr"]["formula"] == "q3 - q1"
         assert draft["source_scope"]["observed_group_levels"] == ["A", "B"]
         model = payload(draft, turn)
