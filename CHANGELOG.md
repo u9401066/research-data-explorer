@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The Python package and VS Code extension share the release version.
 
+## [0.7.0] - experimental candidate
+
+- The opt-in `paragraph-v2` protocol lets a resident author and revise twenty short paragraphs across five chapters. Each action and revision has separate feedback and replay. Assembly retains model-authored text, its raw UTF-8 hashes and the bindings used to render each citation.
+- Six native observations cover missingness, group summaries, quartiles, sample variability, completeness percentages and signed mean/median contrasts. A companion index binds every card to its statistic, units, unrounded value, JSON pointer and artifact revision. [Manuscript protocol](docs/analysis-catalog.md#resident-descriptive-manuscripts)
+
 ## [0.6.2] - experimental
 
 - MCP responses carry a per-delivery input digest, invocation ID, source and artifact identities, and error disposition. The new read-only `review_research_action` verifies quoted scalar claims against JSON pointers in project-owned, hash-pinned artifacts before the next model turn. Feedback identifies issues without supplying manuscript text.

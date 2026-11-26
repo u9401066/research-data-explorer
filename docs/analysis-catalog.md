@@ -31,7 +31,8 @@ python -m pytest tests/test_analysis_catalog.py tests/test_docs_and_tool_sync.py
 `--check` 只核對目前來源、真實工具 schema 與完整宣告，不寫入檔案；有任何差異以非零狀態結束，適合 CI 與服務啟動前的部署檢查。
 
 測試核對 checked JSON 與實際註冊工具、原生 schema、來源檔案 hash，以及真 MCP discovery、未知拒絕、無 project 讀取、clinical family parser 與進階方法 dispatcher。另驗證 runtime 程式漂移拒絕、wheel 安裝路徑、跨 Python／JavaScript 的完整宣告 hash，以及診斷契約 `first=參考標準`、`second=檢測` 的實際編碼。這是能力與派送契約驗證，各方法的數值正確性另由其研究回歸測試驗證。
-# Resident descriptive manuscripts
+
+## Resident descriptive manuscripts
 
 `resident_exploration` accepts the opt-in scope member
 `"manuscript_protocol":"paragraph-v2"`. Reuse the approved project, dataset, original
@@ -40,7 +41,7 @@ The measure must be finite numeric or missing. Only approved context and aggrega
 delivered to the resident. Existing chapter runs keep their original protocol.
 
 * `open` returns the five sections, twenty paragraph tasks and remaining action names.
-  Choose an available action and provide the model's reason to `observe` (turns 1–9).
+  Choose an available action and provide the model's reason to `observe` (turns 1–18).
   A rejected choice consumes one turn. Continue until all six observations are recorded.
 * `data_quality` counts rows, missing groups, missing measures and joint complete rows.
   `group_estimates` gives assigned rows, observed measures and arithmetic mean.
@@ -53,8 +54,10 @@ delivered to the resident. Existing chapter runs keep their original protocol.
   `group_contrasts` subtracts the first observed group in native group sort order from
   each other group's mean and median. Contrasts keep the original measurement units.
 * `draft` and `review` alternate at the same flat paragraph turn (0–19). Attempt 1
-  requests short Traditional Chinese prose. Attempts 2 and 3 request complete revised
-  prose informed by the previous diagnostics. Replays use the same parameters and raw
+  requests short Traditional Chinese prose. Attempts 2 and 3 request targeted model edits
+  to indexed sentences in the preceding reply. Join unchanged sentences and model-supplied
+  replacements as exact UTF-8 text. Each draft retains the raw reply and composed-author
+  hashes. Exhausted paragraphs can be followed by the next task. Replays use the same parameters and raw
   UTF-8 reply. `review` returns exact locators, actual feedback, issues and a checklist.
 * `assemble` withholds incomplete drafts. Completed results include model-authorship
   records with raw UTF-8 hashes, the manuscript, rich native cards and a separate
@@ -62,3 +65,6 @@ delivered to the resident. Existing chapter runs keep their original protocol.
   the manuscript. It includes units, direction, unrounded values, JSON pointers and
   artifact revisions. `independent_review_required` requires a separate assessment of
   coverage, scientific interpretation, study design and unsupported qualitative claims.
+* The model can cite a native field through `{{R…}}`, or give a rounded number, unit,
+  group and matching statistic with an adjacent author-selected citation. Numeric
+  dictionary facts use `{{S…}}` for an exact approved excerpt with offsets and source URL.

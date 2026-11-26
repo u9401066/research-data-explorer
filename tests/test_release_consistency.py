@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 from pathlib import Path
 
@@ -34,6 +35,12 @@ def test_changelog_exists_and_covers_current_version() -> None:
 
     assert CHANGELOG.exists()
     assert hook.changelog_has_version(hook.read_repo_version()) is True
+
+
+def test_extension_lock_matches_the_shared_candidate_version() -> None:
+    version = _load_hook_module().read_repo_version()
+    lock = json.loads((ROOT / "vscode-extension/package-lock.json").read_text(encoding="utf-8"))
+    assert lock["version"] == lock["packages"][""]["version"] == version
 
 
 def test_internal_dataset_is_gitignored_and_blocked() -> None:

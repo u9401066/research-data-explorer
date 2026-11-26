@@ -17,7 +17,15 @@ from rde.interface.mcp.resident import (
     cited_claims,
     observations,
 )
-from rde.interface.mcp.resident_bindings import displayed, expand
+from rde.interface.mcp.resident_bindings import displayed
+from rde.interface.mcp.resident_citations import numeric_links, render, source_fields
+from rde.interface.mcp.resident_reasoning import (
+    LIMITS,
+    action_reason,
+    apply_edits,
+    edit_schema,
+    sentence_slices,
+)
 
 
 # Each assignment describes work for the resident. The host supplies no manuscript prose.
@@ -118,11 +126,21 @@ def next_action(scope, available, observed=None):
         "只輸出 JSON 的 action 和 reason；說明此檢查能解答的問題，勿預先假定結果或研究設計。\n"
         + json.dumps(approved_context(scope), ensure_ascii=False)
         + "\n可選檢查 "
-        + json.dumps({a: DESCRIPTIONS[a] for a in available}, ensure_ascii=False)
+        + json.dumps(
+            {a: {"outputs": DESCRIPTIONS[a], "limits": LIMITS[a]} for a in available},
+            ensure_ascii=False,
+        )
     )
     if observed is not None:
         prompt += "\n最近一次彙總 " + json.dumps(observed, ensure_ascii=False)
-    return {"response_schema": schema, "prompt": prompt, "remaining_actions": available}
+    return {
+        "response_schema": schema,
+        "prompt": prompt,
+        "remaining_actions": available,
+        "capabilities": {
+            a: {"outputs": DESCRIPTIONS[a], "limits": LIMITS[a]} for a in PARAGRAPH_ACTIONS
+        },
+    }
 
 
 def safe_grouping(frame, scope):
@@ -149,8 +167,12 @@ def scientific_issues(text, scope):
             "UNDOCUMENTED_STUDY_DESIGN",
             r"隨機(?:分派|分配|分組|對照試驗|試驗)|randomi[sz]ed(?:\s+(?:allocation|trial|assignment))?",
         ),
-        ("UNDOCUMENTED_STUDY_DESIGN", r"隨機(?:抽樣|取樣)|random\s+sampl(?:e|ing)"),
+        (
+            "UNDOCUMENTED_STUDY_DESIGN",
+            r"隨機(?:抽樣|取樣|分派與抽樣|分配與抽樣)|random\s+sampl(?:e|ing)",
+        ),
         ("UNDOCUMENTED_STUDY_DESIGN", r"雙盲|double.blind"),
+        ("UNDOCUMENTED_STUDY_DESIGN", r"分層隨機化|分層隨機分派|stratified randomi[sz]ation"),
         (
             "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE",
             r"統計(?:學)?(?:上)?顯著|顯著(?:提升|降低|增加|高於|低於)|統計(?:學)?意義|statistically significant",
@@ -158,6 +180,10 @@ def scientific_issues(text, scope):
         (
             "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE",
             r"(?:具有|存在|證實|確立)(?:了)?因果|導致|造成|信賴區間(?:為|是)|[pP]\s*[<≤=]|(?:證明|證實)(?:療效|治療效果)",
+        ),
+        (
+            "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE",
+            r"(?:判斷|推斷|推論|評估).{0,20}是否.{0,12}影響治療反應|影響治療反應的.{0,8}因子|對風險因素的影響機制",
         ),
     )
     negation = r"未(?:曾|必|能)?|無法|無從|不是|並非|非(?:經由)?|不(?:宜|能|應|足以|代表|屬於|是|具|具有|可)|沒有|缺乏|是否|避免|難以|假如|若|假設|可能|cannot|without|not\s"
@@ -182,7 +208,7 @@ def scientific_issues(text, scope):
 
 
 def observe(project, entry, scope, anchor, folder, turn, response):
-    if turn not in range(1, 10) or turn > 1 and not (folder / f"action-{turn-1}.json").exists():
+    if turn not in range(1, 19) or turn > 1 and not (folder / f"action-{turn-1}.json").exists():
         raise ValueError("INVALID_ACTION_SEQUENCE")
     receipt = folder / f"action-{turn}.json"
     if receipt.exists():
@@ -195,7 +221,7 @@ def observe(project, entry, scope, anchor, folder, turn, response):
     except ValueError:
         choice = None
     action = choice.get("action") if isinstance(choice, dict) else None
-    issue, observation = None, None
+    issue, observation, errors = None, None, []
     if (
         action not in PARAGRAPH_ACTIONS
         or set(choice) != {"action", "reason"}
@@ -203,7 +229,15 @@ def observe(project, entry, scope, anchor, folder, turn, response):
         or not choice["reason"].strip()
     ):
         issue = "INVALID_ACTION_OR_REASON"
-    elif errors := scientific_issues(choice["reason"], scope):
+    elif errors := scientific_issues(choice["reason"], scope) + action_reason(
+        action,
+        choice["reason"],
+        {
+            k: read_sealed(folder / f"{k}.json")["payload"]["observation"]
+            for k in PARAGRAPH_ACTIONS
+            if (folder / f"{k}.json").exists()
+        },
+    ):
         issue = errors[0]["issue"]
     else:
         path = folder / f"{action}.json"
@@ -229,7 +263,8 @@ def observe(project, entry, scope, anchor, folder, turn, response):
         "status": "repair" if issue else "observed",
         "action": action,
         "issue": issue,
-        "issues": [issue] if issue else [],
+        "issues": list(dict.fromkeys(d["issue"] for d in errors)) or ([issue] if issue else []),
+        "diagnostics": errors,
         "observation": observation,
         **next_action(scope, remaining(folder), observation),
         **feedback(
@@ -240,7 +275,12 @@ def observe(project, entry, scope, anchor, folder, turn, response):
         ),
     }
     if issue:
-        result["prompt"] = f"上一個選擇需修正：{issue}。\n" + result["prompt"]
+        result["prompt"] = (
+            "上一個選擇需修正："
+            + json.dumps(errors or [issue], ensure_ascii=False)
+            + "。用一句話說明所選工具會取得的實際欄位。\n"
+            + result["prompt"]
+        )
     write_once(receipt, {"turn": turn, "response": response, "result": result})
     return result
 
@@ -383,7 +423,9 @@ def assignments(scope, turn, cards, prior, previous):
         "這一段的任務："
         + focus
         + "\n核准資料："
-        + json.dumps(approved_context(scope), ensure_ascii=False)
+        + json.dumps(
+            {**approved_context(scope), "question": manuscript_title(scope)}, ensure_ascii=False
+        )
         + "\n直接輸出正文，約 190 至 320 個中文字。不要輸出章名、小標、清單、JSON、作者自述或寫作指示。"
         "用具體科學解釋把本段的問題、觀察和意義連起來，各段各有新資訊。"
         "樣本描述須區分資料列、量測及個人，不能把組別差異當療效。"
@@ -399,6 +441,14 @@ def assignments(scope, turn, cards, prior, previous):
         "本章交代範圍、外推條件與重現性，給出具體品質或驗證條件。",
     )
     prompt += "\n本章角色：" + role[turn // 4]
+    dictionary = source_fields(scope)
+    if dictionary:
+        prompt += (
+            "\n如需引用含數字的資料字典定義，可選原文代碼以帶入原文、單位及來源連結："
+            + json.dumps(
+                {"{{" + key + "}}": v["quote"] for key, v in dictionary.items()}, ensure_ascii=False
+            )
+        )
     if relevant:
         prompt += (
             "\n引用下列與本段相符的欄位，用完整的 {{R卡號}} 代碼放在相應組別、統計指標之後。"
@@ -415,8 +465,11 @@ def assignments(scope, turn, cards, prior, previous):
         prompt += "\n緊接的上段結尾：" + prior[-1]["author_source"].strip()[-120:]
     if previous:
         prompt += (
-            "\n上稿被退回，請依退回原因重新寫此段的完整正文。先前稿："
-            + previous["author_source"][:1500]
+            "\n本回合是局部修訂。只輸出 JSON edits，依下列句號索引修正有問題的句子；刪句用空字串。"
+            "text 寫你自行修訂的完整句子並保留句尾標點，不需重抄其餘句子。原稿索引："
+            + json.dumps(
+                list(enumerate(sentence_slices(previous["author_source"]))), ensure_ascii=False
+            )
             + "\n實際核對："
             + json.dumps(previous["result"]["diagnostics"][:12], ensure_ascii=False)
         )
@@ -452,7 +505,7 @@ def repetition(raw, prior):
 
 def scope_numbers(raw, scope, cards):
     """Ignore digits *within* approved codes/units/column names and author-selected bindings."""
-    text = re.sub(r"\{\{[^{}]*\}\}", lambda m: " " * len(m.group()), raw)
+    text = re.sub(r"\{\{[^{}]*\}\}|\[R\d+\.\d+\]", lambda m: " " * len(m.group()), raw)
     allowed = {scope[k] for k in ("group", "measure", "unit")}
     allowed.update(str(c["group"]) for c in cards.values() if c.get("group") is not None)
     for word in sorted((w for w in allowed if re.search(r"\d", w)), key=len, reverse=True):
@@ -478,7 +531,7 @@ def scope_numbers(raw, scope, cards):
         text = re.sub(year + r"(?=\s*年)", "    ", text)
     return [
         {"issue": "UNBOUND_AUTHOR_NUMBER", "start": m.start(), "end": m.end(), "quote": m.group()}
-        for m in re.finditer(r"(?<![a-zA-Z])[-+]?\d+(?:\.\d+)?", text)
+        for m in re.finditer(r"[-+]?\d+(?:\.\d+)?", text)
     ]
 
 
@@ -542,7 +595,7 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
     def problem(code, **details):
         diagnostics.append({"issue": code, **details})
 
-    text, replacements = expand(raw, cards, scope)
+    text, replacements = render(raw, cards, scope)
     prose = clean_text(raw)
     han = re.findall(r"[\u3400-\u9fff]", prose)
     if len(han) < 90 or len(set(han)) < 35:
@@ -559,12 +612,17 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
     if re.search(r"https?://", raw):
         problem("UNBOUND_SOURCE_LINK", expected="{{source}}")
     if re.search(
-        r"\{\{|\}\}|\[R\d|\[E?\d+\]", re.sub(r"\{\{(?:R\d+\.\d+|source|group_table)\}\}", "", raw)
+        r"\{\{|\}\}|\[R\d|\[E?\d+\]",
+        re.sub(r"\{\{(?:R\d+\.\d+|S\d+|source|group_table)\}\}|\[R\d+\.\d+\]", "", raw),
     ):
         problem("UNKNOWN_OR_MANUAL_BINDING")
     if "{{" in text or "}}" in text:
         problem("UNKNOWN_FIELD_BINDING")
-    if kind == "source" and "{{source}}" not in raw:
+    if (
+        kind == "source"
+        and "{{source}}" not in raw
+        and not any("{{" + s + "}}" in raw for s in source_fields(scope))
+    ):
         problem("SOURCE_LINK_REQUIRED", expected="{{source}}")
     if raw.count("{{group_table}}") != (1 if kind == "table" else 0):
         problem("GROUP_TABLE_PLACEMENT", expected=1 if kind == "table" else 0)
@@ -573,7 +631,8 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
     if code := repetition(raw, prior):
         problem(code)
     diagnostics.extend(scientific_issues(raw, scope))
-    diagnostics.extend(scope_numbers(raw, scope, cards))
+    numbers, linked = numeric_links(raw, scope, cards, scope_numbers(raw, scope, cards))
+    diagnostics.extend(numbers)
     diagnostics.extend(claim_context(raw, cards))
     claims, used, binding_issues = cited_claims(text, cards, scope["unit"])
     diagnostics.extend(binding_issues)
@@ -611,6 +670,24 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
                     claim = part[item["claim"]]
                     problem(item["issue"], quote=claim["quote"], pointer=claim["pointer"])
     issues = list(dict.fromkeys(d["issue"] for d in diagnostics))
+    for diagnostic in diagnostics:
+        issue = diagnostic["issue"]
+        diagnostic.setdefault(
+            "repair",
+            {
+                "UNDOCUMENTED_STUDY_DESIGN": "只按核准來源敘述。分派決定受試者如何進組；抽樣決定個體如何進入樣本。缺乏資料的程序請刪除或明確標示未知。",
+                "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE": "刪除無法用核准描述統計回答的療效、機制或推論；若談未來研究，要明確標明還需哪些新證據。",
+                "FOCUS_EVIDENCE_REQUIRED": "在本段指明一個可用卡號，放在符合的統計名、組別或分母旁。",
+                "CITATION_METRIC_MISMATCH": "核對引文卡名稱，讓正在說明的欄位與卡號相符。",
+            }.get(issue, "依檢查項目及定位修訂該句；保留符合本段任務的其他句子。"),
+        )
+        if isinstance(diagnostic.get("start"), int):
+            pos = 0
+            for i, sentence in enumerate(sentence_slices(raw)):
+                if pos <= diagnostic["start"] < pos + len(sentence):
+                    diagnostic.update(sentence=i, sentence_text=sentence)
+                    break
+                pos += len(sentence)
     checks = {
         "source_anchored": True,
         "prose_format": not any(
@@ -639,6 +716,7 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
             "diagnostics": diagnostics,
             "used": sorted(used),
             "native_reviews": reviews,
+            "numeric_links": linked,
             **feedback(
                 "repair" if issues else "accept",
                 "、".join(issues) or "段落正文、資料範圍及所引欄位已核對。",
@@ -649,6 +727,13 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
 
 
 def assemble(scope, cards, folder):
+    old_path = folder / "assembly.json"
+    if old_path.exists():
+        existing = read_sealed(old_path)["payload"]
+        if "source_dictionary" not in existing:
+            if existing["cards"] != cards or existing["source"] != scope["source"]:
+                raise ValueError("ASSEMBLY_SOURCE_CHANGED")
+            return existing
     authorship, chapters, issues = [], [], []
     card_sha = digest(cards)
     for chapter in sections():
@@ -659,12 +744,21 @@ def assemble(scope, cards, folder):
             if not record:
                 issues.append(f"MISSING_ACCEPTED_PARAGRAPH:{turn}")
                 continue
-            rendered, changes = expand(record["author_source"], cards, scope)
+            if "response" not in record:
+                record = {
+                    **record,
+                    "response": record["author_source"],
+                    "author_source_sha256": record["response_sha256"],
+                    "edit_applied": False,
+                    "base_attempt": None,
+                }
+            rendered, changes = render(record["author_source"], cards, scope)
             if (
                 card_sha != record["cards_sha256"]
                 or rendered != record["text"]
                 or changes != record["replacements"]
-                or raw_hash(record["author_source"]) != record["response_sha256"]
+                or raw_hash(record["author_source"]) != record["author_source_sha256"]
+                or raw_hash(record["response"]) != record["response_sha256"]
             ):
                 issues.append(f"PARAGRAPH_BINDING_CHANGED:{turn}")
                 continue
@@ -677,6 +771,10 @@ def assemble(scope, cards, folder):
                         "attempt",
                         "author_source",
                         "response_sha256",
+                        "response",
+                        "author_source_sha256",
+                        "edit_applied",
+                        "base_attempt",
                         "text",
                         "replacements",
                     )
@@ -691,6 +789,7 @@ def assemble(scope, cards, folder):
         "authorship": authorship,
         "cards": cards,
         "source": scope["source"],
+        "source_dictionary": source_fields(scope),
         "question": scope["question"],
         "sections": sections(),
         **feedback(
@@ -718,9 +817,12 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
         raise ValueError("DATASET_CHANGED")
     safe_grouping(entry.dataframe, scope)
     if op == "open":
+        if (folder / "open.json").exists():
+            return read_sealed(folder / "open.json")["payload"]
         result = {
             "status": "explore",
             "protocol": "paragraph-v2",
+            "max_observation_turns": 18,
             "sections": sections(),
             **next_action(scope, list(PARAGRAPH_ACTIONS)),
             **feedback(
@@ -757,12 +859,13 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
         return read_sealed(prompt_path)["payload"]
     if op == "review" and path.exists():
         record = read_sealed(path)["payload"]
-        if record["author_source"] != response:
+        if record.get("response", record["author_source"]) != response:
             raise ValueError("PARAGRAPH_REPLAY_CHANGED")
         return record["result"]
     prior = [accepted(folder, i) for i in range(turn)]
-    if any(not r for r in prior):
+    if any(not r and not paragraph_path(folder, i, 3).exists() for i, r in enumerate(prior)):
         raise ValueError("EARLIER_PARAGRAPH_NOT_ACCEPTED")
+    prior = [r for r in prior if r]
     previous = None
     if attempt > 1:
         previous = read_sealed(paragraph_path(folder, turn, attempt - 1))["payload"]
@@ -778,13 +881,48 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
                 "ready",
                 "本段任務、可用資料及先前審核回饋已連結。",
                 complete_observations=True,
-                prior_paragraphs_accepted=True,
+                prior_paragraphs_reviewed=True,
             ),
         }
+        if previous:
+            sentences = sentence_slices(previous["author_source"])
+            result.update(
+                base_attempt=attempt - 1,
+                base_sha256=raw_hash(previous["author_source"]),
+                sentences=sentences,
+                response_schema=edit_schema(len(sentences)),
+            )
         return write_once(prompt_path, result)["payload"]
     if not prompt_path.exists():
         raise ValueError("PARAGRAPH_NOT_REQUESTED")
-    record = check_paragraph(project, scope, cards, turn, response, prior)
-    record["attempt"] = attempt
+    author_source = response
+    invalid = False
+    if previous:
+        try:
+            author_source = apply_edits(sentence_slices(previous["author_source"]), response)
+        except (ValueError, TypeError):
+            invalid = True
+            author_source = previous["author_source"]
+    record = check_paragraph(project, scope, cards, turn, author_source, prior)
+    meta = {
+        "response_sha256": raw_hash(response),
+        "author_source_sha256": raw_hash(author_source),
+        "edit_applied": bool(previous) and not invalid,
+        "base_attempt": attempt - 1 if previous else None,
+    }
+    record.update(attempt=attempt, response=response, **meta)
+    record["result"].update(meta)
+    if invalid:
+        result = record["result"]
+        result.update(status="repair", issues=["INVALID_SENTENCE_EDITS", *result["issues"]])
+        result["diagnostics"].insert(
+            0,
+            {
+                "issue": "INVALID_SENTENCE_EDITS",
+                "repair": "只回傳 edits，索引從零且不重複，text 為完整修正句；刪句可給空字串。",
+            },
+        )
+        result["feedback"] = {"disposition": "repair", "reason": "INVALID_SENTENCE_EDITS"}
+    record["result"]["checklist"].append({"check": "model_edits_valid", "passed": not invalid})
     write_once(path, record)
     return record["result"]

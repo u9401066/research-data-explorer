@@ -90,7 +90,7 @@ RDE 是給非資料科學家使用的 agent harness，不是只產生漂亮摘�
 
 ## MCP + Harness 設計
 
-0.6.2 實驗分支的 `resident_exploration` 限定在核准的專案資料上運算，供駐站模型選擇下一個探索動作。`review_research_action` 以原生資料產物的雜湊、定位與數值核對模型申報的引用。Workbench 負責模型對話、工作進度與網頁，另以獨立重算及科學評閱判定稿件品質。[逐動作評閱與原稿](https://github.com/u9401066/research-workbench/tree/work/bonsai-reviewed-research-20261126/studies/2026-11-26-medical-exploration/resident)
+0.7.0 實驗候選版的 `resident_exploration` 可讓駐站模型自行撰寫、修訂二十個研究段落。六項原生探索保留實際運算結果，每個動作都有審核回饋。成稿另附讀者證據索引，可查核數值、單位、欄位、原生定位與雜湊。Workbench 封存模型對話及獨立科學評閱結果。[段落組稿契約](docs/analysis-catalog.md#resident-descriptive-manuscripts) · [逐動作評閱與原稿](https://github.com/u9401066/research-workbench/tree/work/bonsai-reviewed-research-20261126/studies/2026-11-26-medical-exploration/resident)
 
 目前 RDE 提供 80 個 MCP tools，分布於 17 組 modules：
 

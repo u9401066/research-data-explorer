@@ -156,13 +156,16 @@ def test_protocol_uses_actual_source_artifact_and_author_bytes(protocol):
     with pytest.raises(ValueError, match="PARAGRAPH_REPLAY_CHANGED"):
         call("review", 0, response="another")
     assert call("draft", 0) == prompt
-    originals = []
+    originals, replies = [], []
     # Test paragraphs exercise byte/locator assembly and are never exported as research.
     for turn, (_, kind) in enumerate(TASKS):
         attempt = 2 if turn == 0 else 1
         drafted = call("draft", turn, attempt)
         if turn == 0:
-            assert invalid in drafted["prompt"] and "UNBOUND_AUTHOR_NUMBER" in drafted["prompt"]
+            assert (
+                "".join(drafted["sentences"]) == invalid
+                and "UNBOUND_AUTHOR_NUMBER" in drafted["prompt"]
+            )
         rng = random.Random(turn)
         words = ""
         focus = (
@@ -241,12 +244,27 @@ def test_protocol_uses_actual_source_artifact_and_author_bytes(protocol):
         if kind == "table":
             bindings = ["{{group_table}}"]
         raw = "  " + words + "。\n" + "，".join(bindings) + "  "
-        checked = call("review", turn, attempt, raw)
+        reply = (
+            raw
+            if attempt == 1
+            else json.dumps(
+                {
+                    "edits": [
+                        {"sentence": i, "text": raw if i == 0 else ""}
+                        for i in range(len(drafted["sentences"]))
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        )
+        checked = call("review", turn, attempt, reply)
+        assert call("review", turn, attempt, reply) == checked
         assert not checked["issues"], (turn, checked)
         assert checked["status"] == "observed" and checked["feedback"]["disposition"] == "accept"
         if bindings and kind != "source":
             assert checked["native_reviews"][0]["checks"]
         originals.append(raw)
+        replies.append(reply)
     result = call("assemble")
     assert result["status"] == "independent_review_required" and call("assemble") == result
     assert "有效測量率（%）" in result["manuscript"] and "缺測率（%）" in result["manuscript"]
@@ -254,12 +272,36 @@ def test_protocol_uses_actual_source_artifact_and_author_bytes(protocol):
     assert hashlib.sha256(csv.read_bytes()).hexdigest() in result["evidence_index"]
     records = [p for s in result["authorship"] for p in s["paragraphs"]]
     assert [r["author_source"] for r in records] == originals
-    assert [r["response_sha256"] for r in records] == [
+    assert [r["author_source_sha256"] for r in records] == [
         hashlib.sha256(r.encode()).hexdigest() for r in originals
     ]
+    assert [r["response_sha256"] for r in records] == [
+        hashlib.sha256(r.encode()).hexdigest() for r in replies
+    ]
+    assert [r["response"] for r in records] == replies and records[0]["edit_applied"]
     csv.write_text("arm,depth\nA,87\n", encoding="utf-8")
     with pytest.raises(ValueError):
         call("assemble")
+
+
+def test_exhausted_paragraph_can_continue_without_assembling(protocol):
+    call, _ = protocol
+    advance(call)
+    raw = "原句。"
+    call("draft", 0)
+    failed = call("review", 0, response=raw)
+    for attempt in (2, 3):
+        draft = call("draft", 0, attempt)
+        assert (
+            draft["base_attempt"] == attempt - 1
+            and draft["base_sha256"] == failed["author_source_sha256"]
+        )
+        failed = call("review", 0, attempt, '{"edits":[]}')
+        assert "INVALID_SENTENCE_EDITS" in failed["issues"] and not failed["edit_applied"]
+        assert failed["response_sha256"] != failed["author_source_sha256"]
+    assert call("draft", 1)["status"] == "draft"
+    result = call("assemble")
+    assert result["status"] == "withheld" and result["issues"][0] == "MISSING_ACCEPTED_PARAGRAPH:0"
 
 
 def test_padded_and_repeated_content_cannot_be_passed_as_new_paragraph():

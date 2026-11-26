@@ -690,8 +690,16 @@
       "sha256": "b4a29e0be798bf6c653794eefc200b161a23b075534110f9cb7bbf4a6dd0068b"
     },
     {
+      "path": "src/rde/interface/mcp/resident_citations.py",
+      "sha256": "6fcc21e367fc1bd3a3ca9b39842894ff54a4e2b125b84d672c61c46b2e2d8a14"
+    },
+    {
       "path": "src/rde/interface/mcp/resident_paragraphs.py",
-      "sha256": "bb8321af0aaa8891cfbe218f25fb8ca9c73e8329307c91e8d260aadd2ed2780a"
+      "sha256": "3350ceab6e5c7e2b0e7c935b18364137e828dd8355c4d27a2141e9f36f18b21f"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_reasoning.py",
+      "sha256": "04ddecaf08ee610ec69915b35ce23560be99b85415b9ebd03d78508e15beb7d0"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
@@ -10828,5 +10836,5 @@
       ]
     }
   ],
-  "catalog_sha256": "ffac5ef672a43eedc468a1ca5ac6302b3f8cd99fc6bb867ff4505a9932b57e93"
+  "catalog_sha256": "c8dd1598784504a04aea24edfc2e7a397975399ab5813ed75daeb672c9392f37"
 }

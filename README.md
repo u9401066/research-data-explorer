@@ -146,7 +146,7 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The 0.6.2 experimental resident workflow uses `resident_exploration` to measure an approved, project-bound dataset and return evidence for the next model action. `review_research_action` checks submitted quotations and scalar claims against immutable RDE artifacts. Workbench hosts the model and records its decisions. The archived studies include independent scientific review and the original manuscripts. [Resident benchmark](https://github.com/u9401066/research-workbench/tree/work/bonsai-reviewed-research-20261126/studies/2026-11-26-medical-exploration/resident)
+In the 0.7.0 experimental candidate, `resident_exploration` can review a resident-authored manuscript one paragraph at a time. Six source-bound observations provide the aggregate statistics. Reviews return diagnostics and a companion index locates native values, units and artifact revisions. Workbench hosts the model and archives its actions and independent scientific reviews. [Manuscript protocol](docs/analysis-catalog.md#resident-descriptive-manuscripts) · [Archived resident studies](https://github.com/u9401066/research-workbench/tree/work/bonsai-reviewed-research-20261126/studies/2026-11-26-medical-exploration/resident)
 
 The current implementation exposes 80 MCP tools across 17 modules:
 
