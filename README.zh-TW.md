@@ -10,7 +10,7 @@ RDE 是 MCP server + agent harness，協助 agent 與研究者在不必大量自
 
 ## 0.6.0：具型別的臨床研究與因果流程
 
-同一個 RDE MCP 新增五個有明確界線的原生家族：[PMM 多重插補](docs/imputation-study.md)、[二元分層 CMH／MH OR](docs/stratified-study.md)、[獨立連續終點 Welch 非劣性](docs/noninferiority-study.md)、[固定 1:1 傾向分數配對](docs/matching-study.md)，以及[基線目標試驗契約](docs/target-trial-source-validation.md)。目前有 **25 個能力家族、78 個工具、17 組 modules**；Agent 先讀 live catalog 與完整 schema，核對來源／規格，再將相同規格提案、核准、鎖定及執行。
+同一個 RDE MCP 新增五個有明確界線的原生家族：[PMM 多重插補](docs/imputation-study.md)、[二元分層 CMH／MH OR](docs/stratified-study.md)、[獨立連續終點 Welch 非劣性](docs/noninferiority-study.md)、[固定 1:1 傾向分數配對](docs/matching-study.md)，以及[基線目標試驗契約](docs/target-trial-source-validation.md)。目前有 **25 個能力家族、80 個工具、17 組 modules**；Agent 先讀 live catalog 與完整 schema，核對來源／規格，再將相同規格提案、核准、鎖定及執行。
 
 每個流程保存人口帳本、凍結數值、表圖與來源證據，重用及重繪不得默默改方法或重新估計。配對目標限保留的 matched-treated 族群，推論為 pair-cluster 近似；TTE 限核准資料準備、單一基線處置及完整固定追蹤。不能把這些名稱擴稱成完整 ATT、動態策略 TTE、臨床有效性認證或論文重現。實際工程驗證與未測範圍見 [0.6.0 驗證紀錄](docs/release-0.6.0-validation.md)；Workbench／Qwen 驗收另行追蹤，正式發布以 [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases) 為準。
 
@@ -71,7 +71,7 @@ wheel、source archive 與 VSIX 已核對程式和圖片內容。最終遠端發
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | `PipelinePhase` 定義 13 個 phase，從 `phase_00_project_setup` 到 `phase_12_auto_improve` |
 | MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 官方 SDK v2 `MCPServer` 註冊 17 組 tool modules |
-| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 78 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
+| MCP tool surface | [src/rde/interface/mcp/tools](src/rde/interface/mcp/tools) 與 [vscode-extension/package.json](vscode-extension/package.json) | 80 個 expected MCP tools，與即時 SDK registry 及工具契約一致 |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls、override flags、audit paths、delegation、UX harness、core goal contract |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) 與 [vscode-extension/package.json](vscode-extension/package.json) | MCP provider、`@rde` chat participant、Command Palette 指令、Codex config helper、optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`、`academic_ready`、`production_ready`、publication bundle、semantic quality、claim provenance、core-goal audit |
@@ -90,11 +90,13 @@ RDE 是給非資料科學家使用的 agent harness，不是只產生漂亮摘�
 
 ## MCP + Harness 設計
 
-目前 RDE 提供 78 個 MCP tools，分布於 17 組 modules：
+0.6.2 實驗分支的 `resident_exploration` 限定在核准的專案資料上運算，供駐站模型選擇下一個探索動作。`review_research_action` 以原生資料產物的雜湊、定位與數值核對模型申報的引用。Workbench 負責模型對話、工作進度與網頁，另以獨立重算及科學評閱判定稿件品質。[逐動作評閱與原稿](https://github.com/u9401066/research-workbench/tree/work/bonsai-reviewed-research-20261126/studies/2026-11-26-medical-exploration/resident)
+
+目前 RDE 提供 80 個 MCP tools，分布於 17 組 modules：
 
 | Module | 數量 | 工具 |
 | --- | ---: | --- |
-| `protocol_tools.py` | 7 | `get_analysis_catalog`, `get_workflow_contract`, `validate_workflow_connection`, `read_artifact`, `research_plan`, `get_dataset_version`, `data_preparation` |
+| `protocol_tools.py` | 9 | `get_analysis_catalog`, `get_workflow_contract`, `validate_workflow_connection`, `read_artifact`, `research_plan`, `get_dataset_version`, `data_preparation`, `resident_exploration`, `review_research_action` |
 | `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
 | `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |

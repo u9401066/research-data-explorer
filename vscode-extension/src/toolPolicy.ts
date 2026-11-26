@@ -51,6 +51,8 @@ export const RDE_MCP_TOOL_NAMES = [
     'data_preparation',
     'research_plan',
     'read_artifact',
+    'resident_exploration',
+    'review_research_action',
     'init_project',
     'get_pipeline_status',
     'get_decision_log',

@@ -32,7 +32,7 @@ An audit pass measures the implemented workflow checks. It does not certify stud
 
 ## Current Code-Verified Snapshot
 
-Version **0.6.0** adds five bounded native clinical families to the existing data-preparation and analysis workflow: [PMM multiple imputation](docs/imputation-study.md), [binary stratified CMH/MH odds ratios](docs/stratified-study.md), [independent continuous Welch noninferiority](docs/noninferiority-study.md), [fixed 1:1 propensity matching](docs/matching-study.md), and [baseline target-trial protocols](docs/target-trial-source-validation.md). The live catalog contains **25 families and 78 MCP tools across 17 modules**. Discover the full family contract, inspect the exact source/specification, approve and lock it, then execute that same specification.
+Version **0.6.0** adds five bounded native clinical families to the existing data-preparation and analysis workflow: [PMM multiple imputation](docs/imputation-study.md), [binary stratified CMH/MH odds ratios](docs/stratified-study.md), [independent continuous Welch noninferiority](docs/noninferiority-study.md), [fixed 1:1 propensity matching](docs/matching-study.md), and [baseline target-trial protocols](docs/target-trial-source-validation.md). The live catalog contains **25 families and 80 MCP tools across 17 modules**. Discover the full family contract, inspect the exact source/specification, approve and lock it, then execute that same specification.
 
 These methods retain population ledgers, immutable numerical receipts, source-bound tables/figures and report/replay checks. Matching targets the retained matched-treated population with approximate pair-cluster inference; TTE requires approved preparation evidence and complete fixed follow-up. Neither name implies unrestricted ATT estimation, dynamic-treatment TTE, validated clinical assumptions or reproduction of published articles. Full scope and release-check boundaries are recorded in [0.6.0 native validation](docs/release-0.6.0-validation.md). Workbench/Qwen study acceptance is separate. The authoritative publication record and downloadable assets remain [GitHub Releases](https://github.com/u9401066/research-data-explorer/releases).
 
@@ -99,7 +99,7 @@ This README is aligned with the current implementation, not only the older prose
 | --- | --- | --- |
 | Public workflow | [src/rde/application/pipeline/__init__.py](src/rde/application/pipeline/__init__.py) | 13 phases, `phase_00_project_setup` through `phase_12_auto_improve` |
 | MCP server registration | [src/rde/interface/mcp/server.py](src/rde/interface/mcp/server.py) | 17 tool modules on official SDK v2 `MCPServer`; [protocol details](docs/mcp-v2.md) |
-| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 78 tools, explicit effect/gate metadata, structured output and live inventory tests |
+| MCP tool surface | [src/rde/interface/mcp/contracts.py](src/rde/interface/mcp/contracts.py) and [vscode-extension/package.json](vscode-extension/package.json) | 80 tools, explicit effect/gate metadata, structured output and live inventory tests |
 | Agent control contract | [.github/agent-control.yaml](.github/agent-control.yaml) | phase controls, override flags, audit paths, delegation, UX harness, readiness goals |
 | VSIX harness | [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) and [vscode-extension/package.json](vscode-extension/package.json) | MCP server provider, `@rde` chat participant, commands, Codex config helper, optional automl check |
 | Report readiness | [src/rde/interface/mcp/tools/report_tools.py](src/rde/interface/mcp/tools/report_tools.py) | `minimum_complete`, `academic_ready`, `production_ready`, publication bundle, semantic quality, core-goal audit |
@@ -146,11 +146,13 @@ The runtime control layers are:
 
 ## MCP Tool Surface
 
-The current implementation exposes 78 MCP tools across 17 modules:
+The 0.6.2 experimental resident workflow uses `resident_exploration` to measure an approved, project-bound dataset and return evidence for the next model action. `review_research_action` checks submitted quotations and scalar claims against immutable RDE artifacts. Workbench hosts the model and records its decisions. The archived studies include independent scientific review and the original manuscripts. [Resident benchmark](https://github.com/u9401066/research-workbench/tree/work/bonsai-reviewed-research-20261126/studies/2026-11-26-medical-exploration/resident)
+
+The current implementation exposes 80 MCP tools across 17 modules:
 
 | Module | Count | Tools |
 | --- | ---: | --- |
-| `protocol_tools.py` | 7 | `get_analysis_catalog`, `get_workflow_contract`, `validate_workflow_connection`, `read_artifact`, `research_plan`, `get_dataset_version`, `data_preparation` |
+| `protocol_tools.py` | 9 | `get_analysis_catalog`, `get_workflow_contract`, `validate_workflow_connection`, `read_artifact`, `research_plan`, `get_dataset_version`, `data_preparation`, `resident_exploration`, `review_research_action` |
 | `project_tools.py` | 5 | `init_project`, `get_pipeline_status`, `get_decision_log`, `get_deviation_log`, `log_deviation` |
 | `discovery_tools.py` | 4 | `scan_data_folder`, `load_dataset`, `run_intake`, `build_schema` |
 | `profiling_tools.py` | 2 | `profile_dataset`, `assess_quality` |

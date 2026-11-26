@@ -1038,7 +1038,7 @@
       <div class="content">
         <aside class="section" aria-label="Current capabilities">
           <h2>RDE 0.6.0 · 25 個能力家族 / 25 capability families</h2>
-          <p>78 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
+          <p>80 tools · 本機臨床分析 / Local clinical methods · 個案追溯 / Case provenance · Agent-authored hypotheses</p>
           <p>新原生契約 / New native contracts: PMM multiple imputation · binary CMH / MH OR · continuous Welch noninferiority · fixed 1:1 matching · baseline target trial.</p>
           <p><code>get_analysis_catalog(family, detail=true)</code> → <code>inspect_clinical_study</code> → 審閱並鎖定完整規格 / review and lock the exact specification → <code>run_clinical_study</code>。TTE 先用 <code>get_target_trial_contract</code> 取得已核准資料準備的來源綁定。</p>
           <p>配對僅針對保留的 matched-treated 族群，採近似推論；TTE 僅限基線單次處置、單一 time-zero 與完整固定追蹤。/ Matching targets retained matched-treated subjects with approximate inference; TTE supports baseline point treatment and complete fixed follow-up only.</p>
@@ -1411,7 +1411,7 @@
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 78 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
+              <p><code>vscode-extension/package.json</code> 的 <code>rde.expectedMcpTools</code> 列出 extension 預期可用的 80 個 MCP tools；這是網站與 harness 說明對齊的主要依據。</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2095,7 +2095,7 @@ python3 -m rde</pre>
             </article>
             <article class="text-card">
               <h4>VSIX expected tools</h4>
-              <p><code>vscode-extension/package.json</code> lists 78 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
+              <p><code>vscode-extension/package.json</code> lists 80 expected MCP tools under <code>rde.expectedMcpTools</code>. This is the main bridge between the documentation and the harness behavior.</p>
             </article>
             <article class="text-card">
               <h4>Agent control manifest</h4>
@@ -2484,7 +2484,7 @@ python3 -m rde</pre>
     ];
 
     const verifiedTools = [
-      ["protocol_tools.py", 7, "get_analysis_catalog · validate_workflow_connection · get_workflow_contract · read_artifact · research_plan · get_dataset_version · data_preparation"],
+      ["protocol_tools.py", 9, "get_analysis_catalog · validate_workflow_connection · get_workflow_contract · read_artifact · research_plan · get_dataset_version · data_preparation, resident_exploration, review_research_action"],
       ["project_tools.py", 5, "init_project, get_pipeline_status, get_decision_log, get_deviation_log, log_deviation"],
       ["discovery_tools.py", 4, "scan_data_folder, load_dataset, run_intake, build_schema"],
       ["profiling_tools.py", 2, "profile_dataset, assess_quality"],
