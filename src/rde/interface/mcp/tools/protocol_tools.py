@@ -48,6 +48,26 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 def register_protocol_tools(server: Any) -> None:
     @server.tool()
+    def review_research_action(project_id: str, utterance: str, claims: list[dict]) -> dict | str:
+        """Check one visible model message against its explicitly cited RDE evidence before proceeding.
+
+        Each claim has quote, artifact_id, sha256, JSON pointer, scalar value, and optional
+        display decimals. Quote must occur verbatim in the message. References are resolved
+        by the server within this project. Technical success covers submitted claims only.
+        The model receives issue codes for retry or abstention, never replacement prose.
+        """
+        from rde.interface.mcp.action_review import review
+        from rde.interface.mcp.tools._shared import ensure_project_context, fmt_error
+
+        ok, message, _ = ensure_project_context(project_id)
+        if not ok:
+            return fmt_error(message)
+        try:
+            return review(project_id, utterance, claims)
+        except ValueError as error:
+            return fmt_error(str(error), code="INVALID_ACTION_REVIEW")
+
+    @server.tool()
     def get_analysis_catalog(family: str | None = None, detail: bool = False) -> dict | str:
         """Discover actual research methods before planning; no project required.
 

@@ -650,6 +650,10 @@
       "sha256": "49d96402181d94adb0f480ab54d8959cd604863bccfdd6734235e0698dc4356d"
     },
     {
+      "path": "src/rde/interface/mcp/action_review.py",
+      "sha256": "377a6f14fc133e3239e1cf19cef975d736c180544c23fbdaa3f91ba992515b82"
+    },
+    {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
       "sha256": "a66a4af7e3aef422ce83a2c4ae5af7317c0168f4284925c64abb9163ed5df74a"
     },
@@ -659,7 +663,7 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "593b241e5115aa74a851fdfcfd6ecabc97c3d010cc2cd8fc4868bba810800cf7"
+      "sha256": "853d7e5cb0e5eebaffb9fc4bffbbcd79ce1c420f90005d46de6fe593ea8ad0ae"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
@@ -675,11 +679,11 @@
     },
     {
       "path": "src/rde/interface/mcp/results.py",
-      "sha256": "0063621edf5b3e2830aff7eda3b2107b3c7b60704669060a1cf2836538f8cb67"
+      "sha256": "e6931298b954ad146d6a1a63dc6a823f29e9a3be32191877dd889ca72929fada"
     },
     {
       "path": "src/rde/interface/mcp/runtime.py",
-      "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+      "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
     },
     {
       "path": "src/rde/interface/mcp/server.py",
@@ -807,7 +811,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "e7630c44db6558fa90f29db9b0428058e908a89c5a9303aeee08721db3a61626"
+      "sha256": "c2c0776fe2113d72c7acd6bddc382edeea3f81e289978e1cab0ca3641770e1b5"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -3347,7 +3351,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -3623,7 +3627,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -3924,7 +3928,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -4223,7 +4227,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -4471,7 +4475,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -4719,7 +4723,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -4967,7 +4971,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -5293,7 +5297,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -5618,7 +5622,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -5944,7 +5948,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -6289,7 +6293,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -7266,7 +7270,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         },
         {
           "path": "src/rde/infrastructure/clinical/target_trial_contract.py",
@@ -7679,7 +7683,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -7988,7 +7992,7 @@
         },
         {
           "path": "src/rde/interface/mcp/runtime.py",
-          "sha256": "aff0a9c93f03b97a35f9ff43d6d3a5df90596a6f8b193348a3ab57f74b756c99"
+          "sha256": "a961b65e48801ce20c117a7ce698d7ef4d6113b0d14abb1060a0f6fb6114c4d6"
         }
       ]
     },
@@ -10808,5 +10812,5 @@
       ]
     }
   ],
-  "catalog_sha256": "1d98863a97871320009a6595d55ca3d7b1db504253ba30774d3bf7685e960646"
+  "catalog_sha256": "eb844166a9bc6810dbab33f19312fb7b83d1fb48028d046f9c8e652cbb7d4dfc"
 }

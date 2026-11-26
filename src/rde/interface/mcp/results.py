@@ -60,6 +60,7 @@ class RdeResult(BaseModel):
     context: ResultContext = Field(default_factory=ResultContext)
     artifacts: list[ArtifactReference] = Field(default_factory=list)
     error: ResultError | None = None
+    action_review: dict[str, Any] | None = None
 
 
 class ToolFailure(str):

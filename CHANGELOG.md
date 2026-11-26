@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The Python package and VS Code extension share the release version.
 
+## [0.6.2] - experimental
+
+- MCP responses carry a per-delivery input digest, invocation ID, source and artifact identities, and error disposition. The new read-only `review_research_action` verifies quoted scalar claims against JSON pointers in project-owned, hash-pinned artifacts before the next model turn. Feedback identifies issues without supplying manuscript text.
+
 ## [0.6.1] - 2026-10-19
 
 ### Windows persistence

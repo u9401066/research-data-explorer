@@ -18,6 +18,12 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "review_research_action": ToolContract(
+        "all",
+        "project-owned immutable artifact identity and exact quote",
+        "read-only feedback on submitted claims before continuing; does not write prose or approve a report",
+        read_only=True,
+    ),
     "get_analysis_catalog": ToolContract(
         "all",
         "versioned server declaration; no project or runtime probe required",

@@ -144,6 +144,9 @@ class RDEServer(MCPServer):
                 message=str(exc),
                 error=ResultError(code="RDE_CALL_ERROR", message=str(exc)),
             )
+            from rde.interface.mcp.action_review import delivery
+
+            payload.action_review = delivery(payload, arguments)
             return CallToolResult(
                 content=[TextContent(type="text", text=payload.message)],
                 structured_content=payload.model_dump(mode="json"),
@@ -151,6 +154,10 @@ class RDEServer(MCPServer):
             )
         if isinstance(result, CallToolResult):
             payload = RdeResult.model_validate(result.structured_content)
+            from rde.interface.mcp.action_review import delivery
+
+            payload.action_review = delivery(payload, arguments)
+            result.structured_content = payload.model_dump(mode="json")
             result.is_error = payload.status == "error"
             result.content = [TextContent(type="text", text=payload.message)]
         return result
