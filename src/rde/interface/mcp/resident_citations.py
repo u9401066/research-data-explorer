@@ -5,6 +5,7 @@ import re
 from rde.interface.mcp.action_review import compare_scalar
 from rde.interface.mcp.resident_bindings import expand
 from rde.interface.mcp.resident_tables import display_stat, summary_tables
+from rde.interface.mcp.resident_numbers import FOLD
 
 
 METRICS = {
@@ -22,8 +23,8 @@ METRICS = {
     "max": "最大值",
     "sd": r"標準差|\bSD\b",
     "iqr": r"四分位距|\bIQR\b",
-    "q1": r"下四分位數|第一四分位數|\bQ1\b",
-    "q3": r"上四分位數|第三四分位數|\bQ3\b",
+    "q1": r"下四分位數|第一四分位數|(?<![A-Za-z0-9_])Q1(?![A-Za-z0-9_])",
+    "q3": r"上四分位數|第三四分位數|(?<![A-Za-z0-9_])Q3(?![A-Za-z0-9_])",
     "mean_difference": r"(?:平均(?:數|值)?|均值)(?:之|的)?差",
     "median_difference": r"中位數(?:之|的)?差",
 }
@@ -86,6 +87,9 @@ def render(raw, cards, scope):
 def numeric_links(raw, scope, cards, unchecked):
     problems, links = [], []
     for item in unchecked:
+        if item.get("unrepresentable"):
+            problems.append(item)
+            continue
         start, end = item["start"], item["end"]
         left = max(raw.rfind(ch, 0, start) for ch in "，,。；;\n") + 1
         stops = [i for c in "，,。；;\n" if (i := raw.find(c, end)) >= 0]
@@ -107,7 +111,7 @@ def numeric_links(raw, scope, cards, unchecked):
             c = cards.get(key)
             if not c or type(c.get("value")) not in (float, int):
                 continue
-            number = item["quote"]
+            number = item.get("numeric", item["quote"])
             if not compare_scalar(c["value"], float(number), min(8, len(number.partition(".")[2]))):
                 continue
             field = c["statistic"]
@@ -143,10 +147,15 @@ def numeric_links(raw, scope, cards, unchecked):
                     continue
             unit = c["unit"]
             unit_pattern = r"(?:筆|列|個|例|人|份)" if unit == "筆" else re.escape(unit)
-            if not re.match(r"\s*" + unit_pattern, TOKEN.sub("", raw[end:right])):
+            implicit = unit == "%" and item.get("implicit_percent")
+            if not implicit and not re.match(
+                r"\s*" + unit_pattern, TOKEN.sub("", raw[end:right]).translate(FOLD)
+            ):
                 continue
             valid.append(key)
         if len(valid) == 1:
+            key = valid[0]
+            tag = re.search(r"\[R" + re.escape(key) + r"\]", raw[end:right])
             links.append(
                 {
                     "start": start,
@@ -154,6 +163,14 @@ def numeric_links(raw, scope, cards, unchecked):
                     "quote": item["quote"],
                     "reference": "R" + valid[0],
                     "pointer": cards[valid[0]]["pointer"],
+                    **(
+                        {
+                            "numeric": item["numeric"],
+                            **({"manual_tag_start": end + tag.start()} if tag else {}),
+                        }
+                        if "numeric" in item and item["numeric"] != item["quote"]
+                        else {}
+                    ),
                 }
             )
         else:

@@ -54,7 +54,7 @@ def qualified(clause, match):
     )
 
 
-def action_reason(action, reason, observed):
+def action_reason(action, reason, observed, *, scoped_relations=False):
     out = []
 
     def issue(code, sentence, repair):
@@ -66,6 +66,8 @@ def action_reason(action, reason, observed):
     for sentence in re.finditer(SEGMENT, reason):
         clause = sentence.group()
         for code, pattern, advice in UNSUPPORTED:
+            if scoped_relations and code == "REPRESENTATIVENESS":
+                continue
             for match in re.finditer(pattern, clause, re.I):
                 if code == "REPRESENTATIVENESS" and re.search(
                     r"(?:可能|恐|風險).{0,5}(?:影響|限制|損及)", clause[: match.start()]

@@ -691,19 +691,27 @@
     },
     {
       "path": "src/rde/interface/mcp/resident_citations.py",
-      "sha256": "ee9e0eb6fc29a67c65f4bc36c1e0e5fee483c249942a189fcda71ac6891e9ad2"
+      "sha256": "164d91f297d5e9574e2095c3fc982354c1358c6aff03b2d2bc3a324a79f4ba0e"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_claim_context.py",
+      "sha256": "46dfc1a6bef91faf3fdd62f126886f93260c2c0133095141aaf1b1c4790161d6"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_numbers.py",
+      "sha256": "8c9d48541267f3027743c71789393e21cb77dbc8ffa8dacbc712766c4a822777"
     },
     {
       "path": "src/rde/interface/mcp/resident_paragraphs.py",
-      "sha256": "223ce67b856c06d341e6a2e479ce62660a35ba148a65b5680cef5a29cad63319"
+      "sha256": "aa74748f3f128e5358e2580896a2ee98783e3e575094933b755c07981d35f9e2"
     },
     {
       "path": "src/rde/interface/mcp/resident_protocol_v3.py",
-      "sha256": "c88236ab2a5d9fbb3ec105a6ae8b5737c7d283a81e41a9656dceb0cea940ceb6"
+      "sha256": "0e8bd9ed710801a654dd2e75a450470b30ef543121a3b1674a4531af366cffcd"
     },
     {
       "path": "src/rde/interface/mcp/resident_reasoning.py",
-      "sha256": "04ddecaf08ee610ec69915b35ce23560be99b85415b9ebd03d78508e15beb7d0"
+      "sha256": "8f50cf9596a1b079154c7d8612e004821cc29b2aead0de918cf686ae41e305f5"
     },
     {
       "path": "src/rde/interface/mcp/resident_tables.py",
@@ -10844,5 +10852,5 @@
       ]
     }
   ],
-  "catalog_sha256": "029b9d2d599616ddc34ee0347aaaeb24889ffe23e9d7fbd333b21325c3e28c89"
+  "catalog_sha256": "9d6a66af9c05d38086f88eaecd583aad2a37e11ae2580f6cc6e2451d02a95657"
 }

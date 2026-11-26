@@ -74,7 +74,11 @@ delivered to the resident. Existing chapter runs keep their original protocol.
 `paragraph-v3` keeps the same source and approval anchors. Its action contracts declare
 the output level, count basis, unit, percentage denominator and contrast direction.
 The resident selects a permitted purpose and intended fields before each observation.
-The free-text rationale and the actual native response stay available for separate review.
+Once prior cards exist, each choice declares an unresolved question and whether
+it follows an earlier observation or independently checks another aspect of the
+study. Follow-ups identify the original cards and explain the link in the
+author's own words. Receipts preserve the selected fields, rationale, previous
+values and actual new observation for independent assessment of this decision.
 
 Fresh author replies carry model-written prose and four presentation choices,
 `evidence_ids`, `group_table`, `source_ids` and `link_source`. The selected cards,
@@ -82,11 +86,23 @@ source excerpts, and compact denominator, location, spread and contrast tables a
 attached to the prose. The numeric cells retain native locators. Counts stay integers,
 measurement statistics display at least two decimals, and unavailable estimates bind
 to the actual JSON null. Model-authorship and attachment hashes are recorded separately.
+In drafts marked `editorial_basis_version=1`, the author writes 120–230 Unicode
+characters in two to four sentences about the assigned question. An inline
+numeric reference must be one of the paragraph's own selected fields. Chinese
+decimal words and full-width figures are checked against the same native statistic,
+group, unit and precision as an Arabic decimal. The source scope includes the
+quantile, IQR, standard deviation, signed comparison and percentage definitions.
 
 Attempts 2 and 3 may edit only the diagnosed sentence of the preceding draft. After
 the twenty initial tasks have been reviewed, exhausted paragraphs can have one fresh
-attempt 4 informed by the other completed tasks, then one targeted edit at attempt 5.
+attempt 4 informed by the other completed tasks, then targeted edits up to the
+maximum in the original sealed open receipt. New runs allow attempts 5–12.
+Each edit replaces or deletes the diagnosed sentence. Schema version 1 caps
+replacement text at 120 Unicode characters and checks that it is one sentence.
 An identical failed prose/presentation cannot advance by resubmission. Set
 `scope.semantic_review="required"` to bind each review to a separate reviewer's raw
-JSON findings, the source, both author hashes and exact sentence quotations. A reviewer
+JSON findings, the source, both author hashes and exact sentence quotations. New
+reviewers may give the exact disputed substring and an available statistical card
+or approved scope field. The native check verifies both before routing the
+feedback to the author. A reviewer
 can withhold a draft. Native checks and independent publication review still apply.

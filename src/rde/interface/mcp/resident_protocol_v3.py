@@ -9,6 +9,29 @@ from rde.interface.mcp.resident_reasoning import LIMITS, sentence_slices
 from rde.interface.mcp.resident_citations import render
 from rde.interface.mcp.resident_tables import display_stat
 
+MAX_PARAGRAPH_ATTEMPTS = 12
+MIN_PROSE_LENGTH = 120
+MAX_PROSE_LENGTH = 230
+MAX_REPLACEMENT_LENGTH = 120
+EDITORIAL_SCOPE = {
+    "population": "approved_population",
+    "dictionary": "approved_dictionary",
+    "group_column": "group_column",
+    "measure_column": "measure_column",
+    "group_levels": "observed_group_levels",
+    "measurement_unit": "measurement_unit",
+    "methods": "available_methods",
+    "not_measured": "not_measured",
+}
+FOCUS_STATISTICS = {
+    "data_quality": {"rows", "complete", "missing_group", "missing_measure"},
+    "group_completeness": {"rows", "observed", "missing", "observed_percent", "missing_percent"},
+    "group_estimates": {"mean"},
+    "distribution": {"median", "min", "max"},
+    "group_spread": {"q1", "q3", "iqr", "sd"},
+    "group_contrasts": {"mean_difference", "median_difference"},
+}
+
 
 def empty_presentation():
     return {"evidence_ids": [], "group_table": False, "source_ids": [], "link_source": False}
@@ -30,7 +53,11 @@ def presentation_schema(evidence, sources, table, target=None):
         "link_source": {"type": "boolean"},
     }
     if target is None:
-        props["prose"] = {"type": "string", "maxLength": 5000}
+        props["prose"] = {
+            "type": "string",
+            "minLength": MIN_PROSE_LENGTH,
+            "maxLength": MAX_PROSE_LENGTH,
+        }
     else:
         props["edits"] = {
             "type": "array",
@@ -40,7 +67,7 @@ def presentation_schema(evidence, sources, table, target=None):
                 "type": "object",
                 "properties": {
                     "sentence": {"type": "integer", "const": target},
-                    "text": {"type": "string", "maxLength": 5000},
+                    "text": {"type": "string", "maxLength": MAX_REPLACEMENT_LENGTH},
                 },
                 "required": ["sentence", "text"],
                 "additionalProperties": False,
@@ -102,6 +129,15 @@ def parse_author(raw, draft):
         or len(e["text"]) > 5000
     ):
         raise ValueError("INVALID_TARGETED_EDIT")
+    if draft.get("editorial_basis_version") == 1:
+        replacement = e["text"]
+        if (
+            len(replacement) > MAX_REPLACEMENT_LENGTH
+            or "\n" in replacement
+            or "\r" in replacement
+            or len(sentence_slices(replacement.rstrip('」』）”’" \t'))) > 1
+        ):
+            raise ValueError("INVALID_TARGETED_EDIT")
     parts = draft["sentences"].copy()
     parts[t] = e["text"]
     return "".join(parts), presentation
@@ -223,6 +259,8 @@ def choice_schema(available, contracts, prior):
         "reason": {"type": "string"},
     }
     if prior:
+        props["evidence_use"] = {"type": "string", "enum": ["follow_up", "independent_check"]}
+        props["unresolved_question"] = {"type": "string", "minLength": 8, "maxLength": 180}
         props["prior_refs"] = {
             "type": "array",
             "maxItems": 4,
@@ -231,7 +269,7 @@ def choice_schema(available, contracts, prior):
     return {
         "type": "object",
         "properties": props,
-        "required": ["action", "purpose", "intended_fields", "reason"],
+        "required": list(props),
         "additionalProperties": False,
     }
 
@@ -243,7 +281,10 @@ def intent_issues(choice, contracts, prior):
     def problem(code, repair):
         return [{"issue": code, "repair": repair, "capability": contract}]
 
-    if set(choice) - {"action", "intended_fields", "purpose", "reason", "prior_refs"}:
+    supported = {"action", "intended_fields", "purpose", "reason"}
+    if prior:
+        supported.update(("evidence_use", "unresolved_question", "prior_refs"))
+    if set(choice) - supported:
         return problem("INVALID_INTENT_KEYS", "只填原生 schema 中的鍵。")
     if choice.get("purpose") != contract["purpose"]:
         return problem("PURPOSE_OUTSIDE_ACTION", "此動作的授權用途為 " + contract["purpose"])
@@ -262,8 +303,30 @@ def intent_issues(choice, contracts, prior):
         not isinstance(refs, list)
         or len(refs) > 4
         or not all(isinstance(f, str) and f in prior for f in refs)
+        or len(set(refs)) != len(refs)
     ):
         return problem("PRIOR_EVIDENCE_NOT_OBSERVED", "僅可引用先前已取得的彙總卡。")
+    if prior:
+        kind = choice.get("evidence_use")
+        if kind not in ("follow_up", "independent_check") or "prior_refs" not in choice:
+            return problem(
+                "EVIDENCE_USE_REQUIRED",
+                "選 follow_up 或 independent_check，列出適用的 prior_refs；獨立檢查可填空陣列。",
+            )
+        question = choice.get("unresolved_question")
+        if not isinstance(question, str) or not 8 <= len(question.strip()) <= 180:
+            return problem(
+                "UNRESOLVED_QUESTION_REQUIRED", "寫出這些欄位能檢查、而現有觀察仍未回答的具體問題。"
+            )
+        if kind == "follow_up" and (
+            not refs
+            or len(choice["reason"].strip()) < 8
+            or choice["reason"].strip() == question.strip()
+        ):
+            return problem(
+                "FOLLOW_UP_RELATION_REQUIRED",
+                "指定先前的卡，於 reason 說明該觀察為何引出這個後續問題，分別填寫關係與待解問題。",
+            )
     return []
 
 
@@ -288,6 +351,39 @@ def source_scope(scope, cards):
         "approved_population": scope["population"],
         "count_unit": "資料列；觀測對象或重複量測關係依核准來源／資料字典判定。",
         "available_methods": list(FIELDS),
+        "method_definitions": {
+            "quantiles": {
+                "method": "linear interpolation (type 7)",
+                "rank_zero_based": "(n-1)*p",
+                "q1": "p=0.25",
+                "median": "p=0.5",
+                "q3": "p=0.75",
+            },
+            "iqr": {"formula": "q3 - q1", "unit": scope["unit"]},
+            "sd": {
+                "formula": "sqrt(sum((x - mean)^2) / (n - 1))",
+                "requires": "n >= 2 observed values",
+                "unit": scope["unit"],
+            },
+            "missing_percent": {
+                "formula": "100 * (rows - observed) / rows",
+                "denominator": "assigned rows in this group",
+                "unit": "%",
+            },
+            "observed_percent": {
+                "formula": "100 * observed / rows",
+                "denominator": "assigned rows in this group",
+                "unit": "%",
+            },
+            "mean_difference": {
+                "formula": "comparison mean - reference mean",
+                "unit": scope["unit"],
+            },
+            "median_difference": {
+                "formula": "comparison median - reference median",
+                "unit": scope["unit"],
+            },
+        },
         "not_measured": [
             "隨機抽樣的代表性",
             "選樣偏差是否為零",
@@ -298,7 +394,14 @@ def source_scope(scope, cards):
     }
 
 
-def editing_evidence(cards, actions):
+def editing_evidence(cards, actions, *, turn=None):
+    allowed = {a: FOCUS_STATISTICS[a] for a in actions}
+    if turn == 6:
+        allowed["distribution"] = {"median"}
+    if turn == 9:
+        allowed["distribution"] = {"median", "min", "max"}
+    if turn == 12:
+        allowed["group_completeness"] = {"missing", "missing_percent", "observed_percent"}
     return {
         "R" + k: {
             f: c[f]
@@ -315,7 +418,8 @@ def editing_evidence(cards, actions):
             if f in c
         }
         for k, c in cards.items()
-        if c["label"].split("/")[0] in actions and type(c["value"]) in (int, float)
+        if c["statistic"] in allowed.get(c["label"].split("/")[0], ())
+        and type(c["value"]) in (int, float)
     }
 
 
@@ -348,10 +452,11 @@ def target_sentence(previous):
         "source_sha256": sha256(raw.encode()).hexdigest(),
         "mode": "replace_sentence",
         "repair": d.get("repair", d["issue"]),
+        **({k: d[k] for k in ("claim", "basis")} if "claim" in d and "basis" in d else {}),
     }
 
 
-def validate_external(value, source, response, author):
+def validate_external(value, source, response, author, *, draft=None):
     """Verify the actual referee reply hash, its author binding and each quoted location."""
     if not isinstance(value, dict):
         raise ValueError("INVALID_EXTERNAL_REVIEW")
@@ -412,7 +517,11 @@ def validate_external(value, source, response, author):
             raise ValueError("EXTERNAL_QUOTE_NOT_IN_AUTHOR_SOURCE")
         if (
             not isinstance(f, dict)
-            or set(f) != {"sentence", "issue", "reason"}
+            or set(f)
+            not in (
+                {"sentence", "issue", "reason"},
+                {"sentence", "issue", "reason", "claim", "basis"},
+            )
             or type(f["sentence"]) is not int
             or not 0 <= f["sentence"] < len(sentences)
             or d["quote"] not in sentences[f["sentence"]]
@@ -420,6 +529,26 @@ def validate_external(value, source, response, author):
             or d["repair"] != f["reason"]
         ):
             raise ValueError("EXTERNAL_FINDING_QUOTE_MISMATCH")
+        if "claim" in f:
+            claim, basis = f["claim"], f["basis"]
+            if d["quote"] != sentences[f["sentence"]]:
+                raise ValueError("EXTERNAL_FINDING_QUOTE_MISMATCH")
+            legal = set(draft.get("editor_evidence", {})) if draft else set()
+            if draft:
+                legal.update(
+                    "scope." + k
+                    for k, v in EDITORIAL_SCOPE.items()
+                    if v in draft.get("source_scope", {})
+                )
+            if (
+                not isinstance(claim, str)
+                or not claim.strip()
+                or claim not in sentences[f["sentence"]]
+                or claim not in d["quote"]
+            ):
+                raise ValueError("EXTERNAL_CLAIM_NOT_IN_SENTENCE")
+            if not isinstance(basis, str) or basis not in legal:
+                raise ValueError("EXTERNAL_BASIS_OUTSIDE_DRAFT")
     return [
         {
             "issue": "EXTERNAL_SCIENTIFIC_REVIEW",
@@ -427,6 +556,7 @@ def validate_external(value, source, response, author):
             "quote": d["quote"],
             "repair": d["repair"],
             "sentence": f["sentence"],
+            **({k: f[k] for k in ("claim", "basis")} if "claim" in f else {}),
         }
         for d, f in zip(issues, raw["findings"], strict=True)
     ]

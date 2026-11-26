@@ -321,7 +321,7 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
 
     call, csv = protocol
     opened = call("open")
-    assert opened["protocol"] == "paragraph-v3" and opened["max_paragraph_attempts"] == 5
+    assert opened["protocol"] == "paragraph-v3" and opened["max_paragraph_attempts"] == 12
     bad = {
         "action": "group_estimates",
         "reason": "核對分組列數。",
@@ -329,17 +329,33 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
         "intended_fields": ["group_spread.iqr"],
     }
     assert call("observe", 1, response=json.dumps(bad))["issues"] == ["FIELD_OUTSIDE_ACTION"]
+    options = opened
     for n, a in enumerate(PARAGRAPH_ACTIONS, 2):
         c = opened["capabilities"][a]
+        evidence = {}
+        if options["prior_evidence"]:
+            evidence = {
+                "evidence_use": "independent_check",
+                "unresolved_question": "這項指定統計在各組的可用資料中呈現何種數值？",
+                "prior_refs": [],
+            }
+            if n == 3:
+                evidence.update(
+                    evidence_use="follow_up", prior_refs=[next(iter(options["prior_evidence"]))]
+                )
         raw = json.dumps(
             {
                 "action": a,
                 "intended_fields": [next(iter(c["fields"]))],
                 "purpose": c["purpose"],
                 "reason": "核對本次授權欄位的實際觀測。",
+                **evidence,
             }
         )
-        assert call("observe", n, response=raw)["status"] == "observed"
+        options = call("observe", n, response=raw)
+        assert options["status"] == "observed", options["issues"]
+        if evidence:
+            assert options["intent"]["evidence_use"] == evidence["evidence_use"]
 
     def reviewer(reply, prose, which=None):
         def h(s):
@@ -353,6 +369,8 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
                     "sentence": which,
                     "issue": "unverified_attribution",
                     "reason": "核對來源對這項主張的支持。",
+                    "claim": sentence_slices(prose)[which][:6],
+                    "basis": "scope.dictionary",
                 }
             ]
         )
@@ -394,7 +412,7 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
             else []
         )
         return {
-            "prose": prose_fixture(turn),
+            "prose": "".join(sentence_slices(prose_fixture(turn))[:3]),
             "evidence_ids": choices,
             "group_table": kind == "table",
             "source_ids": [],
@@ -403,8 +421,12 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
 
     for turn in range(20):
         draft = call("draft", turn)
+        assert draft["editorial_basis_version"] == 1
+        assert draft["source_scope"]["method_definitions"]["iqr"]["formula"] == "q3 - q1"
         assert draft["source_scope"]["observed_group_levels"] == ["A", "B"]
         model = payload(draft, turn)
+        if turn == 9:
+            model["prose"] += "A組中位數為四點零零 cm[" + model["evidence_ids"][0] + "]。"
         author = model["prose"]
         reply = json.dumps(model, ensure_ascii=False)
         verdict = reviewer(reply, author, 0 if turn == 0 else None)
@@ -420,6 +442,7 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
             for attempt in (2, 3):
                 draft = call("draft", turn, attempt)
                 t = draft["repair_target"]["sentence"]
+                assert draft["repair_target"]["basis"] == "scope.dictionary"
                 assert (
                     draft["response_schema"]["properties"]["edits"]["items"]["properties"][
                         "sentence"
@@ -438,6 +461,8 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
                 call("draft", turn, 4)
         else:
             assert result["status"] == "observed", result["diagnostics"]
+            if turn == 9:
+                assert result["native_number_checks"][0]["verified"]
             if turn == 8:
                 assert (
                     len(result["native_null_checks"]) == 1
@@ -454,19 +479,39 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
         "UNCHANGED_FAILED_CANDIDATE"
         in call("review", 0, 4, reply, reviewer(reply, model["prose"]))["issues"]
     )
-    final = call("draft", 0, 5)
+    for attempt in range(5, 12):
+        targeted = call("draft", 0, attempt)
+        bad = json.dumps(
+            dict(
+                targeted["base_presentation"],
+                edits=[
+                    {
+                        "sentence": targeted["repair_target"]["sentence"],
+                        "text": "第一個完整句。另一個完整句。",
+                    }
+                ],
+            ),
+            ensure_ascii=False,
+        )
+        assert (
+            "INVALID_TARGETED_EDIT"
+            in call("review", 0, attempt, bad, reviewer(bad, model["prose"]))["issues"]
+        )
+    final = call("draft", 0, 12)
     target = final["repair_target"]["sentence"]
     parts = final["sentences"].copy()
-    parts[target] = "這次重訪改以原始變項的操作定義界定問題。"
+    parts[target] = (
+        "這次重訪以資料字典中的原始變項界定問題，具體交待量測單位和登錄資料可觀察的範圍，使讀者能夠區分檔案內的記錄和樣本以外的情況。"
+    )
     last = json.dumps(
         dict(final["base_presentation"], edits=[{"sentence": target, "text": parts[target]}]),
         ensure_ascii=False,
     )
-    assert call("review", 0, 5, last, reviewer(last, "".join(parts)))["status"] == "observed"
+    assert call("review", 0, 12, last, reviewer(last, "".join(parts)))["status"] == "observed"
     result = call("assemble")
     assert result["status"] == "independent_review_required"
     records = [p for group in result["authorship"] for p in group["paragraphs"]]
-    assert records[0]["attempt"] == 5 and records[0]["base_attempt"] == 4
+    assert records[0]["attempt"] == 12 and records[0]["base_attempt"] == 11
     assert all(p["attachments_sha256"] == digest(p["attachments"]) for p in records)
     tables = records[8]["attachments"][0]["rendered"]
     assert (
@@ -475,7 +520,7 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
         and "4.00[R" in tables
     )
     assert (
-        records[8]["author_source"] == prose_fixture(8)
+        records[8]["author_source"] == "".join(sentence_slices(prose_fixture(8))[:3])
         and tables not in records[8]["author_source"]
     )
 

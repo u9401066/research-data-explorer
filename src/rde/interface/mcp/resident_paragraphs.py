@@ -7,8 +7,10 @@ import json
 import re
 
 from rde.infrastructure.adapters.dataframe_lineage import dataset_version
-from rde.interface.mcp.action_review import artifact_json, digest, pointer, review
+from rde.interface.mcp.action_review import artifact_json, compare_scalar, digest, pointer, review
 from rde.interface.mcp import resident_protocol_v3 as v3
+from rde.interface.mcp.resident_claim_context import relation_diagnostics
+from rde.interface.mcp.resident_numbers import FOLD, quantities
 from rde.interface.mcp.research_plans import read_sealed, write_once
 from rde.interface.mcp.resident import (
     ACTION_SCHEMA,
@@ -140,13 +142,18 @@ def next_action(scope, available, observed=None, prior=None):
         schema = v3.choice_schema(available, contracts, prior)
         prompt = (
             "選擇一項描述性研究查詢。action、purpose 與 intended_fields 請從同一份契約逐字選擇。reason 用一句自然繁體中文解釋為何需要這些欄位。"
-            "先前觀測若有相關，可用 prior_refs 標記；總列、分組列、有效列和個人數的定義分開。\n"
+            "總列、分組列、有效列和個人數依照各欄位定義。\n"
             + json.dumps(approved_context(scope), ensure_ascii=False)
             + "\n可選："
             + json.dumps({a: contracts[a] for a in available}, ensure_ascii=False)
             + "\n已取得的資料證據："
             + json.dumps(prior, ensure_ascii=False)
         )
+        if prior:
+            prompt += (
+                "\n選 evidence_use：如果先前某個觀察改變下一步的選擇，選 follow_up，prior_refs 指向實際依據，在 reason 說出觀察與這步決定的關係。"
+                "若這是獨立應做的核查，選 independent_check，prior_refs 可填空陣列。兩者皆在 unresolved_question 提出此次要解答的具體問題。"
+            )
         return {
             "response_schema": schema,
             "prompt": prompt,
@@ -183,6 +190,7 @@ def safe_grouping(frame, scope):
 
 def scientific_issues(text, scope):
     """Check affirmative, local assertions; negation of one design does not license another."""
+    modern = scope.get("manuscript_protocol") == "paragraph-v3"
     rules = (
         (
             "UNDOCUMENTED_STUDY_DESIGN",
@@ -200,7 +208,8 @@ def scientific_issues(text, scope):
         ),
         (
             "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE",
-            r"(?:具有|存在|證實|確立)(?:了)?因果|導致|造成|信賴區間(?:為|是)|[pP]\s*[<≤=]|(?:證明|證實)(?:療效|治療效果)",
+            r"(?:具有|存在|證實|確立)(?:了)?因果|信賴區間(?:為|是)|[pP]\s*[<≤=]|(?:證明|證實)(?:療效|治療效果)"
+            + ("" if modern else r"|導致|造成"),
         ),
         (
             "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE",
@@ -217,7 +226,7 @@ def scientific_issues(text, scope):
                 yield m
 
     approved = scope["source_note"] + " " + scope["population"]
-    out = []
+    out = relation_diagnostics(text, scope) if modern else []
     for issue, pattern in rules:
         if issue == "UNDOCUMENTED_STUDY_DESIGN" and next(hits(approved, pattern), None):
             continue
@@ -248,11 +257,18 @@ def observe(project, entry, scope, anchor, folder, turn, response):
         if not modern:
             return {}
         per_action = {}
-        for k, c in card_index(project, folder).items():
+        for k, c in card_details(card_index(project, folder), scope).items():
             family = c["label"].split("/")[0]
             per_action.setdefault(family, {})
             if type(c["value"]) in (int, float) and len(per_action[family]) < 8:
-                per_action[family]["R" + k] = {"field": c["label"], "value": c["value"]}
+                per_action[family]["R" + k] = {
+                    "field": c["label"],
+                    **{
+                        key: c[key]
+                        for key in ("statistic", "group", "reference_group", "value", "unit")
+                        if key in c
+                    },
+                }
         return {k: v for block in per_action.values() for k, v in block.items()}
 
     issue, observation, errors = None, None, []
@@ -275,6 +291,7 @@ def observe(project, entry, scope, anchor, folder, turn, response):
             for k in PARAGRAPH_ACTIONS
             if (folder / f"{k}.json").exists()
         },
+        scoped_relations=modern,
     ):
         issue = errors[0]["issue"]
     else:
@@ -321,11 +338,25 @@ def observe(project, entry, scope, anchor, folder, turn, response):
         )
     if modern:
         result["intent"] = (
-            {k: choice.get(k) for k in ("action", "purpose", "intended_fields", "prior_refs")}
+            {
+                k: choice[k]
+                for k in (
+                    "action",
+                    "purpose",
+                    "intended_fields",
+                    "reason",
+                    "evidence_use",
+                    "prior_refs",
+                    "unresolved_question",
+                )
+                if k in choice
+            }
             if isinstance(choice, dict)
             else None
         )
-        result["semantic_scope"] = "獨立科學評閱仍須核對自由理由與申報用途。"
+        result["semantic_scope"] = (
+            "原生核對用途、欄位與先前卡是否存在。獨立科學評閱另依觀察內容、理由與待解問題，判定先前證據是否實際影響決策。"
+        )
     write_once(receipt, {"turn": turn, "response": response, "result": result})
     return result
 
@@ -435,12 +466,13 @@ def paragraph_path(folder, turn, attempt):
 
 
 def accepted(folder, turn):
-    for attempt in (1, 2, 3, 4, 5):
+    for attempt in range(1, v3.MAX_PARAGRAPH_ATTEMPTS + 1):
         path = paragraph_path(folder, turn, attempt)
-        if path.exists():
-            record = read_sealed(path)["payload"]
-            if not record["result"]["issues"]:
-                return record
+        if not path.exists():
+            break
+        record = read_sealed(path)["payload"]
+        if not record["result"]["issues"]:
+            return record
     return None
 
 
@@ -553,6 +585,9 @@ def repetition(raw, prior):
 def scope_numbers(raw, scope, cards):
     """Ignore digits *within* approved codes/units/column names and author-selected bindings."""
     text = re.sub(r"\{\{[^{}]*\}\}|\[R\d+\.\d+\]", lambda m: " " * len(m.group()), raw)
+    modern = scope.get("manuscript_protocol") == "paragraph-v3"
+    if modern:
+        text = text.translate(FOLD)
     allowed = {scope[k] for k in ("group", "measure", "unit")}
     allowed.update(str(c["group"]) for c in cards.values() if c.get("group") is not None)
     for word in sorted((w for w in allowed if re.search(r"\d", w)), key=len, reverse=True):
@@ -572,10 +607,15 @@ def scope_numbers(raw, scope, cards):
         text = re.sub(pattern, lambda m: " " * len(m.group()), text, flags=re.I)
     # Statistical formula names are method terminology. Other sample counts/effects must bind.
     text = re.sub(
-        r"\b(?:q[13]|ddof\s*=\s*1|n\s*[-−]\s*1)\b", lambda m: " " * len(m.group()), text, flags=re.I
+        r"(?<![a-zA-Z0-9_])(?:q[123]|ddof\s*=\s*1|n\s*[-−]\s*1)(?![a-zA-Z0-9_])",
+        lambda m: " " * len(m.group()),
+        text,
+        flags=re.I,
     )
     for year in re.findall(r"(?<!\d)(?:19|20)\d{2}(?!\d)", scope["source_note"]):
         text = re.sub(year + r"(?=\s*年)", "    ", text)
+    if modern:
+        return quantities(raw, text, scope)
     return [
         {"issue": "UNBOUND_AUTHOR_NUMBER", "start": m.start(), "end": m.end(), "quote": m.group()}
         for m in re.finditer(r"[-+]?\d+(?:\.\d+)?", text)
@@ -675,6 +715,36 @@ def check_paragraph(
     if "{{" in text or "}}" in text:
         problem("UNKNOWN_FIELD_BINDING")
     if modern:
+        written = [(i, s) for i, s in enumerate(sentence_slices(raw)) if re.search(r"\w", s)]
+        if not v3.MIN_PROSE_LENGTH <= len(raw) <= v3.MAX_PROSE_LENGTH:
+            problem(
+                "PARAGRAPH_LENGTH_SCOPE",
+                observed=len(raw),
+                minimum=v3.MIN_PROSE_LENGTH,
+                maximum=v3.MAX_PROSE_LENGTH,
+                repair="一段共 120 至 230 個字元。保留本段問題與可由資料支持的主要解讀，增補必要內容或精簡重複語句。",
+            )
+        if not 2 <= len(written) <= 4:
+            index, sentence = written[-1] if written else (0, raw)
+            problem(
+                "PARAGRAPH_SENTENCE_SCOPE",
+                sentence=index,
+                quote=sentence,
+                observed=len(written),
+                repair="本段只回答當前任務，用二至四句區分已知資料、本段可支持的解讀及必要限制。精簡重複語句，必要時刪除此句。",
+            )
+        if presentation is not None:
+            for m in re.finditer(r"\{\{(R\d+\.\d+)\}\}|\[(R\d+\.\d+)\]", raw):
+                ref = m.group(1) or m.group(2)
+                if ref not in presentation["evidence_ids"]:
+                    problem(
+                        "INLINE_CARD_NOT_SELECTED",
+                        start=m.start(),
+                        end=m.end(),
+                        quote=m.group(),
+                        reference=ref,
+                        repair="先選本段可用的統計卡，再於符合其指標、組別和方向的句中放置所選代碼。",
+                    )
         for m in re.finditer(r"\[\[[^\n]*?\]\]|(?<![\[{])\bR\d+\.\d+\b(?![\]}])", raw):
             problem(
                 "UNRESOLVED_EDITOR_MARKUP",
@@ -704,8 +774,37 @@ def check_paragraph(
     diagnostics.extend(claim_context(raw, cards))
     null_checks = []
     binding_text = text
+    number_checks = []
     if modern:
         cache = {}
+        for link in linked:
+            if "numeric" not in link:
+                continue
+            key = link["reference"][1:]
+            c = cards[key]
+            identity = (c["artifact_id"], c["sha256"])
+            if identity not in cache:
+                cache[identity] = artifact_json(project.id, *identity)
+            actual = pointer(cache[identity], c["pointer"])
+            number = link["numeric"]
+            verified = compare_scalar(actual, float(number), min(8, len(number.partition(".")[2])))
+            number_checks.append(
+                {**link, "artifact_id": identity[0], "sha256": identity[1], "verified": verified}
+            )
+            if not verified:
+                problem("VALUE_MISMATCH", quote=link["quote"], pointer=c["pointer"])
+            if verified and "manual_tag_start" in link:
+                raw_start = link["manual_tag_start"]
+                index = raw_start + sum(
+                    len(rep["rendered"]) - (rep["end"] - rep["start"])
+                    for rep in replacements
+                    if rep["end"] <= raw_start
+                )
+                token = "[" + link["reference"] + "]"
+                if binding_text.startswith(token, index):
+                    binding_text = (
+                        binding_text[:index] + " " * len(token) + binding_text[index + len(token) :]
+                    )
 
         def check_null(m):
             k = m.group(1)
@@ -723,8 +822,9 @@ def check_paragraph(
                 problem("INVALID_UNESTIMABLE_REFERENCE", quote=m.group())
             return " " * len(m.group())
 
-        binding_text = re.sub(r"無法估計\[R(\d+\.\d+)\]", check_null, text)
+        binding_text = re.sub(r"無法估計\[R(\d+\.\d+)\]", check_null, binding_text)
     claims, used, binding_issues = cited_claims(binding_text, cards, scope["unit"])
+    used.update(check["reference"][1:] for check in number_checks if check["verified"])
     diagnostics.extend(binding_issues)
     actions = actions_for(kind)
     field_by_action = {
@@ -821,7 +921,11 @@ def check_paragraph(
                 else {}
             ),
             "numeric_links": linked,
-            **({"native_null_checks": null_checks} if modern else {}),
+            **(
+                {"native_null_checks": null_checks, "native_number_checks": number_checks}
+                if modern
+                else {}
+            ),
             **feedback(
                 "repair" if issues else "accept",
                 "、".join(issues) or "段落正文、資料範圍及所引欄位已核對。",
@@ -952,7 +1056,7 @@ def paragraph_v3(
         "另起一行放 {{group_table}} 供讀者核對", "選擇原生統計表供讀者核對"
     )
     if op == "draft":
-        evidence = v3.editing_evidence(cards, actions_for(kind))
+        evidence = v3.editing_evidence(cards, actions_for(kind), turn=turn)
         dictionary = source_fields(scope)
         source = v3.source_scope(scope, cards)
         result = {
@@ -960,6 +1064,7 @@ def paragraph_v3(
             "turn": turn,
             "attempt": attempt,
             "mode": "author_json" if fresh else "sentence_edit",
+            "editorial_basis_version": 1,
             "focus": focus,
             "source_scope": source,
             "editor_evidence": evidence,
@@ -989,10 +1094,11 @@ def paragraph_v3(
             + json.dumps(evidence, ensure_ascii=False)
             + "\n可選字典："
             + json.dumps({k: v["quote"] for k, v in dictionary.items()}, ensure_ascii=False)
-            + "\n使用 JSON。prose 寫約 150 至 220 個中文字，交代這個問題、資料支持的說明及其意義。"
+            + "\n使用 JSON。prose 只寫本段指定任務，用二至四句依序表達已知資料或計算定義、本段能支持的解讀、必要時的一項限制。全段 120 至 230 個字元，標點與欄位代碼也計入。"
             "寫自然句子，專注本段；欄名只是分組變數，真正的組別在 observed_group_levels。正文可完全不用卡號及數字。"
             "用 evidence_ids 選相應指標（最多三個），group_table 選是否附上原生數表，source_ids 選字典條文，link_source 選是否附來源連結。"
-            "RDE 將資料與單位另行排版，不要把卡片目錄抄進正文。未知的代表性、設計、作者或療效不要臆測。"
+            "RDE 將資料與單位另行排版。若要在句中解釋特定數值，可放置自己 evidence_ids 所選的 {{R卡號}}，用文字指出是哪一組的哪項統計，差值方向是比較組減參照組。"
+            "不要抄卡片目錄或重演前章論點。未知的代表性、設計、作者或療效不要臆測。"
         )
         if kind == "source":
             prompt += "本段必須選 link_source 或選一則字典原文。"
@@ -1033,7 +1139,8 @@ def paragraph_v3(
                 base_presentation=previous["presentation"],
             )
             prompt += (
-                "\n現在只修指定的一句，不要另寫 prose。edits 清單只准一項，sentence 必須等於指定索引，text 是你改好的整句（刪句可空白）。"
+                "\n現在只修指定的一句，不要另寫 prose 或整段。edits 清單只准一項，sentence 必須等於指定索引，text 填一句替換文字（刪句可給空字串）。"
+                "text 至多 120 字元，僅取代指定的一句；保留的前後句無需再寫，刪句可填空字串。"
                 "其餘句子原封保留。重新明確指定本段四個證據選項。"
                 "\n被退回的語句及修訂方向："
                 + json.dumps(target, ensure_ascii=False)
@@ -1073,7 +1180,7 @@ def paragraph_v3(
     if semantic_review is None and scope.get("semantic_review") == "required":
         raise ValueError("EXTERNAL_REVIEW_REQUIRED")
     extra = (
-        v3.validate_external(semantic_review, scope["source"], response, author)
+        v3.validate_external(semantic_review, scope["source"], response, author, draft=draft)
         if semantic_review is not None
         else []
     )
@@ -1089,6 +1196,7 @@ def paragraph_v3(
                 "sentence": old_target["sentence"],
                 "quote": old_target["previous_text"],
                 "repair": "仍是上次退回的相同正文與附件選擇。" + old_target["repair"],
+                **{k: old_target[k] for k in ("claim", "basis") if k in old_target},
             }
         )
     if issue:
@@ -1151,7 +1259,7 @@ def run_paragraphs(
             **(
                 {
                     "first_pass_attempts": 3,
-                    "max_paragraph_attempts": 5,
+                    "max_paragraph_attempts": v3.MAX_PARAGRAPH_ATTEMPTS,
                     "table_format": "grouped-summaries-v3",
                     "semantic_review": scope.get("semantic_review", "optional"),
                 }
@@ -1187,7 +1295,10 @@ def run_paragraphs(
     cards = card_details(card_index(project, folder, include_null=modern), scope)
     if op == "assemble":
         return assemble(scope, cards, folder)
-    if turn not in range(len(TASKS)) or attempt not in range(1, 6 if modern else 4):
+    max_attempts = (
+        read_sealed(folder / "open.json")["payload"]["max_paragraph_attempts"] if modern else 3
+    )
+    if turn not in range(len(TASKS)) or attempt not in range(1, max_attempts + 1):
         raise ValueError("INVALID_PARAGRAPH")
     path = paragraph_path(folder, turn, attempt)
     prompt_path = folder / f"draft-{turn:02}-{attempt}.json"
