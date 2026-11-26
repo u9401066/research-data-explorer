@@ -659,7 +659,7 @@
     },
     {
       "path": "src/rde/interface/mcp/analysis_catalog.py",
-      "sha256": "a66a4af7e3aef422ce83a2c4ae5af7317c0168f4284925c64abb9163ed5df74a"
+      "sha256": "c66c429d9682fb4b44e3689ad490097e5ae0e0b6a81d9060a2f05a008254e48e"
     },
     {
       "path": "src/rde/interface/mcp/canvas.py",
@@ -10824,5 +10824,5 @@
       ]
     }
   ],
-  "catalog_sha256": "5e1e693c5737d4f69645e5c38fb722bcc09eb2071e528212261d94a1df27ca45"
+  "catalog_sha256": "7fb6fa352ec856146626edc707774d3d78509370f45292e55fd4c8d8f0c63db3"
 }

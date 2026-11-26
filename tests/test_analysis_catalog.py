@@ -336,7 +336,7 @@ process.stdout.write(createHash('sha256').update(JSON.stringify(canonical(value)
     result = subprocess.run(
         [node, "-e", javascript],
         input=json.dumps(value, ensure_ascii=False),
-        text=True,
+        encoding="utf-8",
         capture_output=True,
         check=True,
     )

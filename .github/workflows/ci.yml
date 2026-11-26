@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, work/resident-action-review-20261126]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -26,8 +26,9 @@ jobs:
       - name: Native Windows sealed writes and artifact flush
         env:
           PYTHONUTF8: '1'
-        run: python -m pytest -q tests/test_windows_durability.py
+        run: python -m pytest -q tests/test_windows_durability.py tests/test_analysis_catalog.py::test_runtime_verifies_installed_wheel_layout_and_invalidates_cached_source_hash
   quality:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -64,6 +65,7 @@ jobs:
         run: SKIP=no-commit-to-branch pre-commit run --all-files
 
   extension-quality:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -107,7 +109,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-14]
+        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-15]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

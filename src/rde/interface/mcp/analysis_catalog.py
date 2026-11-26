@@ -14,6 +14,7 @@ from functools import lru_cache
 from hashlib import sha256
 import importlib
 import json
+import os
 from pathlib import Path
 
 CATALOG_PATH = Path(__file__).with_suffix(".json")
@@ -102,16 +103,22 @@ def _identity(path):
     return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
-@lru_cache(maxsize=1024)
-def _cached_source_hash(path, identity):
+def _read_source_hash(path, identity):
     value = sha256(path.read_bytes()).hexdigest()
     if _identity(path) != identity:
         raise ValueError("Analysis catalog source changed during verification")
     return value
 
 
+_cached_source_hash = lru_cache(maxsize=1024)(_read_source_hash)
+
+
 def source_hash(reference):
     path = source_path(reference)
+    # Windows st_ctime represents creation time on supported Python versions.
+    # A same-size rewrite with restored mtime can keep every identity field.
+    if os.name == "nt":
+        return _read_source_hash(path, _identity(path))
     return _cached_source_hash(path, _identity(path))
 
 
