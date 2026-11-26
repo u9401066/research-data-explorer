@@ -36,3 +36,10 @@ def test_local_edits_preserve_all_other_model_blocks():
     assert not scope_issues(
         "組別依觀測分類，並非隨機分派。", {"source_note": "觀察", "population": "樣本"}
     )
+
+
+def test_random_treatment_allocation_and_random_sampling_remain_distinct():
+    scope = {"source_note": "一項隨機對照試驗", "population": "門診樣本"}
+    assert not scope_issues("受試者隨機分派到組別。", scope)
+    assert scope_issues("受試者經隨機抽樣。", scope) == ["UNDOCUMENTED_STUDY_DESIGN"]
+    assert scope_issues("進行雙盲。", scope) == ["UNDOCUMENTED_STUDY_DESIGN"]

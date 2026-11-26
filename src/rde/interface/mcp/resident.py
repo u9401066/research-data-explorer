@@ -15,6 +15,34 @@ from rde.interface.mcp.results import artifact_reference
 from rde.interface.mcp.resident_bindings import edited_blocks, expand
 
 ACTIONS = ("data_quality", "group_estimates", "distribution")
+ACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "action": {"type": "string", "enum": list(ACTIONS)},
+        "reason": {"type": "string"},
+    },
+    "required": ["action", "reason"],
+    "additionalProperties": False,
+}
+EDIT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "edits": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "block": {"type": "integer", "minimum": 0},
+                    "text": {"type": "string"},
+                },
+                "required": ["block", "text"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["edits"],
+    "additionalProperties": False,
+}
 SECTIONS = ("研究問題與資料", "方法與分母", "主要結果", "資料品質與替代解釋", "限制與可重現性")
 
 
@@ -96,9 +124,12 @@ def scope_diagnostics(text, scope):
             clause,
         ):
             continue
-        unsupported = any(
-            term in clause and term not in approved
-            for term in ("隨機分派", "隨機分配", "隨機分組", "雙盲", "前瞻性試驗")
+        random_allocation = ("隨機分派", "隨機分配", "隨機分組", "隨機試驗", "隨機對照試驗")
+        unsupported = (
+            any(term in clause for term in random_allocation)
+            and not any(term in approved for term in random_allocation)
+        ) or any(
+            term in clause and term not in approved for term in ("雙盲", "前瞻性試驗", "隨機抽樣")
         )
         if unsupported:
             code = "UNDOCUMENTED_STUDY_DESIGN"
@@ -232,6 +263,10 @@ def run(project, entry, scope, op, turn, attempt, response):
     if anchor["scope"] != scope or anchor["dataset_id"] != entry.dataset.id:
         raise ValueError("SCOPE_CHANGED")
 
+    model_scope = {
+        k: scope[k] for k in ("question", "group", "measure", "unit", "population", "source_note")
+    }
+
     def action_prompt():
         available = [k for k in ACTIONS if not (folder / f"{k}.json").exists()]
         return (
@@ -239,7 +274,7 @@ def run(project, entry, scope, op, turn, attempt, response):
             "reason 要根據已取得的觀察指出缺口。所有計數都以資料列為單位；受試者人數須依研究設計另行核對。"
             "data_quality 查分母與缺失，group_estimates 查分組平均，"
             "distribution 查中位與範圍。\n研究範圍 "
-            + json.dumps(scope, ensure_ascii=False)
+            + json.dumps(model_scope, ensure_ascii=False)
             + "\n尚可用 "
             + json.dumps(available)
             + "\n已取得 "
@@ -261,7 +296,7 @@ def run(project, entry, scope, op, turn, attempt, response):
         }
 
     if op == "open":
-        return {"prompt": action_prompt(), "status": "explore"}
+        return {"prompt": action_prompt(), "status": "explore", "response_schema": ACTION_SCHEMA}
     if op == "observe":
         if turn not in range(1, 5) or (
             turn > 1 and not (folder / f"action-{turn-1}.json").exists()
@@ -302,6 +337,7 @@ def run(project, entry, scope, op, turn, attempt, response):
             )
         result = {
             "status": "repair" if issue else "observed",
+            "response_schema": ACTION_SCHEMA,
             "issue": issue,
             "action": action,
             "prompt": (f"上個動作需修正 {issue}。\n" if issue else "") + action_prompt(),
@@ -366,7 +402,7 @@ def run(project, entry, scope, op, turn, attempt, response):
             "保留原有的觀測層級、單位及族群限制。\n章節 "
             + SECTIONS[turn]
             + "\n研究範圍 "
-            + json.dumps(scope, ensure_ascii=False)
+            + json.dumps(model_scope, ensure_ascii=False)
             + "\n可核對的證據卡 "
             + json.dumps(compact(), ensure_ascii=False)
         )
@@ -380,6 +416,12 @@ def run(project, entry, scope, op, turn, attempt, response):
             "正文要使用數值時，單獨寫證據卡的代號，例如 {{R1.1}}，工具會排入你選擇的數值與索引。"
             "引用資料字典寫 {{source}}。每個分析判斷及段落都由你撰寫，工具只排版所選欄位。"
             "請用段落說明問題、觀察及邊界，避免宣稱取得工具未計算的檢定、介入機制或病人層級因果效果。"
+        )
+        prompt += (
+            "\n同一數值只需引用一次。採用 {{R卡號}} 時，無須另外打數字和方括號。"
+            "結果表只需要在主要結果章出現一次，其他章節請針對各自的問題寫作。"
+            "若來源只交代治療分組，就不要另加受試者的抽樣、分層、盲法與未記錄的研究程序。"
+            "描述差異的大小及方向，顯著性、偏差大小與療效需要額外證據。"
         )
         if attempt == 2:
             prompt += (
@@ -407,7 +449,11 @@ def run(project, entry, scope, op, turn, attempt, response):
                     ensure_ascii=False,
                 )
             )
-        return {"prompt": prompt, "status": "draft"}
+        return {
+            "prompt": prompt,
+            "status": "draft",
+            **({"response_schema": EDIT_SCHEMA} if attempt == 3 else {}),
+        }
     author_source = response
     edit_issue = None
     if attempt == 3:
