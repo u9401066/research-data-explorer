@@ -84,47 +84,81 @@ def card_index(project, folder):
     return cards
 
 
-def scope_issues(text, scope):
-    """Flag affirmative study-design claims absent from the approved source description."""
+def scope_diagnostics(text, scope):
+    """Locate unsupported affirmative claims in a descriptive-only study."""
     approved = scope["source_note"] + " " + scope["population"]
-    issues = []
-    for term in ("隨機分派", "隨機分配", "隨機分組", "雙盲", "前瞻性試驗"):
-        if term in approved:
+    out = []
+    for match in re.finditer(r"[^。！？\n；]+", text):
+        clause = match.group().strip()
+        if re.search(r"未|無法|不(?:應|宜|足|能|明|確定)|是否|若|缺乏|假設|避免|難以", clause):
             continue
-        for clause in re.split(r"[。！？\n；]", text):
-            if term in clause and not re.search(
-                r"未|無法|不(?:能|明|確定)|是否|若|缺乏|假設", clause
-            ):
-                issues.append("UNDOCUMENTED_STUDY_DESIGN")
-                break
-    return list(dict.fromkeys(issues))
-
-
-def section_review(project_id, text, cards, section):
-    issues = []
-    claims = []
-    used = set()
-    # The resident places each locator beside the raw or rounded number it supports.
-    pattern = r"(-?\d+(?:\.\d+)?)\s*\[R(\d+\.\d+)\]"
-    for match in re.finditer(pattern, text):
-        number, key = match.groups()
-        card = cards.get(key)
-        if not card:
-            issues.append("UNKNOWN_REFERENCE")
-            continue
-        used.add(key)
-        claims.append(
-            {k: card[k] for k in ("pointer", "artifact_id", "sha256")}
-            | {
-                "quote": match.group(),
-                "value": float(number),
-                "decimals": min(8, len(number.partition(".")[2])),
-            }
+        unsupported = any(
+            term in clause and term not in approved
+            for term in ("隨機分派", "隨機分配", "隨機分組", "雙盲", "前瞻性試驗")
         )
-    if len(used) != len(set(re.findall(r"\[R(\d+\.\d+)\]", text))):
-        issues.append("UNBOUND_REFERENCE")
-    if re.search(r"\[E?\d+(?:\.\d+)?\]", text):
+        if unsupported:
+            code = "UNDOCUMENTED_STUDY_DESIGN"
+        elif re.search(
+            r"統計(?:學)?(?:上)?顯著|顯著(?:提升|降低|增加|增長|高於|低於)|因果鏈", clause
+        ):
+            code = "INFERENCE_OUTSIDE_DESCRIPTIVE_SCOPE"
+        else:
+            continue
+        out.append(
+            {"issue": code, "start": match.start(), "end": match.end(), "quote": clause[:220]}
+        )
+    return out
+
+
+def scope_issues(text, scope):
+    return list(dict.fromkeys(d["issue"] for d in scope_diagnostics(text, scope)))
+
+
+def cited_claims(text, cards, unit):
+    """Bind each bracket occurrence to the author's own nearby value, including shared citations."""
+    claims, used, diagnostics = [], set(), []
+    previous_end, number_match = -1, None
+    optional_unit = r"(?:筆|人|名|隻|位|例|%" + ("|" + re.escape(unit) if unit else "") + r")?"
+    value_end = re.compile(
+        r"(?<![A-Za-z0-9.])(-?\d+(?:\.\d+)?)\*{0,2}\s*" + optional_unit + r"\s*\*{0,2}\s*$"
+    )
+    for match in re.finditer(r"\[R(\d+\.\d+)\]", text):
+        key = match.group(1)
+        if previous_end < 0 or not re.fullmatch(r"[\s*、,，]*", text[previous_end : match.start()]):
+            number_match = value_end.search(text, 0, match.start())
+        card = cards.get(key)
+        previous_end = match.end()
+        if not card or not number_match:
+            diagnostics.append(
+                {
+                    "issue": "UNKNOWN_REFERENCE" if not card else "UNBOUND_REFERENCE",
+                    "reference": "R" + key,
+                    "start": match.start(),
+                    "end": match.end(),
+                    "quote": text[max(0, match.start() - 32) : match.end()],
+                }
+            )
+            continue
+        number = number_match.group(1)
+        claim = {k: card[k] for k in ("pointer", "artifact_id", "sha256")}
+        claim["quote"] = text[number_match.start() : match.end()]
+        if isinstance(card["value"], str):
+            claim["value"] = number
+        else:
+            claim.update(value=float(number), decimals=min(8, len(number.partition(".")[2])))
+        claims.append(claim)
+        used.add(key)
+    return claims, used, diagnostics
+
+
+def section_review(project_id, text, cards, section, unit=""):
+    claims, used, diagnostics = cited_claims(text, cards, unit)
+    issues = [d["issue"] for d in diagnostics]
+    for m in re.finditer(r"\[E?\d+(?:\.\d+)?\]", text):
         issues.append("UNRESOLVED_CITATION")
+        diagnostics.append(
+            {"issue": "UNRESOLVED_CITATION", "quote": m.group(), "start": m.start(), "end": m.end()}
+        )
     if len(claims) > 32 or len(text) > 20000:
         issues.append("REVIEW_SIZE_LIMIT")
     native = (
@@ -132,19 +166,33 @@ def section_review(project_id, text, cards, section):
     )
     if native:
         issues.extend(native["issues"])
+        for check in native["checks"]:
+            if check["issue"]:
+                claim = claims[check["claim"]]
+                diagnostics.append(
+                    {"issue": check["issue"], "quote": claim["quote"], "pointer": claim["pointer"]}
+                )
     if section == 2:
-        if any(
-            card["label"].endswith(("/observed", "/mean"))
+        missing = [
+            f"R{key} {card['label']}"
+            for key, card in cards.items()
+            if card["label"].endswith(("/observed", "/mean"))
             and card["label"].startswith("group_estimates/")
             and key not in used
-            for key, card in cards.items()
-        ):
+        ]
+        if missing:
             issues.append("MISSING_GROUP_ESTIMATE_OR_DENOMINATOR")
+            diagnostics.append({"issue": issues[-1], "missing": missing})
     if len(text.strip()) < 350:
         issues.append("SECTION_TOO_SHORT")
-    if re.search(r"XX\.XX|\{\s*\"(?:observation|artifact_id|text)\"\s*:|待填寫", text):
+    if re.search(r'XX\.XX|\{\s*"(?:observation|artifact_id|text)"\s*:|待填寫', text):
         issues.append("PLACEHOLDER_OR_RAW_RECEIPT")
-    return {"issues": list(dict.fromkeys(issues)), "review": native, "used": sorted(used)}
+    return {
+        "issues": list(dict.fromkeys(issues)),
+        "review": native,
+        "used": sorted(used),
+        "diagnostics": diagnostics,
+    }
 
 
 def run(project, entry, scope, op, turn, attempt, response):
@@ -305,12 +353,23 @@ def run(project, entry, scope, op, turn, attempt, response):
             + "\n可核對的證據卡 "
             + json.dumps(compact(), ensure_ascii=False)
         )
+        prompt += (
+            "\n研究能支持的分析只有已執行的分組描述。請將觀測結果和推測逐段區分。"
+            "每個推測須指出何種尚未取得的資料才能檢查。觀測列數、隨機抽樣和隨機分派是不同條件。"
+            "重現資訊應指出欄位、有效分母、計算順序和資料字典。網址寫成 Markdown 連結，使用來源所給的完整 URL。"
+        )
         if attempt == 2:
-            prompt += "\n剛才章節的審核原因和原文，請自行修改 " + json.dumps(
-                previous, ensure_ascii=False
+            prompt += (
+                "\n重新撰寫本章。下列原文片段有審核問題，需核對、刪去或自行改寫。請勿將回饋貼進正文。"
+                + json.dumps(
+                    {"issues": previous["issues"], "locations": previous["diagnostics"][:18]},
+                    ensure_ascii=False,
+                )
             )
         return {"prompt": prompt, "status": "draft"}
-    checked = section_review(project.id, response, card_index(project, folder), turn)
-    checked["issues"].extend(scope_issues(response, scope))
+    checked = section_review(project.id, response, card_index(project, folder), turn, scope["unit"])
+    design = scope_diagnostics(response, scope)
+    checked["issues"] = list(dict.fromkeys(checked["issues"] + [item["issue"] for item in design]))
+    checked["diagnostics"].extend(design)
     write_once(folder / f"section-{turn}-{attempt}.json", {"text": response, **checked})
     return {"status": "repair" if checked["issues"] else "observed", **checked}
