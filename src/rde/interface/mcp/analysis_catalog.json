@@ -683,11 +683,15 @@
     },
     {
       "path": "src/rde/interface/mcp/resident.py",
-      "sha256": "87b8cc76d1db30896615adb2de2a31d4cddb2658e50eb9dc249ff5031f5a8e45"
+      "sha256": "fa95ac51996bb17132d576143fd3a001a50bbd617acbad5b9d0233498741bee2"
     },
     {
       "path": "src/rde/interface/mcp/resident_bindings.py",
-      "sha256": "d3d544888645ce6036f4619ca32a407085ef7216108e1abd9dbc7f1be9afa8ec"
+      "sha256": "b4a29e0be798bf6c653794eefc200b161a23b075534110f9cb7bbf4a6dd0068b"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_paragraphs.py",
+      "sha256": "bb8321af0aaa8891cfbe218f25fb8ca9c73e8329307c91e8d260aadd2ed2780a"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
@@ -823,7 +827,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "d2a1f077cd9eb72691e77bafa28a150e7fc97eecfe7c9758a53308b932750c56"
+      "sha256": "05889b319486c499656d085bce2abc24040664e2898270790084153de90234aa"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -10824,5 +10828,5 @@
       ]
     }
   ],
-  "catalog_sha256": "7fb6fa352ec856146626edc707774d3d78509370f45292e55fd4c8d8f0c63db3"
+  "catalog_sha256": "ffac5ef672a43eedc468a1ca5ac6302b3f8cd99fc6bb867ff4505a9932b57e93"
 }

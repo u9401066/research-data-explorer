@@ -15,6 +15,7 @@ from rde.interface.mcp.results import artifact_reference
 from rde.interface.mcp.resident_bindings import edited_blocks, expand
 
 ACTIONS = ("data_quality", "group_estimates", "distribution")
+PARAGRAPH_ACTIONS = (*ACTIONS, "group_spread", "group_completeness", "group_contrasts")
 ACTION_SCHEMA = {
     "type": "object",
     "properties": {
@@ -64,7 +65,7 @@ def observations(frame, scope, action):
             "missing_measure": int(values.isna().sum()),
             "complete": int((frame[group].notna() & values.notna()).sum()),
         }
-    if action not in ACTIONS:
+    if action not in PARAGRAPH_ACTIONS:
         raise ValueError("UNKNOWN_ACTION")
     groups = []
     for label, positions in frame.groupby(group, observed=True, sort=True).indices.items():
@@ -72,16 +73,58 @@ def observations(frame, scope, action):
         row = {"group": str(label), "observed": len(subset), "rows": len(positions)}
         if action == "group_estimates":
             row["mean"] = float(subset.mean()) if len(subset) else None
-        else:
+        elif action == "distribution":
             for name in ("median", "min", "max"):
                 row[name] = float(getattr(subset, name)()) if len(subset) else None
+        elif action == "group_spread":
+            q1, q3 = (
+                (float(v) for v in subset.quantile([0.25, 0.75], interpolation="linear"))
+                if len(subset)
+                else (None, None)
+            )
+            row.update(
+                q1=q1,
+                q3=q3,
+                iqr=q3 - q1 if len(subset) else None,
+                sd=float(subset.std(ddof=1)) if len(subset) > 1 else None,
+            )
+        elif action == "group_completeness":
+            missing = len(positions) - len(subset)
+            row.update(
+                missing=missing,
+                missing_percent=100 * missing / len(positions),
+                observed_percent=100 * len(subset) / len(positions),
+            )
+        elif action == "group_contrasts":
+            row.update(
+                mean=float(subset.mean()) if len(subset) else None,
+                median=float(subset.median()) if len(subset) else None,
+            )
         groups.append(row)
+    if action == "group_contrasts":
+        reference = next((r for r in groups if r["observed"]), None)
+        comparisons = []
+        if reference:
+            for row in groups:
+                if row is reference:
+                    continue
+                comparisons.append(
+                    {
+                        "group": row["group"],
+                        "reference": reference["group"],
+                        **{
+                            f"{k}_difference": row[k] - reference[k] if row["observed"] else None
+                            for k in ("mean", "median")
+                        },
+                    }
+                )
+        return {"reference": reference["group"] if reference else None, "comparisons": comparisons}
     return {"groups": groups}
 
 
 def card_index(project, folder):
     cards = {}
-    for action_number, action in enumerate(ACTIONS, 1):
+    for action_number, action in enumerate(PARAGRAPH_ACTIONS, 1):
         path = folder / (action + ".json")
         if not path.exists():
             continue
@@ -242,6 +285,9 @@ def run(project, entry, scope, op, turn, attempt, response):
         "population",
         "source_note",
     }
+    paragraphs = scope.get("manuscript_protocol") == "paragraph-v2"
+    if paragraphs:
+        required.add("manuscript_protocol")
     if set(scope) != required or not all(
         isinstance(v, str) and 0 < len(v.strip()) <= 4000 for v in scope.values()
     ):
@@ -262,6 +308,10 @@ def run(project, entry, scope, op, turn, attempt, response):
     anchor = read_sealed(folder / "scope.json")["payload"]
     if anchor["scope"] != scope or anchor["dataset_id"] != entry.dataset.id:
         raise ValueError("SCOPE_CHANGED")
+    if paragraphs:
+        from rde.interface.mcp.resident_paragraphs import run_paragraphs
+
+        return run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, response)
 
     model_scope = {
         k: scope[k] for k in ("question", "group", "measure", "unit", "population", "source_note")

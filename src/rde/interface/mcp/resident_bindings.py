@@ -30,8 +30,17 @@ def table(cards, scope):
             ("distribution", k, name)
             for k, name in [("median", "中位數"), ("min", "最小值"), ("max", "最大值")]
         )
+    if any(("group_completeness", "observed_percent") in row for row in by_group.values()):
+        columns.extend(
+            [
+                ("group_completeness", "observed_percent", "有效測量率（%）"),
+                ("group_completeness", "missing_percent", "缺測率（%）"),
+            ]
+        )
     headers = [_cell(scope["group"])] + [
-        name if field == "observed" else f"{name}（{_cell(scope['unit'])}）"
+        name
+        if field == "observed" or field.endswith("_percent")
+        else f"{name}（{_cell(scope['unit'])}）"
         for _, field, name in columns
     ]
     rows = [headers, ["---"] * len(headers)]

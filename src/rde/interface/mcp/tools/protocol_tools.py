@@ -60,7 +60,10 @@ def register_protocol_tools(server: Any) -> None:
         """Conduct a bounded, project-scoped descriptive pilot and review each resident response.
 
         The host supplies the approved scope and run identity. Individual rows are never
-        returned. The final manuscript contains only the resident's saved text.
+        returned. Set scope.manuscript_protocol to "paragraph-v2" for six aggregate
+        observations, twenty author/review turns, and a separate evidence_index.
+        open declares sections and remaining_actions. Successful assembly still
+        requires independent scientific review. Omit the protocol for legacy drafts.
         """
         from rde.interface.mcp.resident import run
         from rde.interface.mcp.tools._shared import (
