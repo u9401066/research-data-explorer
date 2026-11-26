@@ -52,14 +52,17 @@ def observations(frame, scope, action):
 
 def card_index(project, folder):
     cards = {}
-    for action in ACTIONS:
+    for action_number, action in enumerate(ACTIONS, 1):
         path = folder / (action + ".json")
         if not path.exists():
             continue
         doc = read_sealed(path)["payload"]
         ref = artifact_reference(project, path.relative_to(project.output_dir).as_posix(), path)
 
+        card_number = 0
+
         def visit(value, pointer, label):
+            nonlocal card_number
             if isinstance(value, list):
                 for i, item in enumerate(value):
                     visit(item, f"{pointer}/{i}", f"{label}/{item['group']}")
@@ -67,7 +70,8 @@ def card_index(project, folder):
                 for key, item in value.items():
                     visit(item, f"{pointer}/{key}", f"{label}/{key}")
             elif value is not None:
-                key = f"{ACTIONS.index(action)+1}.{len([k for k in cards if k.startswith(str(ACTIONS.index(action)+1)+'.')])+1}"
+                card_number += 1
+                key = f"{action_number}.{card_number}"
                 cards[key] = {
                     "label": label,
                     "value": value,
@@ -78,6 +82,22 @@ def card_index(project, folder):
 
         visit(doc["observation"], "/payload/observation", action)
     return cards
+
+
+def scope_issues(text, scope):
+    """Flag affirmative study-design claims absent from the approved source description."""
+    approved = scope["source_note"] + " " + scope["population"]
+    issues = []
+    for term in ("隨機分派", "隨機分配", "隨機分組", "雙盲", "前瞻性試驗"):
+        if term in approved:
+            continue
+        for clause in re.split(r"[。！？\n；]", text):
+            if term in clause and not re.search(
+                r"未|無法|不(?:能|明|確定)|是否|若|缺乏|假設", clause
+            ):
+                issues.append("UNDOCUMENTED_STUDY_DESIGN")
+                break
+    return list(dict.fromkeys(issues))
 
 
 def section_review(project_id, text, cards, section):
@@ -103,7 +123,13 @@ def section_review(project_id, text, cards, section):
         )
     if len(used) != len(set(re.findall(r"\[R(\d+\.\d+)\]", text))):
         issues.append("UNBOUND_REFERENCE")
-    native = review(project_id, text, claims) if claims else None
+    if re.search(r"\[E?\d+(?:\.\d+)?\]", text):
+        issues.append("UNRESOLVED_CITATION")
+    if len(claims) > 32 or len(text) > 20000:
+        issues.append("REVIEW_SIZE_LIMIT")
+    native = (
+        review(project_id, text, claims) if claims and "REVIEW_SIZE_LIMIT" not in issues else None
+    )
     if native:
         issues.extend(native["issues"])
     if section == 2:
@@ -158,7 +184,8 @@ def run(project, entry, scope, op, turn, attempt, response):
         available = [k for k in ACTIONS if not (folder / f"{k}.json").exists()]
         return (
             "你負責選擇下一項有助回答問題的 RDE 查詢。只輸出 JSON，鍵為 action 和 reason。"
-            "reason 要根據已取得的觀察指出缺口。data_quality 查分母與缺失，group_estimates 查分組平均，"
+            "reason 要根據已取得的觀察指出缺口。所有計數都以資料列為單位；受試者人數須依研究設計另行核對。"
+            "data_quality 查分母與缺失，group_estimates 查分組平均，"
             "distribution 查中位與範圍。\n研究範圍 "
             + json.dumps(scope, ensure_ascii=False)
             + "\n尚可用 "
@@ -169,7 +196,15 @@ def run(project, entry, scope, op, turn, attempt, response):
 
     def compact():
         return {
-            k: {"field": v["label"], "value": v["value"]}
+            "R" + k: {
+                "field": v["label"],
+                "value": v["value"],
+                **(
+                    {"citation": f"{round(v['value'], 4)}[R{k}]"}
+                    if type(v["value"]) in (float, int)
+                    else {}
+                ),
+            }
             for k, v in card_index(project, folder).items()
         }
 
@@ -200,6 +235,8 @@ def run(project, entry, scope, op, turn, attempt, response):
             issue = "INVALID_ACTION_OR_REASON"
         elif (folder / f"{action}.json").exists():
             issue = "REPEATED_ACTION"
+        elif scope_issues(choice["reason"], scope):
+            issue = "UNDOCUMENTED_STUDY_DESIGN"
         else:
             if dataset_version(project, entry)["version_sha256"] != anchor["version"]:
                 raise ValueError("DATASET_CHANGED")
@@ -252,9 +289,14 @@ def run(project, entry, scope, op, turn, attempt, response):
             raise ValueError("CHAPTER_ALREADY_VERIFIED")
     if op == "draft":
         prompt = (
-            "用繁體中文為這份研究撰寫指定章節，直接輸出 Markdown 正文，目標 500 至 700 字。"
+            "用繁體中文為這份研究撰寫指定章節，直接輸出 Markdown 正文，目標 900 至 1150 字。"
             "根據已批准的問題及公開資料說明作答。研究問題、方法、結果、敏感性及限制各章要有不同功能。"
-            "量測數字使用 數字[R編號]，單位跟在引用後。例如引用格式是 數字[R卡號]。"
+            "第一章交代問題、來源及估計目標，方法章寫可重做的步驟與缺值處理，"
+            "結果章以表格及文字比較，資料品質章檢視觀察到的分布及替代解釋，末章交代設計邊界與重查方式。"
+            "證據卡的 citation 欄有數值加索引，引用時逐字複製到句子或表格，再接單位。"
+            "所有計數均為資料列，是否可換算成獨立觀測對象須以資料說明查證。"
+            "談及分派方式、收案或因果時須以給定的資料說明為準。"
+            "討論資料來源時使用核准的公開資料字典連結。請直接寫章節內文，無須重複章名。"
             "主要結果章以表格呈現每一組有效人數與平均，每格有自己的引用。"
             "保留原有的觀測層級、單位及族群限制。\n章節 "
             + SECTIONS[turn]
@@ -269,5 +311,6 @@ def run(project, entry, scope, op, turn, attempt, response):
             )
         return {"prompt": prompt, "status": "draft"}
     checked = section_review(project.id, response, card_index(project, folder), turn)
+    checked["issues"].extend(scope_issues(response, scope))
     write_once(folder / f"section-{turn}-{attempt}.json", {"text": response, **checked})
     return {"status": "repair" if checked["issues"] else "observed", **checked}
