@@ -18,6 +18,11 @@ class ToolContract:
 
 
 CONTRACTS = {
+    "resident_exploration": ToolContract(
+        "exploratory",
+        "project-bound verified frame + host-approved descriptive scope",
+        "immutable aggregate observations and resident drafts; publication needs independent review",
+    ),
     "review_research_action": ToolContract(
         "all",
         "project-owned immutable artifact identity and exact quote",

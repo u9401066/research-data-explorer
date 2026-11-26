@@ -267,7 +267,7 @@
     },
     {
       "path": "src/rde/infrastructure/adapters/privacy.py",
-      "sha256": "e46d0d6a507f13f817b45633b18652b8fdd115e4b0fcb72f0e67e785dccbff53"
+      "sha256": "f6085f6a1645ce24832676c24f4f14a54278229e552781c2f8be7005d0911326"
     },
     {
       "path": "src/rde/infrastructure/adapters/scipy_engine.py",
@@ -554,6 +554,10 @@
       "sha256": "b8777ae81f78b9583fdf37787e0ae10641221d86a1be41f2eab7147eac1029ff"
     },
     {
+      "path": "src/rde/infrastructure/persistence/private_acl.py",
+      "sha256": "faa8118375b3a0c216838c9c9b2c528f0ef384480a77798fdfdc646af6847059"
+    },
+    {
       "path": "src/rde/infrastructure/prediction/__init__.py",
       "sha256": "56181dac5bb1972d48af378006c7b04e911b577991ece02888c732adcf4951ed"
     },
@@ -663,7 +667,7 @@
     },
     {
       "path": "src/rde/interface/mcp/contracts.py",
-      "sha256": "853d7e5cb0e5eebaffb9fc4bffbbcd79ce1c420f90005d46de6fe593ea8ad0ae"
+      "sha256": "95bc42c7e2a2a2ef5f83577b8342bb13a57eebe6fb3df395b1612b198dc4c33d"
     },
     {
       "path": "src/rde/interface/mcp/operations.py",
@@ -676,6 +680,10 @@
     {
       "path": "src/rde/interface/mcp/research_plans.py",
       "sha256": "885ab67a60036c41dc0d96cf3377cb300c6e5c1962f729ebd9da7e5bfcd7c3be"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident.py",
+      "sha256": "7381c0d944afa59233365d3b7bf046caa367d69d748137fe5e50742bcff8f56c"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
@@ -811,7 +819,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "c2c0776fe2113d72c7acd6bddc382edeea3f81e289978e1cab0ca3641770e1b5"
+      "sha256": "d2a1f077cd9eb72691e77bafa28a150e7fc97eecfe7c9758a53308b932750c56"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -10812,5 +10820,5 @@
       ]
     }
   ],
-  "catalog_sha256": "eb844166a9bc6810dbab33f19312fb7b83d1fb48028d046f9c8e652cbb7d4dfc"
+  "catalog_sha256": "240644ae8f09966ee55063a5e3a558a0d5dd5544a441312c8c917063326e63c3"
 }

@@ -48,6 +48,38 @@ def resolve_workflow_contract(project_id: str | None = None) -> dict:
 
 def register_protocol_tools(server: Any) -> None:
     @server.tool()
+    def resident_exploration(
+        project_id: str,
+        dataset_id: str,
+        scope: dict,
+        op: str,
+        turn: int = 0,
+        attempt: int = 1,
+        response: str = "",
+    ) -> dict | str:
+        """Conduct a bounded, project-scoped descriptive pilot and review each resident response.
+
+        The host supplies the approved scope and run identity. Individual rows are never
+        returned. The final manuscript contains only the resident's saved text.
+        """
+        from rde.interface.mcp.resident import run
+        from rde.interface.mcp.tools._shared import (
+            ensure_dataset,
+            ensure_project_context,
+            fmt_error,
+        )
+
+        ok, message, project = ensure_project_context(project_id)
+        if ok:
+            ok, message, entry = ensure_dataset(dataset_id, project=project)
+        if not ok:
+            return fmt_error(message)
+        try:
+            return run(project, entry, scope, op, turn, attempt, response)
+        except (ValueError, KeyError, OSError, TypeError) as error:
+            return fmt_error(str(error), code="RESIDENT_EXPLORATION_ERROR")
+
+    @server.tool()
     def review_research_action(project_id: str, utterance: str, claims: list[dict]) -> dict | str:
         """Check one visible model message against its explicitly cited RDE evidence before proceeding.
 

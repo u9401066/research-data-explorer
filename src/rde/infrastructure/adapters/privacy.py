@@ -46,7 +46,12 @@ def _key(*, create=True):
         pending = path.with_name(path.name + "." + secrets.token_hex(12))
         try:
             with pending.open("xb") as stream:
-                os.chmod(pending, 0o600)
+                if os.name == "nt":
+                    from rde.infrastructure.persistence.private_acl import windows_private_key
+
+                    windows_private_key(pending, initialize=True)
+                else:
+                    os.chmod(pending, 0o600)
                 stream.write(secrets.token_bytes(32))
                 stream.flush()
                 os.fsync(stream.fileno())
@@ -56,8 +61,12 @@ def _key(*, create=True):
                 pass
         finally:
             pending.unlink(missing_ok=True)
-    if path.is_symlink() or path.stat().st_mode & 0o077:
+    if not path.is_file() or path.is_symlink() or (os.name != "nt" and path.stat().st_mode & 0o077):
         raise ValueError("Research privacy key must be a private regular file.")
+    if os.name == "nt":
+        from rde.infrastructure.persistence.private_acl import windows_private_key
+
+        windows_private_key(path)
     key = path.read_bytes()
     if len(key) != 32:
         raise ValueError(
