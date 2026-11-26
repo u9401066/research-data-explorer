@@ -108,6 +108,8 @@ def protocol(tmp_path, request):
     }
 
     if scope["manuscript_protocol"] == "paragraph-v3":
+        scope["question"] += "\n依核准方向比較並解釋樣本涵蓋的限制。"
+        scope["source_note"] += "。arm 欄：A=室內、B=室外。"
         scope["semantic_review"] = "required"
 
     def call(op, turn=0, attempt=1, response="", semantic_review=None):
@@ -322,6 +324,14 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
     call, csv = protocol
     opened = call("open")
     assert opened["protocol"] == "paragraph-v3" and opened["max_paragraph_attempts"] == 12
+    request = opened["researcher_request"]
+    assert request == "不同組別的測量值呈現何種描述性差異？\n依核准方向比較並解釋樣本涵蓋的限制。"
+
+    def check_request(result):
+        assert result["researcher_request"] == request
+        assert result["prompt"].count(json.dumps(request, ensure_ascii=False)) == 1
+
+    check_request(opened)
     bad = {
         "action": "group_estimates",
         "reason": "核對分組列數。",
@@ -353,7 +363,11 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
             }
         )
         options = call("observe", n, response=raw)
+        check_request(options)
         assert options["status"] == "observed", options["issues"]
+        obs = options["observation_receipt"]
+        assert obs["artifact_id"] and len(obs["sha256"]) == 64
+        assert call("observe", n, response=raw)["observation_receipt"] == obs
         if evidence:
             assert options["intent"]["evidence_use"] == evidence["evidence_use"]
 
@@ -375,7 +389,17 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
             ]
         )
         output = json.dumps({"findings": findings}, ensure_ascii=False)
+        sentences = [i for i, s in enumerate(sentence_slices(prose)) if s.strip()]
+        reviews = []
+        for i in sentences:
+            raw = output if i == which else json.dumps({"findings": []}, ensure_ascii=False)
+            reviews.append(
+                {"sentence": i, "reviewer_response": raw, "reviewer_response_sha256": h(raw)}
+            )
+            if i == which:
+                break
         return {
+            **({"sentence_reviews": reviews} if 2 <= len(sentences) <= 4 else {}),
             "source_sha256": h(csv.read_text("utf-8")),
             "response_sha256": h(reply),
             "author_source_sha256": h(prose),
@@ -421,12 +445,16 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
 
     for turn in range(20):
         draft = call("draft", turn)
+        check_request(draft)
         assert draft["editorial_basis_version"] == 1
+        assert draft["editorial_slices_version"] == 1
         assert draft["source_scope"]["method_definitions"]["iqr"]["formula"] == "q3 - q1"
         assert draft["source_scope"]["observed_group_levels"] == ["A", "B"]
         model = payload(draft, turn)
+        if turn == 1:
+            model["prose"] += "arm 欄位：A 表示室內、B 代表室外。"
         if turn == 9:
-            model["prose"] += "A組中位數為四點零零 cm[" + model["evidence_ids"][0] + "]。"
+            model["prose"] += "A組中位數為四點零零 cm。"
         author = model["prose"]
         reply = json.dumps(model, ensure_ascii=False)
         verdict = reviewer(reply, author, 0 if turn == 0 else None)
@@ -441,6 +469,7 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
                 call("review", turn, response=reply, semantic_review=reviewer(reply, author))
             for attempt in (2, 3):
                 draft = call("draft", turn, attempt)
+                check_request(draft)
                 t = draft["repair_target"]["sentence"]
                 assert draft["repair_target"]["basis"] == "scope.dictionary"
                 assert (
@@ -462,7 +491,16 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
         else:
             assert result["status"] == "observed", result["diagnostics"]
             if turn == 9:
-                assert result["native_number_checks"][0]["verified"]
+                check = result["native_number_checks"][0]
+                assert check["verified"] and check["match_method"] == "selected_evidence"
+                assert model["prose"][check["start"] : check["end"]] == "四點零零"
+                assert (
+                    check["native_value"] == 4
+                    and check["pointer"].endswith("/median")
+                    and len(check["sha256"]) == 64
+                )
+            if turn == 1:
+                assert [m["code"] for m in result["dictionary_checks"]] == ["A", "B"]
             if turn == 8:
                 assert (
                     len(result["native_null_checks"]) == 1
@@ -470,6 +508,7 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
                 )
     assert call("assemble")["status"] == "withheld"
     revisit = call("draft", 0, 4)
+    check_request(revisit)
     assert revisit["mode"] == "author_json" and [
         r["turn"] for r in revisit["revisit_context"]["accepted_paragraphs"]
     ] == list(range(1, 20))
@@ -510,6 +549,8 @@ def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(pro
     assert call("review", 0, 12, last, reviewer(last, "".join(parts)))["status"] == "observed"
     result = call("assemble")
     assert result["status"] == "independent_review_required"
+    assert result["manuscript"].splitlines()[0] == "# 不同組別的測量值呈現何種描述性差異？"
+    assert "依核准方向比較並解釋樣本涵蓋的限制。" not in result["manuscript"]
     records = [p for group in result["authorship"] for p in group["paragraphs"]]
     assert records[0]["attempt"] == 12 and records[0]["base_attempt"] == 11
     assert all(p["attachments_sha256"] == digest(p["attachments"]) for p in records)

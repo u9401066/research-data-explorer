@@ -6,7 +6,14 @@ import json
 import re
 
 from rde.interface.mcp.resident_reasoning import LIMITS, sentence_slices
-from rde.interface.mcp.resident_citations import render
+from rde.interface.mcp.resident_citations import (
+    METRICS,
+    contrast_direction,
+    matches_authored_number,
+    render,
+)
+from rde.interface.mcp.resident_claim_context import clauses, qualified_relation
+from rde.interface.mcp.resident_numbers import FOLD
 from rde.interface.mcp.resident_tables import display_stat
 
 MAX_PARAGRAPH_ATTEMPTS = 12
@@ -21,6 +28,7 @@ EDITORIAL_SCOPE = {
     "group_levels": "observed_group_levels",
     "measurement_unit": "measurement_unit",
     "methods": "available_methods",
+    "relations": "computed_relations",
     "not_measured": "not_measured",
 }
 FOCUS_STATISTICS = {
@@ -330,6 +338,132 @@ def intent_issues(choice, contracts, prior):
     return []
 
 
+def named_group_order(clause, refs, previous):
+    """Return support for an explicit comparison of two named group centers."""
+    levels = {
+        str(v[k]) for v in previous.values() for k in ("group", "reference_group") if v.get(k)
+    }
+    names = "|".join(re.escape(level) for level in sorted(levels, key=len, reverse=True))
+    group = rf"(?:(?:{names+'|' if names else ''}[A-Za-z0-9_-]+)\s*組|比較組|參照組)"
+    metric = r"平均(?:數|值)?|均值|中位(?:數|值)?"
+    match = re.search(
+        rf"(?P<left>{group})(?:的|之)?(?P<metric>{metric})(?:更|明顯)?(?P<order>高於|低於|大於|小於|等於)(?P<right>{group})",
+        clause,
+    )
+    if not match:
+        match = re.search(
+            rf"(?P<left>{group})(?:的|之)?(?P<metric>{metric})(?:較|比)(?P<right>{group})(?:的|之)?(?:{metric})?(?:更|為)?(?P<order>高|低|大|小|相等)",
+            clause,
+        )
+    if (
+        not match
+        or qualified_relation(clause, match.start(), match.end())
+        or re.search("是否|能否|若|假如|假設", clause[: match.end()])
+    ):
+        return None
+    left, right = (
+        match["left"].removesuffix("組").strip(),
+        match["right"].removesuffix("組").strip(),
+    )
+    metric = "median" if match["metric"].startswith("中位") else "mean"
+    expected = 1 if match["order"][0] in "高大" else -1 if match["order"][0] in "低小" else 0
+    selected = [previous[k] for k in refs if k in previous]
+    scalar = {
+        v["group"]: v["value"]
+        for v in selected
+        if v.get("statistic") == metric and v.get("group") is not None
+    }
+    if left in scalar and right in scalar:
+        return (scalar[left] > scalar[right]) - (scalar[left] < scalar[right]) == expected
+    for card in selected:
+        if card.get("statistic") != metric + "_difference":
+            continue
+        roles = {"比較": card["group"], "參照": card["reference_group"]}
+        lhs, rhs = roles.get(left, left), roles.get(right, right)
+        direction = (lhs, rhs)
+        value = card["value"]
+        if direction == (card["group"], card["reference_group"]):
+            return (value > 0) - (value < 0) == expected
+        if direction == (card["reference_group"], card["group"]):
+            return (value < 0) - (value > 0) == expected
+    return False
+
+
+def prior_claim_issues(text, refs, previous):
+    issues = []
+    normalized = text.translate(FOLD)
+    for match in re.finditer(
+        r"(?<![A-Za-z0-9_])[RrＲｒ]([0-9]+\.[0-9]+)(?![A-Za-z0-9_])", normalized
+    ):
+        ref = "R" + match.group(1)
+        if ref not in previous or ref not in refs:
+            issues.append(
+                {
+                    "issue": "UNDECLARED_PRIOR_REFERENCE"
+                    if ref in previous
+                    else "PRIOR_EVIDENCE_NOT_OBSERVED",
+                    "start": match.start(),
+                    "end": match.end(),
+                    "quote": text[match.start() : match.end()],
+                    "reference": ref,
+                    "repair": "若要引先前觀察，請從 prior_evidence 找出實際卡號並列入 prior_refs。",
+                }
+            )
+    for start, end, clause in clauses(normalized):
+        if named_group_order(clause, refs, previous) is False:
+            issues.append(
+                {
+                    "issue": "PRIOR_CONTRAST_DIRECTION_UNVERIFIED",
+                    "start": start,
+                    "end": end,
+                    "quote": text[start:end],
+                    "repair": "核對同一中心指標的兩組原生估計或具名組差，請在 prior_refs 引明實際依據。",
+                }
+            )
+        match = re.search(
+            r"(?P<metric>平均(?:數|值)?|均值|中位(?:數|值)?)?(?:的|組間)?差(?:異|值|距)?(?:方向|結果|數值)?\s*(?:為|呈(?:現)?|是|顯示)\s*(?P<sign>正|負|零|0)(?:向|值|數)?",
+            clause,
+        )
+        if not match or qualified_relation(clause, match.start(), match.end()):
+            continue
+        if re.search(r"若|假設|假如|是否|能否|尚待|尚未|有待", clause[: match.end()]) or re.match(
+            r"(?:時|則)?(?:表示|意味|代表|即|定義)", clause[match.end() :]
+        ):
+            continue
+        metric = match.group("metric")
+        statistic = (
+            ("median_difference" if metric.startswith("中位") else "mean_difference")
+            if metric
+            else None
+        )
+        candidates = [
+            previous[k]
+            for k in refs
+            if k in previous
+            and previous[k].get("statistic") in ("mean_difference", "median_difference")
+            and (statistic is None or previous[k]["statistic"] == statistic)
+        ]
+        expected = {"正": 1, "負": -1, "零": 0, "0": 0}[match.group("sign")]
+        if len(candidates) == 1:
+            card = candidates[0]
+            value = card["value"]
+            if (value > 0) - (value < 0) == expected and contrast_direction(clause, card) in (
+                "comparison_minus_reference",
+                "unspecified",
+            ):
+                continue
+        issues.append(
+            {
+                "issue": "PRIOR_CONTRAST_DIRECTION_UNVERIFIED",
+                "start": start,
+                "end": end,
+                "quote": text[start:end],
+                "repair": "若陳述已觀測的正負方向，請在 prior_refs 指明該項帶方向的差值卡並核對比較組減參照組；若尚未知，提出待檢查的問題。",
+            }
+        )
+    return issues
+
+
 def source_scope(scope, cards):
     urls = re.findall(r"https?://[A-Za-z0-9._~:/?#@!$&'*+,;=%-]+", scope["source_note"])
     groups = list(
@@ -423,7 +557,41 @@ def editing_evidence(cards, actions, *, turn=None):
     }
 
 
-def target_sentence(previous):
+def numeric_repair_evidence(diagnostic, author, sentence, evidence):
+    if diagnostic["issue"] not in {
+        "UNBOUND_AUTHOR_NUMBER",
+        "INLINE_CARD_NOT_SELECTED",
+        "NUMERIC_CITATION_CONTEXT_MISMATCH",
+    }:
+        return {}
+    start, end = diagnostic.get("start"), diagnostic.get("end")
+    if type(start) is not int or type(end) is not int or not 0 <= start < end <= len(author):
+        return {}
+    numeric = diagnostic.get("numeric")
+    ranked = []
+    for ref, card in evidence.items():
+        metric = METRICS.get(card["statistic"])
+        named = bool(metric and re.search(metric, sentence, re.I))
+        same_value = bool(numeric and matches_authored_number(card["value"], numeric))
+        if not (named or same_value or ref == diagnostic.get("reference")):
+            continue
+        group = card.get("group")
+        score = (
+            4 * named
+            + 3 * bool(group and str(group) + "組" in sentence)
+            + 2 * same_value
+            + int(card["unit"] in sentence)
+        )
+        ranked.append((score, {"id": ref, **card}))
+    ranked.sort(key=lambda pair: -pair[0])
+    return {
+        "author_span": {"start": start, "end": end, "quote": author[start:end]},
+        "evidence_candidates": [card for _, card in ranked[:3]],
+        "selection_guidance": "這些是本段可選欄位。核對指標、組別、方向、單位與原值，自行決定是否明選該卡並保留可核數值，或以 {{R卡號}} 引用。無合適證據時刪除該數值或改寫。",
+    }
+
+
+def target_sentence(previous, *, evidence=None):
     sentences = sentence_slices(previous["author_source"])
     diagnostics = previous["result"]["diagnostics"]
     for d in diagnostics:
@@ -452,8 +620,50 @@ def target_sentence(previous):
         "source_sha256": sha256(raw.encode()).hexdigest(),
         "mode": "replace_sentence",
         "repair": d.get("repair", d["issue"]),
+        **numeric_repair_evidence(d, previous["author_source"], raw, evidence or {}),
         **({k: d[k] for k in ("claim", "basis")} if "claim" in d and "basis" in d else {}),
     }
+
+
+def verify_sentence_reviews(value, indices):
+    """Replay the ordered prefix of an independent review, ending at its first finding."""
+    reviews = value["sentence_reviews"]
+    if not isinstance(reviews, list) or not 1 <= len(reviews) <= len(indices):
+        raise ValueError("EXTERNAL_SENTENCE_COVERAGE")
+    for position, record in enumerate(reviews):
+        index = indices[position]
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"sentence", "reviewer_response", "reviewer_response_sha256"}
+            or type(record["sentence"]) is not int
+            or record["sentence"] != index
+            or not isinstance(record["reviewer_response"], str)
+            or sha256(record["reviewer_response"].encode()).hexdigest()
+            != record["reviewer_response_sha256"]
+        ):
+            raise ValueError("EXTERNAL_SENTENCE_RECEIPT")
+        try:
+            reply = json.loads(record["reviewer_response"])
+        except ValueError as exc:
+            raise ValueError("EXTERNAL_SENTENCE_RESPONSE") from exc
+        if (
+            not isinstance(reply, dict)
+            or set(reply) != {"findings"}
+            or not isinstance(reply["findings"], list)
+        ):
+            raise ValueError("EXTERNAL_SENTENCE_RESPONSE")
+        findings = reply["findings"]
+        if any(
+            not isinstance(f, dict) or type(f.get("sentence")) is not int or f["sentence"] != index
+            for f in findings
+        ):
+            raise ValueError("EXTERNAL_SENTENCE_FINDING_INDEX")
+        if findings and position != len(reviews) - 1:
+            raise ValueError("EXTERNAL_SENTENCE_AFTER_VETO")
+    if reviews[-1]["reviewer_response"] != value["reviewer_response"] or (
+        value["verdict"] == "accept" and len(reviews) != len(indices)
+    ):
+        raise ValueError("EXTERNAL_SENTENCE_COVERAGE")
 
 
 def validate_external(value, source, response, author, *, draft=None):
@@ -470,6 +680,11 @@ def validate_external(value, source, response, author, *, draft=None):
         "reviewer_response",
         "diagnostics",
     }
+    sentences = sentence_slices(author)
+    indices = [i for i, s in enumerate(sentences) if s.strip()]
+    sliced = draft and draft.get("editorial_slices_version") == 1 and 2 <= len(indices) <= 4
+    if sliced:
+        exact.add("sentence_reviews")
 
     def h(t):
         return sha256(t.encode()).hexdigest()
@@ -504,7 +719,8 @@ def validate_external(value, source, response, author, *, draft=None):
         or bool(issues) != (value["verdict"] == "repair")
     ):
         raise ValueError("EXTERNAL_REVIEW_DIAGNOSTICS_MISMATCH")
-    sentences = sentence_slices(author)
+    if sliced:
+        verify_sentence_reviews(value, indices)
     if len(issues) != len(raw["findings"]):
         raise ValueError("EXTERNAL_REVIEW_DIAGNOSTICS_MISMATCH")
     for d, f in zip(issues, raw["findings"], strict=True):

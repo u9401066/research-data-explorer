@@ -4,7 +4,15 @@ import json
 import pytest
 
 from rde.interface.mcp.resident_citations import numeric_links, render, source_fields
-from rde.interface.mcp.resident_paragraphs import DESCRIPTIONS, scientific_issues, scope_numbers
+from rde.interface.mcp.resident_dictionary import dictionary_claims
+from rde.interface.mcp.resident_relations import study_relations
+from rde.interface.mcp.resident_paragraphs import (
+    DESCRIPTIONS,
+    rationale_issues,
+    claim_context,
+    scientific_issues,
+    scope_numbers,
+)
 from rde.interface.mcp.resident_protocol_v3 import (
     capabilities,
     choice_schema,
@@ -12,6 +20,8 @@ from rde.interface.mcp.resident_protocol_v3 import (
     parse_author,
     presentation_schema,
     validate_external,
+    verify_sentence_reviews,
+    target_sentence,
 )
 from rde.interface.mcp.resident_reasoning import action_reason, sentence_slices, apply_edits
 
@@ -276,3 +286,269 @@ def test_editor_claim_requires_exact_substring_and_available_basis():
         else:
             result = validate_external(envelope, source, "raw", author, draft=draft)[0]
             assert {k: result[k] for k in extra} == extra
+
+
+def test_signed_measure_requires_named_direction_and_count_keeps_native_unit():
+    cards = {
+        "6.2": {
+            "group": "B",
+            "reference_group": "A",
+            "value": 2.5,
+            "unit": "cm",
+            "statistic": "mean_difference",
+            "label": "group_contrasts/comparisons/B/mean_difference",
+            "pointer": "/comparison",
+        },
+        "2.2": {
+            "group": "A",
+            "value": 7,
+            "unit": "筆",
+            "statistic": "rows",
+            "label": "group_estimates/groups/A/rows",
+            "pointer": "/rows",
+        },
+    }
+    for phrase, accepted in (
+        ("B組減A組", True),
+        ("以A組為參照的B組", True),
+        ("A組減B組", False),
+        ("A組與B組", False),
+    ):
+        inline = phrase + "的平均數差為{{R6.2}}。"
+        typed = phrase + "的平均數差為二點五 cm[R6.2]。"
+        assert (not claim_context(inline, cards, strict_contrasts=True)) == accepted
+        assert (
+            not numeric_links(typed, SCOPE, cards, scope_numbers(typed, SCOPE, cards))[0]
+        ) == accepted
+
+    for unit, accepted in (("筆", True), ("列", True), ("人", False), ("眼", False)):
+        typed = "A組總筆數為七" + unit + "[R2.2]。"
+        assert (
+            not numeric_links(typed, SCOPE, cards, scope_numbers(typed, SCOPE, cards))[0]
+        ) == accepted
+
+
+def test_dictionary_codes_resolve_to_exact_approved_column_label_and_offsets():
+    note = "來源 https://example.org/dictionary 。diet：0=室內、1=室外。device: X=原件、Y=複本。"
+    scope = dict(SCOPE, group="diet", measure="device", source_note=note)
+    author = "diet 欄：0 為室內、1 代表室外。device 欄：Y 表示複本。"
+    checks, issues = dictionary_claims(author, scope)
+    assert not issues and [(r["column"], r["code"], r["label"]) for r in checks] == [
+        ("diet", "0", "室內"),
+        ("diet", "1", "室外"),
+        ("device", "Y", "複本"),
+    ]
+    assert not scope_numbers(author, scope, {}, dictionary_spans=checks)
+    for r in checks:
+        assert author[r["start"] : r["end"]] == r["quote"]
+        assert note[r["dictionary_start"] : r["dictionary_end"]] == r["dictionary_quote"]
+        assert r["source_url"] == "https://example.org/dictionary"
+        assert r["dictionary_sha256"] == hashlib.sha256(note.encode()).hexdigest()
+    for authored, issue in [
+        ("diet：0 為室外、1 為室內。", "DICTIONARY_CODE_MISMATCH"),
+        ("diet：2 表示室內。", "DICTIONARY_CODE_UNVERIFIED"),
+        ("diet：X 代表原件。", "DICTIONARY_CODE_UNVERIFIED"),
+        ("device：Y 表示原件。", "DICTIONARY_CODE_MISMATCH"),
+    ]:
+        checked, errors = dictionary_claims(authored, scope)
+        assert not checked and all(e["issue"] == issue for e in errors) and errors
+    assert dictionary_claims(author, dict(scope, source_note=note + " diet：0=室外。"))[1]
+    assert dictionary_claims(
+        author, dict(scope, source_note=note + " https://example.org/another")
+    )[1]
+
+
+def test_authored_value_without_inline_tag_requires_unique_selected_indicator():
+    c = {
+        "group": "A",
+        "statistic": "median",
+        "value": 3.504,
+        "unit": "cm",
+        "label": "distribution/groups/A/median",
+        "pointer": "/a",
+    }
+    cards = {"3.4": c, "3.8": dict(c, group="B", pointer="/b"), "3.10": dict(c, pointer="/alias")}
+    raw = "A組中位數為3.50 cm。"
+
+    def check(text, ids):
+        return numeric_links(
+            text, SCOPE, cards, scope_numbers(text, SCOPE, cards), selected_ids=ids
+        )
+
+    issues, links = check(raw, ["R3.4", "R3.8"])
+    assert (
+        not issues
+        and links[0]["reference"] == "R3.4"
+        and links[0]["match_method"] == "selected_evidence"
+    )
+    assert raw[links[0]["start"] : links[0]["end"]] == "3.50"
+    for candidate, ids in [
+        (raw, []),
+        (raw, ["R3.4", "R3.10"]),
+        (raw, ["R3.8"]),
+        (raw.replace("3.50", "3.51"), ["R3.4"]),
+        (raw.replace("cm", "m"), ["R3.4"]),
+        (raw.replace("中位數", "平均數"), ["R3.4"]),
+        (raw.replace("A組", ""), ["R3.4"]),
+    ]:
+        assert check(candidate, ids)[0]
+
+
+def test_sentence_reviews_cannot_skip_reorder_hide_veto_or_substitute_raw():
+    def record(index, findings):
+        raw = json.dumps({"findings": findings})
+        return {
+            "sentence": index,
+            "reviewer_response": raw,
+            "reviewer_response_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+        }
+
+    clean = [record(i, []) for i in (0, 2, 3)]
+    veto = record(2, [{"sentence": 2, "issue": "scope", "reason": "重新核對。"}])
+
+    def check(records, verdict="accept", final=None):
+        verify_sentence_reviews(
+            {
+                "verdict": verdict,
+                "sentence_reviews": records,
+                "reviewer_response": final or records[-1]["reviewer_response"],
+            },
+            [0, 2, 3],
+        )
+
+    check(clean)
+    check([clean[0], veto], "repair")
+    for records, verdict, final in [
+        (clean[:2], "accept", None),
+        ([clean[0], clean[2]], "accept", None),
+        ([clean[0], veto, clean[2]], "repair", None),
+        ([clean[0], dict(veto, reviewer_response_sha256="a" * 64)], "repair", None),
+        ([clean[0], veto], "repair", clean[0]["reviewer_response"]),
+        ([clean[0], record(2, [{"sentence": 3}])], "repair", None),
+    ]:
+        with pytest.raises(ValueError, match="EXTERNAL_SENTENCE"):
+            check(records, verdict, final)
+
+
+@pytest.mark.parametrize(
+    "field,text,refs,issue",
+    [
+        (
+            "unresolved_question",
+            "這個描述性查詢能否判定組間差異具有統計顯著性？",
+            [],
+            "ACTION_UNSUPPORTED_INFERENCE",
+        ),
+        ("unresolved_question", "本次無法檢驗顯著性，若要作推論還需新的分析。", [], None),
+        ("reason", "根據 R6.1 的觀察，需要查驗分布。", [], "UNDECLARED_PRIOR_REFERENCE"),
+        (
+            "unresolved_question",
+            "曾在 R91.2 發現差異，該如何查驗？",
+            [],
+            "PRIOR_EVIDENCE_NOT_OBSERVED",
+        ),
+        ("reason", "先前指標顯示中位數差為負。", [], "PRIOR_CONTRAST_DIRECTION_UNVERIFIED"),
+        ("reason", "先前指標顯示中位數差為負。", ["R6.1"], "PRIOR_CONTRAST_DIRECTION_UNVERIFIED"),
+        ("reason", "先前指標顯示中位數差為正。", ["R6.1"], None),
+        ("reason", "若中位數差為負，則需再查驗端點。", [], None),
+        ("unresolved_question", "中位數差是否為負？", [], None),
+        ("reason", "中位數差為正表示比較組中位數較高。", [], None),
+        ("reason", "B組的中位數低於A組。", ["R6.1"], "PRIOR_CONTRAST_DIRECTION_UNVERIFIED"),
+        ("reason", "B組的中位數高於A組。", ["R6.1"], None),
+        ("reason", "B組平均數比A組高。", [], "PRIOR_CONTRAST_DIRECTION_UNVERIFIED"),
+    ],
+)
+def test_all_action_research_text_is_bound_to_the_claimed_prior_observation(
+    field, text, refs, issue
+):
+    previous = {
+        "R6.1": {"statistic": "median_difference", "group": "B", "reference_group": "A", "value": 2}
+    }
+    choice = {"action": "group_contrasts", field: text, "prior_refs": refs}
+    issues = rationale_issues(choice, SCOPE, {}, previous)
+    assert all(i["rationale_field"] == field for i in issues)
+    assert (issue in {i["issue"] for i in issues}) if issue else not issues
+
+
+def test_arithmetic_relations_verify_touch_overlap_gaps_and_missing_limits():
+    cards = {}
+    values = {
+        "A": (1, 6, 2, 5, 4, 4),
+        "B": (5, 9, 6, 8, 6, 7),
+        "C": (6, 8, 6, 7, 7, 6),
+        "D": (None, None, None, None, None, None),
+    }
+    for name, numbers in values.items():
+        for field, value in zip(("min", "max", "q1", "q3", "mean", "median"), numbers, strict=True):
+            cards[str(len(cards) + 1)] = {
+                "group": name,
+                "statistic": field,
+                "value": value,
+                "unit": "cm",
+            }
+        if name != "A":
+            for field, value in zip(
+                ("mean_difference", "median_difference"), numbers[-2:], strict=True
+            ):
+                cards[str(len(cards) + 1)] = {
+                    "group": name,
+                    "reference_group": "A",
+                    "statistic": field,
+                    "value": value - 4 if value is not None else None,
+                    "unit": "cm",
+                }
+    summaries = study_relations(cards, "table")["comparisons"]
+    assert summaries[0]["mean_difference"]["sign"] == "positive"
+    assert (
+        summaries[0]["range"]["intersection"] == [5, 6]
+        and summaries[0]["range"]["status"] == "overlap"
+    )
+    assert (
+        summaries[0]["quartiles"]["status"] == "disjoint"
+        and summaries[0]["quartiles"]["intersection"] is None
+    )
+    assert summaries[1]["range"]["status"] == "touching" and summaries[1]["range"][
+        "intersection"
+    ] == [6, 6]
+    assert (
+        summaries[2]["range"]["status"]
+        == summaries[2]["median_difference"]["status"]
+        == "unavailable"
+    )
+    for relation in ("mean_difference", "range", "quartiles"):
+        for card in summaries[0][relation]["inputs"].values():
+            assert cards[card["id"][1:]]["value"] == card["value"] and card["unit"] == "cm"
+    assert study_relations(cards, "design") is None
+
+
+def test_number_repair_offers_options_and_locates_author_value_without_editing_it():
+    author = "先說明研究範圍。A組中位數為4.15 cm。"
+    start = author.index("4.15")
+    diagnostic = {
+        "issue": "UNBOUND_AUTHOR_NUMBER",
+        "numeric": "4.15",
+        "start": start,
+        "end": start + 4,
+        "sentence": 1,
+    }
+    previous = {"author_source": author, "result": {"diagnostics": [diagnostic]}}
+    evidence = {
+        "R3.4": {
+            "group": "A",
+            "statistic": "median",
+            "statistic_title": "中位數",
+            "value": 4.1,
+            "unit": "cm",
+        },
+        "R3.8": {
+            "group": "B",
+            "statistic": "median",
+            "statistic_title": "中位數",
+            "value": 4.15,
+            "unit": "cm",
+        },
+    }
+    repair = target_sentence(previous, evidence=evidence)
+    assert repair["author_span"] == {"start": start, "end": start + 4, "quote": "4.15"}
+    assert repair["previous_text"] == sentence_slices(author)[1]
+    assert [c["id"] for c in repair["evidence_candidates"]] == ["R3.4", "R3.8"]

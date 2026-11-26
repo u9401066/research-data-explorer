@@ -106,3 +106,36 @@ reviewers may give the exact disputed substring and an available statistical car
 or approved scope field. The native check verifies both before routing the
 feedback to the author. A reviewer
 can withhold a draft. Native checks and independent publication review still apply.
+
+Exploration, first drafts and targeted revisions receive the complete approved
+researcher request in a separate field. The manuscript title can use the first
+question, while later comparison directions and scope limits remain visible at
+each decision. A handwritten signed difference must name the comparison and
+reference in the native subtraction order. Row counts retain their record unit.
+The rationale and the unresolved question undergo the same review. A literal prior
+card must be both available and declared. Reported contrast signs must agree with
+the original observation.
+
+With `editorial_slices_version=1`, complete paragraphs of two to four nonempty
+sentence slices have one independent review per sentence in author order. A first
+adverse finding ends the sequence. An acceptance covers every nonempty slice.
+Native replay checks the raw review JSON, digest, source sentence and final verdict.
+Other paragraph sizes still receive whole-draft feedback and native size validation.
+
+Each allowed statistical field has a separate `evidence_receipts` entry containing
+its artifact, digest and JSON pointer. An author can state a raw numeric value
+without an inline card by selecting the uniquely matching statistic, group, unit,
+direction and precision. The paragraph keeps the author's original characters
+and displays the selected card in its evidence attachment. Reviews and assembly
+preserve the exact authored span, surrounding clause and independently read native
+value. A numeric repair shows up to three relevant fields for the author to choose.
+An explicit categorical code and label can be bound to a matching named column
+in the approved dictionary. The binding records both exact spans, the digest of the
+approved dictionary and its single source URL. Conflicting or unknown codes require
+revision.
+
+Relevant paragraphs receive source-bound signs and closed interval intersections.
+Range comparisons use minimum and maximum. Quartile comparisons use Q1 and Q3.
+Metadata distinguishes overlap, touching, disjoint intervals and unavailable
+estimates. Each input points to its original card. These comparisons describe
+summary intervals and do not estimate individual classification probabilities.

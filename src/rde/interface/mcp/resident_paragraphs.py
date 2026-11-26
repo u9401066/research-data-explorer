@@ -7,10 +7,13 @@ import json
 import re
 
 from rde.infrastructure.adapters.dataframe_lineage import dataset_version
-from rde.interface.mcp.action_review import artifact_json, compare_scalar, digest, pointer, review
+from rde.interface.mcp.action_review import artifact_json, digest, pointer, review
 from rde.interface.mcp import resident_protocol_v3 as v3
 from rde.interface.mcp.resident_claim_context import relation_diagnostics
 from rde.interface.mcp.resident_numbers import FOLD, quantities
+from rde.interface.mcp.resident_dictionary import dictionary_claims
+from rde.interface.mcp.resident_relations import study_relations
+from rde.interface.mcp.results import artifact_reference
 from rde.interface.mcp.research_plans import read_sealed, write_once
 from rde.interface.mcp.resident import (
     ACTION_SCHEMA,
@@ -21,7 +24,13 @@ from rde.interface.mcp.resident import (
     observations,
 )
 from rde.interface.mcp.resident_bindings import displayed
-from rde.interface.mcp.resident_citations import numeric_links, render, source_fields
+from rde.interface.mcp.resident_citations import (
+    contrast_direction,
+    matches_authored_number,
+    numeric_links,
+    render,
+    source_fields,
+)
 from rde.interface.mcp.resident_reasoning import (
     LIMITS,
     action_reason,
@@ -116,6 +125,15 @@ def approved_context(scope):
     }
 
 
+def researcher_request_prompt(scope):
+    return (
+        "\n【研究者核准的完整需求】下列是跨全稿的研究問題、比較方向與限制。"
+        "請用於判斷本次決策的意義，不是資料發現；只處理本回合的任務，勿把委託指令照抄入文。\n"
+        + json.dumps(scope["question"], ensure_ascii=False)
+        + "\n【完整需求結束】"
+    )
+
+
 def next_action(scope, available, observed=None, prior=None):
     schema = {
         **ACTION_SCHEMA,
@@ -142,8 +160,13 @@ def next_action(scope, available, observed=None, prior=None):
         schema = v3.choice_schema(available, contracts, prior)
         prompt = (
             "選擇一項描述性研究查詢。action、purpose 與 intended_fields 請從同一份契約逐字選擇。reason 用一句自然繁體中文解釋為何需要這些欄位。"
-            "總列、分組列、有效列和個人數依照各欄位定義。\n"
-            + json.dumps(approved_context(scope), ensure_ascii=False)
+            "總列、分組列、有效列和個人數依照各欄位定義。"
+            + researcher_request_prompt(scope)
+            + "\n【核准資料範圍】"
+            + json.dumps(
+                {k: v for k, v in approved_context(scope).items() if k != "question"},
+                ensure_ascii=False,
+            )
             + "\n可選："
             + json.dumps({a: contracts[a] for a in available}, ensure_ascii=False)
             + "\n已取得的資料證據："
@@ -155,6 +178,7 @@ def next_action(scope, available, observed=None, prior=None):
                 "若這是獨立應做的核查，選 independent_check，prior_refs 可填空陣列。兩者皆在 unresolved_question 提出此次要解答的具體問題。"
             )
         return {
+            "researcher_request": scope["question"],
             "response_schema": schema,
             "prompt": prompt,
             "remaining_actions": available,
@@ -237,6 +261,23 @@ def scientific_issues(text, scope):
     return out
 
 
+def rationale_issues(choice, scope, observed, previous):
+    modern = scope.get("manuscript_protocol") == "paragraph-v3"
+    issues = []
+    for key in ("reason", "unresolved_question") if modern else ("reason",):
+        text = choice.get(key)
+        if not text:
+            continue
+        diagnostics = scientific_issues(text, scope) + action_reason(
+            choice["action"], text, observed, scoped_relations=modern
+        )
+        if modern:
+            diagnostics.extend(v3.prior_claim_issues(text, choice.get("prior_refs", []), previous))
+            diagnostics = [{**d, "rationale_field": key} for d in diagnostics]
+        issues.extend(diagnostics)
+    return issues
+
+
 def observe(project, entry, scope, anchor, folder, turn, response):
     if turn not in range(1, 19) or turn > 1 and not (folder / f"action-{turn-1}.json").exists():
         raise ValueError("INVALID_ACTION_SEQUENCE")
@@ -271,6 +312,7 @@ def observe(project, entry, scope, anchor, folder, turn, response):
                 }
         return {k: v for block in per_action.values() for k, v in block.items()}
 
+    prior_cards = previous_cards()
     issue, observation, errors = None, None, []
     if (
         action not in PARAGRAPH_ACTIONS
@@ -280,18 +322,18 @@ def observe(project, entry, scope, anchor, folder, turn, response):
     ):
         issue = "INVALID_ACTION_OR_REASON"
     elif modern and (
-        errors := v3.intent_issues(choice, v3.capabilities(scope, DESCRIPTIONS), previous_cards())
+        errors := v3.intent_issues(choice, v3.capabilities(scope, DESCRIPTIONS), prior_cards)
     ):
         issue = errors[0]["issue"]
-    elif errors := scientific_issues(choice["reason"], scope) + action_reason(
-        action,
-        choice["reason"],
+    elif errors := rationale_issues(
+        choice,
+        scope,
         {
             k: read_sealed(folder / f"{k}.json")["payload"]["observation"]
             for k in PARAGRAPH_ACTIONS
             if (folder / f"{k}.json").exists()
         },
-        scoped_relations=modern,
+        prior_cards,
     ):
         issue = errors[0]["issue"]
     else:
@@ -337,6 +379,10 @@ def observe(project, entry, scope, anchor, folder, turn, response):
             + result["prompt"]
         )
     if modern:
+        if not issue:
+            path = folder / f"{action}.json"
+            ref = artifact_reference(project, path.relative_to(project.output_dir).as_posix(), path)
+            result["observation_receipt"] = {"artifact_id": ref.artifact_id, "sha256": ref.sha256}
         result["intent"] = (
             {
                 k: choice[k]
@@ -582,9 +628,12 @@ def repetition(raw, prior):
     return None
 
 
-def scope_numbers(raw, scope, cards):
+def scope_numbers(raw, scope, cards, *, dictionary_spans=()):
     """Ignore digits *within* approved codes/units/column names and author-selected bindings."""
     text = re.sub(r"\{\{[^{}]*\}\}|\[R\d+\.\d+\]", lambda m: " " * len(m.group()), raw)
+    for span in dictionary_spans:
+        start, end = span["start"], span["end"]
+        text = text[:start] + " " * (end - start) + text[end:]
     modern = scope.get("manuscript_protocol") == "paragraph-v3"
     if modern:
         text = text.translate(FOLD)
@@ -622,7 +671,7 @@ def scope_numbers(raw, scope, cards):
     ]
 
 
-def claim_context(raw, cards):
+def claim_context(raw, cards, *, strict_contrasts=False):
     """Catch explicit adjacent wrong labels; qualitative scientific meaning still needs review."""
     names = {
         "mean": r"平均(?:數|值)?",
@@ -658,6 +707,19 @@ def claim_context(raw, cards):
                     }
                 )
             prefix = clause[: label.start()]
+            if strict_contrasts and c.get("reference_group"):
+                # The last named group before a difference can correctly be the reference.
+                direction = contrast_direction(clause, c)
+                if direction in ("reference_minus_comparison", "ambiguous"):
+                    out.append(
+                        {
+                            "issue": "CITATION_CONTRAST_DIRECTION",
+                            "quote": clause[-100:] + m.group(),
+                            "expected": c["label"],
+                            "repair": "若在句內為組別署名，請明確按比較組減參照組標示差值；所選卡的 group 與 reference_group 可分別核對。",
+                        }
+                    )
+                break
             for g in groups:
                 if g != c.get("group") and re.search(
                     r"(?<![\w.])" + re.escape(g) + r"(?:組|群)?(?:的|之)?\s*$",
@@ -769,9 +831,17 @@ def check_paragraph(
     if code := repetition(raw, prior):
         problem(code)
     diagnostics.extend(scientific_issues(raw, scope))
-    numbers, linked = numeric_links(raw, scope, cards, scope_numbers(raw, scope, cards))
+    dictionary_checks, dictionary_issues = dictionary_claims(raw, scope) if modern else ([], [])
+    diagnostics.extend(dictionary_issues)
+    numbers, linked = numeric_links(
+        raw,
+        scope,
+        cards,
+        scope_numbers(raw, scope, cards, dictionary_spans=dictionary_checks),
+        selected_ids=presentation["evidence_ids"] if modern and presentation is not None else None,
+    )
     diagnostics.extend(numbers)
-    diagnostics.extend(claim_context(raw, cards))
+    diagnostics.extend(claim_context(raw, cards, strict_contrasts=modern))
     null_checks = []
     binding_text = text
     number_checks = []
@@ -787,9 +857,28 @@ def check_paragraph(
                 cache[identity] = artifact_json(project.id, *identity)
             actual = pointer(cache[identity], c["pointer"])
             number = link["numeric"]
-            verified = compare_scalar(actual, float(number), min(8, len(number.partition(".")[2])))
+            verified = matches_authored_number(actual, number)
             number_checks.append(
-                {**link, "artifact_id": identity[0], "sha256": identity[1], "verified": verified}
+                {
+                    **link,
+                    "artifact_id": identity[0],
+                    "sha256": identity[1],
+                    "native_value": actual,
+                    "author_source_sha256": raw_hash(raw),
+                    **{
+                        k: c[k]
+                        for k in (
+                            "statistic",
+                            "group",
+                            "reference_group",
+                            "unit",
+                            "measure_column",
+                            "group_column",
+                        )
+                        if k in c
+                    },
+                    "verified": verified,
+                }
             )
             if not verified:
                 problem("VALUE_MISMATCH", quote=link["quote"], pointer=c["pointer"])
@@ -885,6 +974,9 @@ def check_paragraph(
             for i in (
                 "INSUFFICIENT_OR_PADDED_PROSE",
                 "EXCESSIVE_PARAGRAPH_LENGTH",
+                "PARAGRAPH_LENGTH_SCOPE",
+                "PARAGRAPH_SENTENCE_SCOPE",
+                "UNSTRUCTURED_PROSE",
                 "UNEXPECTED_FORMAT_OR_PLACEHOLDER",
             )
         ),
@@ -922,7 +1014,11 @@ def check_paragraph(
             ),
             "numeric_links": linked,
             **(
-                {"native_null_checks": null_checks, "native_number_checks": number_checks}
+                {
+                    "native_null_checks": null_checks,
+                    "native_number_checks": number_checks,
+                    "dictionary_checks": dictionary_checks,
+                }
                 if modern
                 else {}
             ),
@@ -1007,6 +1103,9 @@ def assemble(scope, cards, folder):
                     attachments_sha256=record["attachments_sha256"],
                     semantic_review=record.get("semantic_review"),
                 )
+                for key in ("native_number_checks", "dictionary_checks"):
+                    if key in record["result"]:
+                        records[-1][key] = record["result"][key]
         authorship.append({"title": chapter["title"], "paragraphs": records})
         chapters.append("## " + chapter["title"] + "\n\n" + "\n\n".join(r["text"] for r in records))
     result = {
@@ -1059,18 +1158,27 @@ def paragraph_v3(
         evidence = v3.editing_evidence(cards, actions_for(kind), turn=turn)
         dictionary = source_fields(scope)
         source = v3.source_scope(scope, cards)
+        relations = study_relations(cards, kind)
+        if relations is not None:
+            source["computed_relations"] = relations
         result = {
             "status": "draft",
             "turn": turn,
             "attempt": attempt,
             "mode": "author_json" if fresh else "sentence_edit",
             "editorial_basis_version": 1,
+            "editorial_slices_version": 1,
             "focus": focus,
             "source_scope": source,
+            "researcher_request": scope["question"],
             "editor_evidence": evidence,
+            "evidence_receipts": {
+                ref: {k: cards[ref[1:]][k] for k in ("artifact_id", "sha256", "pointer")}
+                for ref in evidence
+            },
             "source_dictionary": dictionary,
         }
-        target = None if fresh else v3.target_sentence(previous)
+        target = None if fresh else v3.target_sentence(previous, evidence=evidence)
         result["response_schema"] = v3.presentation_schema(
             evidence, dictionary, kind == "table", None if fresh else target["sentence"]
         )
@@ -1084,6 +1192,7 @@ def paragraph_v3(
         prompt = (
             "你是作者，用繁體中文自行完成一個研究段落。主問題："
             + manuscript_title(scope)
+            + researcher_request_prompt(scope)
             + "\n本段唯一任務："
             + focus
             + " "
@@ -1098,7 +1207,8 @@ def paragraph_v3(
             "寫自然句子，專注本段；欄名只是分組變數，真正的組別在 observed_group_levels。正文可完全不用卡號及數字。"
             "用 evidence_ids 選相應指標（最多三個），group_table 選是否附上原生數表，source_ids 選字典條文，link_source 選是否附來源連結。"
             "RDE 將資料與單位另行排版。若要在句中解釋特定數值，可放置自己 evidence_ids 所選的 {{R卡號}}，用文字指出是哪一組的哪項統計，差值方向是比較組減參照組。"
-            "不要抄卡片目錄或重演前章論點。未知的代表性、設計、作者或療效不要臆測。"
+            "手寫數值若未放代碼，須在同一短句給出具名統計、正確組別或相減方向及單位，使此值唯一對應你所選的卡。"
+            "分類代碼和標籤按核准字典所列欄名原樣配對。不要抄卡片目錄或重演前章論點。未知的代表性、設計、作者或療效不要臆測。"
         )
         if kind == "source":
             prompt += "本段必須選 link_source 或選一則字典原文。"
