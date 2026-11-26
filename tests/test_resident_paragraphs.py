@@ -76,7 +76,7 @@ def test_polarity_and_semantic_field_mismatch():
 
 
 @pytest.fixture
-def protocol(tmp_path):
+def protocol(tmp_path, request):
     csv = tmp_path / "samples.csv"
     csv.write_bytes(
         b"arm,depth,other\nA,2,private-fixture-1\nA,6,private-fixture-2\nB,7,private-fixture-3\nB,,private-fixture-4\n"
@@ -104,11 +104,16 @@ def protocol(tmp_path):
         "measure": "depth",
         "population": "登錄的樣本",
         "source_note": "資料字典 https://example.org/source",
-        "manuscript_protocol": "paragraph-v2",
+        "manuscript_protocol": getattr(request, "param", "paragraph-v2"),
     }
 
-    def call(op, turn=0, attempt=1, response=""):
-        return run(project, entry, scope, op, turn, attempt, response)
+    if scope["manuscript_protocol"] == "paragraph-v3":
+        scope["semantic_review"] = "required"
+
+    def call(op, turn=0, attempt=1, response="", semantic_review=None):
+        return run(
+            project, entry, scope, op, turn, attempt, response, semantic_review=semantic_review
+        )
 
     return call, csv
 
@@ -129,6 +134,67 @@ def advance(call):
     assert not res["remaining_actions"]
     with pytest.raises(ValueError, match="ACTION_REPLAY_CHANGED"):
         call("observe", 2, response="{}")
+
+
+def prose_fixture(turn):
+    rng = random.Random(turn)
+    words = ""
+    focus = (
+        "量測尺度及其觀察單位",
+        "原始檔案目錄與引文",
+        "分組形成的具體背景",
+        "確定比較對象的理由",
+        "分母重建及其統計條件",
+        "缺測記錄的歸屬規則",
+        "中心位置的估算方式",
+        "離散程度的計算規約",
+        "有效量測與平均大小",
+        "中間讀值及首尾界線",
+        "組內變異的實際尺度",
+        "比較減去參照的結果",
+        "納入記錄涵蓋的範圍",
+        "摘要選擇改變的程度",
+        "四分位差與全距異同",
+        "分組組成與替代解釋",
+        "重複量測與個體相依",
+        "抽樣來源與外推界線",
+        "獨立重算與來源定位",
+        "延伸問題的資料需求",
+    )[turn]
+    for _ in range(5):
+        prefix = rng.choice(
+            [
+                "稽核人員可依照",
+                "獨立評閱者針對",
+                "研究者透過",
+                "讀者利用",
+                "編輯核對",
+                "程式應用",
+            ]
+        )
+        basis = rng.choice(
+            [
+                "已封存的觀察結果",
+                "審閱過的資料字典",
+                "公開的分組規則",
+                "測量變項的單位",
+                "原始文稿的存檔",
+                "核准的欄位規格",
+            ]
+        )
+        verb = rng.choice(["說明", "核對", "追溯", "釐清", "重現", "分辨", "檢視"])
+        target = rng.choice(
+            [
+                "證據出處與觀測位置",
+                "描述範圍與資料意義",
+                "每次核准的來龍去脈",
+                "資料邊界與觀察限制",
+                "計算所需的欄位條件",
+                "檔案重現時的原始數值",
+            ]
+        )
+        words += prefix + focus + "的" + basis + "，可以" + verb + focus + "的" + target + "。"
+    return words
 
 
 def test_protocol_uses_actual_source_artifact_and_author_bytes(protocol):
@@ -166,63 +232,7 @@ def test_protocol_uses_actual_source_artifact_and_author_bytes(protocol):
                 "".join(drafted["sentences"]) == invalid
                 and "UNBOUND_AUTHOR_NUMBER" in drafted["prompt"]
             )
-        rng = random.Random(turn)
-        words = ""
-        focus = (
-            "量測尺度及其觀察單位",
-            "原始檔案目錄與引文",
-            "分組形成的具體背景",
-            "確定比較對象的理由",
-            "分母重建及其統計條件",
-            "缺測記錄的歸屬規則",
-            "中心位置的估算方式",
-            "離散程度的計算規約",
-            "有效量測與平均大小",
-            "中間讀值及首尾界線",
-            "組內變異的實際尺度",
-            "比較減去參照的結果",
-            "納入記錄涵蓋的範圍",
-            "摘要選擇改變的程度",
-            "四分位差與全距異同",
-            "分組組成與替代解釋",
-            "重複量測與個體相依",
-            "抽樣來源與外推界線",
-            "獨立重算與來源定位",
-            "延伸問題的資料需求",
-        )[turn]
-        for _ in range(5):
-            prefix = rng.choice(
-                [
-                    "稽核人員可依照",
-                    "獨立評閱者針對",
-                    "研究者透過",
-                    "讀者利用",
-                    "編輯核對",
-                    "程式應用",
-                ]
-            )
-            basis = rng.choice(
-                [
-                    "已封存的觀察結果",
-                    "審閱過的資料字典",
-                    "公開的分組規則",
-                    "測量變項的單位",
-                    "原始文稿的存檔",
-                    "核准的欄位規格",
-                ]
-            )
-            verb = rng.choice(["說明", "核對", "追溯", "釐清", "重現", "分辨", "檢視"])
-            target = rng.choice(
-                [
-                    "證據出處與觀測位置",
-                    "描述範圍與資料意義",
-                    "每次核准的來龍去脈",
-                    "資料邊界與觀察限制",
-                    "計算所需的欄位條件",
-                    "檔案重現時的原始數值",
-                ]
-            )
-            words += prefix + focus + "的" + basis + "，可以" + verb + focus + "的" + target + "。"
+        words = prose_fixture(turn)
         bindings = []
         for action in actions_for(kind):
             expected_fields = {
@@ -302,6 +312,172 @@ def test_exhausted_paragraph_can_continue_without_assembling(protocol):
     assert call("draft", 1)["status"] == "draft"
     result = call("assemble")
     assert result["status"] == "withheld" and result["issues"][0] == "MISSING_ACCEPTED_PARAGRAPH:0"
+
+
+@pytest.mark.parametrize("protocol", ["paragraph-v3"], indirect=True)
+def test_v3_typed_intent_targeted_revision_fresh_revisit_and_external_review(protocol):
+    from rde.interface.mcp.resident_reasoning import sentence_slices
+    from rde.interface.mcp.action_review import digest
+
+    call, csv = protocol
+    opened = call("open")
+    assert opened["protocol"] == "paragraph-v3" and opened["max_paragraph_attempts"] == 5
+    bad = {
+        "action": "group_estimates",
+        "reason": "核對分組列數。",
+        "purpose": "describe_group_means",
+        "intended_fields": ["group_spread.iqr"],
+    }
+    assert call("observe", 1, response=json.dumps(bad))["issues"] == ["FIELD_OUTSIDE_ACTION"]
+    for n, a in enumerate(PARAGRAPH_ACTIONS, 2):
+        c = opened["capabilities"][a]
+        raw = json.dumps(
+            {
+                "action": a,
+                "intended_fields": [next(iter(c["fields"]))],
+                "purpose": c["purpose"],
+                "reason": "核對本次授權欄位的實際觀測。",
+            }
+        )
+        assert call("observe", n, response=raw)["status"] == "observed"
+
+    def reviewer(reply, prose, which=None):
+        def h(s):
+            return hashlib.sha256(s.encode()).hexdigest()
+
+        findings = (
+            []
+            if which is None
+            else [
+                {
+                    "sentence": which,
+                    "issue": "unverified_attribution",
+                    "reason": "核對來源對這項主張的支持。",
+                }
+            ]
+        )
+        output = json.dumps({"findings": findings}, ensure_ascii=False)
+        return {
+            "source_sha256": h(csv.read_text("utf-8")),
+            "response_sha256": h(reply),
+            "author_source_sha256": h(prose),
+            "reviewer_response": output,
+            "reviewer_response_sha256": h(output),
+            "reviewer": "fixture-reviewer",
+            "verdict": "repair" if findings else "accept",
+            "diagnostics": [
+                {
+                    "issue": f["issue"],
+                    "quote": sentence_slices(prose)[f["sentence"]],
+                    "repair": f["reason"],
+                }
+                for f in findings
+            ],
+        }
+
+    def payload(draft, turn):
+        kind = TASKS[turn][1] if turn else "design"
+        stats = {
+            "data_quality": "rows",
+            "group_completeness": "missing_percent",
+            "group_estimates": "mean",
+            "group_spread": "iqr",
+            "distribution": "median",
+            "group_contrasts": "mean_difference",
+        }
+        choices = (
+            [
+                next(k for k, c in draft["editor_evidence"].items() if c["statistic"] == stats[a])
+                for a in actions_for(kind)
+            ]
+            if kind != "table"
+            else []
+        )
+        return {
+            "prose": prose_fixture(turn),
+            "evidence_ids": choices,
+            "group_table": kind == "table",
+            "source_ids": [],
+            "link_source": kind == "source",
+        }
+
+    for turn in range(20):
+        draft = call("draft", turn)
+        assert draft["source_scope"]["observed_group_levels"] == ["A", "B"]
+        model = payload(draft, turn)
+        author = model["prose"]
+        reply = json.dumps(model, ensure_ascii=False)
+        verdict = reviewer(reply, author, 0 if turn == 0 else None)
+        if turn == 0:
+            with pytest.raises(ValueError, match="EXTERNAL_REVIEW_REQUIRED"):
+                call("review", turn, response=reply)
+        result = call("review", turn, response=reply, semantic_review=verdict)
+        assert result["presentation"] == {k: v for k, v in model.items() if k != "prose"}
+        if turn == 0:
+            assert "EXTERNAL_SCIENTIFIC_REVIEW" in result["issues"]
+            with pytest.raises(ValueError, match="REPLAY_CHANGED"):
+                call("review", turn, response=reply, semantic_review=reviewer(reply, author))
+            for attempt in (2, 3):
+                draft = call("draft", turn, attempt)
+                t = draft["repair_target"]["sentence"]
+                assert (
+                    draft["response_schema"]["properties"]["edits"]["items"]["properties"][
+                        "sentence"
+                    ]["const"]
+                    == t
+                )
+                bad = json.dumps(
+                    dict(
+                        result["presentation"], edits=[{"sentence": t + 1, "text": "錯誤的句位。"}]
+                    ),
+                    ensure_ascii=False,
+                )
+                result = call("review", turn, attempt, bad, reviewer(bad, author, 0))
+                assert "INVALID_TARGETED_EDIT" in result["issues"] and not result["edit_applied"]
+            with pytest.raises(ValueError, match="EARLIER_PARAGRAPH"):
+                call("draft", turn, 4)
+        else:
+            assert result["status"] == "observed", result["diagnostics"]
+            if turn == 8:
+                assert (
+                    len(result["native_null_checks"]) == 1
+                    and result["native_null_checks"][0]["native_null"]
+                )
+    assert call("assemble")["status"] == "withheld"
+    revisit = call("draft", 0, 4)
+    assert revisit["mode"] == "author_json" and [
+        r["turn"] for r in revisit["revisit_context"]["accepted_paragraphs"]
+    ] == list(range(1, 20))
+    model = payload(revisit, 0)
+    reply = json.dumps(model, ensure_ascii=False)
+    assert (
+        "UNCHANGED_FAILED_CANDIDATE"
+        in call("review", 0, 4, reply, reviewer(reply, model["prose"]))["issues"]
+    )
+    final = call("draft", 0, 5)
+    target = final["repair_target"]["sentence"]
+    parts = final["sentences"].copy()
+    parts[target] = "這次重訪改以原始變項的操作定義界定問題。"
+    last = json.dumps(
+        dict(final["base_presentation"], edits=[{"sentence": target, "text": parts[target]}]),
+        ensure_ascii=False,
+    )
+    assert call("review", 0, 5, last, reviewer(last, "".join(parts)))["status"] == "observed"
+    result = call("assemble")
+    assert result["status"] == "independent_review_required"
+    records = [p for group in result["authorship"] for p in group["paragraphs"]]
+    assert records[0]["attempt"] == 5 and records[0]["base_attempt"] == 4
+    assert all(p["attachments_sha256"] == digest(p["attachments"]) for p in records)
+    tables = records[8]["attachments"][0]["rendered"]
+    assert (
+        sum(line.startswith("| ---") for line in tables.splitlines()) == 5
+        and "無法估計[R" in tables
+        and "4.00[R" in tables
+    )
+    assert (
+        records[8]["author_source"] == prose_fixture(8)
+        and tables not in records[8]["author_source"]
+    )
 
 
 def test_padded_and_repeated_content_cannot_be_passed_as_new_paragraph():

@@ -4,6 +4,7 @@ import re
 
 from rde.interface.mcp.action_review import compare_scalar
 from rde.interface.mcp.resident_bindings import expand
+from rde.interface.mcp.resident_tables import display_stat, summary_tables
 
 
 METRICS = {
@@ -61,6 +62,14 @@ def render(raw, cards, scope):
         source = fields.get(token[2:-2])
         if source:
             value = "「" + source["quote"] + "」" + "（[來源字典](" + source["url"] + ")）"
+        elif scope.get("manuscript_protocol") == "paragraph-v3" and token == "{{group_table}}":
+            value = summary_tables(cards, scope)
+        elif (
+            scope.get("manuscript_protocol") == "paragraph-v3"
+            and token[2:-2].startswith("R")
+            and token[3:-2] in cards
+        ):
+            value = display_stat(cards[token[3:-2]]) + "[" + token[2:-2] + "]"
         else:
             value, changes = expand(token, cards, scope)
             if not changes:

@@ -7,7 +7,8 @@ import json
 import re
 
 from rde.infrastructure.adapters.dataframe_lineage import dataset_version
-from rde.interface.mcp.action_review import digest, review
+from rde.interface.mcp.action_review import artifact_json, digest, pointer, review
+from rde.interface.mcp import resident_protocol_v3 as v3
 from rde.interface.mcp.research_plans import read_sealed, write_once
 from rde.interface.mcp.resident import (
     ACTION_SCHEMA,
@@ -113,7 +114,7 @@ def approved_context(scope):
     }
 
 
-def next_action(scope, available, observed=None):
+def next_action(scope, available, observed=None, prior=None):
     schema = {
         **ACTION_SCHEMA,
         "properties": {
@@ -133,6 +134,26 @@ def next_action(scope, available, observed=None):
     )
     if observed is not None:
         prompt += "\n最近一次彙總 " + json.dumps(observed, ensure_ascii=False)
+    if scope.get("manuscript_protocol") == "paragraph-v3":
+        contracts = v3.capabilities(scope, DESCRIPTIONS)
+        prior = prior or {}
+        schema = v3.choice_schema(available, contracts, prior)
+        prompt = (
+            "選擇一項描述性研究查詢。action、purpose 與 intended_fields 請從同一份契約逐字選擇。reason 用一句自然繁體中文解釋為何需要這些欄位。"
+            "先前觀測若有相關，可用 prior_refs 標記；總列、分組列、有效列和個人數的定義分開。\n"
+            + json.dumps(approved_context(scope), ensure_ascii=False)
+            + "\n可選："
+            + json.dumps({a: contracts[a] for a in available}, ensure_ascii=False)
+            + "\n已取得的資料證據："
+            + json.dumps(prior, ensure_ascii=False)
+        )
+        return {
+            "response_schema": schema,
+            "prompt": prompt,
+            "remaining_actions": available,
+            "capabilities": contracts,
+            "prior_evidence": prior,
+        }
     return {
         "response_schema": schema,
         "prompt": prompt,
@@ -221,14 +242,31 @@ def observe(project, entry, scope, anchor, folder, turn, response):
     except ValueError:
         choice = None
     action = choice.get("action") if isinstance(choice, dict) else None
+    modern = scope.get("manuscript_protocol") == "paragraph-v3"
+
+    def previous_cards():
+        if not modern:
+            return {}
+        per_action = {}
+        for k, c in card_index(project, folder).items():
+            family = c["label"].split("/")[0]
+            per_action.setdefault(family, {})
+            if type(c["value"]) in (int, float) and len(per_action[family]) < 8:
+                per_action[family]["R" + k] = {"field": c["label"], "value": c["value"]}
+        return {k: v for block in per_action.values() for k, v in block.items()}
+
     issue, observation, errors = None, None, []
     if (
         action not in PARAGRAPH_ACTIONS
-        or set(choice) != {"action", "reason"}
-        or not isinstance(choice["reason"], str)
+        or (not modern and set(choice) != {"action", "reason"})
+        or not isinstance(choice.get("reason"), str)
         or not choice["reason"].strip()
     ):
         issue = "INVALID_ACTION_OR_REASON"
+    elif modern and (
+        errors := v3.intent_issues(choice, v3.capabilities(scope, DESCRIPTIONS), previous_cards())
+    ):
+        issue = errors[0]["issue"]
     elif errors := scientific_issues(choice["reason"], scope) + action_reason(
         action,
         choice["reason"],
@@ -266,7 +304,7 @@ def observe(project, entry, scope, anchor, folder, turn, response):
         "issues": list(dict.fromkeys(d["issue"] for d in errors)) or ([issue] if issue else []),
         "diagnostics": errors,
         "observation": observation,
-        **next_action(scope, remaining(folder), observation),
+        **next_action(scope, remaining(folder), observation, previous_cards()),
         **feedback(
             "repair" if issue else "accept",
             issue or f"已核對 {action} 的已核准欄位與來源版本。",
@@ -281,6 +319,13 @@ def observe(project, entry, scope, anchor, folder, turn, response):
             + "。用一句話說明所選工具會取得的實際欄位。\n"
             + result["prompt"]
         )
+    if modern:
+        result["intent"] = (
+            {k: choice.get(k) for k in ("action", "purpose", "intended_fields", "prior_refs")}
+            if isinstance(choice, dict)
+            else None
+        )
+        result["semantic_scope"] = "獨立科學評閱仍須核對自由理由與申報用途。"
     write_once(receipt, {"turn": turn, "response": response, "result": result})
     return result
 
@@ -367,7 +412,7 @@ def evidence_index(scope, cards):
             card.get("group"),
             card.get("reference_group"),
             card["statistic_title"] + " (" + card["statistic"] + ")",
-            card["value"],
+            card["value"] if card["value"] is not None else "null（無法估計）",
             card["unit"],
             card["pointer"],
         )
@@ -390,7 +435,7 @@ def paragraph_path(folder, turn, attempt):
 
 
 def accepted(folder, turn):
-    for attempt in (1, 2, 3):
+    for attempt in (1, 2, 3, 4, 5):
         path = paragraph_path(folder, turn, attempt)
         if path.exists():
             record = read_sealed(path)["payload"]
@@ -401,6 +446,8 @@ def accepted(folder, turn):
 
 def assignments(scope, turn, cards, prior, previous):
     focus, kind = TASKS[turn]
+    if scope.get("manuscript_protocol") == "paragraph-v3" and turn == 0:
+        kind = "design"
     actions = actions_for(kind)
     relevant = {}
     for key, c in cards.items():
@@ -588,14 +635,23 @@ def claim_context(raw, cards):
     return out
 
 
-def check_paragraph(project, scope, cards, turn, raw, prior):
+def check_paragraph(
+    project, scope, cards, turn, raw, prior, *, presentation=None, extra_diagnostics=()
+):
     focus, kind = TASKS[turn]
-    diagnostics = []
+    modern = scope.get("manuscript_protocol") == "paragraph-v3"
+    if modern and turn == 0:
+        kind = "design"
+    diagnostics = list(extra_diagnostics)
 
     def problem(code, **details):
         diagnostics.append({"issue": code, **details})
 
-    text, replacements = render(raw, cards, scope)
+    if presentation is not None:
+        text, replacements, attachments = v3.compose(raw, presentation, cards, scope)
+    else:
+        text, replacements = render(raw, cards, scope)
+        attachments = []
     prose = clean_text(raw)
     han = re.findall(r"[\u3400-\u9fff]", prose)
     if len(han) < 90 or len(set(han)) < 35:
@@ -618,13 +674,25 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
         problem("UNKNOWN_OR_MANUAL_BINDING")
     if "{{" in text or "}}" in text:
         problem("UNKNOWN_FIELD_BINDING")
+    if modern:
+        for m in re.finditer(r"\[\[[^\n]*?\]\]|(?<![\[{])\bR\d+\.\d+\b(?![\]}])", raw):
+            problem(
+                "UNRESOLVED_EDITOR_MARKUP",
+                start=m.start(),
+                end=m.end(),
+                quote=m.group(),
+                repair="以自然語句撰寫，正式數值引用用該統計指標旁的 {{R卡號}}；公開來源連結用 {{source}}。",
+            )
     if (
         kind == "source"
+        and not (presentation and (presentation["link_source"] or presentation["source_ids"]))
         and "{{source}}" not in raw
         and not any("{{" + s + "}}" in raw for s in source_fields(scope))
     ):
         problem("SOURCE_LINK_REQUIRED", expected="{{source}}")
-    if raw.count("{{group_table}}") != (1 if kind == "table" else 0):
+    if raw.count("{{group_table}}") + int(bool(presentation and presentation["group_table"])) != (
+        1 if kind == "table" else 0
+    ):
         problem("GROUP_TABLE_PLACEMENT", expected=1 if kind == "table" else 0)
     if len(text) > 20000 or len(raw) > 5000:
         problem("REVIEW_SIZE_LIMIT")
@@ -634,7 +702,29 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
     numbers, linked = numeric_links(raw, scope, cards, scope_numbers(raw, scope, cards))
     diagnostics.extend(numbers)
     diagnostics.extend(claim_context(raw, cards))
-    claims, used, binding_issues = cited_claims(text, cards, scope["unit"])
+    null_checks = []
+    binding_text = text
+    if modern:
+        cache = {}
+
+        def check_null(m):
+            k = m.group(1)
+            c = cards.get(k)
+            valid = False
+            if c and c["value"] is None:
+                identity = (c["artifact_id"], c["sha256"])
+                if identity not in cache:
+                    cache[identity] = artifact_json(project.id, *identity)
+                valid = pointer(cache[identity], c["pointer"]) is None
+            null_checks.append(
+                {"reference": "R" + k, "pointer": c["pointer"] if c else None, "native_null": valid}
+            )
+            if not valid:
+                problem("INVALID_UNESTIMABLE_REFERENCE", quote=m.group())
+            return " " * len(m.group())
+
+        binding_text = re.sub(r"無法估計\[R(\d+\.\d+)\]", check_null, text)
+    claims, used, binding_issues = cited_claims(binding_text, cards, scope["unit"])
     diagnostics.extend(binding_issues)
     actions = actions_for(kind)
     field_by_action = {
@@ -707,6 +797,15 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
         "focus": focus,
         "text": text,
         "author_source": raw,
+        **(
+            {
+                "presentation": presentation,
+                "attachments": attachments,
+                "attachments_sha256": digest(attachments),
+            }
+            if presentation is not None
+            else {}
+        ),
         "response_sha256": raw_hash(raw),
         "replacements": replacements,
         "cards_sha256": digest(cards),
@@ -716,7 +815,13 @@ def check_paragraph(project, scope, cards, turn, raw, prior):
             "diagnostics": diagnostics,
             "used": sorted(used),
             "native_reviews": reviews,
+            **(
+                {"presentation": presentation, "attachments_sha256": digest(attachments)}
+                if presentation is not None
+                else {}
+            ),
             "numeric_links": linked,
+            **({"native_null_checks": null_checks} if modern else {}),
             **feedback(
                 "repair" if issues else "accept",
                 "、".join(issues) or "段落正文、資料範圍及所引欄位已核對。",
@@ -752,7 +857,18 @@ def assemble(scope, cards, folder):
                     "edit_applied": False,
                     "base_attempt": None,
                 }
-            rendered, changes = render(record["author_source"], cards, scope)
+            if "presentation" in record:
+                rendered, changes, attachments = v3.compose(
+                    record["author_source"], record["presentation"], cards, scope
+                )
+                if (
+                    attachments != record["attachments"]
+                    or digest(attachments) != record["attachments_sha256"]
+                ):
+                    issues.append(f"PARAGRAPH_ATTACHMENTS_CHANGED:{turn}")
+                    continue
+            else:
+                rendered, changes = render(record["author_source"], cards, scope)
             if (
                 card_sha != record["cards_sha256"]
                 or rendered != record["text"]
@@ -780,10 +896,17 @@ def assemble(scope, cards, folder):
                     )
                 }
             )
+            if "presentation" in record:
+                records[-1].update(
+                    presentation=record["presentation"],
+                    attachments=record["attachments"],
+                    attachments_sha256=record["attachments_sha256"],
+                    semantic_review=record.get("semantic_review"),
+                )
         authorship.append({"title": chapter["title"], "paragraphs": records})
         chapters.append("## " + chapter["title"] + "\n\n" + "\n\n".join(r["text"] for r in records))
     result = {
-        "protocol": "paragraph-v2",
+        "protocol": scope["manuscript_protocol"],
         "status": "withheld" if issues else "independent_review_required",
         "issues": issues,
         "authorship": authorship,
@@ -807,7 +930,210 @@ def assemble(scope, cards, folder):
     return result
 
 
-def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, response):
+def paragraph_v3(
+    project,
+    scope,
+    cards,
+    turn,
+    attempt,
+    op,
+    response,
+    previous,
+    prior,
+    semantic_review,
+    path,
+    prompt_path,
+):
+    fresh = attempt in (1, 4)
+    focus, kind = TASKS[turn]
+    if turn == 0:
+        kind = "design"
+    focus = focus.replace("文中連結 {{source}}", "選擇資料字典連結").replace(
+        "另起一行放 {{group_table}} 供讀者核對", "選擇原生統計表供讀者核對"
+    )
+    if op == "draft":
+        evidence = v3.editing_evidence(cards, actions_for(kind))
+        dictionary = source_fields(scope)
+        source = v3.source_scope(scope, cards)
+        result = {
+            "status": "draft",
+            "turn": turn,
+            "attempt": attempt,
+            "mode": "author_json" if fresh else "sentence_edit",
+            "focus": focus,
+            "source_scope": source,
+            "editor_evidence": evidence,
+            "source_dictionary": dictionary,
+        }
+        target = None if fresh else v3.target_sentence(previous)
+        result["response_schema"] = v3.presentation_schema(
+            evidence, dictionary, kind == "table", None if fresh else target["sentence"]
+        )
+        role = (
+            "交代資料和問題。",
+            "說明誰納入分母、如何計算；勿預先作結果解讀。",
+            "解讀已計算的差異和範圍。",
+            "解讀品質與替代摘要。",
+            "說明適用範圍及如何重現。",
+        )[turn // 4]
+        prompt = (
+            "你是作者，用繁體中文自行完成一個研究段落。主問題："
+            + manuscript_title(scope)
+            + "\n本段唯一任務："
+            + focus
+            + " "
+            + role
+            + "\n來源："
+            + json.dumps(source, ensure_ascii=False)
+            + "\n本段可選的原生欄位："
+            + json.dumps(evidence, ensure_ascii=False)
+            + "\n可選字典："
+            + json.dumps({k: v["quote"] for k, v in dictionary.items()}, ensure_ascii=False)
+            + "\n使用 JSON。prose 寫約 150 至 220 個中文字，交代這個問題、資料支持的說明及其意義。"
+            "寫自然句子，專注本段；欄名只是分組變數，真正的組別在 observed_group_levels。正文可完全不用卡號及數字。"
+            "用 evidence_ids 選相應指標（最多三個），group_table 選是否附上原生數表，source_ids 選字典條文，link_source 選是否附來源連結。"
+            "RDE 將資料與單位另行排版，不要把卡片目錄抄進正文。未知的代表性、設計、作者或療效不要臆測。"
+        )
+        if kind == "source":
+            prompt += "本段必須選 link_source 或選一則字典原文。"
+        if kind == "table":
+            prompt += "本段必須選 group_table=true。"
+        if actions_for(kind) and kind != "table":
+            prompt += "選擇和本段分析相符的統計欄位。"
+        if any(r["turn"] != turn for r in prior):
+            prompt += "\n其他已完成段落任務：" + json.dumps(
+                [r["focus"] for r in prior if r["turn"] != turn][-5:], ensure_ascii=False
+            )
+        if attempt == 4:
+            result["revisit_context"] = {
+                "previous_attempt": 3,
+                "previous_response_sha256": previous["response_sha256"],
+                "previous_author_source_sha256": previous["author_source_sha256"],
+                "accepted_paragraphs": [
+                    {
+                        "turn": r["turn"],
+                        "attempt": r["attempt"],
+                        "author_source_sha256": r["author_source_sha256"],
+                    }
+                    for r in prior
+                    if r["turn"] != turn
+                ],
+                "card_ids": list(evidence),
+                "issues": previous["result"]["issues"],
+            }
+            prompt += "\n這是獨立重訪，從資料重新回答此項任務；先前仍欠核對：" + "、".join(
+                previous["result"]["issues"]
+            )
+        if target:
+            result.update(
+                base_attempt=attempt - 1,
+                base_sha256=previous["author_source_sha256"],
+                sentences=sentence_slices(previous["author_source"]),
+                repair_target=target,
+                base_presentation=previous["presentation"],
+            )
+            prompt += (
+                "\n現在只修指定的一句，不要另寫 prose。edits 清單只准一項，sentence 必須等於指定索引，text 是你改好的整句（刪句可空白）。"
+                "其餘句子原封保留。重新明確指定本段四個證據選項。"
+                "\n被退回的語句及修訂方向："
+                + json.dumps(target, ensure_ascii=False)
+                + "\n完整基稿："
+                + json.dumps(result["sentences"], ensure_ascii=False)
+                + "\n原選項："
+                + json.dumps(result["base_presentation"], ensure_ascii=False)
+            )
+        result["prompt"] = prompt
+        result.update(
+            feedback(
+                "ready",
+                "本段的來源、可選欄位、角色與修訂範圍已核對。",
+                approved_source=True,
+                complete_observations=True,
+                bounded_revision=True,
+            )
+        )
+        return write_once(prompt_path, result)["payload"]
+    if not prompt_path.exists():
+        raise ValueError("PARAGRAPH_NOT_REQUESTED")
+    draft = read_sealed(prompt_path)["payload"]
+    issue = None
+    try:
+        author, presentation = v3.parse_author(response, draft)
+    except (ValueError, TypeError) as ex:
+        issue = (
+            str(ex)
+            if isinstance(ex, ValueError) and str(ex).startswith("INVALID_")
+            else "INVALID_AUTHOR_ENVELOPE"
+        )
+        author, presentation = (
+            ("", v3.empty_presentation())
+            if fresh
+            else (previous["author_source"], previous["presentation"])
+        )
+    if semantic_review is None and scope.get("semantic_review") == "required":
+        raise ValueError("EXTERNAL_REVIEW_REQUIRED")
+    extra = (
+        v3.validate_external(semantic_review, scope["source"], response, author)
+        if semantic_review is not None
+        else []
+    )
+    if (
+        previous
+        and author == previous["author_source"]
+        and presentation == previous["presentation"]
+    ):
+        old_target = v3.target_sentence(previous)
+        extra.append(
+            {
+                "issue": "UNCHANGED_FAILED_CANDIDATE",
+                "sentence": old_target["sentence"],
+                "quote": old_target["previous_text"],
+                "repair": "仍是上次退回的相同正文與附件選擇。" + old_target["repair"],
+            }
+        )
+    if issue:
+        extra.insert(
+            0,
+            {
+                "issue": issue,
+                "repair": "依本輪宣告的 JSON 欄位、指定句位及本段提供的 ID 重新作答。",
+            },
+        )
+    record = check_paragraph(
+        project,
+        scope,
+        cards,
+        turn,
+        author,
+        [r for r in prior if r["turn"] != turn],
+        presentation=presentation,
+        extra_diagnostics=extra,
+    )
+    meta = {
+        "response_sha256": raw_hash(response),
+        "author_source_sha256": raw_hash(author),
+        "edit_applied": not fresh and not issue,
+        "base_attempt": None if fresh else attempt - 1,
+    }
+    record.update(attempt=attempt, response=response, semantic_review=semantic_review, **meta)
+    record["result"].update(meta)
+    record["result"]["checklist"].append({"check": "model_edits_valid", "passed": not issue})
+    if semantic_review is not None:
+        record["result"]["checklist"].append(
+            {
+                "check": "external_scientific_review",
+                "passed": semantic_review["verdict"] == "accept",
+            }
+        )
+        record["result"]["semantic_review"] = semantic_review
+    write_once(path, record)
+    return record["result"]
+
+
+def run_paragraphs(
+    project, entry, scope, anchor, folder, op, turn, attempt, response, semantic_review=None
+):
+    modern = scope["manuscript_protocol"] == "paragraph-v3"
     version = dataset_version(project, entry)
     if (
         version["source_status"] != "verified"
@@ -821,7 +1147,17 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
             return read_sealed(folder / "open.json")["payload"]
         result = {
             "status": "explore",
-            "protocol": "paragraph-v2",
+            "protocol": scope["manuscript_protocol"],
+            **(
+                {
+                    "first_pass_attempts": 3,
+                    "max_paragraph_attempts": 5,
+                    "table_format": "grouped-summaries-v3",
+                    "semantic_review": scope.get("semantic_review", "optional"),
+                }
+                if modern
+                else {}
+            ),
             "max_observation_turns": 18,
             "sections": sections(),
             **next_action(scope, list(PARAGRAPH_ACTIONS)),
@@ -848,10 +1184,10 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
                 "withhold", "尚缺原生探索 " + "、".join(missing), complete_observations=False
             ),
         }
-    cards = card_details(card_index(project, folder), scope)
+    cards = card_details(card_index(project, folder, include_null=modern), scope)
     if op == "assemble":
         return assemble(scope, cards, folder)
-    if turn not in range(len(TASKS)) or attempt not in (1, 2, 3):
+    if turn not in range(len(TASKS)) or attempt not in range(1, 6 if modern else 4):
         raise ValueError("INVALID_PARAGRAPH")
     path = paragraph_path(folder, turn, attempt)
     prompt_path = folder / f"draft-{turn:02}-{attempt}.json"
@@ -859,10 +1195,13 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
         return read_sealed(prompt_path)["payload"]
     if op == "review" and path.exists():
         record = read_sealed(path)["payload"]
-        if record.get("response", record["author_source"]) != response:
+        if (
+            record.get("response", record["author_source"]) != response
+            or record.get("semantic_review") != semantic_review
+        ):
             raise ValueError("PARAGRAPH_REPLAY_CHANGED")
         return record["result"]
-    prior = [accepted(folder, i) for i in range(turn)]
+    prior = [accepted(folder, i) for i in range(len(TASKS) if attempt >= 4 else turn)]
     if any(not r and not paragraph_path(folder, i, 3).exists() for i, r in enumerate(prior)):
         raise ValueError("EARLIER_PARAGRAPH_NOT_ACCEPTED")
     prior = [r for r in prior if r]
@@ -871,6 +1210,21 @@ def run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, res
         previous = read_sealed(paragraph_path(folder, turn, attempt - 1))["payload"]
         if not previous["result"]["issues"]:
             raise ValueError("PARAGRAPH_ALREADY_ACCEPTED")
+    if modern:
+        return paragraph_v3(
+            project,
+            scope,
+            cards,
+            turn,
+            attempt,
+            op,
+            response,
+            previous,
+            prior,
+            semantic_review,
+            path,
+            prompt_path,
+        )
     if op == "draft":
         result = {
             "status": "draft",

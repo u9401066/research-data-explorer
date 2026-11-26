@@ -683,7 +683,7 @@
     },
     {
       "path": "src/rde/interface/mcp/resident.py",
-      "sha256": "fa95ac51996bb17132d576143fd3a001a50bbd617acbad5b9d0233498741bee2"
+      "sha256": "e2f38d6edbdf46b7f68759a6a424558157b7b63b28398f090ad64b3ea492330a"
     },
     {
       "path": "src/rde/interface/mcp/resident_bindings.py",
@@ -691,15 +691,23 @@
     },
     {
       "path": "src/rde/interface/mcp/resident_citations.py",
-      "sha256": "6fcc21e367fc1bd3a3ca9b39842894ff54a4e2b125b84d672c61c46b2e2d8a14"
+      "sha256": "ee9e0eb6fc29a67c65f4bc36c1e0e5fee483c249942a189fcda71ac6891e9ad2"
     },
     {
       "path": "src/rde/interface/mcp/resident_paragraphs.py",
-      "sha256": "3350ceab6e5c7e2b0e7c935b18364137e828dd8355c4d27a2141e9f36f18b21f"
+      "sha256": "223ce67b856c06d341e6a2e479ce62660a35ba148a65b5680cef5a29cad63319"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_protocol_v3.py",
+      "sha256": "c88236ab2a5d9fbb3ec105a6ae8b5737c7d283a81e41a9656dceb0cea940ceb6"
     },
     {
       "path": "src/rde/interface/mcp/resident_reasoning.py",
       "sha256": "04ddecaf08ee610ec69915b35ce23560be99b85415b9ebd03d78508e15beb7d0"
+    },
+    {
+      "path": "src/rde/interface/mcp/resident_tables.py",
+      "sha256": "c0cc37f5492de7cf6a5e434f3fd295e3b23f965ac97a4a18e736f4906c434f52"
     },
     {
       "path": "src/rde/interface/mcp/results.py",
@@ -835,7 +843,7 @@
     },
     {
       "path": "src/rde/interface/mcp/tools/protocol_tools.py",
-      "sha256": "05889b319486c499656d085bce2abc24040664e2898270790084153de90234aa"
+      "sha256": "2ab1337ceaf1e7d03515d9490881d9ced302c7a7324f00f761e6e886b7092455"
     },
     {
       "path": "src/rde/interface/mcp/tools/publication_tools.py",
@@ -10836,5 +10844,5 @@
       ]
     }
   ],
-  "catalog_sha256": "c8dd1598784504a04aea24edfc2e7a397975399ab5813ed75daeb672c9392f37"
+  "catalog_sha256": "029b9d2d599616ddc34ee0347aaaeb24889ffe23e9d7fbd333b21325c3e28c89"
 }

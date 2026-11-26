@@ -122,7 +122,7 @@ def observations(frame, scope, action):
     return {"groups": groups}
 
 
-def card_index(project, folder):
+def card_index(project, folder, *, include_null=False):
     cards = {}
     for action_number, action in enumerate(PARAGRAPH_ACTIONS, 1):
         path = folder / (action + ".json")
@@ -132,6 +132,7 @@ def card_index(project, folder):
         ref = artifact_reference(project, path.relative_to(project.output_dir).as_posix(), path)
 
         card_number = 0
+        nulls = []
 
         def visit(value, pointer, label):
             nonlocal card_number
@@ -151,8 +152,19 @@ def card_index(project, folder):
                     "artifact_id": ref.artifact_id,
                     "sha256": ref.sha256,
                 }
+            elif include_null:
+                nulls.append((pointer, label))
 
         visit(doc["observation"], "/payload/observation", action)
+        for pointer, label in nulls:
+            card_number += 1
+            cards[f"{action_number}.{card_number}"] = {
+                "label": label,
+                "value": None,
+                "pointer": pointer,
+                "artifact_id": ref.artifact_id,
+                "sha256": ref.sha256,
+            }
     return cards
 
 
@@ -273,7 +285,7 @@ def section_review(project_id, text, cards, section, unit=""):
     }
 
 
-def run(project, entry, scope, op, turn, attempt, response):
+def run(project, entry, scope, op, turn, attempt, response, *, semantic_review=None):
     required = {
         "approval",
         "run",
@@ -285,9 +297,18 @@ def run(project, entry, scope, op, turn, attempt, response):
         "population",
         "source_note",
     }
-    paragraphs = scope.get("manuscript_protocol") == "paragraph-v2"
+    paragraphs = scope.get("manuscript_protocol") in ("paragraph-v2", "paragraph-v3")
     if paragraphs:
         required.add("manuscript_protocol")
+    if scope.get("manuscript_protocol") == "paragraph-v3" and scope.get("semantic_review") in (
+        "required",
+        "optional",
+    ):
+        required.add("semantic_review")
+    if semantic_review is not None and (
+        op != "review" or scope.get("manuscript_protocol") != "paragraph-v3"
+    ):
+        raise ValueError("UNEXPECTED_EXTERNAL_REVIEW")
     if set(scope) != required or not all(
         isinstance(v, str) and 0 < len(v.strip()) <= 4000 for v in scope.values()
     ):
@@ -311,7 +332,9 @@ def run(project, entry, scope, op, turn, attempt, response):
     if paragraphs:
         from rde.interface.mcp.resident_paragraphs import run_paragraphs
 
-        return run_paragraphs(project, entry, scope, anchor, folder, op, turn, attempt, response)
+        return run_paragraphs(
+            project, entry, scope, anchor, folder, op, turn, attempt, response, semantic_review
+        )
 
     model_scope = {
         k: scope[k] for k in ("question", "group", "measure", "unit", "population", "source_note")

@@ -56,13 +56,19 @@ def register_protocol_tools(server: Any) -> None:
         turn: int = 0,
         attempt: int = 1,
         response: str = "",
+        semantic_review: dict | None = None,
     ) -> dict | str:
         """Conduct a bounded, project-scoped descriptive pilot and review each resident response.
 
         The host supplies the approved scope and run identity. Individual rows are never
         returned. Set scope.manuscript_protocol to "paragraph-v2" for six aggregate
         observations, twenty author/review turns, and a separate evidence_index.
-        open declares sections and remaining_actions. Successful assembly still
+        Set "paragraph-v3" for typed action intents, author-selected data displays,
+        targeted sentence revisions and a fresh revisit of exhausted paragraphs.
+        Optional semantic_review binds the independent reviewer's original JSON
+        to the author's response, composed prose and source. The host may require
+        this with scope.semantic_review="required". Open declares the cap and
+        action schemas. Successful assembly still
         requires independent scientific review. Omit the protocol for legacy drafts.
         """
         from rde.interface.mcp.resident import run
@@ -78,7 +84,9 @@ def register_protocol_tools(server: Any) -> None:
         if not ok:
             return fmt_error(message)
         try:
-            return run(project, entry, scope, op, turn, attempt, response)
+            return run(
+                project, entry, scope, op, turn, attempt, response, semantic_review=semantic_review
+            )
         except (ValueError, KeyError, OSError, TypeError) as error:
             return fmt_error(str(error), code="RESIDENT_EXPLORATION_ERROR")
 

@@ -68,3 +68,25 @@ delivered to the resident. Existing chapter runs keep their original protocol.
 * The model can cite a native field through `{{R…}}`, or give a rounded number, unit,
   group and matching statistic with an adjacent author-selected citation. Numeric
   dictionary facts use `{{S…}}` for an exact approved excerpt with offsets and source URL.
+
+### Typed authoring and independent editorial feedback
+
+`paragraph-v3` keeps the same source and approval anchors. Its action contracts declare
+the output level, count basis, unit, percentage denominator and contrast direction.
+The resident selects a permitted purpose and intended fields before each observation.
+The free-text rationale and the actual native response stay available for separate review.
+
+Fresh author replies carry model-written prose and four presentation choices,
+`evidence_ids`, `group_table`, `source_ids` and `link_source`. The selected cards,
+source excerpts, and compact denominator, location, spread and contrast tables are
+attached to the prose. The numeric cells retain native locators. Counts stay integers,
+measurement statistics display at least two decimals, and unavailable estimates bind
+to the actual JSON null. Model-authorship and attachment hashes are recorded separately.
+
+Attempts 2 and 3 may edit only the diagnosed sentence of the preceding draft. After
+the twenty initial tasks have been reviewed, exhausted paragraphs can have one fresh
+attempt 4 informed by the other completed tasks, then one targeted edit at attempt 5.
+An identical failed prose/presentation cannot advance by resubmission. Set
+`scope.semantic_review="required"` to bind each review to a separate reviewer's raw
+JSON findings, the source, both author hashes and exact sentence quotations. A reviewer
+can withhold a draft. Native checks and independent publication review still apply.
